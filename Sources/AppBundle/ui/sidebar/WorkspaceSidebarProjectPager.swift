@@ -113,7 +113,6 @@ struct WorkspaceSidebarProjectPager: View {
                 .transaction { $0.animation = nil }
             }
         }
-        .padding(.horizontal, isCompact ? 2 : 0)
         .frame(width: sectionWidth, height: pagerHeight, alignment: .bottom)
         .contextMenu {
             Button("New Project") {

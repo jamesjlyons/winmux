@@ -9,6 +9,7 @@ extension WorkspaceSidebarProjectPager {
         let isCurrent = index == currentIndex
         let isDotHovered = hoveredProjectDotId == project.id
         let projectColor = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex)
+        let buttonWidth = isCompact ? min(36, sectionWidth) : 36
         Button {
             debugWorkspaceSidebarProjectLog(
                 "dotButton project=\(project.id.rawValue) selected=\(selectedProjectId.rawValue) currentIndex=\(currentIndex?.description ?? "nil") compact=\(isCompact) projects=\(projects.map(\.id.rawValue))"
@@ -19,10 +20,10 @@ extension WorkspaceSidebarProjectPager {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(isDotHovered ? projectColor.opacity(0.14) : Color.clear)
-                    .frame(width: 34, height: 22)
+                    .frame(width: min(34, buttonWidth), height: 22)
                 Capsule(style: .continuous)
                     .fill(projectColor.opacity(isCurrent ? 0.92 : (isDotHovered ? 0.55 : 0.25)))
-                    .frame(width: isCurrent ? 24 : 7, height: 7)
+                    .frame(width: isCurrent ? min(24, max(7, buttonWidth - 6)) : 7, height: 7)
                     .overlay {
                         Capsule(style: .continuous)
                             .strokeBorder(
@@ -44,7 +45,7 @@ extension WorkspaceSidebarProjectPager {
                         }
                     }
                 }
-                .frame(width: 36, height: workspaceSidebarProjectDotFrameHeight, alignment: .center)
+                .frame(width: buttonWidth, height: workspaceSidebarProjectDotFrameHeight, alignment: .center)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

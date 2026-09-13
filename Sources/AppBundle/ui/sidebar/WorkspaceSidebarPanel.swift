@@ -32,7 +32,6 @@ let workspaceSidebarDropdownSymbolSize: CGFloat = 10.5
 let workspaceSidebarPagerHeight: CGFloat = 32
 let workspaceSidebarWorkspaceSectionHeaderHeight: CGFloat = 32
 let workspaceSidebarWorkspaceRowHeight: CGFloat = 24
-let workspaceSidebarWorkspaceSectionHeightCompact: CGFloat = 32
 let workspaceSidebarWorkspaceSectionHeightExpanded: CGFloat = 32
 let workspaceSidebarInUseOverrideEmptySectionMinHeight: CGFloat = 76
 let workspaceSidebarProjectDotFrameHeight: CGFloat = 32

@@ -19,6 +19,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
     @State private var isDropSettling = false
 
     private var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    private var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
     private var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     private var showsDropTarget: Bool {
         guard dragPreview?.targetsNewWorkspace == true else { return false }
@@ -32,12 +33,12 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
         )
     }
     private var sectionShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: isCompact ? compactMetrics.cornerRadius : workspaceSidebarSectionCornerRadius, style: .continuous)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if showsDropTarget, let dragPreview {
+            if showsDropTarget, !isCompact, let dragPreview {
                 WorkspaceSidebarDropPreviewView(
                     preview: dragPreview,
                     rowHeight: workspaceSidebarWorkspaceRowHeight,
@@ -83,7 +84,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
                 if isCompact {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: min(14, compactMetrics.badgeFontSize), weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
@@ -100,23 +101,25 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 }
             }
             .padding(.vertical, isCompact ? 3 : 4)
-            .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
+            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
             .frame(
                 width: sectionWidth,
-                height: isCompact ? workspaceSidebarWorkspaceSectionHeightCompact : workspaceSidebarWorkspaceSectionHeightExpanded,
+                height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded,
                 alignment: isCompact ? .center : .leading,
             )
             .background {
-                sectionShape.fill(Color.white.opacity(0.012))
+                sectionShape.fill(Color.white.opacity(showsDropTarget ? 0.18 : 0.012))
             }
             .overlay {
                 sectionShape.strokeBorder(
-                    Color.white.opacity(0.10),
+                    Color.white.opacity(showsDropTarget ? 0.42 : 0.10),
                     style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
                 )
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("New Workspace")
+        .help("New Workspace")
     }
 }

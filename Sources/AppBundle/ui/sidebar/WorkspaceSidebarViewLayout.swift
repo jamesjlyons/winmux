@@ -5,8 +5,8 @@ import SwiftUI
 extension WorkspaceSidebarView {
     func sidebarContent(expansionProgress: CGFloat) -> some View {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
-        let leadingInset = workspaceSidebarOuterLeadingPadding(isCompact: isCompact)
-        let trailingInset = workspaceSidebarOuterTrailingPadding(isCompact: isCompact)
+        let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
+        let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let showsMonitorSelector = !isCompact && shouldShowTopFilterBar
         let projectSwipeDirection = workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,

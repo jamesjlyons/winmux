@@ -8,13 +8,30 @@ public func renderWinMuxSidebarProofImages(in directory: URL) throws {
     for style: ChromeStyle in [.solid, .liquidGlass] {
         for lightBackground in [false, true] {
             for count in [1, 3, 12] {
-                for width: CGFloat in [240, 200, 180, 140, 120, 40] {
+                for width: CGFloat in [240, 200, 180, 140, 120, 60, 44, 40, 36, 28] {
                     var snapshot = MarketingFixtures.sidebarSnapshot
-                    snapshot.configuration.expandedWidth = width == 40 ? 240 : width
-                    snapshot.configuration.collapsedWidth = 40
+                    let isCompact = width < 120
+                    snapshot.configuration.expandedWidth = isCompact ? 240 : width
+                    snapshot.configuration.collapsedWidth = isCompact ? width : 40
                     snapshot.configuration.chromeStyle = style
                     snapshot.configuration.showsSeconds = true
                     snapshot.visibleWidth = width
+                    if isCompact {
+                        snapshot.workspaces = [1, 12, 128].map { number in
+                            WorkspaceSidebarWorkspaceViewModel(
+                                name: "proof-\(number)",
+                                projectId: snapshot.activeProjectId,
+                                displayName: "Workspace \(number)",
+                                sidebarLabel: "",
+                                isGeneratedName: true,
+                                monitorScopeId: snapshot.targetMonitorScopeId,
+                                monitorName: "Studio Display",
+                                isFocused: number == 1,
+                                isVisible: number == 1,
+                                items: [],
+                            )
+                        }
+                    }
                     snapshot.projects = (0..<count).map { index in
                         WorkspaceSidebarProjectViewModel(
                             id: index == count - 1 ? snapshot.activeProjectId : WorkspaceProjectId(rawValue: "proof-\(index)"),

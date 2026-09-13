@@ -38,6 +38,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
 
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
     var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var showsWindowRows: Bool { expansionProgress >= workspaceSidebarRowsRevealProgress }
@@ -59,13 +60,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
         return "In use on another display"
     }
     var sectionShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: isCompact ? compactMetrics.cornerRadius : workspaceSidebarSectionCornerRadius, style: .continuous)
     }
 
     var body: some View {
         interactiveSectionContent
             .padding(.vertical, isCompact ? 3 : 4)
-            .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
+            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -291,12 +292,12 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     var workspaceBadge: some View {
         Text(workspaceBadgeText)
-            .font(.system(size: 18, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+            .font(.system(size: compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .bold : .semibold))
             .monospacedDigit()
             .foregroundStyle(workspaceBadgeForeground)
             .lineLimit(1)
-            .minimumScaleFactor(0.65)
-            .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
+            .minimumScaleFactor(0.4)
+            .frame(width: compactMetrics.badgeWidth, height: compactMetrics.badgeWidth)
     }
 
     var workspaceBadgeText: String {
@@ -342,7 +343,6 @@ extension WorkspaceSidebarWorkspaceSection {
         Group {
             if isCompact {
                 workspaceBadge
-                    .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 expandedHeader
@@ -415,7 +415,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var dropPreviewRow: some View {
-        if dragPreview?.targetWorkspaceName == workspace.name {
+        if !isCompact, dragPreview?.targetWorkspaceName == workspace.name {
             WorkspaceSidebarDropPreviewView(preview: dragPreview.orDie(), rowHeight: rowHeight)
             .transition(.asymmetric(
                 insertion: .move(edge: .top).combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .opacity),
@@ -434,6 +434,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     .contentShape(sectionShape)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(workspace.displayName)
             .frame(maxWidth: .infinity, alignment: .center)
             .contentShape(sectionShape)
         } else {
@@ -452,7 +453,7 @@ extension WorkspaceSidebarWorkspaceSection {
     var sectionContent: some View {
         VStack(alignment: .leading, spacing: 3) {
             headerSlot
-                .frame(height: headerHeight)
+                .frame(height: isCompact ? compactMetrics.controlHeight - 6 : headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
             windowRows
             dropPreviewRow

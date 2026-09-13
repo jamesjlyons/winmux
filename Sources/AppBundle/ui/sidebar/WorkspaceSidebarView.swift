@@ -717,7 +717,7 @@ extension WorkspaceSidebarView {
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
         .padding(.top, 4)
-        .padding(.bottom, workspaceSidebarStatusBottomPadding(isCompact: isCompact) + 4)
+        .padding(.bottom, leadingInset + 4)
     }
 
     func sidebarSearchSection(

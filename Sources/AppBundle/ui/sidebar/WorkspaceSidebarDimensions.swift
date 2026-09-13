@@ -3,9 +3,20 @@ import SwiftUI
 @MainActor
 func workspaceSidebarCompactSectionWidth(layout: WorkspaceSidebarConfiguration) -> CGFloat {
     max(
-        layout.collapsedWidth - (workspaceSidebarCompactRailHorizontalInset * 2),
-        workspaceSidebarBadgeWidth + (workspaceSidebarSectionInnerHorizontalInset * 2),
+        layout.collapsedWidth - (workspaceSidebarCompactHorizontalInset(collapsedWidth: layout.collapsedWidth) * 2),
+        0,
     )
+}
+
+/// Compact controls share the space available inside the rail, including at 28 points.
+struct WorkspaceSidebarCompactMetrics {
+    let sectionWidth: CGFloat
+
+    var horizontalInset: CGFloat { min(workspaceSidebarSectionInnerHorizontalInset, max(0, (sectionWidth - 18) / 2)) }
+    var badgeWidth: CGFloat { min(workspaceSidebarBadgeWidth, max(0, sectionWidth - horizontalInset * 2)) }
+    var badgeFontSize: CGFloat { min(18, max(1, badgeWidth * 0.8)) }
+    var controlHeight: CGFloat { min(38, max(28, sectionWidth + 6)) }
+    var cornerRadius: CGFloat { min(workspaceSidebarSectionCornerRadius, max(0, sectionWidth / 3)) }
 }
 
 @MainActor

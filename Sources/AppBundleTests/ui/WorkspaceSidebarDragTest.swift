@@ -743,15 +743,24 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
-    func testWorkspaceSidebarStatusBottomPaddingMatchesLeadingEdgePadding() {
-        XCTAssertEqual(
-            workspaceSidebarStatusBottomPadding(isCompact: true),
-            workspaceSidebarOuterLeadingPadding(isCompact: true),
-        )
-        XCTAssertEqual(
-            workspaceSidebarStatusBottomPadding(isCompact: false),
-            workspaceSidebarOuterLeadingPadding(isCompact: false),
-        )
+    @MainActor
+    func testSidebarContentsFitRailThroughoutExpansionFrom28Points() {
+        for collapsedWidth: CGFloat in [28, 36, 40, 44, 60, 120] {
+            var layout = WorkspaceSidebarConfiguration.empty
+            layout.collapsedWidth = collapsedWidth
+            layout.expandedWidth = 280
+            for progress: CGFloat in [0, 0.25, 0.57, 0.58, 0.75, 1] {
+                let leading = workspaceSidebarOuterLeadingPadding(expansionProgress: progress, layout: layout)
+                let trailing = workspaceSidebarOuterTrailingPadding(expansionProgress: progress, layout: layout)
+                let section = workspaceSidebarSectionWidth(progress, layout: layout)
+                let visibleWidth = collapsedWidth + (layout.expandedWidth - collapsedWidth) * progress
+                XCTAssertEqual(leading + section + trailing, visibleWidth, accuracy: 0.001)
+                XCTAssertEqual(leading, trailing)
+                let metrics = WorkspaceSidebarCompactMetrics(sectionWidth: section)
+                XCTAssertLessThanOrEqual(metrics.badgeWidth + metrics.horizontalInset * 2, section)
+                XCTAssertGreaterThanOrEqual(metrics.controlHeight, 28)
+            }
+        }
     }
 
     func testWorkspaceSidebarFooterBottomPaddingAddsSpaceWithoutClock() {

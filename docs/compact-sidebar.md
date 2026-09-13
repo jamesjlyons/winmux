@@ -4,6 +4,11 @@ The sidebar now responds to actual section width (panel width minus its content
 insets): full at 176 points and above, narrow at 116–175, and minimal below 116.
 This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
 
+- The collapsed rail fits down to 28 points. Outer padding scales with rail width;
+  workspace badges, the creation button, project indicators and the optional clock
+  fit the remaining space. Padding interpolates with section width during expansion
+  so controls stay inside the visible rail throughout the transition. Compact drag
+  targets use a highlight instead of showing expanded preview rows in the narrow rail.
 - Window icons keep a fixed size. Narrow rows remove excess indentation, show one
   group icon, and omit secondary counts. Full titles remain in tooltips.
 - Filters use a native menu when their inline controls would overflow. Narrow
@@ -17,13 +22,21 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   (accounting for split browsing). Release writes once; Escape cancels; a double
   click resets to the configured default of 240.
 - Project indicators retain color in the selected pill, have quieter inactive
-  dots, a selected accessibility state, and the existing 36 × 32 hit areas.
+  dots and a selected accessibility state. Hit areas remain 36 × 32 when expanded
+  and use the available section width with 32-point height when collapsed.
   The dot track scrolls independently of sidebar project swipes. Selected projects
   scroll into view even after a prior mouse selection. The collapsed rail includes
   the active project even when there is only one.
 
 ## Verified on September 13, 2026
 
+- Follow-up for the 28-point collapsed rail: 69 focused sidebar tests passed,
+  including bounds checks throughout expansion from 28, 36, 40, 44, 60 and 120.
+  Native renders cover 28, 36, 40, 44 and 60 collapsed widths and the existing
+  expanded widths, with 1/12/128 workspace labels, 1/3/12 projects, both chrome
+  styles and light/dark backdrops (120 images). WinMux Dev was rebuilt and
+  relaunched with the user's current 28-point configuration; the live compact
+  control fits and the configuration file remained unchanged.
 - Unchanged baseline: `make build` and 559 tests passed with installed Swift 6.4.
 - Updated app: all 564 tests passed, including five new width/config tests.
 - Native production-view captures before and after at 240, 180, 140, 120 and 40
