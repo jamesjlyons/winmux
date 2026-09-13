@@ -45,7 +45,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
         if viewModel.isEnabled {
-            MenuBarAppIcon().environmentObject(viewModel)
+            MenuBarAppIcon()
         } else {
             Image(systemName: "pause.circle.fill")
                 .resizable()
