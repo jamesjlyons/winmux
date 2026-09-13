@@ -4,6 +4,29 @@ private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
 private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
 private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
 
+@MainActor
+func setWorkspaceSidebarModeFromMenu(key: String, value: Bool) {
+    Task { @MainActor in
+        do {
+            let url = preferredWorkspaceSidebarConfigUrl()
+            let current = try String(contentsOf: url, encoding: .utf8)
+            let updated = updateWorkspaceSidebarScalarConfig(in: current, key: key, renderedValue: value ? "true" : "false")
+            let parsed = parseConfig(updated)
+            guard parsed.errors.isEmpty else {
+                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
+            }
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+            guard try await reloadConfig(forceConfigUrl: url) else {
+                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: "Saved the sidebar setting, but could not reload the config."])
+            }
+            ShortcutSettingsModel.shared.reload()
+            WorkspaceSidebarPanel.refreshAll()
+        } catch {
+            showWorkspaceSidebarError(error.localizedDescription)
+        }
+    }
+}
+
 func updateWorkspaceSidebarWidthConfig(in configText: String, width: Int) -> String {
     // TOML also permits a root-level dotted assignment. Keep its shape and comments.
     var lines = configText.components(separatedBy: "\n")

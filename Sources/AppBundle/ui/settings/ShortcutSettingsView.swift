@@ -90,6 +90,7 @@ struct ShortcutSettingsView: View {
                         ShortcutBehaviorSettingsView(model: model)
                     case .appearance:
                         ShortcutAppearanceSettingsView(model: model)
+                            .id(model.settingsRevision)
                     case .configuration:
                         ShortcutAdvancedView(model: model)
                     case .reference:

@@ -9,6 +9,10 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   fit the remaining space. Padding interpolates with section width during expansion
   so controls stay inside the visible rail throughout the transition. Compact drag
   targets use a highlight instead of showing expanded preview rows in the narrow rail.
+- Right-click the sidebar background for Compact Mode and Auto-hide. Compact Mode
+  controls whether the sidebar collapses; Auto-hide is available while Compact Mode
+  is enabled and hides the resting rail. Both choices use the existing configuration
+  settings, persist across launches, and refresh open Appearance settings.
 - Window icons keep a fixed size. Narrow rows remove excess indentation, show one
   group icon, and omit secondary counts. Full titles remain in tooltips.
 - Filters use a native menu when their inline controls would overflow. Narrow

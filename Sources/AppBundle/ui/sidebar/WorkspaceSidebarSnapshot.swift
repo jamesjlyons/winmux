@@ -41,6 +41,8 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var chromeStyle: ChromeStyle
     var solidChromeColor: ChromeSolidColor
     var solidChromeCustomColor: String
+    var isCompactMode = true
+    var autoHide = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -78,6 +80,8 @@ enum WorkspaceSidebarAction: Equatable {
     case previewWindowDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case previewTabGroupDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case clearDropPreview
+    case setCompactMode(Bool)
+    case setAutoHide(Bool)
 }
 
 struct WorkspaceSidebarActions {
