@@ -97,7 +97,6 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 isTargeted: $isDropTargeted,
                 isSettling: $isDropSettling,
             ))
-            .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
             .environment(\.workspaceSidebarDensity, density)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
@@ -349,6 +348,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 expandedHeader
             }
         }
+        .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
     }
 
     var expandedHeader: some View {

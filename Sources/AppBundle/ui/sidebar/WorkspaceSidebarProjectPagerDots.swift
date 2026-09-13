@@ -21,13 +21,13 @@ extension WorkspaceSidebarProjectPager {
                     .fill(isDotHovered ? projectColor.opacity(0.14) : Color.clear)
                     .frame(width: 34, height: 22)
                 Capsule(style: .continuous)
-                    .fill(isCurrent ? Color.white.opacity(0.17) : projectColor.opacity(isDotHovered ? 0.58 : (isHovered ? 0.44 : 0.32)))
-                    .frame(width: isCurrent ? 28 : 13, height: isCompact ? 10 : 9)
+                    .fill(projectColor.opacity(isCurrent ? 0.92 : (isDotHovered ? 0.55 : 0.25)))
+                    .frame(width: isCurrent ? 24 : 7, height: 7)
                     .overlay {
                         Capsule(style: .continuous)
                             .strokeBorder(
-                                isCurrent ? Color.white.opacity(0.42) : projectColor.opacity(isDotHovered ? 0.70 : (isHovered ? 0.54 : 0.36)),
-                                lineWidth: isDotHovered || isCurrent ? 0.8 : 0.5,
+                                isCurrent ? Color.white.opacity(0.46) : projectColor.opacity(isDotHovered ? 0.55 : 0.22),
+                                lineWidth: isCurrent ? 0.8 : 0.5,
                             )
                     }
                     .overlay {
@@ -49,6 +49,8 @@ extension WorkspaceSidebarProjectPager {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(project.displayName)
+        .accessibilityValue(isCurrent ? "Selected" : "")
+        .accessibilityAddTraits(isCurrent ? [.isSelected] : [])
         .help(project.displayName)
         .onHover { hovering in
             hoveredProjectDotId = hovering ? project.id : (hoveredProjectDotId == project.id ? nil : hoveredProjectDotId)
@@ -56,6 +58,6 @@ extension WorkspaceSidebarProjectPager {
         .contextMenu {
             projectContextMenuItems(for: project)
         }
-        .animation(.easeOut(duration: 0.14), value: isDotHovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isDotHovered)
     }
 }

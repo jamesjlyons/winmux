@@ -28,6 +28,7 @@ final class SidebarResizeView: NSView {
     required init?(coder: NSCoder) { nil }
 
     override var acceptsFirstResponder: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeLeftRight) }
     override func updateTrackingAreas() {

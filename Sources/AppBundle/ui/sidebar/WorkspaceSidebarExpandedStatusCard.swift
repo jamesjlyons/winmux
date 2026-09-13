@@ -11,7 +11,7 @@ struct WorkspaceSidebarExpandedStatusCard: View {
     @Environment(\.calendar) private var calendar
     private var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
     private var clockSize: CGFloat { density == .minimal ? 25 : density == .narrow ? 32 : 42 }
-    private var displaysSeconds: Bool { showsSeconds && density == .full }
+    private var displaysSeconds: Bool { showsSeconds && sectionWidth >= 200 }
     private var displaysWeekday: Bool { showsWeekday && density != .minimal }
 
     private var dateLines: WorkspaceSidebarExpandedClockDateLines {

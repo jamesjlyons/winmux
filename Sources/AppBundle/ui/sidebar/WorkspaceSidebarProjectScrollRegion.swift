@@ -14,8 +14,9 @@ struct WorkspaceSidebarProjectScrollRegion: NSViewRepresentable {
 
     @MainActor
     static func contains(_ event: NSEvent) -> Bool {
-        views.allObjects.contains { view in
-            view.window === event.window && !view.isHiddenOrHasHiddenAncestor &&
+        guard let window = event.window else { return false }
+        return views.allObjects.contains { view in
+            view.window === window && !view.isHiddenOrHasHiddenAncestor &&
                 view.bounds.contains(view.convert(event.locationInWindow, from: nil))
         }
     }

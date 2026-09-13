@@ -36,8 +36,11 @@ and the pointer's display captured when three contacts begin. Logs stay local.
 On this Mac the process reported Accessibility and Input Monitoring granted and
 found one 18 × 24 trackpad sensor. The private symbols resolved and monitoring
 started. Device enumeration is **not proof of reliable gesture recognition**.
-Physical samples and native gesture conflicts still require the hands-on matrix
-below. The prototype is intentionally not linked into the window manager.
+Two three-contact sequences were subsequently observed over Codex. Both were
+predominantly vertical and were cancelled (dx/dy −0.002/0.046 and −0.015/−0.088).
+This confirms incoming contact data, but deliberate left/right swipes over the
+other apps and native gesture conflicts still require the hands-on matrix below.
+The prototype is intentionally not linked into the window manager.
 
 Public global NSEvent monitors cannot suppress delivery; replacing the existing
 local scroll monitor would not provide exclusive three-finger handling. Apple
