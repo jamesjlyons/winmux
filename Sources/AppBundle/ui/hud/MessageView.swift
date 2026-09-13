@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 public func getMessageWindow(messageModel: MessageModel) -> some Scene {
     // Using SwiftUI.Window because another class in WinMux is already called Window
-    SwiftUI.Window(messageModel.message?.title ?? winMuxAppName, id: messageWindowId) {
+    SwiftUI.Window(messageModel.message?.title ?? winMuxAppDisplayName, id: messageWindowId) {
         MessageView(model: messageModel)
             .onAppear {
                 // Set activation policy; otherwise, WinMux windows won't be able to receive focus and accept keyboard input
@@ -116,7 +116,7 @@ public struct Message: Hashable, Equatable {
     public let description: String
     public let body: String
 
-    init(type: MessageType = .config, title: String = winMuxAppName, description: String, body: String) {
+    init(type: MessageType = .config, title: String = winMuxAppDisplayName, description: String, body: String) {
         self.type = type
         self.title = title
         self.description = description

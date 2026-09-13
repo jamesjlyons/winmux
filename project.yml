@@ -45,7 +45,7 @@ targets:
         DEVELOPMENT_TEAM: ${XCODEGEN_WINMUX_DEVELOPMENT_TEAM}
       configs:
         Debug:
-          PRODUCT_NAME: WinMux-Debug
+          PRODUCT_NAME: WinMux Dev
           PRODUCT_BUNDLE_IDENTIFIER: com.zimengxiong.winmux.debug
         Release:
           PRODUCT_NAME: WinMux

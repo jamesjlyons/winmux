@@ -7,7 +7,7 @@ public let shortcutSettingsWindowId = "\(winMuxAppName).shortcutSettings"
 
 @MainActor
 public func getShortcutSettingsWindow(model: ShortcutSettingsModel) -> some Scene {
-    SwiftUI.Window("WinMux Settings", id: shortcutSettingsWindowId) {
+    SwiftUI.Window("\(winMuxAppDisplayName) Settings", id: shortcutSettingsWindowId) {
         ShortcutSettingsView(model: model)
             .frame(width: 760, height: 620)
             .onAppear {
