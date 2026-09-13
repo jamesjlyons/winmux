@@ -5,6 +5,7 @@ import SwiftUI
 // MARK: - Window Row
 
 struct WorkspaceSidebarWindowRow: View {
+    @Environment(\.workspaceSidebarDensity) private var density
     enum Style {
         case window
         case tabGroupHeader
@@ -31,13 +32,14 @@ struct WorkspaceSidebarWindowRow: View {
     var body: some View {
         HStack(spacing: workspaceSidebarAppIconTextSpacing) {
             appIconStack
+                .fixedSize()
             Text(title)
                 .font(.system(size: isTabGroupHeader ? 13 : 12.5, weight: isActiveRow ? .semibold : .regular))
                 .foregroundStyle(rowTextColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
-            if let badge {
+            if !density.isNarrow, let badge {
                 Text(badge)
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(isTabGroupHeader ? Color.white.opacity(0.50) : Color.white.opacity(0.38))
@@ -62,12 +64,14 @@ struct WorkspaceSidebarWindowRow: View {
     private var appIconStack: some View {
         if isTabGroupHeader {
             HStack(spacing: -3) {
-                ForEach(Array(appIconInputs.prefix(4).enumerated()), id: \.offset) { _, input in
+                ForEach(Array(appIconInputs.prefix(density.isNarrow ? 1 : 4).enumerated()), id: \.offset) { _, input in
                     appIcon(input)
                 }
             }
         } else if let input = appIconInputs.first {
             appIcon(input)
+        } else {
+            fallbackIcon
         }
     }
 
@@ -84,8 +88,17 @@ struct WorkspaceSidebarWindowRow: View {
                     .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
                     .cornerRadius(3)
                     .opacity(rowIconOpacity)
+            } else {
+                fallbackIcon
             }
         }
+    }
+
+    private var fallbackIcon: some View {
+        Image(systemName: "app")
+            .font(.system(size: workspaceSidebarAppIconSize))
+            .foregroundStyle(Color.white.opacity(0.45))
+            .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
     }
 
     private var rowTextColor: Color {

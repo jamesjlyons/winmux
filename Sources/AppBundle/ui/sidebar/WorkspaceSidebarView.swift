@@ -50,6 +50,7 @@ struct WorkspaceSidebarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.clear)
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
+            guard WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.isResizingSidebar != true else { return }
             if visibleWidth <= collapsedWidth + 0.5 {
                 resetTransientSidebarState()
                 finishSidebarSearch(clearText: true)

@@ -126,6 +126,15 @@ extension WorkspaceSidebarView {
         .overlay {
             sidebarSwipeCaptureOverlay(expansionProgress: expansionProgress)
         }
+        .overlay(alignment: .trailing) {
+            if expansionProgress >= 1 {
+                WorkspaceSidebarResizeHandle(monitorScopeId: snapshot.targetMonitorScopeId)
+                    .frame(width: 8)
+                    .frame(maxHeight: .infinity)
+                    .help("Drag to resize. Double-click to reset width. Escape to cancel.")
+                    .accessibilityLabel("Resize sidebar")
+            }
+        }
     }
 }
 

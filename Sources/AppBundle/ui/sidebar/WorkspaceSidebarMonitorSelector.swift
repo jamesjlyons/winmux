@@ -61,6 +61,67 @@ struct WorkspaceSidebarMonitorSelector: View {
     }
 
     var body: some View {
+        Group {
+            if sectionWidth < 300 {
+                compactFilters
+            } else {
+                fullFilters
+            }
+        }
+    }
+
+    private var compactFilters: some View {
+        Group {
+            if let selectedProject, renamingProjectId == selectedProject.id {
+                WorkspaceSidebarProjectRenameField(
+                    project: selectedProject, text: $renamingProjectText,
+                    onCommit: onCommitRenameProject, onCancel: onCancelRenameProject
+                )
+            } else {
+                Menu {
+                    ForEach(scopes) { scope in
+                        Button(scope.displayName) {
+                            onSelectProject(nil)
+                            onSelectScope(scope.id)
+                        }
+                    }
+                    if !browsableProjects.isEmpty {
+                        Divider()
+                        Button("Current Project") { onSelectProject(nil) }
+                        ForEach(browsableProjects) { project in
+                            Menu(project.displayName) {
+                                Button("Browse Project") { onSelectProject(project.id) }
+                                Button("Rename Project") { onRenameProject(project) }
+                                Menu("Color") {
+                                    Button("Auto") { onSetProjectColor(project, nil) }
+                                    ForEach(workspaceSidebarProjectColorPresets) { preset in
+                                        Button(preset.name) { onSetProjectColor(project, preset.hex) }
+                                    }
+                                }
+                                Button("Delete Project", role: .destructive) { onDeleteProject(project) }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: selectedProject == nil ? "display" : "rectangle.split.2x1")
+                            .fixedSize()
+                        Text(selectedProject?.displayName ?? scopes.first(where: { $0.id == selectedScopeId })?.displayName ?? "View")
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .menuStyle(.borderlessButton)
+                .help("Choose displays or browse another project")
+            }
+        }
+        .padding(.horizontal, 7)
+        .frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
+        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.white.opacity(0.07)))
+    }
+
+    private var fullFilters: some View {
         HStack(spacing: 3) {
             ForEach(Array(quickScopes.enumerated()), id: \.element.id) { index, scope in
                 monitorScopePill(scope)

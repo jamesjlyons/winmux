@@ -4,6 +4,34 @@ private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
 private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
 private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
 
+func updateWorkspaceSidebarWidthConfig(in configText: String, width: Int) -> String {
+    // TOML also permits a root-level dotted assignment. Keep its shape and comments.
+    var lines = configText.components(separatedBy: "\n")
+    for index in lines.indices {
+        if lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("[") { break }
+        if workspaceSidebarConfigKey(in: lines[index]) == "workspace-sidebar.width" {
+            let indent = String(lines[index].prefix(while: { $0.isWhitespace }))
+            let comment = trailingTomlComment(in: lines[index]).map { " " + $0 } ?? ""
+            lines[index] = "\(indent)workspace-sidebar.width = \(width)\(comment)"
+            return lines.joined(separator: "\n")
+        }
+    }
+    return updateWorkspaceSidebarScalarConfig(in: configText, key: "width", renderedValue: "\(width)")
+}
+
+@MainActor
+func persistWorkspaceSidebarWidth(_ width: Int) throws -> URL {
+    let url = preferredWorkspaceSidebarConfigUrl()
+    let current = try String(contentsOf: url, encoding: .utf8)
+    let updated = updateWorkspaceSidebarWidthConfig(in: current, width: width)
+    let parsed = parseConfig(updated)
+    guard parsed.errors.isEmpty else {
+        throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
+    }
+    try updated.write(to: url, atomically: true, encoding: .utf8)
+    return url
+}
+
 func updateWorkspaceSidebarMenuBarReserveConfig(
     in configText: String,
     height: Int,

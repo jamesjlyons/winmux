@@ -24,9 +24,11 @@ struct WorkspaceSidebarProjectPager: View {
     @State var projectTrackContentMinX: CGFloat = 0
     @State var projectTrackContentWidth: CGFloat = 0
     @State var projectTrackViewportWidth: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
+    var isNarrow: Bool { WorkspaceSidebarDensity(sectionWidth: sectionWidth).isNarrow }
     var currentIndex: Int? {
         projects.firstIndex { $0.id == selectedProjectId }
             ?? projects.indices.first
@@ -66,14 +68,14 @@ struct WorkspaceSidebarProjectPager: View {
         let maxTextWidth = names.map {
             ($0 as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]).width
         }.max() ?? 0
-        return max(ceil(maxTextWidth) + 50, projectMenuWidth)
+        return min(max(ceil(maxTextWidth) + 50, projectMenuWidth), max(sectionWidth - projectCreateButtonWidth - 6, 0))
     }
     var projectMenuWidth: CGFloat {
         let selectedProjectName = selectedProject?.displayName ?? "Project"
         let textWidth = (selectedProjectName as NSString).size(
             withAttributes: [.font: NSFont.systemFont(ofSize: 11.5, weight: .medium)],
         ).width
-        return min(max(ceil(textWidth) + 46, 92), 136)
+        return min(max(ceil(textWidth) + 46, 92), 136, max(sectionWidth - (isNarrow ? 0 : projectCreateButtonWidth + 6), 0))
     }
     var projectTrackWidth: CGFloat {
         if isCompact {
@@ -95,7 +97,7 @@ struct WorkspaceSidebarProjectPager: View {
                 .onHover { hovering in
                     isHovered = hovering
                 }
-                .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.86), value: isHovered)
+                .animation(reduceMotion ? nil : .interactiveSpring(response: 0.24, dampingFraction: 0.86), value: isHovered)
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .bottom)))
                 .zIndex(isProjectMenuOpen ? 20 : 0)
         }

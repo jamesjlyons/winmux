@@ -16,6 +16,7 @@ extension WorkspaceSidebarProjectPager {
                 .frame(width: sectionWidth, alignment: .center)
             }
             .frame(width: sectionWidth, height: compactProjectControlsHeight, alignment: .center)
+            .background(WorkspaceSidebarProjectScrollRegion())
             .clipped()
             .onAppear {
                 scrollCompactProjectTrackToCurrent(proxy)
@@ -56,6 +57,7 @@ extension WorkspaceSidebarProjectPager {
                 }
             }
             .frame(width: projectTrackWidth, height: workspaceSidebarPagerHeight, alignment: .leading)
+            .background(WorkspaceSidebarProjectScrollRegion())
             .coordinateSpace(name: "workspaceSidebarProjectTrack")
             .clipped()
             .mask(projectTrackFadeMask)
@@ -98,7 +100,7 @@ extension WorkspaceSidebarProjectPager {
 
     private func scrollProjectTrackToCurrent(_ proxy: ScrollViewProxy) {
         guard let selectedProject else { return }
-        scrollProjectTrack(to: projectTrackScrollTargetId ?? selectedProject.id, proxy: proxy)
+        scrollProjectTrack(to: selectedProject.id, proxy: proxy)
     }
 
     private func scrollProjectTrack(to projectId: WorkspaceProjectId?, proxy: ScrollViewProxy) {
@@ -123,6 +125,8 @@ extension WorkspaceSidebarProjectPager {
                     onCommit: onCommitRenameProject,
                     onCancel: onCancelRenameProject,
                 )
+            } else if isNarrow {
+                narrowProjectMenu
             } else {
                 projectMenuButton
             }
@@ -141,8 +145,10 @@ extension WorkspaceSidebarProjectPager {
                 Spacer(minLength: 0)
                 projectMenu
                     .frame(width: projectMenuWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-                newProjectButton
-                    .frame(width: projectCreateButtonWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
+                if !isNarrow {
+                    newProjectButton
+                        .frame(width: projectCreateButtonWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
+                }
             }
             .frame(width: sectionWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
 
@@ -173,6 +179,39 @@ extension WorkspaceSidebarProjectPager {
         }
         .buttonStyle(.plain)
         .frame(height: workspaceSidebarPagerHeight, alignment: .center)
+        .help(selectedProject?.displayName ?? "Project")
+    }
+
+    private var narrowProjectMenu: some View {
+        Menu {
+            ForEach(projects) { project in
+                Button {
+                    onSelectProject(project.id)
+                } label: {
+                    if project.id == selectedProjectId {
+                        Label(project.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(project.displayName)
+                    }
+                }
+            }
+            Divider()
+            Button("New Project", action: onCreateProject)
+            if let selectedProject {
+                Divider()
+                projectContextMenuItems(for: selectedProject)
+            }
+        } label: {
+            Text(selectedProject?.displayName ?? "Project")
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .menuStyle(.borderlessButton)
+        .padding(.horizontal, 7)
+        .frame(height: workspaceSidebarPagerHeight)
+        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.white.opacity(0.07)))
+        .help(selectedProject?.displayName ?? "Project")
     }
 
     private var newProjectButton: some View {

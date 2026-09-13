@@ -70,6 +70,11 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         }
 
         func handle(_ event: NSEvent) -> NSEvent? {
+            if WorkspaceSidebarProjectScrollRegion.contains(event) {
+                if hasLockedHorizontalIntent { onEnded?(0, 0) }
+                resetAccumulatedScroll()
+                return event
+            }
             guard isEnabled,
                   !isWorkspaceSidebarDragInProgress(),
                   event.hasPreciseScrollingDeltas,

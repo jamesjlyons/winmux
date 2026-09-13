@@ -38,6 +38,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
 
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var showsWindowRows: Bool { expansionProgress >= workspaceSidebarRowsRevealProgress }
     var sectionMinHeight: CGFloat? {
@@ -97,6 +98,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 isSettling: $isDropSettling,
             ))
             .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
+            .environment(\.workspaceSidebarDensity, density)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: expansionProgress)
@@ -365,7 +367,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            if let projectContextLabel, let projectContextColor {
+            if !density.isNarrow, let projectContextLabel, let projectContextColor {
                 Text(projectContextLabel)
                     .font(.system(size: 8.5, weight: .bold))
                     .foregroundStyle(projectContextColor.opacity(0.86))
@@ -383,7 +385,7 @@ extension WorkspaceSidebarWorkspaceSection {
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
+        .padding(.leading, density.isNarrow ? 2 : workspaceSidebarHeaderRowLeadingPadding)
         .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -397,7 +399,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     workspaceItemView(item)
                 }
             }
-            .padding(.leading, workspaceSidebarWindowRowsLeadingIndent)
+            .padding(.leading, density.isNarrow ? 0 : workspaceSidebarWindowRowsLeadingIndent)
         }
     }
 
@@ -481,7 +483,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     tab,
                     allowsDrag: true,
                     subject: .window,
-                    leadingHitInset: workspaceSidebarTabGroupChildLeadingIndent,
+                    leadingHitInset: density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent,
                 )
             }
         }
@@ -515,6 +517,7 @@ extension WorkspaceSidebarWorkspaceSection {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(group.title.isEmpty ? "Tab Group" : group.title)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(
@@ -587,6 +590,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .workspaceSidebarDrag(enabled: allowsDrag) {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
+        .help(window.title ?? window.appName)
         .onHover { hover in
             hoveredWindowId = nextWorkspaceSidebarHoveredWindowId(
                 currentHoveredWindowId: hoveredWindowId,

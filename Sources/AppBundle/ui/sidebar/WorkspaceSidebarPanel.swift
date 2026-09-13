@@ -583,6 +583,7 @@ extension WorkspaceSidebarPanel {
 }
 extension WorkspaceSidebarPanel {
     func setHovering(_ isHovering: Bool) {
+        guard !isResizingSidebar else { return }
         let expandedWidth = CGFloat(config.workspaceSidebar.width)
         let collapsedWidth = workspaceSidebarRestingWidth(config.workspaceSidebar)
         if viewModel.workspaceSidebarVisibleWidth > collapsedWidth + 0.5 || pendingCollapse != nil {
@@ -608,7 +609,7 @@ extension WorkspaceSidebarPanel {
     }
 
     func shouldKeepSidebarOpenForInlineTextEditing() -> Bool {
-        commandExpansionLocksCollapse || (inlineTextEditingActive && inlineTextEditingLocksExpansion)
+        isResizingSidebar || commandExpansionLocksCollapse || (inlineTextEditingActive && inlineTextEditingLocksExpansion)
     }
 }
 extension WorkspaceSidebarPanel {
