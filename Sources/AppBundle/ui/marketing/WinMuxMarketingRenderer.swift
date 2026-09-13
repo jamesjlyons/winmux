@@ -1,6 +1,31 @@
 import AppKit
 import SwiftUI
 
+/// Width regression fixtures rendered with the production sidebar, without running the manager.
+@MainActor
+public func renderWinMuxSidebarProofImages(in directory: URL) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    for count in [1, 3, 12] {
+        for width: CGFloat in [240, 180, 140, 120, 40] {
+            var snapshot = MarketingFixtures.sidebarSnapshot
+            snapshot.configuration.expandedWidth = width == 40 ? 240 : width
+            snapshot.configuration.collapsedWidth = 40
+            snapshot.configuration.chromeStyle = .solid
+            snapshot.visibleWidth = width
+            snapshot.projects = (0..<count).map { index in
+                WorkspaceSidebarProjectViewModel(
+                    id: index == 0 ? snapshot.activeProjectId : WorkspaceProjectId(rawValue: "proof-\(index)"),
+                    displayName: index == 0 ? "Design and development" : "Project \(index + 1)",
+                    colorHex: workspaceSidebarProjectColorPresets[index % workspaceSidebarProjectColorPresets.count].hex
+                )
+            }
+            let view = WorkspaceSidebarView(snapshot: snapshot)
+            try renderMarketingView(view, to: directory.appendingPathComponent("sidebar-\(Int(width))-\(count).png"),
+                                    size: CGSize(width: width, height: 740))
+        }
+    }
+}
+
 /// Exports a deterministic marketing composition that embeds WinMux's production SwiftUI views.
 /// The renderer does not capture the screen or read pixels from application windows.
 @MainActor

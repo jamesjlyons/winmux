@@ -41,7 +41,9 @@ build:
 	rm -rf .debug && \
 	mkdir .debug && \
 	cp -r .build/debug/winmux .debug && \
-	cp -r .build/debug/WinMuxApp .debug'
+	cp -r .build/debug/WinMuxApp .debug && \
+	cp -R .build/debug/Sparkle.framework .debug/ && \
+	for bundle in .build/debug/*.bundle; do [ ! -d "$$bundle" ] || cp -R "$$bundle" .debug/; done'
 
 build-clean:
 	/bin/bash -lc 'cd "$(CURDIR)" && rm -rf .build .debug'
