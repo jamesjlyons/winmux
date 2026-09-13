@@ -99,5 +99,6 @@ func workspaceSidebarProjectSwipeSwitchProgress(distance: CGFloat) -> CGFloat {
 }
 
 func workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: CGFloat, scrollingDeltaX: CGFloat) -> CGFloat {
-    currentTranslation - scrollingDeltaX
+    // AppKit already applies the user's scroll-direction preference to this delta.
+    currentTranslation + scrollingDeltaX
 }

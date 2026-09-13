@@ -647,14 +647,14 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertNil(workspaceSidebarColor(hex: "not-a-color"))
     }
 
-    func testProjectSwipeScrollDeltaUsesDragDirection() {
+    func testProjectSwipeScrollDeltaPreservesSystemDirection() {
         XCTAssertEqual(
             workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: 0, scrollingDeltaX: 24),
-            -24,
+            24,
         )
         XCTAssertEqual(
-            workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: -24, scrollingDeltaX: -10),
-            -14,
+            workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: 24, scrollingDeltaX: -10),
+            14,
         )
     }
 
