@@ -12,7 +12,7 @@ APP_INSTALL_DIR ?= /Applications
 SPARKLE_PUBLIC_KEY ?= kcc3956V3+Yo8GtwFJ8Odb9sphIr09/9dsuoYBNtxf0=
 ARGS ?=
 
-.PHONY: generate xcodeproj build build-clean run run-clean cli release install installed clean
+.PHONY: dev-build dev-install dev-run generate xcodeproj build build-clean run run-clean cli release install installed clean
 
 generate:
 	/bin/bash -lc 'cd "$(CURDIR)" && \
@@ -49,37 +49,19 @@ build-clean:
 	/bin/bash -lc 'cd "$(CURDIR)" && rm -rf .build .debug'
 	$(MAKE) build VERSION="$(VERSION)"
 
-run:
-	$(MAKE) build VERSION="$(VERSION)"
-	/bin/bash -lc 'cd "$(CURDIR)" && \
-	if pgrep -x yabai >/dev/null 2>&1; then echo "warning: yabai is still running and may conflict with WinMux" >&2; fi && \
-	if pgrep -x skhd >/dev/null 2>&1; then echo "warning: skhd is still running; its yabai shortcuts will keep firing" >&2; fi && \
-	config_path="$${WINMUX_CONFIG_PATH:-}"; \
-	if [ -n "$$config_path" ]; then \
-	    if [ ! -f "$$config_path" ]; then \
-	        echo "Missing WinMux config: $$config_path" >&2; \
-	        exit 1; \
-	    fi; \
-	    exec ./.debug/WinMuxApp --config-path "$$config_path" $(ARGS); \
-	else \
-	    exec ./.debug/WinMuxApp $(ARGS); \
-	fi'
+dev-build: build
+	VERSION="$(VERSION)" ./script/dev-app.sh build
 
-run-clean:
-	$(MAKE) build-clean VERSION="$(VERSION)"
-	/bin/bash -lc 'cd "$(CURDIR)" && \
-	if pgrep -x yabai >/dev/null 2>&1; then echo "warning: yabai is still running and may conflict with WinMux" >&2; fi && \
-	if pgrep -x skhd >/dev/null 2>&1; then echo "warning: skhd is still running; its yabai shortcuts will keep firing" >&2; fi && \
-	config_path="$${WINMUX_CONFIG_PATH:-}"; \
-	if [ -n "$$config_path" ]; then \
-	    if [ ! -f "$$config_path" ]; then \
-	        echo "Missing WinMux config: $$config_path" >&2; \
-	        exit 1; \
-	    fi; \
-	    exec ./.debug/WinMuxApp --config-path "$$config_path" $(ARGS); \
-	else \
-	    exec ./.debug/WinMuxApp $(ARGS); \
-	fi'
+dev-install: dev-build
+	./script/dev-app.sh install
+
+dev-run:
+	./script/dev-app.sh run $(ARGS)
+
+run: dev-install
+	./script/dev-app.sh run $(ARGS)
+
+run-clean: build-clean run
 
 cli:
 	$(MAKE) build VERSION="$(VERSION)"

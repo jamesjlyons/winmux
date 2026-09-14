@@ -8,9 +8,6 @@ import Foundation
         isCli = false
         initServerArgs()
         var bootstrappedConfigUrl: URL? = nil
-        if isDebug {
-            await toggleReleaseServerIfDebug(.off)
-        }
         interceptTermination(SIGINT)
         interceptTermination(SIGTERM)
         do {
@@ -35,7 +32,8 @@ import Foundation
         }
         MonitorConfigurationObserver.shared.prepareForStartup()
 
-        checkAccessibilityPermissions()
+        try await waitForAccessibilityPermissions()
+        await toggleReleaseServerIfDebug(.off)
         requestScreenRecordingPermissionsIfNeeded()
         startUnixSocketServer()
         GlobalObserver.initObserver()

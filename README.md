@@ -165,6 +165,9 @@ Release builds are signed with the project's Apple Development certificate. They
 
 WinMux checks GitHub Releases for signed updates automatically. You can also select **Check for Updates…** from the menu bar.
 
+For local development, use the [signed Dev build and restart-session workflow](docs/restart-sessions.md).
+It installs **WinMux Dev** separately and preserves its signing identity across rebuilds.
+
 ## Migrating
 ### From AeroSpace
 If `~/.config/winmux/winmux.toml` already exists, WinMux uses it as-is.
