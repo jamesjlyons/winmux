@@ -4,6 +4,8 @@ import AppKit
 /// the frame already matches: layout re-asserts frames constantly and the vast majority of these
 /// calls are no-ops, so the no-op path must not pay the disableAnimations read.
 func setFrame(_ window: AXUIElement, app: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws {
+    let interval = signposter.beginInterval("Apply window frame")
+    defer { signposter.endInterval("Apply window frame", interval) }
     let currentTopLeft: CGPoint? = topLeft == nil ? nil : window.get(Ax.topLeftCornerAttr)
     let currentSize: CGSize? = size == nil ? nil : window.get(Ax.sizeAttr)
     let positionMatches = topLeft == nil || currentTopLeft == topLeft

@@ -51,6 +51,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: direction,
             distance: abs(horizontalTranslation),
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         )
         let shouldNavigate =
             workspaceSidebarProjectIndexAfterSwipe(

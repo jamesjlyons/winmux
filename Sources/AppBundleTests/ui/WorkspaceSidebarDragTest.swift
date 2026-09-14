@@ -512,6 +512,29 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
+    func testProjectSwipeDoesNotCreateOrPreviewAtEitherEdgeWhenDisabled() {
+        for projectCount in [1, 3] {
+            for (currentIndex, direction) in [(0, -1), (projectCount - 1, 1)] {
+                for distance: CGFloat in [22, 104, 500] {
+                    XCTAssertFalse(shouldCreateWorkspaceSidebarProjectAfterSwipe(
+                        currentIndex: currentIndex,
+                        projectCount: projectCount,
+                        direction: direction,
+                        distance: distance,
+                        allowsCreation: false,
+                    ))
+                    XCTAssertEqual(workspaceSidebarProjectEdgeCreationProgress(
+                        currentIndex: currentIndex,
+                        projectCount: projectCount,
+                        direction: direction,
+                        distance: distance,
+                        allowsCreation: false,
+                    ), 0)
+                }
+            }
+        }
+    }
+
     func testProjectSwipeCreatesOnlyPastEdgesAfterBreakPoint() {
         XCTAssertFalse(
             shouldCreateWorkspaceSidebarProjectAfterSwipe(
@@ -519,6 +542,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 120,
+                allowsCreation: true,
             ),
         )
         XCTAssertFalse(
@@ -527,6 +551,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 96,
+                allowsCreation: true,
             ),
         )
         XCTAssertTrue(
@@ -535,6 +560,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 110,
+                allowsCreation: true,
             ),
         )
         XCTAssertTrue(
@@ -543,6 +569,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: -1,
                 distance: 110,
+                allowsCreation: true,
             ),
         )
     }
@@ -554,6 +581,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 100,
+                allowsCreation: true,
             ),
             0,
         )
@@ -563,6 +591,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 22,
+                allowsCreation: true,
             ),
             0,
         )
@@ -572,6 +601,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 104,
+                allowsCreation: true,
             ),
             1,
         )

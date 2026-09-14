@@ -357,8 +357,10 @@ final class MacApp: AbstractApp {
     }
 
     @MainActor
-    static func refreshAllAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> [MacApp: [UInt32]] {
-        for (_, app) in MacApp.allAppsMap { // gc dead apps
+    static func refreshAllAndGetAliveWindowIds(frontmostAppBundleId: String?, scope: WindowRefreshScope = .all) async throws -> [MacApp: [UInt32]] {
+        let interval = signposter.beginInterval("Enumerate apps")
+        defer { signposter.endInterval("Enumerate apps", interval) }
+        for (_, app) in MacApp.allAppsMap where scope.contains(app.pid) { // gc dead apps
             try checkCancellation()
             if app.nsApp.isTerminated {
                 await app.destroy()
@@ -376,7 +378,7 @@ final class MacApp: AbstractApp {
             // Register new apps
             for nsApp in NSWorkspace.shared.runningApplications {
                 try checkCancellation()
-                if nsApp.activationPolicy == .regular {
+                if nsApp.activationPolicy == .regular && scope.contains(nsApp.processIdentifier) {
                     refreshTheApp(nsApp)
                 }
             }
@@ -385,7 +387,7 @@ final class MacApp: AbstractApp {
                 // "About this Mac" window, TouchID, and a lot of other utility windows
                 // We don't monitor them actively as we do for regular apps, but if a window of one of those utility
                 // apps got focused it will end up in allAppsMap
-                if app.nsApp.activationPolicy != .regular {
+                if app.nsApp.activationPolicy != .regular && scope.contains(app.pid) {
                     refreshTheApp(app.nsApp)
                 }
             }

@@ -572,6 +572,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: direction,
             distance: distance,
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         ) else {
             return false
         }

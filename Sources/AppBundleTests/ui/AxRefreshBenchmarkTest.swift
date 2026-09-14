@@ -39,11 +39,11 @@ final class AxRefreshBenchmarkTest: XCTestCase {
         let refreshDelayNanoseconds: UInt64 = 80_000_000
         let normalizeDelayNanoseconds: UInt64 = 40_000_000
         setBlockingRefreshOverridesForTests(
-            refresh: {
+            refresh: { _ in
                 refreshCount += 1
                 try await Task.sleep(nanoseconds: refreshDelayNanoseconds)
             },
-            normalizeLayoutReason: {
+            normalizeLayoutReason: { _ in
                 normalizeCount += 1
                 try await Task.sleep(nanoseconds: normalizeDelayNanoseconds)
             }

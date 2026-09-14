@@ -43,6 +43,8 @@ on-mode-changed = []
     auto-hide = false
     # Keep the full sidebar open and reserve its width for tiled windows.
     always-expanded = false
+    # Allow sidebar swipes past the first or last project to create a new project.
+    swipe-to-create-projects = false
     collapsed-width = 50
     width = 280
     # Omit monitor to show an independent sidebar on every display.

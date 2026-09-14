@@ -82,6 +82,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var enableFocus: Bool = false
     var autoHide: Bool = false
     var alwaysExpanded: Bool = false
+    var swipeToCreateProjects: Bool = false
     var collapsedWidth: Int = 44
     var width: Int = 240
     var monitor: [MonitorDescription] = []

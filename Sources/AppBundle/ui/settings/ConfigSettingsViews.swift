@@ -82,6 +82,7 @@ struct ShortcutAppearanceSettingsView: View {
     @State private var sidebarFocusEnabled = config.workspaceSidebar.enableFocus
     @State private var sidebarAutoHide = config.workspaceSidebar.autoHide
     @State private var sidebarAlwaysExpanded = config.workspaceSidebar.alwaysExpanded
+    @State private var swipeToCreateProjects = config.workspaceSidebar.swipeToCreateProjects
     @State private var showStatusPills = config.workspaceSidebar.showStatusPills
     @State private var showClock = config.workspaceSidebar.showClock
     @State private var showSeconds = config.workspaceSidebar.showSeconds
@@ -124,6 +125,7 @@ struct ShortcutAppearanceSettingsView: View {
                 SettingsToggle("Focus sidebar monitor only", isOn: $sidebarFocusEnabled, help: "Show the sidebar only on the focused monitor when monitor scope allows it.") { sidebarBool("enable-focus", sidebarFocusEnabled) }
                 SettingsToggle("Reveal sidebar at the display edge", isOn: $sidebarAutoHide, help: "Hide the compact rail until the pointer reaches the left edge.") { sidebarBool("auto-hide", sidebarAutoHide) }
                 SettingsToggle("Keep sidebar expanded", isOn: $sidebarAlwaysExpanded, help: "Reserve the full sidebar width for tiled windows.") { sidebarBool("always-expanded", sidebarAlwaysExpanded) }
+                SettingsToggle("Swipe to create projects", isOn: $swipeToCreateProjects, help: "Create a project by swiping past the first or last project. Swipes always switch between existing projects.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
                 SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
                 SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
                 SettingsStepper("Menu bar reserve", value: $menuBarReserveHeight, range: 0...72, help: "Use 0 px when the macOS menu bar auto-hides.") { sidebarInt("menu-bar-reserve-height", menuBarReserveHeight) }

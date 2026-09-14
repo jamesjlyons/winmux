@@ -31,6 +31,12 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   The dot track scrolls independently of sidebar project swipes. Selected projects
   scroll into view even after a prior mouse selection. The collapsed rail includes
   the active project even when there is only one.
+- Sidebar swipes switch between existing projects. Creating a project by swiping
+  past either end is off by default. Enable **Swipe to create projects** in
+  **Settings → Appearance → Sidebar**, or set `swipe-to-create-projects = true`
+  under `[workspace-sidebar]`. When disabled, edge swipes snap back without the
+  creation preview or creation threshold haptic. The new-project button remains
+  available.
 
 ## Verified on September 13, 2026
 

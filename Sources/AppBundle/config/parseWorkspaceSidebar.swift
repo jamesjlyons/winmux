@@ -6,6 +6,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "enable-focus": Parser(\.enableFocus, parseBool),
     "auto-hide": Parser(\.autoHide, parseBool),
     "always-expanded": Parser(\.alwaysExpanded, parseBool),
+    "swipe-to-create-projects": Parser(\.swipeToCreateProjects, parseBool),
     "collapsed-width": Parser(\.collapsedWidth, parseWorkspaceSidebarWidth),
     "width": Parser(\.width, parseWorkspaceSidebarWidth),
     "monitor": Parser(\.monitor) { value, backtrace, errors in

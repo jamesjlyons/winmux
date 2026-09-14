@@ -43,6 +43,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var solidChromeCustomColor: String
     var isCompactMode = true
     var autoHide = false
+    var swipeToCreateProjects = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,

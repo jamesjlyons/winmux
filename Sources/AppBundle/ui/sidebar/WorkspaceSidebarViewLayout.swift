@@ -19,6 +19,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: projectSwipeDirection,
             distance: abs(projectSwipeTranslation),
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         )
         let hasSwipeTarget = projectSwipeDirection.flatMap { direction in
             workspaceSidebarProjectIndexAfterSwipe(
