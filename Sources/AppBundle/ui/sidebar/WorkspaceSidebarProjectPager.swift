@@ -7,14 +7,9 @@ struct WorkspaceSidebarProjectPager: View {
     let selectedProjectId: WorkspaceProjectId
     let expansionProgress: CGFloat
     let layout: WorkspaceSidebarConfiguration
-    @Binding var isProjectMenuOpen: Bool
-    @Binding var renamingProjectId: WorkspaceProjectId?
-    @Binding var renamingProjectText: String
     let onSelectProject: (WorkspaceProjectId) -> Void
     let onCreateProject: () -> Void
     let onBeginRenameProject: (WorkspaceSidebarProjectViewModel) -> Void
-    let onCommitRenameProject: @MainActor @Sendable () -> Void
-    let onCancelRenameProject: @MainActor @Sendable () -> Void
     let onSetProjectColor: (WorkspaceSidebarProjectViewModel, String?) -> Void
     let onDeleteProject: (WorkspaceSidebarProjectViewModel) -> Void
 
@@ -28,51 +23,14 @@ struct WorkspaceSidebarProjectPager: View {
 
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
-    var isNarrow: Bool { WorkspaceSidebarDensity(sectionWidth: sectionWidth).isNarrow }
     var currentIndex: Int? {
-        projects.firstIndex { $0.id == selectedProjectId }
-            ?? projects.indices.first
+        projects.firstIndex { $0.id == selectedProjectId } ?? projects.indices.first
     }
     var selectedProject: WorkspaceSidebarProjectViewModel? {
-        if let renamingProjectId,
-           let renamingProject = projects.first(where: { $0.id == renamingProjectId })
-        {
-            return renamingProject
-        }
-        return projects.first { $0.id == selectedProjectId }
-            ?? projects.first
-    }
-    var showsProjectIndicator: Bool { projects.count > 1 }
-    var expandedProjectControlsHeight: CGFloat {
-        showsProjectIndicator ? (workspaceSidebarPagerHeight * 2) + 4 : workspaceSidebarPagerHeight
+        projects.first { $0.id == selectedProjectId } ?? projects.first
     }
     var pagerHeight: CGFloat {
-        let controlsHeight = isCompact ? compactProjectControlsHeight : expandedProjectControlsHeight
-        guard isProjectMenuOpen && !isCompact else {
-            return controlsHeight
-        }
-        let rowCount = CGFloat(projects.count + 1)
-        let popupPadding = (workspaceSidebarMenuRowSpacing + 1) * 2
-        let rowSpacing = CGFloat(max(projects.count - 1, 0)) * workspaceSidebarMenuRowSpacing
-        let dividerHeight = 0.5 + (workspaceSidebarMenuRowSpacing * 2)
-        let popupHeight = (rowCount * workspaceSidebarDropdownHeight) + rowSpacing + dividerHeight + popupPadding
-        return popupHeight + workspaceSidebarSectionGap + controlsHeight
-    }
-    var footerSpacing: CGFloat { isCompact ? 2 : 8 }
-    var projectCreateButtonWidth: CGFloat { workspaceSidebarDropdownHeight }
-    var projectPopupWidth: CGFloat {
-        let names = projects.map(\.displayName) + ["Project"]
-        let maxTextWidth = names.map {
-            ($0 as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]).width
-        }.max() ?? 0
-        return min(max(ceil(maxTextWidth) + 50, projectMenuWidth), max(sectionWidth - projectCreateButtonWidth - 6, 0))
-    }
-    var projectMenuWidth: CGFloat {
-        let selectedProjectName = selectedProject?.displayName ?? "Project"
-        let textWidth = (selectedProjectName as NSString).size(
-            withAttributes: [.font: NSFont.systemFont(ofSize: 11.5, weight: .medium)],
-        ).width
-        return min(max(ceil(textWidth) + 46, 92), 136, max(sectionWidth - (isNarrow ? 0 : projectCreateButtonWidth + 6), 0))
+        isCompact ? compactProjectControlsHeight : workspaceSidebarPagerHeight
     }
     var projectTrackWidth: CGFloat {
         if isCompact {
@@ -96,7 +54,6 @@ struct WorkspaceSidebarProjectPager: View {
                 }
                 .animation(reduceMotion ? nil : .interactiveSpring(response: 0.24, dampingFraction: 0.86), value: isHovered)
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .bottom)))
-                .zIndex(isProjectMenuOpen ? 20 : 0)
         }
     }
 
@@ -105,12 +62,7 @@ struct WorkspaceSidebarProjectPager: View {
             if isCompact {
                 compactProjectIndicator
             } else {
-                ZStack(alignment: .bottomTrailing) {
-                    projectControls
-                    projectPopup
-                }
-                .frame(width: sectionWidth, height: pagerHeight, alignment: .bottomTrailing)
-                .transaction { $0.animation = nil }
+                projectDotTrack
             }
         }
         .frame(width: sectionWidth, height: pagerHeight, alignment: .bottom)

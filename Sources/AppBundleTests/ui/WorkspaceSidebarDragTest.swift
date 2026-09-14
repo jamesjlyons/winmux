@@ -90,38 +90,6 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
     ]
 }
 
-private func workspaceSidebarSnapshotForTopFilterBar(
-    projects: [WorkspaceSidebarProjectViewModel],
-    monitorScopes: [WorkspaceSidebarMonitorScopeViewModel],
-) -> WorkspaceSidebarSnapshot {
-    WorkspaceSidebarSnapshot(
-        workspaces: [],
-        projects: projects,
-        activeProjectId: workspaceProjectDefaultId,
-        monitorScopes: monitorScopes,
-        selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
-        targetMonitorScopeId: workspaceSidebarDefaultScopeId,
-        focusedMonitorScopeId: "",
-        visibleWidth: 240,
-        hoveredWorkspaceName: nil,
-        dropPreview: nil,
-        configuration: WorkspaceSidebarConfiguration(
-            collapsedWidth: 44,
-            expandedWidth: 240,
-            topPadding: 12,
-            showMonitorSelector: true,
-            showsClock: true,
-            showsSeconds: true,
-            showsDate: false,
-            showsWeekday: false,
-            showsStatusPills: false,
-            chromeStyle: .liquidGlass,
-            solidChromeColor: .midnight,
-            solidChromeCustomColor: "#191B20",
-        ),
-    )
-}
-
 final class WorkspaceSidebarDragTest: XCTestCase {
     func testCompactClockAccessibilityHonorsSecondsVisibility() {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
@@ -136,74 +104,6 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             workspaceSidebarCompactClockAccessibilitySummary(date: date, showsSeconds: true),
             timeWithSeconds,
         )
-    }
-
-    @MainActor
-    func testTopFilterBarHidesForSingleProjectWithoutFocusFilter() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertFalse(view.shouldShowTopFilterBar)
-    }
-
-    @MainActor
-    func testTopFilterBarShowsWhenFocusFilterIsEnabled() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarFocusedScopeId,
-                    displayName: "Focused",
-                    subtitle: nil,
-                    systemImageName: "scope",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertTrue(view.shouldShowTopFilterBar)
-    }
-
-    @MainActor
-    func testTopFilterBarShowsWhenAnotherProjectExists() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: "project-1", displayName: "Project 1", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertTrue(view.shouldShowTopFilterBar)
     }
 
     @MainActor

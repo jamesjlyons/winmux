@@ -7,7 +7,7 @@ extension WorkspaceSidebarView {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
-        let showsMonitorSelector = !isCompact && shouldShowTopFilterBar
+        let showsProjectSelector = !isCompact
         let projectSwipeDirection = workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,
             verticalTranslation: 0,
@@ -44,8 +44,8 @@ extension WorkspaceSidebarView {
         )
 
         return VStack(alignment: .leading, spacing: 0) {
-            if showsMonitorSelector {
-                monitorSelectorSection(
+            if showsProjectSelector {
+                projectSelectorSection(
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,
                     trailingInset: trailingInset,
@@ -64,7 +64,7 @@ extension WorkspaceSidebarView {
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,
-                topPadding: showsMonitorSelector ? 0 : snapshot.configuration.topPadding,
+                topPadding: showsProjectSelector ? 0 : snapshot.configuration.topPadding,
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
                 swipeDirection: projectSwipeDirection,
             )
@@ -140,15 +140,9 @@ extension WorkspaceSidebarView {
     }
 }
 
-private let workspaceSidebarCollapseReservedProjectPagerHeight = (workspaceSidebarPagerHeight * 2) + 10
+private let workspaceSidebarCollapseReservedProjectPagerHeight = workspaceSidebarPagerHeight + 10
 
 extension WorkspaceSidebarView {
-    var shouldShowTopFilterBar: Bool {
-        let hasFocusFilter = snapshot.monitorScopes.contains { $0.id == workspaceSidebarFocusedScopeId }
-        let hasOtherProjects = snapshot.projects.contains { $0.id != snapshot.activeProjectId }
-        return hasFocusFilter || hasOtherProjects
-    }
-
     func workspaceSidebarSplitSectionWidth(expansionProgress: CGFloat) -> CGFloat {
         let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
         return (sectionWidth * 2) + workspaceSidebarSplitPaneGap
