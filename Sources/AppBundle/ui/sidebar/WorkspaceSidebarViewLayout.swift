@@ -117,10 +117,9 @@ extension WorkspaceSidebarView {
                     NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
                 }
         }
-        .environment(\.colorScheme, .dark)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.white.opacity(GlassToken.separatorOpacity))
+                .fill(Color.primary.opacity(snapshot.configuration.menuBarStyle ? 0 : GlassToken.separatorOpacity))
                 .frame(width: 0.5)
         }
         .clipShape(sidebarShape)
@@ -136,6 +135,8 @@ extension WorkspaceSidebarView {
                     .accessibilityLabel("Resize sidebar")
             }
         }
+        .environment(\.colorScheme, snapshot.configuration.menuBarStyle ? colorScheme : .dark)
+        .environment(\.workspaceSidebarMenuBarStyle, snapshot.configuration.menuBarStyle)
     }
 }
 

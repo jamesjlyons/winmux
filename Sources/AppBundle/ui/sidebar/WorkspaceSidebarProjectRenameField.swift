@@ -32,7 +32,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.textColor = .white
+        field.textColor = .labelColor
         field.font = .systemFont(ofSize: 12.5, weight: .medium)
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true
@@ -156,7 +156,7 @@ struct WorkspaceSidebarProjectRenameField: View {
             .frame(height: workspaceSidebarDropdownHeight)
             .background {
                 RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.12))
+                    .fill(Color.primary.opacity(0.12))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
@@ -252,11 +252,11 @@ struct WorkspaceSidebarWorkspaceRenameField: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.12))
+                .fill(Color.primary.opacity(0.12))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.62), lineWidth: 0.8)
+                .strokeBorder(Color.primary.opacity(0.62), lineWidth: 0.8)
         }
         .onAppear {
             debugWorkspaceSidebarRenameLog("workspaceRenameField onAppear workspace=\(workspaceName) text=\(text)")

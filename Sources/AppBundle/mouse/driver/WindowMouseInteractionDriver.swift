@@ -57,6 +57,8 @@ extension WindowMouseInteractionDriver {
     }
 
     func displayFrame() {
+        let interval = signposter.beginInterval("Gesture display frame")
+        defer { signposter.endInterval("Gesture display frame", interval) }
         guard isLeftMouseButtonDown else {
             finishAfterMissedMouseUpIfNeeded()
             return
@@ -85,11 +87,9 @@ extension WindowMouseInteractionDriver {
 
 extension WindowMouseInteractionDriver {
     func noteGlobalDragActivity() {
-        if moveSession != nil {
-            renderMoveFrame(force: false)
-        }
-        if resizeSession != nil {
-            sampleResizeFrame(force: false)
+        // Keep every pointer sample for shake recognition, but present previews on display ticks.
+        if let session = moveSession, let source = Window.get(byId: session.windowId) {
+            detectShakeIfNeeded(sourceWindow: source, session: session)
         }
     }
 
@@ -192,7 +192,6 @@ extension WindowMouseInteractionDriver {
         }
 
         let mouse = MousePointerTracker.shared.currentSample.point
-        detectShakeIfNeeded(sourceWindow: sourceWindow, session: session)
         updateCompositedMovePreview(sourceWindow: sourceWindow, mouseLocation: mouse)
         let isPointerInsideSidebar = WorkspaceSidebarPanel.panel(containing: mouse) != nil
         let shouldProcess = session.startedInSidebar || isPointerInsideSidebar || WindowDragFrameGate.shared.shouldProcess(
@@ -287,7 +286,7 @@ extension WindowMouseInteractionDriver {
             configureMoveChrome(windowId: windowId, session: session)
         }
         startDisplayLoop()
-        renderMoveFrame(force: isNewSession)
+        if isNewSession { renderMoveFrame(force: true) }
     }
 
     func shouldHideOtherWindowsDuringMove(session: MoveSession) -> Bool {
@@ -572,6 +571,7 @@ extension WindowMouseInteractionDriver {
         let isNewSession = resizeSession != session
         logWindowDragLive("resize.start window=\(windowId) isNewSession=\(isNewSession) existingSession=\(String(describing: resizeSession)) mouseDown=\(isLeftMouseButtonDown) kind=\(getCurrentMouseManipulationKind())")
         if isNewSession {
+            syncClosedWindowsCacheToCurrentWorld()
             resetResizeTrackingState()
             clearPendingWindowDragIntent()
         }
@@ -584,7 +584,7 @@ extension WindowMouseInteractionDriver {
         setCurrentMouseManipulationKind(.resize)
         configureResizeChrome(windowId: windowId)
         startDisplayLoop()
-        sampleResizeFrame(force: true)
+        if isNewSession { sampleResizeFrame(force: true) }
     }
 
     func configureResizeChrome(windowId: UInt32) {

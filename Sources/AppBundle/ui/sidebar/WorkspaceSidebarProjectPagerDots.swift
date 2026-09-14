@@ -27,16 +27,16 @@ extension WorkspaceSidebarProjectPager {
                     .overlay {
                         Capsule(style: .continuous)
                             .strokeBorder(
-                                isCurrent ? Color.white.opacity(0.46) : projectColor.opacity(isDotHovered ? 0.55 : 0.22),
-                                lineWidth: isCurrent ? 0.8 : 0.5,
+                                isCurrent ? Color.primary.opacity(0.46) : projectColor.opacity(isDotHovered ? 0.55 : 0.22),
+                                lineWidth: layout.menuBarStyle ? 0 : (isCurrent ? 0.8 : 0.5),
                             )
                     }
                     .overlay {
-                        if isCurrent {
+                        if isCurrent && !layout.menuBarStyle {
                             Capsule(style: .continuous)
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color.white.opacity(0.18), .clear],
+                                        colors: [Color.primary.opacity(0.18), .clear],
                                         startPoint: .top,
                                         endPoint: .bottom,
                                     )

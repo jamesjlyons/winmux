@@ -64,7 +64,8 @@ final class WindowTitleBenchmarkTest: XCTestCase {
         )
         print("WINDOW_TITLE_BENCHMARK \(result.json)")
 
-        XCTAssertGreaterThan(BenchmarkTitleWindow.titleGetCount, 0)
+        await waitForBackgroundWindowTitlesForTests()
+        XCTAssertEqual(BenchmarkTitleWindow.titleGetCount, workspaceCount * windowsPerWorkspace)
     }
 }
 

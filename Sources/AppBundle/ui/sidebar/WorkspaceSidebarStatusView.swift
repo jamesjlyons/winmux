@@ -14,6 +14,7 @@ extension EnvironmentValues {
 }
 
 struct WorkspaceSidebarStatusView: View {
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     @Environment(\.workspaceSidebarClockDate) private var clockDate
     let sectionWidth: CGFloat
     let isCompact: Bool
@@ -23,7 +24,18 @@ struct WorkspaceSidebarStatusView: View {
 
     var body: some View {
         Group {
-            if isCompact {
+            if menuBarStyle {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    WorkspaceSidebarMenuBarClock(
+                        date: clockDate ?? context.date,
+                        sectionWidth: sectionWidth,
+                        isCompact: isCompact,
+                        showsSeconds: showsSeconds,
+                        showsDate: showsDate,
+                        showsWeekday: showsWeekday,
+                    )
+                }
+            } else if isCompact {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     WorkspaceSidebarCompactClockCard(
                         date: clockDate ?? context.date,

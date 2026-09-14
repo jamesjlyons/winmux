@@ -18,6 +18,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "show-date": Parser(\.showDate, parseBool),
     "show-weekday": Parser(\.showWeekday, parseBool),
     "chrome-style": Parser(\.chromeStyle, parseChromeStyle),
+    "menu-bar-style": Parser(\.menuBarStyle, parseBool),
     "solid-chrome-color": Parser(\.solidChromeColor, parseChromeSolidColor),
     "solid-chrome-custom-color": Parser(\.solidChromeCustomColor, parseChromeSolidCustomColor),
     "use-liquid-glass": Parser(\.chromeStyle) { raw, backtrace in

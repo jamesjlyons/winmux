@@ -40,7 +40,7 @@ final class SidebarResizeView: NSView {
     override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
         guard hovered || startX != nil else { return }
-        NSColor.white.withAlphaComponent(0.32).setFill()
+        NSColor.labelColor.withAlphaComponent(0.32).setFill()
         NSBezierPath(roundedRect: NSRect(x: bounds.midX - 1, y: bounds.midY - 24, width: 2, height: 48), xRadius: 1, yRadius: 1).fill()
     }
 

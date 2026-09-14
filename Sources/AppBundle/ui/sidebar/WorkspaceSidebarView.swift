@@ -3,6 +3,7 @@ import Common
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
+    @Environment(\.colorScheme) var colorScheme
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
     @State var projectSwipeTranslation: CGFloat = 0
@@ -733,13 +734,13 @@ extension WorkspaceSidebarView {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.66))
+                .foregroundStyle(Color.primary.opacity(0.66))
                 .frame(width: 14)
 
             Text(searchText)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
-                .foregroundStyle(Color.white.opacity(0.9))
+                .foregroundStyle(Color.primary.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -748,7 +749,7 @@ extension WorkspaceSidebarView {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(Color.primary.opacity(0.7))
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
@@ -759,11 +760,11 @@ extension WorkspaceSidebarView {
         .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarSearchHeight)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.11))
+                .fill(Color.primary.opacity(0.11))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.6)
         }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
@@ -776,19 +777,23 @@ extension WorkspaceSidebarView {
         WorkspaceSidebarPanelShape(rightCornerRadius: workspaceSidebarPanelRightCornerRadius)
     }
 
+    @ViewBuilder
     func sidebarSurface<S: Shape>(in shape: S) -> some View {
         // The sidebar meets the display edge, so an outline around all four sides reads as a
         // second, lighter panel behind the content. Keep the material flat and use only the
         // trailing separator to define its boundary.
-        GlassSurface(
-            shape: shape,
-            hasBorder: false,
-            style: snapshot.configuration.chromeStyle,
-            solidColor: snapshot.configuration.resolvedSolidChromeColor,
-        )
-        // This panel has no safe-area inset. Expanding the material here gives the native
-        // glass backing layer a rectangular area outside the rounded trailing corners.
-        .clipShape(shape)
+        if snapshot.configuration.menuBarStyle {
+            WorkspaceSidebarMenuBarSurface(shape: shape)
+                .clipShape(shape)
+        } else {
+            GlassSurface(
+                shape: shape,
+                hasBorder: false,
+                style: snapshot.configuration.chromeStyle,
+                solidColor: snapshot.configuration.resolvedSolidChromeColor,
+            )
+            .clipShape(shape)
+        }
     }
 
     func sidebarSwipeCaptureOverlay(expansionProgress: CGFloat) -> some View {

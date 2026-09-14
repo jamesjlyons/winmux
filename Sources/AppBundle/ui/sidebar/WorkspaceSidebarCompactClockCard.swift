@@ -16,18 +16,18 @@ struct WorkspaceSidebarCompactClockCard: View {
             let shape = RoundedRectangle(cornerRadius: min(workspaceSidebarStatusCornerRadius, sectionWidth / 3), style: .continuous)
             ZStack(alignment: .bottomLeading) {
                 shape
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.primary.opacity(0.06))
 
                 VStack(alignment: .center, spacing: 4) {
                     Text(components.hour)
-                        .foregroundStyle(Color.white.opacity(0.90))
+                        .foregroundStyle(Color.primary.opacity(0.90))
 
                     Text(components.minute)
-                        .foregroundStyle(Color.white.opacity(0.90))
+                        .foregroundStyle(Color.primary.opacity(0.90))
 
                     if showsSeconds {
                         Text(components.second)
-                            .foregroundStyle(Color.white.opacity(0.66))
+                            .foregroundStyle(Color.primary.opacity(0.66))
                     }
                 }
                 .font(.system(size: max(1, 19 * contentScale), weight: .bold, design: .rounded))
@@ -37,7 +37,7 @@ struct WorkspaceSidebarCompactClockCard: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
                 shape
-                    .strokeBorder(Color.white.opacity(0.05), lineWidth: 0.5)
+                    .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
             }
             .clipShape(shape)
         }

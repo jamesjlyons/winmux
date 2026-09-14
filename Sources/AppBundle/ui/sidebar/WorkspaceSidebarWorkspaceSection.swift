@@ -33,7 +33,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var isDropSettling = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    let headerHeight: CGFloat = workspaceSidebarWorkspaceSectionHeaderHeight
+    var headerHeight: CGFloat { layout.menuBarStyle ? 26 : workspaceSidebarWorkspaceSectionHeaderHeight }
     let rowHeight: CGFloat = workspaceSidebarWorkspaceRowHeight
 
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
@@ -121,7 +121,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     .zIndex(5)
             }
             .shadow(
-                color: isDropTarget ? Color.white.opacity(0.16) : .clear,
+                color: isDropTarget ? Color.primary.opacity(0.16) : .clear,
                 radius: isDropTarget ? 12 : 0
             )
             .background {
@@ -183,14 +183,14 @@ extension WorkspaceSidebarWorkspaceSection {
             .fill(sectionBackgroundFill)
             .background { sectionGlassCard }
             .overlay {
-                if isActiveWorkspaceSelection {
+                if isActiveWorkspaceSelection && !layout.menuBarStyle {
                     sectionShape
-                        .strokeBorder(Color.white.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
+                        .strokeBorder(Color.primary.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
                 }
-                if isPinnedActiveWorkspace && !isSearchFiltering {
+                if isPinnedActiveWorkspace && !isSearchFiltering && !layout.menuBarStyle {
                     sectionShape
                         .strokeBorder(
-                            Color.white.opacity(0.24),
+                            Color.primary.opacity(0.24),
                             style: StrokeStyle(lineWidth: 1, dash: [5, 4])
                         )
                 }
@@ -205,7 +205,10 @@ extension WorkspaceSidebarWorkspaceSection {
     /// tint fills on top. No-op on older systems; the plain tint fill stands in.
     @ViewBuilder
     var sectionGlassCard: some View {
-        if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
+        if layout.menuBarStyle {
+            // Selection and hover fills supply the hierarchy on the flat menu material.
+            Color.clear
+        } else if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
             GlassEffectContainer {
                 ZStack {
                     Color.clear.glassEffect(.regular, in: sectionShape)
@@ -241,16 +244,22 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var sectionBackgroundFill: Color {
+        if layout.menuBarStyle {
+            if isDropTarget { return Color.primary.opacity(0.12) }
+            if isSearchSelectedWorkspace { return Color.primary.opacity(0.08) }
+            if allowsWorkspaceActivation && isInUseOnOtherDisplay { return Color.red.opacity(0.06) }
+            return Color.primary.opacity(isCompact ? (isActiveOnTargetMonitor ? 0.14 : (isHovered ? 0.08 : 0)) : 0)
+        }
         if isDropTarget {
             // A neutral lift works against both solid colors and Liquid Glass without
             // introducing the system accent color into themed chrome.
-            return Color.white.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
+            return Color.primary.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
         }
         if isSearchSelectedWorkspace {
-            return Color.white.opacity(0.105)
+            return Color.primary.opacity(0.105)
         }
         if isSearchFiltering {
-            return isHovered ? Color.white.opacity(0.045) : Color.white.opacity(0.015)
+            return isHovered ? Color.primary.opacity(0.045) : Color.primary.opacity(0.015)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             let redOpacity: Double = workspace.isFocused ? 0.16 : 0.065
@@ -258,20 +267,20 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color(nsColor: .systemRed).opacity(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return Color.white.opacity(isHovered ? 0.15 : 0.10)
+            return Color.primary.opacity(isHovered ? 0.15 : 0.10)
         }
         if isActiveOnTargetMonitor {
             let compactOpacity: Double = workspace.isFocused ? 0.24 : 0.14
             let expandedOpacity: Double = workspace.isFocused ? 0.12 : 0.07
-            return Color.white.opacity(isCompact ? compactOpacity : expandedOpacity)
+            return Color.primary.opacity(isCompact ? compactOpacity : expandedOpacity)
         }
         if isFromOtherDisplay {
             return Color(nsColor: .systemPink).opacity(isHovered ? 0.10 : 0.05)
         }
         if isHovered {
-            return Color.white.opacity(0.045)
+            return Color.primary.opacity(0.045)
         }
-        return Color.white.opacity(0.015)
+        return Color.primary.opacity(0.015)
     }
 
     var isActiveWorkspaceSelection: Bool {
@@ -292,7 +301,7 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     var workspaceBadge: some View {
         Text(workspaceBadgeText)
-            .font(.system(size: compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .medium : .regular))
+            .font(.system(size: layout.menuBarStyle ? min(13, compactMetrics.badgeFontSize) : compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .medium : .regular))
             .monospacedDigit()
             .foregroundStyle(workspaceBadgeForeground)
             .lineLimit(1)
@@ -321,9 +330,9 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var workspaceBadgeForeground: Color {
         if isActiveOnTargetMonitor {
-            return Color.white
+            return Color.primary
         }
-        return Color.white.opacity(0.70)
+        return Color.primary.opacity(0.70)
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
@@ -353,6 +362,13 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var expandedHeader: some View {
         HStack(spacing: workspaceSidebarHeaderSpacing) {
+            if layout.menuBarStyle {
+                Image(systemName: isPinnedActiveWorkspace ? "pin.fill" : "checkmark")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 10)
+                    .opacity(isActiveOnTargetMonitor || isPinnedActiveWorkspace ? 1 : 0)
+            }
             if isRenamingWorkspace {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingWorkspaceText,
@@ -363,7 +379,7 @@ extension WorkspaceSidebarWorkspaceSection {
             } else {
                 Text(workspace.displayName)
                     .font(.system(size: 13, weight: isActiveOnTargetMonitor ? .medium : .regular))
-                    .foregroundStyle(isActiveOnTargetMonitor ? Color.white : Color.white.opacity(0.85))
+                    .foregroundStyle(isActiveOnTargetMonitor ? Color.primary : Color.primary.opacity(0.85))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -399,7 +415,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     workspaceItemView(item)
                 }
             }
-            .padding(.leading, density.isNarrow ? 0 : workspaceSidebarWindowRowsLeadingIndent)
+            .padding(.leading, density.isNarrow || layout.menuBarStyle ? 0 : workspaceSidebarWindowRowsLeadingIndent)
         }
     }
 
@@ -455,6 +471,12 @@ extension WorkspaceSidebarWorkspaceSection {
             headerSlot
                 .frame(height: isCompact ? compactMetrics.controlHeight - 6 : headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .background {
+                    if layout.menuBarStyle && !isCompact {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.primary.opacity(isHovered && hoveredWindowId == nil && hoveredTabGroupId == nil ? 0.08 : 0))
+                    }
+                }
             windowRows
             dropPreviewRow
         }

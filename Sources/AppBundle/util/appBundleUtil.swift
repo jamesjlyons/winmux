@@ -143,8 +143,10 @@ extension CGPoint: @retroactive Hashable { // todo migrate to self written Point
     let isDebug = false
 #endif
 
+private let isVerboseFocusLoggingEnabled = ProcessInfo.processInfo.environment["WINMUX_DEBUG_FOCUS"] == "1"
+
 func debugFocusLog(_ message: @autoclosure () -> String) {
-    guard isDebug else { return }
+    guard isDebug, isVerboseFocusLoggingEnabled else { return }
     fputs("[focus-debug] \(Date()) \(message())\n", stderr)
 }
 

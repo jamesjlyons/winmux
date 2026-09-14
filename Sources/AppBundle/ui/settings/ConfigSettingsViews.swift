@@ -89,6 +89,7 @@ struct ShortcutAppearanceSettingsView: View {
     @State private var showDate = config.workspaceSidebar.showDate
     @State private var showWeekday = config.workspaceSidebar.showWeekday
     @State private var chromeStyle = config.workspaceSidebar.chromeStyle
+    @State private var menuBarStyle = config.workspaceSidebar.menuBarStyle
     @State private var solidChromeColor = config.workspaceSidebar.solidChromeColor
     @State private var solidChromeCustomColor = config.workspaceSidebar.solidChromeCustomColor
     @State private var sidebarWidth = config.workspaceSidebar.width
@@ -121,6 +122,7 @@ struct ShortcutAppearanceSettingsView: View {
                 )
             }
             SettingsSection("Sidebar") {
+                SettingsToggle("Use menu bar style", isOn: $menuBarStyle, help: "Give the sidebar a flat, translucent macOS menu bar look that follows Light and Dark Mode. Overrides the sidebar's chrome style.") { sidebarBool("menu-bar-style", menuBarStyle) }
                 SettingsToggle("Show sidebar", isOn: $sidebarEnabled, help: "Show the workspace rail on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
                 SettingsToggle("Focus sidebar monitor only", isOn: $sidebarFocusEnabled, help: "Show the sidebar only on the focused monitor when monitor scope allows it.") { sidebarBool("enable-focus", sidebarFocusEnabled) }
                 SettingsToggle("Reveal sidebar at the display edge", isOn: $sidebarAutoHide, help: "Hide the compact rail until the pointer reaches the left edge.") { sidebarBool("auto-hide", sidebarAutoHide) }

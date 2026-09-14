@@ -219,8 +219,11 @@ final class MacApp: AbstractApp {
     }
 
     func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
+        signposter.emitEvent("Frame requested", "window: \(windowId)")
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
+            let interval = signposter.beginInterval("Window frame job", "window: \(windowId)")
+            defer { signposter.endInterval("Window frame job", interval) }
             try setFrame(window, app: axApp.threadGuarded, topLeft, size, job)
         }
     }

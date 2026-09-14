@@ -44,6 +44,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var isCompactMode = true
     var autoHide = false
     var swipeToCreateProjects = false
+    var menuBarStyle = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,

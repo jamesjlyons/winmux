@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     let isActive: Bool
-    var activeFill: Color = Color.white.opacity(0.12)
-    var activeStroke: Color = Color.white.opacity(0.18)
-    var inactiveFill: Color = Color.white.opacity(0.06)
-    var inactiveHoverFill: Color = Color.white.opacity(0.10)
-    var inactiveStroke: Color = Color.white.opacity(0.08)
-    var inactiveHoverStroke: Color = Color.white.opacity(0.14)
+    var activeFill: Color = Color.primary.opacity(0.12)
+    var activeStroke: Color = Color.primary.opacity(0.18)
+    var inactiveFill: Color = Color.primary.opacity(0.06)
+    var inactiveHoverFill: Color = Color.primary.opacity(0.10)
+    var inactiveStroke: Color = Color.primary.opacity(0.08)
+    var inactiveHoverStroke: Color = Color.primary.opacity(0.14)
     @State private var isHovered = false
 
     func body(content: Content) -> some View {
@@ -30,6 +31,7 @@ struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
     }
 
     private var controlFill: Color {
+        if menuBarStyle { return Color.primary.opacity(isHovered || isActive ? 0.08 : 0) }
         if isActive {
             return activeFill
         }
@@ -37,6 +39,7 @@ struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
     }
 
     private var controlStroke: Color {
+        if menuBarStyle { return .clear }
         if isActive {
             return activeStroke
         }
@@ -67,14 +70,14 @@ struct WorkspaceSidebarDropdownMenuRowStyle: ViewModifier {
 
     private var rowFill: Color {
         if isSelected {
-            return Color.white.opacity(isHovered ? 0.10 : 0.06)
+            return Color.primary.opacity(isHovered ? 0.10 : 0.06)
         }
-        return Color.white.opacity(isHovered ? 0.07 : 0)
+        return Color.primary.opacity(isHovered ? 0.07 : 0)
     }
 }
 
 func checkmark(isVisible: Bool) -> some View {
     Image(systemName: "checkmark")
         .font(.system(size: 9, weight: .bold))
-        .foregroundStyle(Color.white.opacity(isVisible ? 0.80 : 0))
+        .foregroundStyle(Color.primary.opacity(isVisible ? 0.80 : 0))
 }

@@ -42,11 +42,10 @@ struct WorkspaceSidebarProjectPopup: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(.regularMaterial)
-                    .environment(\.colorScheme, .dark)
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.primary.opacity(0.06))
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.75)
+                    .strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.75)
             }
             .compositingGroup()
         }
@@ -61,7 +60,7 @@ struct WorkspaceSidebarProjectPopup: View {
             HStack(spacing: 8) {
                 Text(project.displayName)
                     .font(.system(size: 12, weight: project.id == selectedProjectId ? .semibold : .medium))
-                    .foregroundStyle(Color.white.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
+                    .foregroundStyle(Color.primary.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 checkmark(isVisible: project.id == selectedProjectId)
@@ -81,7 +80,7 @@ struct WorkspaceSidebarProjectPopup: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.08))
+            .fill(Color.primary.opacity(0.08))
             .frame(height: 0.5)
             .padding(.horizontal, workspaceSidebarDropdownPadding)
             .padding(.vertical, 1)
@@ -98,7 +97,7 @@ struct WorkspaceSidebarProjectPopup: View {
                 Spacer(minLength: 0)
                 checkmark(isVisible: false)
             }
-            .foregroundStyle(Color.white.opacity(0.78))
+            .foregroundStyle(Color.primary.opacity(0.78))
             .modifier(WorkspaceSidebarDropdownMenuRowStyle(isSelected: false, rowHeight: rowHeight))
             .contentShape(Rectangle())
         }

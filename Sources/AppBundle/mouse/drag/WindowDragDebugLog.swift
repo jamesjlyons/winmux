@@ -1,26 +1,30 @@
 import CoreGraphics
+import Foundation
+
+private let isVerboseDragLoggingEnabled = ProcessInfo.processInfo.environment["WINMUX_DEBUG_DRAG"] == "1"
 
 @MainActor
 func logWindowDragHitTestIfNeeded(signature: @autoclosure () -> String, _ message: @autoclosure () -> String) {
-    guard isDebug else { return }
+    guard isDebug, isVerboseDragLoggingEnabled else { return }
     let signature = signature()
     guard lastWindowDragHitTestLogSignature != signature else { return }
     lastWindowDragHitTestLogSignature = signature
-    debugFocusLog(message())
+    logWindowDragLive(message())
 }
 
 @MainActor
 func logWindowDragIntentIfNeeded(signature: @autoclosure () -> String, _ message: @autoclosure () -> String) {
-    guard isDebug else { return }
+    guard isDebug, isVerboseDragLoggingEnabled else { return }
     let signature = signature()
     guard lastWindowDragIntentLogSignature != signature else { return }
     lastWindowDragIntentLogSignature = signature
-    debugFocusLog(message())
+    logWindowDragLive(message())
 }
 
 @MainActor
 func logWindowDragLive(_ message: @autoclosure () -> String) {
-    debugFocusLog("[drag-live] \(message())")
+    guard isDebug, isVerboseDragLoggingEnabled else { return }
+    fputs("[drag-live] \(message())\n", stderr)
 }
 
 func debugDescribeDragPointBucket(_ point: CGPoint) -> String {

@@ -18,5 +18,6 @@ func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
         isCompactMode: !config.workspaceSidebar.alwaysExpanded,
         autoHide: config.workspaceSidebar.autoHide,
         swipeToCreateProjects: config.workspaceSidebar.swipeToCreateProjects,
+        menuBarStyle: config.workspaceSidebar.menuBarStyle,
     )
 }

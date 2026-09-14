@@ -156,6 +156,45 @@ extension ConfigTest {
         ])
     }
 
+    func testSidebarMenuBarStyleSettingsRoundTrip() {
+        XCTAssertFalse(WorkspaceSidebarConfig().menuBarStyle)
+        let (legacy, legacyErrors) = parseConfig("""
+        [workspace-sidebar]
+            use-liquid-glass = false
+        """)
+        assertEquals(legacyErrors, [])
+        XCTAssertFalse(legacy.workspaceSidebar.menuBarStyle)
+        XCTAssertEqual(legacy.workspaceSidebar.chromeStyle, .solid)
+
+        var text = """
+        [workspace-sidebar]
+            enabled = true
+            width = 180
+            chrome-style = 'solid'
+            solid-chrome-color = 'mint'
+        """
+        for enabled in [true, false] {
+            text = updateSettingsScalarConfig(
+                in: text,
+                section: "workspace-sidebar",
+                key: "menu-bar-style",
+                renderedValue: enabled ? "true" : "false",
+            )
+            let (parsed, errors) = parseConfig(text)
+            assertEquals(errors, [])
+            XCTAssertEqual(parsed.workspaceSidebar.menuBarStyle, enabled)
+            XCTAssertEqual(parsed.workspaceSidebar.chromeStyle, .solid)
+            XCTAssertEqual(parsed.workspaceSidebar.solidChromeColor, .mint)
+            XCTAssertTrue(parsed.workspaceSidebar.enabled)
+            XCTAssertEqual(parsed.workspaceSidebar.width, 180)
+        }
+        let (_, errors) = parseConfig("""
+        [workspace-sidebar]
+            menu-bar-style = 'true'
+        """)
+        XCTAssertFalse(errors.isEmpty)
+    }
+
     func testSidebarSwipeCreationSettingsRoundTrip() {
         XCTAssertFalse(WorkspaceSidebarConfig().swipeToCreateProjects)
         var text = """

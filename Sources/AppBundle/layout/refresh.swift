@@ -22,22 +22,6 @@ private var refreshOverrideForTests: (@MainActor @Sendable (WindowRefreshScope) 
 @MainActor
 private var normalizeLayoutReasonOverrideForTests: (@MainActor @Sendable (WindowRefreshScope) async throws -> Void)? = nil
 
-private func isAxGeometryRefreshEvent(_ event: RefreshSessionEvent) -> Bool {
-    guard case .ax(let notif) = event else { return false }
-    return notif == kAXMovedNotification as String || notif == kAXResizedNotification as String
-}
-
-private func shouldDropScheduledRefresh(_ newEvent: RefreshSessionEvent, activeEvent: RefreshSessionEvent?) -> Bool {
-    guard isAxGeometryRefreshEvent(newEvent), let activeEvent else { return false }
-    if isAxGeometryRefreshEvent(activeEvent) {
-        return true
-    }
-    if case .resetManipulatedWithMouse = activeEvent {
-        return true
-    }
-    return false
-}
-
 @MainActor
 func shouldSyncFocusBackToMacOs(
     nativeFocused: Window?,
@@ -59,6 +43,7 @@ private var pendingRefreshRequest: (event: RefreshSessionEvent, optimisticallyPr
 /// follow-up session covers the requirements of every event that arrived while one was running.
 private func mergeRefreshEvents(_ old: RefreshSessionEvent, _ new: RefreshSessionEvent) -> RefreshSessionEvent {
     func score(_ e: RefreshSessionEvent) -> Int {
+        (e.isStartup ? 8 : 0) + (e.requiresHiddenWindowsReassertion ? 4 : 0) +
         (e.requiresWindowRefreshBarrier ? 2 : 0) + (e.canReuseLastAppliedWindowFrames ? 0 : 1)
     }
     return score(new) >= score(old) ? new : old
@@ -70,12 +55,6 @@ func scheduleRefreshSession(
     optimisticallyPreLayoutWorkspaces: Bool = false,
     scope: WindowRefreshScope = .all,
 ) {
-    if shouldDropScheduledRefresh(event, activeEvent: activeScheduledRefreshEvent) ||
-        shouldDropScheduledRefresh(event, activeEvent: pendingRefreshRequest?.event)
-    {
-        debugFocusLog("scheduleRefreshSession dropped event=\(event) active=\(activeScheduledRefreshEvent?.description ?? "nil") pending=\(pendingRefreshRequest?.event.description ?? "nil")")
-        return
-    }
     // A light session may have interrupted discovery. Fold its unfinished work into the
     // next request even when no scheduled task is currently running.
     if activeRefreshTask == nil, let pending = pendingRefreshRequest {
@@ -140,6 +119,14 @@ func runRefreshSessionBlocking(
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
     if AppShutdownCoordinator.shared.isShuttingDown { return }
+    if case .windows(let owners) = scope {
+        for (id, pid) in owners {
+            if let window = Window.get(byId: id), window.app.pid == pid,
+               id != currentlyManipulatedWithMouseWindowId {
+                window.lastAppliedLayoutPhysicalRect = nil
+            }
+        }
+    }
     let focusSnapshot = captureRefreshSessionFocusSnapshot()
     debugFocusLog("runRefreshSessionBlocking begin event=\(event) snapshot=\(debugDescribe(focusSnapshot))")
     try await $refreshSessionEvent.withValue(event) {
@@ -153,11 +140,20 @@ func runRefreshSessionBlocking(
                 updateFocusCache(nativeFocused)
                 try checkCancellation()
 
-                if shouldLayoutWorkspaces && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
+                if shouldLayoutWorkspaces && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces(reuseUnchangedFrames: !scope.requiresDiscovery) }
                 try checkCancellation()
 
                 refreshModel()
-                if event.requiresWindowRefreshBarrier {
+                if case .windows(let owners) = scope {
+                    await withTaskGroup(of: Void.self) { group in
+                        for (id, pid) in owners {
+                            guard let window = Window.get(byId: id), window.app.pid == pid else { continue }
+                            group.addTask { @Sendable @MainActor in _ = try? await window.getAxRect() }
+                        }
+                    }
+                    try checkCancellation()
+                }
+                if event.requiresWindowRefreshBarrier && scope.requiresDiscovery {
                     if let refreshOverrideForTests {
                         try await refreshOverrideForTests(scope)
                     } else {
@@ -177,10 +173,11 @@ func runRefreshSessionBlocking(
                     refreshModel()
                 }
                 updateTrayText()
-                await updateWorkspaceSidebarModel()
+                // Monitor layout derives sidebar insets synchronously from configuration.
+                // Title-dependent chrome is updated after window placement.
                 SecureInputPanel.shared.refresh()
                 if shouldLayoutWorkspaces {
-                    try await layoutWorkspaces()
+                    try await layoutWorkspaces(reuseUnchangedFrames: !scope.requiresDiscovery)
                     try checkCancellation()
                     if shouldSyncFocusBackToMacOs(
                         nativeFocused: nativeFocused,
@@ -199,6 +196,7 @@ func runRefreshSessionBlocking(
                         }
                     }
                 }
+                await updateWorkspaceSidebarModel()
                 await updateWindowTabModel()
                 RestartSessionController.shared.checkpoint()
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
@@ -212,6 +210,7 @@ func runLightSession<T>(
     _ event: RefreshSessionEvent,
     _: RunSessionGuard,
     shouldSchedulePostRefresh: Bool = true,
+    scope: WindowRefreshScope = .all,
     body: @MainActor () async throws -> T,
 ) async throws -> T {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
@@ -259,17 +258,19 @@ func runLightSession<T>(
                 let focusAfter = focus.windowOrNil
 
                 updateTrayText()
-                await updateWorkspaceSidebarModel()
+                // Monitor layout derives sidebar insets synchronously from configuration.
+                // Title-dependent chrome is updated after window placement.
                 SecureInputPanel.shared.refresh()
                 try await layoutWorkspaces()
                 try checkCancellation()
+                await updateWorkspaceSidebarModel()
                 await updateWindowTabModel()
                 RestartSessionController.shared.checkpoint()
                 if focusBefore != focusAfter {
                     focusAfter?.nativeFocus() // syncFocusToMacOs
                 }
                 if shouldSchedulePostRefresh {
-                    scheduleRefreshSession(event)
+                    scheduleRefreshSession(event, scope: scope)
                 }
                 debugFocusLog("runLightSession end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focusBefore=\(focusBefore?.windowId.description ?? "nil") focusAfter=\(focusAfter?.windowId.description ?? "nil") logicalFocus=\(debugDescribe(focus))")
                 return result
@@ -427,7 +428,16 @@ enum OptimalHideCorner {
 }
 
 @MainActor
-private func layoutWorkspaces() async throws {
+private func layoutWorkspaces(reuseUnchangedFrames: Bool = false) async throws {
+    try await $reuseGeometryLayoutFrames.withValue(reuseUnchangedFrames) {
+        try await applyWorkspaceLayouts()
+    }
+}
+
+@TaskLocal var reuseGeometryLayoutFrames = false
+
+@MainActor
+private func applyWorkspaceLayouts() async throws {
     if !TrayMenuModel.shared.isEnabled {
         for workspace in Workspace.all {
             workspace.allLeafWindowsRecursive.forEach { window in

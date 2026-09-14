@@ -23,11 +23,11 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
         }
         if isContinuingManagedDragSessionForResizedEvent(windowId) { return }
         guard try await isManipulatedWithMouse(window) else {
-            scheduleRefreshSession(.ax(notif))
+            scheduleRefreshSession(.ax(notif), scope: .geometry(window))
             return
         }
         guard window.parent is TilingContainer else {
-            scheduleRefreshSession(.ax(notif))
+            scheduleRefreshSession(.ax(notif), scope: .geometry(window))
             return
         }
         WindowMouseInteractionDriver.shared.startResize(windowId: window.windowId)
@@ -51,7 +51,6 @@ private let adaptiveWeightBeforeResizeWithMouseKey = TreeNodeUserDataKey<CGFloat
 
 @MainActor
 func updateCompositedResizePreview(_ window: Window, rect: Rect) {
-    syncClosedWindowsCacheToCurrentWorld()
     // The actively resized content stays real. Hide all tab chrome, including the active
     // group, so every inactive group can be represented by one uninterrupted glass pane.
     WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction(showFrameOnly: false)

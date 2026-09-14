@@ -10,6 +10,34 @@ final class LayoutFrameWriteBenchmarkTest: XCTestCase {
     }
 
     @MainActor
+    func testGeometryRefreshBenchmark() async throws {
+        setUpWorkspacesForTests()
+        TrayMenuModel.shared.isEnabled = true
+        config.workspaceSidebar.enabled = false
+        config.windowTabs.enabled = false
+        appForTests = TestApp.shared
+        let workspace = focus.workspace
+        for id in 1 ... 6 { _ = BenchmarkFrameWindow.new(id: UInt32(id), parent: workspace.rootTilingContainer) }
+        setBlockingRefreshOverridesForTests(refresh: { _ in }, normalizeLayoutReason: { _ in })
+        defer { setBlockingRefreshOverridesForTests() }
+        let event = RefreshSessionEvent.ax("AXMoved")
+        try await runRefreshSessionBlocking(event)
+        for scope in [WindowRefreshScope.all, .windows([1: TestApp.shared.pid])] {
+            BenchmarkFrameWindow.reset(delayNanoseconds: 1_000_000)
+            var samples: [Double] = []
+            for _ in 0 ..< 20 {
+                let start = DispatchTime.now().uptimeNanoseconds
+                try await runRefreshSessionBlocking(event, scope: scope)
+                samples.append(Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000)
+            }
+            samples.sort()
+            let expected = scope.requiresDiscovery ? 120 : 20
+            XCTAssertEqual(BenchmarkFrameWindow.frameWriteCount, expected)
+            print("GEOMETRY_BENCHMARK scope=\(scope) simulatedFrameCostMs=1 frameRequests=\(BenchmarkFrameWindow.frameWriteCount) medianMs=\(samples[10]) p95Ms=\(samples[18])")
+        }
+    }
+
+    @MainActor
     private func runScenario(name: String, event: RefreshSessionEvent, iterations: Int) async throws {
         setUpWorkspacesForTests()
 

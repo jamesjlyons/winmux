@@ -37,6 +37,24 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   under `[workspace-sidebar]`. When disabled, edge swipes snap back without the
   creation preview or creation threshold haptic. The new-project button remains
   available.
+- **Use menu bar style** in **Settings → Appearance → Sidebar** gives the sidebar
+  clear Liquid Glass on macOS Tahoe and later, with adaptive foreground colors. It follows Light
+  and Dark Mode and overrides only the sidebar's chrome. Set `menu-bar-style = true`
+  under `[workspace-sidebar]`; the default is `false`. Turning it off restores the
+  configured glass or solid style. Reduce Transparency uses an opaque system background.
+  Earlier systems use ultra-thin material. Menu bar mode removes workspace cards and
+  decorative outlines, uses compact menu typography and hover highlights, marks the
+  active workspace with a checkmark, and replaces the large clock card with a small readout.
+
+## Menu bar style verification
+
+- Build and all 589 tests passed, including config defaults, legacy compatibility,
+  invalid values, and toggling the setting without changing the saved chrome color.
+- Generated 180 production-view fixtures across glass, solid, and menu bar styles,
+  light/dark appearances, 1/3/12 projects, and widths from 28 to 240 points. Inspected
+  menu bar style at expanded, narrow, and 28-point compact widths in both appearances.
+- Rebuilt, signed, and launched WinMux Dev. Temporarily enabled the new material on
+  the live compact sidebar, then restored the original config byte for byte.
 
 ## Verified on September 13, 2026
 
@@ -68,6 +86,12 @@ To generate the visual matrix (without starting the window manager):
 ```sh
 make build
 .build/debug/winmux-marketing-renderer --sidebar-proof .local/sidebar-proofs
+```
+
+For a focused menu bar style pass at 28, 120 and 240 points over light/dark colored backdrops:
+
+```sh
+.build/debug/winmux-marketing-renderer --menu-bar-proof .local/tahoe-menu-bar-proofs
 ```
 
 To run with a separate config:

@@ -2,6 +2,8 @@ import AppKit
 
 @MainActor
 func updateWorkspaceSidebarModel() async {
+    let interval = signposter.beginInterval("Sidebar model")
+    defer { signposter.endInterval("Sidebar model", interval) }
     guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled else {
         clearWorkspaceSidebarModelState()
         return

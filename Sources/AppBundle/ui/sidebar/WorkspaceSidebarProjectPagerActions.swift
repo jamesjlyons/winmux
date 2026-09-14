@@ -166,13 +166,13 @@ extension WorkspaceSidebarProjectPager {
         } label: {
             HStack(spacing: 4) {
                 Text(selectedProject?.displayName ?? "Project")
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .font(.system(size: layout.menuBarStyle ? 13 : 12.5, weight: .medium))
+                    .foregroundStyle(Color.primary.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .foregroundStyle(Color.primary.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isProjectMenuOpen))
@@ -210,7 +210,7 @@ extension WorkspaceSidebarProjectPager {
         .menuStyle(.borderlessButton)
         .padding(.horizontal, 7)
         .frame(height: workspaceSidebarPagerHeight)
-        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.white.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(layout.menuBarStyle ? 0 : 0.07)))
         .help(selectedProject?.displayName ?? "Project")
     }
 
@@ -221,7 +221,7 @@ extension WorkspaceSidebarProjectPager {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(isHovered ? 0.86 : 0.72))
+                .foregroundStyle(Color.primary.opacity(isHovered ? 0.86 : 0.72))
                 .frame(width: workspaceSidebarDropdownHeight - (workspaceSidebarDropdownPadding * 2))
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: false))
         }

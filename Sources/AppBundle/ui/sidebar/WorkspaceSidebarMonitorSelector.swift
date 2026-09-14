@@ -5,6 +5,7 @@ import SwiftUI
 // MARK: - Monitor Selector
 
 struct WorkspaceSidebarMonitorSelector: View {
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     let scopes: [WorkspaceSidebarMonitorScopeViewModel]
     let projects: [WorkspaceSidebarProjectViewModel]
     let selectedScopeId: String
@@ -118,7 +119,7 @@ struct WorkspaceSidebarMonitorSelector: View {
         }
         .padding(.horizontal, 7)
         .frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
-        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.white.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(menuBarStyle ? 0 : 0.07)))
     }
 
     private var fullFilters: some View {
@@ -161,7 +162,7 @@ struct WorkspaceSidebarMonitorSelector: View {
             Text(scope.id == workspaceSidebarFocusedScopeId ? "Focus" : scope.displayName)
                 .font(.system(size: 12.5, weight: isActive ? .semibold : .medium))
                 .lineLimit(1)
-                .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.68))
+                .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.68))
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))
         }
         .buttonStyle(.plain)
@@ -202,12 +203,12 @@ struct WorkspaceSidebarMonitorSelector: View {
             HStack(spacing: 4) {
                 Text(selectedProject?.displayName ?? "Other Projects")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(Color.primary.opacity(isActive ? 0.86 : 0.72))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(Color.primary.opacity(isActive ? 0.86 : 0.72))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))

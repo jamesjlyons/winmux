@@ -59,6 +59,8 @@ on-mode-changed = []
     show-weekday = true
     # Apply this style to sidebar, tab groups, and switcher chrome. Use 'solid' for opaque color.
     chrome-style = 'liquid-glass'
+    # Give just the sidebar a flat, translucent macOS menu bar look.
+    menu-bar-style = false
     # Used when chrome-style = 'solid'. Choose from the Appearance palette, or use 'custom'.
     solid-chrome-color = 'midnight'
     # Used when solid-chrome-color = 'custom'.

@@ -17,6 +17,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
 
     @State private var isDropTargeted = false
     @State private var isDropSettling = false
+    @State private var isHovered = false
 
     private var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     private var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
@@ -85,16 +86,16 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 if isCompact {
                     Image(systemName: "plus")
                         .font(.system(size: min(14, compactMetrics.badgeFontSize), weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.45))
+                        .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.45))
+                            .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
                         Text("New Workspace")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.48))
+                            .font(.system(size: 13, weight: layout.menuBarStyle ? .regular : .medium))
+                            .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.48))
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
@@ -108,17 +109,20 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 alignment: isCompact ? .center : .leading,
             )
             .background {
-                sectionShape.fill(Color.white.opacity(showsDropTarget ? 0.18 : 0.012))
+                sectionShape.fill(Color.primary.opacity(showsDropTarget ? 0.18 : (layout.menuBarStyle ? (isHovered ? 0.08 : 0) : 0.012)))
             }
             .overlay {
-                sectionShape.strokeBorder(
-                    Color.white.opacity(showsDropTarget ? 0.42 : 0.10),
-                    style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
-                )
+                if !layout.menuBarStyle || showsDropTarget {
+                    sectionShape.strokeBorder(
+                        Color.primary.opacity(showsDropTarget ? 0.42 : 0.10),
+                        style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
+                    )
+                }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
         .accessibilityLabel("New Workspace")
         .help("New Workspace")
     }

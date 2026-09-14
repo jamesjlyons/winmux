@@ -30,6 +30,14 @@ contrast across the sidebar, tab groups, and switcher:
     solid-chrome-color = 'lavender' # Choose any color shown in Appearance, including custom.
 ```
 
+For a flat, translucent macOS menu bar look, enable **Settings → Appearance → Sidebar →
+Use menu bar style**, or set `menu-bar-style = true` under `[workspace-sidebar]`.
+On macOS Tahoe and later, the sidebar uses clear Liquid Glass with a light contrast
+wash, compact menu typography, borderless controls, and a small clock readout. It follows
+Light and Dark Mode and honors Reduce Transparency. Earlier systems use ultra-thin
+material. Turning it off restores the selected chrome style. Tab groups and the switcher
+continue to use the Chrome setting.
+
 To keep the full sidebar visible, reserve its expanded width when laying out tiled windows:
 
 ```toml

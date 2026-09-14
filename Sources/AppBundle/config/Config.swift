@@ -92,6 +92,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var showDate: Bool = true
     var showWeekday: Bool = true
     var chromeStyle: ChromeStyle = .liquidGlass
+    var menuBarStyle: Bool = false
     var solidChromeColor: ChromeSolidColor = .midnight
     var solidChromeCustomColor: String = "#191B20"
     var menuBarReserveHeight: Int = 28
