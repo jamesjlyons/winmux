@@ -14,7 +14,7 @@ struct WorkspaceSidebarCompactMetrics {
 
     var horizontalInset: CGFloat { min(workspaceSidebarSectionInnerHorizontalInset, max(0, (sectionWidth - 18) / 2)) }
     var badgeWidth: CGFloat { min(workspaceSidebarBadgeWidth, max(0, sectionWidth - horizontalInset * 2)) }
-    var badgeFontSize: CGFloat { min(18, max(1, badgeWidth * 0.8)) }
+    var badgeFontSize: CGFloat { min(16, max(1, badgeWidth * 0.72)) }
     var controlHeight: CGFloat { min(38, max(28, sectionWidth + 6)) }
     var cornerRadius: CGFloat { min(workspaceSidebarSectionCornerRadius, max(0, sectionWidth / 3)) }
 }

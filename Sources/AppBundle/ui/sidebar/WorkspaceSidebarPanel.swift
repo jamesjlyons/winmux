@@ -40,6 +40,7 @@ let workspaceSidebarMenuRowSpacing: CGFloat = 3
 let workspaceSidebarMenuRowHorizontalPadding: CGFloat = 10
 let workspaceSidebarHoverAnimation: Animation = MotionToken.hover
 let workspaceSidebarReducedMotionHoverAnimation: Animation = MotionToken.quick
+let workspaceSidebarExpansionDuration: TimeInterval = 0.09
 let workspaceSidebarProjectSwipeIntentThreshold: CGFloat = 5
 let workspaceSidebarProjectSwipeNavigateThreshold: CGFloat = 44
 let workspaceSidebarProjectSwipeCreateThreshold: CGFloat = 104

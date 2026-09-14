@@ -101,7 +101,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .environment(\.workspaceSidebarDensity, density)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
-            .animation(.spring(response: 0.2, dampingFraction: 0.82), value: expansionProgress)
+            .animation(.easeInOut(duration: workspaceSidebarExpansionDuration), value: expansionProgress)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: isHovered)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredWindowId)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredTabGroupId)
@@ -292,7 +292,7 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     var workspaceBadge: some View {
         Text(workspaceBadgeText)
-            .font(.system(size: compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+            .font(.system(size: compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .medium : .regular))
             .monospacedDigit()
             .foregroundStyle(workspaceBadgeForeground)
             .lineLimit(1)
@@ -362,7 +362,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 )
             } else {
                 Text(workspace.displayName)
-                    .font(.system(size: 15, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+                    .font(.system(size: 13, weight: isActiveOnTargetMonitor ? .medium : .regular))
                     .foregroundStyle(isActiveOnTargetMonitor ? Color.white : Color.white.opacity(0.85))
                     .lineLimit(1)
                     .truncationMode(.tail)
