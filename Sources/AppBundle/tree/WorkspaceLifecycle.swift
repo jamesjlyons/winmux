@@ -157,6 +157,7 @@ func pruneEmptyWorkspaces() {
     let retainedEmptyWorkspaceIds = retainedEmptyWorkspaceIdsByScope()
     let focusedWorkspaceBeforePrune = focus.workspace
     let workspacesToRemove = Workspace.all.filter {
+        !RestartSessionController.shared.retainsWorkspace($0.name) &&
         !workspaceShouldSurviveReconciliation($0, retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds)
     }
     var focusedReplacement: Workspace?

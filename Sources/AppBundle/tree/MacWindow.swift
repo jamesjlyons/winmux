@@ -45,8 +45,8 @@ final class MacWindow: Window {
         allWindowsMap[windowId] = window
 
         try await debugWindowsIfRecording(window)
-        let didRestorePersistedFrozenWorld = try await restorePersistedFrozenWorldIfNeeded(newlyDetectedWindow: window)
-        let didRestoreClosedWindowsCache = try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
+        let didRestorePersistedFrozenWorld = RestartSessionController.shared.claims(window)
+        let didRestoreClosedWindowsCache = didRestorePersistedFrozenWorld ? false : try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {
             try await tryOnWindowDetected(window)
         }
@@ -229,6 +229,17 @@ final class MacWindow: Window {
 
     override var isHiddenInCorner: Bool {
         prevUnhiddenProportionalPositionInsideWorkspaceRect != nil
+    }
+
+    /// The parked AX frame is offscreen; persist the user's floating position instead.
+    @MainActor var frameForSessionRestore: CGRect? {
+        if let position = prevUnhiddenProportionalPositionInsideWorkspaceRect, let monitor = nodeMonitor {
+            let size = lastKnownActualRect.map { CGSize(width: $0.width, height: $0.height) } ?? lastFloatingSize ?? .zero
+            return CGRect(x: monitor.rect.minX + monitor.rect.width * position.x,
+                          y: monitor.rect.minY + monitor.rect.height * position.y,
+                          width: size.width, height: size.height)
+        }
+        return lastKnownActualRect.map { CGRect(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height) }
     }
 
     override func getAxSize() async throws -> CGSize? {

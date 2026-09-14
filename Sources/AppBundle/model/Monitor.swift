@@ -27,6 +27,17 @@ protocol Monitor: WinMuxAny {
     var isMain: Bool { get }
 }
 
+extension Monitor {
+    var persistentDisplayUUID: String? {
+        guard !isUnitTest,
+              let screen = NSScreen.screens.first(where: { $0.frame.monitorFrameNormalized() == rect }),
+              let displayId = screen.displayId,
+              let uuid = CGDisplayCreateUUIDFromDisplayID(displayId)?.takeRetainedValue()
+        else { return nil }
+        return CFUUIDCreateString(nil, uuid) as String
+    }
+}
+
 final class LazyMonitor: Monitor {
     private let screen: NSScreen
     let monitorAppKitNsScreenScreensId: Int

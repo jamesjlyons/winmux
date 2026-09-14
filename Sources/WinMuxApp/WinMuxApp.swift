@@ -6,6 +6,7 @@ import SwiftUI
 
 @main
 struct WinMuxApp: App {
+    @NSApplicationDelegateAdaptor(WinMuxApplicationDelegate.self) private var appDelegate
     @StateObject var viewModel = TrayMenuModel.shared
     @StateObject var messageModel = MessageModel.shared
     @StateObject var shortcutSettingsModel = ShortcutSettingsModel.shared

@@ -38,10 +38,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
             openURLString(winmuxNewIssueURL)
         }
         Button("Quit \(winMuxAppDisplayName)") {
-            Task {
-                defer { terminateApp() }
-                try await terminationHandler.beforeTermination()
-            }
+            terminateApp()
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
         if viewModel.isEnabled {

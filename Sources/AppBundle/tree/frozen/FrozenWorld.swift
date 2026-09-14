@@ -2,6 +2,14 @@ struct FrozenWorld: Codable, Sendable {
     let workspaces: [FrozenWorkspace]
     let monitors: [FrozenMonitor]
     let windowIds: Set<UInt32>
+
+    private enum CodingKeys: String, CodingKey { case workspaces, monitors, windowIds }
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(workspaces, forKey: .workspaces)
+        try container.encode(monitors, forKey: .monitors)
+        try container.encode(windowIds.sorted(), forKey: .windowIds)
+    }
 }
 
 @MainActor

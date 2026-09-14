@@ -121,6 +121,7 @@ func runRefreshSessionBlocking(
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
+    if AppShutdownCoordinator.shared.isShuttingDown { return }
     let focusSnapshot = captureRefreshSessionFocusSnapshot()
     debugFocusLog("runRefreshSessionBlocking begin event=\(event) snapshot=\(debugDescribe(focusSnapshot))")
     try await $refreshSessionEvent.withValue(event) {
@@ -181,6 +182,7 @@ func runRefreshSessionBlocking(
                     }
                 }
                 await updateWindowTabModel()
+                RestartSessionController.shared.checkpoint()
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }
         }
@@ -216,7 +218,9 @@ func runLightSession<T>(
                 let focusBefore = focus.windowOrNil
 
                 refreshModel()
+                let sessionLayoutBefore = RestartSessionController.shared.workspaceSignatures()
                 let result = try await body()
+                RestartSessionController.shared.cancelChangedWorkspaces(since: sessionLayoutBefore)
                 try checkCancellation()
                 refreshModel()
 
@@ -228,6 +232,7 @@ func runLightSession<T>(
                 try await layoutWorkspaces()
                 try checkCancellation()
                 await updateWindowTabModel()
+                RestartSessionController.shared.checkpoint()
                 if focusBefore != focusAfter {
                     focusAfter?.nativeFocus() // syncFocusToMacOs
                 }
@@ -342,7 +347,7 @@ private func refresh() async throws {
             try await group.waitForAll()
         }
     }
-    finalizePersistedFrozenWorldAfterRefresh(aliveWindowIds: aliveWindowIds)
+    try await RestartSessionController.shared.restoreAfterDiscovery()
 
     // Garbage collect workspaces after apps, because workspaces contain apps.
     Workspace.reconcileWorkspaceState()

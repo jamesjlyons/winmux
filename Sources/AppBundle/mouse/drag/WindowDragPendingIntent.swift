@@ -185,6 +185,8 @@ private func updateWindowTabReentryPreview(sourceWindowId: UInt32, destination: 
 
 @MainActor
 func applyPendingWindowDragIntentIfPossible() -> Bool {
+    let sessionLayoutBefore = RestartSessionController.shared.workspaceSignatures()
+    defer { RestartSessionController.shared.cancelChangedWorkspaces(since: sessionLayoutBefore) }
     defer { clearPendingWindowDragIntent() }
     let currentMouseLocation = MousePointerTracker.shared.currentSample.point
     guard let pendingWindowDragIntent,
