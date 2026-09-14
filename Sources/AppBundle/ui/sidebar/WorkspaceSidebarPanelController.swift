@@ -42,7 +42,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var isResizingSidebar = false
     let hoverExitTolerance: CGFloat = 20
     let hoverPollInterval: TimeInterval = 1.0 / 30.0
-    let hoverOpenDelay: TimeInterval = 0.05
+    let hoverOpenDelay: TimeInterval = 0
     let hoverCueAnimationResponse: TimeInterval = 0.12
     let animationDuration: TimeInterval = workspaceSidebarExpansionDuration
     let menuTrackingEndGrace: TimeInterval = 0.75

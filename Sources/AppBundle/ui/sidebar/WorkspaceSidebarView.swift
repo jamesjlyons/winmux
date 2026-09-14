@@ -695,7 +695,7 @@ extension WorkspaceSidebarView {
         )
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
-        .padding(.top, snapshot.configuration.topPadding)
+        .padding(.top, max(snapshot.configuration.topPadding, workspaceSidebarContentLeadingInset))
         .padding(.bottom, workspaceSidebarSectionGap)
         .zIndex(100)
     }
