@@ -57,6 +57,6 @@ struct WorkspaceSidebarStatusView: View {
         }
         .frame(width: sectionWidth, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: workspaceSidebarExpansionDuration), value: isCompact)
+        .animation(isCompact ? workspaceSidebarCollapseAnimation : workspaceSidebarExpansionAnimation, value: isCompact)
     }
 }

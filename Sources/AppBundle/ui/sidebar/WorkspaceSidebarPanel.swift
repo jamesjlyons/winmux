@@ -40,7 +40,10 @@ let workspaceSidebarMenuRowSpacing: CGFloat = 3
 let workspaceSidebarMenuRowHorizontalPadding: CGFloat = 10
 let workspaceSidebarHoverAnimation: Animation = MotionToken.hover
 let workspaceSidebarReducedMotionHoverAnimation: Animation = MotionToken.quick
-let workspaceSidebarExpansionDuration: TimeInterval = 0.09
+let workspaceSidebarExpansionDuration: TimeInterval = 0.2
+let workspaceSidebarExpansionAnimation: Animation = .spring(response: 0.14, dampingFraction: 0.9)
+let workspaceSidebarCollapseDuration: TimeInterval = 0.08
+let workspaceSidebarCollapseAnimation: Animation = .spring(response: 0.05, dampingFraction: 0.9)
 let workspaceSidebarProjectSwipeIntentThreshold: CGFloat = 5
 let workspaceSidebarProjectSwipeNavigateThreshold: CGFloat = 44
 let workspaceSidebarProjectSwipeCreateThreshold: CGFloat = 104
@@ -91,7 +94,7 @@ extension WorkspaceSidebarPanel {
             updateMousePassthrough()
             return
         }
-        animateVisibleSidebarWidth(expandedWidth, animation: .easeInOut(duration: animationDuration))
+        animateVisibleSidebarWidth(expandedWidth, animation: workspaceSidebarExpansionAnimation)
     }
 
     func cancelExpansionWork() {
@@ -693,7 +696,7 @@ extension WorkspaceSidebarPanel {
             refresh()
         }
         if viewModel.workspaceSidebarVisibleWidth != collapsedWidth {
-            animateVisibleSidebarWidth(collapsedWidth, animation: .easeInOut(duration: animationDuration))
+            animateVisibleSidebarWidth(collapsedWidth, animation: workspaceSidebarCollapseAnimation)
         } else {
             updateMousePassthrough()
         }
@@ -746,7 +749,7 @@ extension WorkspaceSidebarPanel {
                 debugWorkspaceSidebarHoverLog("collapseFire cancelled panel=\(self.monitorScopeId) inside=\(inside) locked=\(locked)")
                 return
             }
-            self.animateVisibleSidebarWidth(collapsedWidth, animation: .easeInOut(duration: self.animationDuration))
+            self.animateVisibleSidebarWidth(collapsedWidth, animation: workspaceSidebarCollapseAnimation)
             self.scheduleCollapseFinalize()
         }
         pendingCollapse = collapse
@@ -771,7 +774,7 @@ extension WorkspaceSidebarPanel {
             self.updateMousePassthrough()
         }
         pendingCollapseFinalize = finalize
-        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration, execute: finalize)
+        DispatchQueue.main.asyncAfter(deadline: .now() + workspaceSidebarCollapseDuration, execute: finalize)
     }
 }
 extension WorkspaceSidebarPanel {
