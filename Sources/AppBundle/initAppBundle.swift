@@ -34,7 +34,8 @@ import Foundation
 
         try await waitForAccessibilityPermissions()
         await toggleReleaseServerIfDebug(.off)
-        requestScreenRecordingPermissionsIfNeeded()
+        // Screen capture is optional. Request it only from a settings action, so a
+        // denied or stale permission does not show a system prompt on every launch.
         startUnixSocketServer()
         GlobalObserver.initObserver()
         MonitorConfigurationObserver.shared.startObserving()
