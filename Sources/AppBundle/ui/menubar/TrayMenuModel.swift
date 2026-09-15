@@ -22,7 +22,9 @@ public final class TrayMenuModel: ObservableObject {
     @Published var workspaceSidebarShowsMonitorSelector: Bool = false
     @Published var workspaceSidebarDropPreview: WorkspaceSidebarDropPreviewViewModel? = nil
     @Published var windowTabStrips: [WindowTabStripViewModel] = []
-    @Published var isWorkspaceSidebarExpanded: Bool = false
+    // Controller bookkeeping; the rendered snapshot observes visibleWidth instead.
+    // Publishing this separately forces another layout before/after the width animation.
+    var isWorkspaceSidebarExpanded: Bool = false
     @Published var workspaceSidebarVisibleWidth: CGFloat = 0
     /// Transient and panel-local; never synchronized from the shared tray model.
     @Published var workspaceSidebarBrowseMode: WorkspaceSidebarBrowseMode = .activeProject

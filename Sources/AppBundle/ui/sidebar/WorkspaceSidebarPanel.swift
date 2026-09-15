@@ -41,10 +41,11 @@ let workspaceSidebarMenuRowSpacing: CGFloat = 3
 let workspaceSidebarMenuRowHorizontalPadding: CGFloat = 10
 let workspaceSidebarHoverAnimation: Animation = MotionToken.hover
 let workspaceSidebarReducedMotionHoverAnimation: Animation = MotionToken.quick
-let workspaceSidebarExpansionDuration: TimeInterval = 0.2
-let workspaceSidebarExpansionAnimation: Animation = .spring(response: 0.14, dampingFraction: 0.9)
-let workspaceSidebarCollapseDuration: TimeInterval = 0.08
-let workspaceSidebarCollapseAnimation: Animation = .spring(response: 0.05, dampingFraction: 0.9)
+let workspaceSidebarExpansionDuration: TimeInterval = 0.14
+let workspaceSidebarExpansionAnimation: Animation = .easeOut(duration: workspaceSidebarExpansionDuration)
+let workspaceSidebarCollapseDuration: TimeInterval = 0.1
+let workspaceSidebarCollapseAnimation: Animation = .easeOut(duration: workspaceSidebarCollapseDuration)
+let workspaceSidebarCollapseDelay: TimeInterval = 0.04
 let workspaceSidebarProjectSwipeIntentThreshold: CGFloat = 5
 let workspaceSidebarProjectSwipeNavigateThreshold: CGFloat = 44
 let workspaceSidebarProjectSwipeCreateThreshold: CGFloat = 104
@@ -73,8 +74,14 @@ let workspaceSidebarProjectColorPresets: [WorkspaceSidebarProjectColorPreset] = 
 ]
 extension WorkspaceSidebarPanel {
     func animateVisibleSidebarWidth(_ width: CGFloat, animation: Animation) {
+        guard viewModel.workspaceSidebarVisibleWidth != width else { return }
+        let interval = signposter.beginInterval("Sidebar width publication", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("Sidebar width publication", interval) }
         debugWorkspaceSidebarHoverLog("animateWidth panel=\(monitorScopeId) from=\(viewModel.workspaceSidebarVisibleWidth) to=\(width) frame=\(frame) mouse=\(NSEvent.mouseLocation) ignores=\(ignoresMouseEvents) expanded=\(viewModel.isWorkspaceSidebarExpanded)")
-        withAnimation(animation) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        var transaction = Transaction(animation: reduceMotion ? nil : animation)
+        transaction.disablesAnimations = reduceMotion
+        withTransaction(transaction) {
             viewModel.workspaceSidebarVisibleWidth = width
         }
         updateMousePassthrough()
@@ -87,10 +94,15 @@ extension WorkspaceSidebarPanel {
         // action fires. They must retain the current presentation's full width.
         let expandedWidth = viewModel.workspaceSidebarBrowseMode == .organize ? expandedPresentationWidth : requestedWidth
         debugWorkspaceSidebarHoverLog("expandSidebar panel=\(monitorScopeId) target=\(expandedWidth) visible=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
-        pendingExpand?.cancel()
-        pendingExpand = nil
+        cancelExpansionWork()
+        // Pointer movement inside an open sidebar is not another transition. Avoid
+        // republishing the model and restarting the view's search/expansion work.
+        guard !viewModel.isWorkspaceSidebarExpanded || viewModel.workspaceSidebarVisibleWidth != expandedWidth else {
+            updateMousePassthrough()
+            return
+        }
         NotificationCenter.default.post(name: workspaceSidebarWillExpandNotification, object: self)
-        viewModel.isWorkspaceSidebarExpanded = true
+        viewModel.setIfChanged(\.isWorkspaceSidebarExpanded, true)
         if !isVisible {
             refresh()
         }
@@ -726,7 +738,7 @@ extension WorkspaceSidebarPanel {
         let needsCollapse =
             viewModel.isWorkspaceSidebarExpanded ||
             viewModel.workspaceSidebarVisibleWidth != collapsedWidth
-        guard needsCollapse, pendingCollapse == nil else {
+        guard needsCollapse, pendingCollapse == nil, pendingCollapseFinalize == nil else {
             debugWorkspaceSidebarHoverLog("handleHoverExit noop panel=\(monitorScopeId) needsCollapse=\(needsCollapse) pendingCollapse=\(pendingCollapse != nil)")
             return
         }
@@ -734,9 +746,8 @@ extension WorkspaceSidebarPanel {
     }
 
     func scheduleCollapse(collapsedWidth: CGFloat) {
-        guard !config.workspaceSidebar.alwaysExpanded else { return }
+        guard !config.workspaceSidebar.alwaysExpanded, pendingCollapse == nil, pendingCollapseFinalize == nil else { return }
         debugWorkspaceSidebarHoverLog("scheduleCollapse panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) mouse=\(NSEvent.mouseLocation)")
-        NotificationCenter.default.post(name: workspaceSidebarWillCollapseNotification, object: self)
         let collapse = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingCollapse = nil
@@ -752,11 +763,14 @@ extension WorkspaceSidebarPanel {
                 debugWorkspaceSidebarHoverLog("collapseFire cancelled panel=\(self.monitorScopeId) inside=\(inside) locked=\(locked)")
                 return
             }
+            // Keep content intact during the short exit grace period. Start its
+            // transition together with the width change, after cancellation checks.
+            NotificationCenter.default.post(name: workspaceSidebarWillCollapseNotification, object: self)
             self.animateVisibleSidebarWidth(collapsedWidth, animation: workspaceSidebarCollapseAnimation)
             self.scheduleCollapseFinalize()
         }
         pendingCollapse = collapse
-        let collapseDelay: TimeInterval = viewModel.isWorkspaceSidebarExpanded ? 0.16 : 0
+        let collapseDelay: TimeInterval = viewModel.isWorkspaceSidebarExpanded ? workspaceSidebarCollapseDelay : 0
         DispatchQueue.main.asyncAfter(deadline: .now() + collapseDelay, execute: collapse)
     }
 
@@ -813,13 +827,8 @@ extension WorkspaceSidebarPanel {
         menuTrackingDepth -= 1
         guard menuTrackingDepth == 0 else { return }
         menuTrackingGraceUntil = Date().addingTimeInterval(menuTrackingEndGrace)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
-            self?.updateHoverStateFromMousePosition()
-        }
-        // The 0.08s recheck lands inside the grace period, whose expansion lock swallows a
-        // hover exit. With a stationary cursor no pointer event re-evaluates after the grace
-        // expires, so schedule one recheck just past it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + menuTrackingEndGrace + 0.05) { [weak self] in
+        // Recheck once after grace expires, even if the pointer stopped moving.
+        DispatchQueue.main.asyncAfter(deadline: .now() + menuTrackingEndGrace + 0.01) { [weak self] in
             self?.updateHoverStateFromMousePosition()
         }
     }

@@ -11,8 +11,6 @@ struct WorkspaceSidebarView: View {
     @State var projectSwipeDidCrossBreakPoint = false
     @State var projectPagerWidth: CGFloat = 0
     @State var activeInUseOverrideWorkspaceName: String? = nil
-    @State var isSidebarCollapsing = false
-    @State var isSidebarExpanding = false
     @State var renamingProjectId: WorkspaceProjectId? = nil
     @State var renamingProjectText = ""
     @State var renamingWorkspaceName: String? = nil
@@ -57,11 +55,8 @@ struct WorkspaceSidebarView: View {
             if visibleWidth <= collapsedWidth + 0.5 {
                 resetTransientSidebarState()
                 finishSidebarSearch(clearText: true)
-            } else if visibleWidth >= collapsedWidth + 8 {
-                isSidebarCollapsing = false
             }
             if visibleWidth >= expandedWidth - 0.5 {
-                isSidebarExpanding = false
                 beginSidebarSearchIfNeeded()
             }
         }
@@ -87,20 +82,10 @@ struct WorkspaceSidebarView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
-            guard snapshot.visibleWidth > collapsedWidth + 0.5 else {
-                isSidebarCollapsing = false
-                return
-            }
             finishSidebarSearch(clearText: true)
-            withAnimation(.easeOut(duration: 0.08)) {
-                isSidebarCollapsing = true
-                isSidebarExpanding = false
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillExpandNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
-            isSidebarCollapsing = false
-            isSidebarExpanding = true
             let panel = notificationPanel(from: notification)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
                 beginSidebarSearchIfNeeded(panel: panel)
@@ -169,7 +154,7 @@ struct WorkspaceSidebarView: View {
 
     func beginSidebarSearchIfNeeded(panel: WorkspaceSidebarPanel? = nil) {
         guard renamingProjectId == nil, renamingWorkspaceName == nil, !isSearchEditing else { return }
-        guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 || isSidebarExpanding else { return }
+        guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 else { return }
         let editingPanel = panel ?? currentPanel() ?? WorkspaceSidebarPanel.shared
         adoptCommandSidebarSearchIfNeeded(panel: editingPanel)
     }
@@ -592,8 +577,6 @@ extension WorkspaceSidebarView {
     func resetTransientSidebarState() {
         showsPinnedActiveWorkspaceForBrowsedProject = true
         activeInUseOverrideWorkspaceName = nil
-        isSidebarCollapsing = false
-        isSidebarExpanding = false
         finishWorkspaceRename(cancelled: true)
         resetProjectEdgeDrag()
         resetProjectSwipeWithoutAnimation()

@@ -75,13 +75,6 @@ extension WorkspaceSidebarView {
 
             if isOrganizing {
                 EmptyView()
-            } else if (isSidebarCollapsing && !isCompact) || (isSidebarExpanding && isCompact) {
-                let compactProjectReserveHeight = min(
-                    max(CGFloat(snapshot.projects.count) * workspaceSidebarProjectDotFrameHeight, workspaceSidebarPagerHeight),
-                    workspaceSidebarProjectDotFrameHeight * 5
-                )
-                Color.clear
-                    .frame(height: isCompact ? compactProjectReserveHeight + 8 : workspaceSidebarCollapseReservedProjectPagerHeight)
             } else {
                 projectPagerSection(
                     expansionProgress: expansionProgress,
@@ -140,8 +133,6 @@ extension WorkspaceSidebarView {
         .environment(\.workspaceSidebarMenuBarStyle, snapshot.configuration.menuBarStyle)
     }
 }
-
-private let workspaceSidebarCollapseReservedProjectPagerHeight = workspaceSidebarPagerHeight + 10
 
 extension WorkspaceSidebarView {
     func workspaceSidebarContentFrameWidth(expansionProgress: CGFloat) -> CGFloat {

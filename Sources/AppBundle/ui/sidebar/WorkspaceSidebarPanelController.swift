@@ -42,12 +42,12 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var dropTargets: [WorkspaceSidebarDropTarget] = []
     var persistentExpansionWidth: CGFloat?
     var isResizingSidebar = false
-    let hoverExitTolerance: CGFloat = 20
-    let hoverPollInterval: TimeInterval = 1.0 / 30.0
+    let hoverExitTolerance: CGFloat = 6
+    let hoverPollInterval: TimeInterval = 1.0 / 60.0
     let hoverOpenDelay: TimeInterval = 0
     let hoverCueAnimationResponse: TimeInterval = 0.12
     let animationDuration: TimeInterval = workspaceSidebarExpansionDuration
-    let menuTrackingEndGrace: TimeInterval = 0.75
+    let menuTrackingEndGrace: TimeInterval = 0.12
     let edgeTrapBandWidth: CGFloat = 18
     let edgeTrapReleaseVelocityThreshold: CGFloat = 4
     let edgeTrapReleaseDelay: TimeInterval = 0.2
