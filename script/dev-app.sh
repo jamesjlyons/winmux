@@ -6,6 +6,14 @@ app_name='WinMux Dev.app'
 build_app="$repo_dir/.local/dev-build/$app_name"
 install_app="${DEV_INSTALL_DIR:-/Applications}/$app_name"
 signing_identity="${DEV_SIGNING_IDENTITY:-Apple Development}"
+# Direct packaging keeps the historical Debug default. `make dev-build` selects
+# the optimized Release configuration, still compiled with -DDEBUG for Dev identity.
+build_configuration="${DEV_BUILD_CONFIGURATION:-debug}"
+case "$build_configuration" in
+    debug|release) ;;
+    *) echo 'DEV_BUILD_CONFIGURATION must be debug or release.' >&2; exit 2 ;;
+esac
+binary_dir="$repo_dir/.build/$build_configuration"
 
 verify_signature() {
     codesign --verify --deep --strict "$1"
@@ -24,18 +32,19 @@ case "${1:-build}" in
         trap 'rm -rf "$staging_dir"' EXIT
         staged_app="$staging_dir/$app_name"
         mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources"
-        cp "$repo_dir/.build/debug/WinMuxApp" "$staged_app/Contents/MacOS/WinMuxApp"
-        ditto "$repo_dir/.build/debug/Sparkle.framework" "$staged_app/Contents/MacOS/Sparkle.framework"
-        for bundle in "$repo_dir"/.build/debug/*.bundle; do
+        cp "$binary_dir/WinMuxApp" "$staged_app/Contents/MacOS/WinMuxApp"
+        ditto "$binary_dir/Sparkle.framework" "$staged_app/Contents/MacOS/Sparkle.framework"
+        for bundle in "$binary_dir"/*.bundle; do
             [ ! -d "$bundle" ] || ditto "$bundle" "$staged_app/Contents/Resources/$(basename "$bundle")"
         done
-        python3 - "$staged_app/Contents/Info.plist" "${VERSION:-0.0.0}" <<'PY'
+        python3 - "$staged_app/Contents/Info.plist" "${VERSION:-0.0.0}" "$build_configuration" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'wb') as f:
     plistlib.dump(dict(CFBundleExecutable='WinMuxApp', CFBundleIdentifier='com.zimengxiong.winmux.debug',
                       CFBundleName='WinMux Dev', CFBundleDisplayName='WinMux Dev', CFBundlePackageType='APPL',
                       CFBundleVersion=sys.argv[2], CFBundleShortVersionString=sys.argv[2],
-                      LSUIElement=True, LSMinimumSystemVersion='13.0', NSHighResolutionCapable=True), f)
+                      LSUIElement=True, LSMinimumSystemVersion='13.0', NSHighResolutionCapable=True,
+                      WinMuxBuildConfiguration=sys.argv[3]), f)
 PY
         # Sign the app as a complete bundle; preserve valid vendor signatures on nested frameworks.
         codesign --force --sign "$signing_identity" --entitlements "$repo_dir/resources/WinMux.entitlements" "$staged_app"

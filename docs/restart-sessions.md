@@ -39,7 +39,8 @@ An **Apple Development** certificate and its private key must be available in th
 login keychain. The scripts deliberately fail if signing is unavailable.
 
 ```sh
-make dev-build                      # compile and sign, without stopping the app
+make dev-build                      # optimized Dev build and signing; leaves the running app alone
+make dev-test                       # test the same optimized Dev configuration
 # Quit WinMux Dev so it saves its session.
 ./script/dev-app.sh install          # installs /Applications/WinMux Dev.app
 make dev-run                        # runs that installed app
@@ -52,6 +53,15 @@ app first. `DEV_SIGNING_IDENTITY` can select a specific certificate (default:
 verifies that each replacement satisfies the previous app's designated code
 requirement before replacing it, and refuses to replace a running Dev bundle.
 The regular `/Applications/WinMux.app` is not replaced.
+
+Daily Dev builds use SwiftPM's `release` optimization with `-DDEBUG`. That explicit
+flag preserves the Dev app identity, socket, session directory, and disabled automatic
+updates. Use `make dev-build DEV_BUILD_CONFIGURATION=debug` for an unoptimized build
+that is easier to step through in a debugger; the same option applies to `dev-test`.
+`make build` remains the regular Debug build. Direct `script/dev-app.sh build`
+packaging retains its historical Debug default; pass `DEV_BUILD_CONFIGURATION=release`
+only after compiling with `swift build -c release -Xswiftc -DDEBUG`.
+See [overall app speed](app-speed.md) for measurements and limitations.
 
 Moving from an old ad-hoc build may require granting Accessibility and Screen
 Recording once to the signed **WinMux Dev** app. Subsequent updates using this

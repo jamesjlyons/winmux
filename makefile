@@ -9,10 +9,11 @@ RELEASE_TAG ?= v$(VERSION)
 RELEASE_NOTES ?= auto
 PUBLISH ?= 1
 APP_INSTALL_DIR ?= /Applications
+DEV_BUILD_CONFIGURATION ?= release
 SPARKLE_PUBLIC_KEY ?= kcc3956V3+Yo8GtwFJ8Odb9sphIr09/9dsuoYBNtxf0=
 ARGS ?=
 
-.PHONY: dev-build dev-install dev-run generate xcodeproj build build-clean run run-clean cli release install installed clean
+.PHONY: dev-build dev-test dev-install dev-run generate xcodeproj build build-clean run run-clean cli release install installed clean
 
 generate:
 	/bin/bash -lc 'cd "$(CURDIR)" && \
@@ -49,8 +50,13 @@ build-clean:
 	/bin/bash -lc 'cd "$(CURDIR)" && rm -rf .build .debug'
 	$(MAKE) build VERSION="$(VERSION)"
 
-dev-build: build
-	VERSION="$(VERSION)" ./script/dev-app.sh build
+dev-build:
+	$(MAKE) generate VERSION="$(VERSION)"
+	/bin/bash -lc 'cd "$(CURDIR)" && source ./script/setup.sh && swift build -c "$(DEV_BUILD_CONFIGURATION)" -Xswiftc -DDEBUG'
+	VERSION="$(VERSION)" DEV_BUILD_CONFIGURATION="$(DEV_BUILD_CONFIGURATION)" ./script/dev-app.sh build
+
+dev-test:
+	/bin/bash -lc 'cd "$(CURDIR)" && source ./script/setup.sh && swift test -c "$(DEV_BUILD_CONFIGURATION)" -Xswiftc -DDEBUG'
 
 dev-install: dev-build
 	./script/dev-app.sh install

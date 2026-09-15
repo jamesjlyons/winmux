@@ -5,6 +5,9 @@ This follow-up covers all six opportunities identified in
 [the initial deep dive](performance-deep-dive.md). Four have targeted implementations;
 two have additional profiling support and explicitly remain measurement-dependent.
 
+The next [overall app speed pass](app-speed.md) compares compiler optimization and live
+interaction latency, and makes optimized builds the default for everyday Dev use.
+
 ## Implemented
 
 ### 1. Session disk work runs outside the main actor
