@@ -46,7 +46,7 @@ struct ShortcutBehaviorSettingsView: View {
                 SettingsToggle("Reload config when it changes", isOn: $autoReloadConfig, help: "Apply valid edits saved from another editor automatically.") { persistRootBool("auto-reload-config", autoReloadConfig) }
             }
             SettingsSection("Default layout") {
-                SettingsPicker("Root layout", selection: $defaultLayout, help: "Used for new workspaces.") {
+                SettingsPicker("Root layout", selection: $defaultLayout, help: "Used for new groups.") {
                     Text("Tiles").tag(Layout.tiles)
                     Text("Tab group").tag(Layout.tabGroup)
                 } onChange: { persistRootString("default-root-container-layout", defaultLayout.rawValue) }
@@ -60,8 +60,8 @@ struct ShortcutBehaviorSettingsView: View {
                     Text("Rectangle").tag("rectangle")
                 } onChange: { persistRootString("shortcuts-preset", shortcutsPreset) }
             }
-            SettingsSection("Workspaces") {
-                SettingsTextField("Persistent workspaces", text: $persistentWorkspaces, help: "Comma-separated workspace names that remain available when empty.") {
+            SettingsSection("Groups") {
+                SettingsTextField("Persistent groups", text: $persistentWorkspaces, help: "Comma-separated group names that remain available when empty.") {
                     persistConfig(section: nil, key: "persistent-workspaces", value: tomlStringArray(persistentWorkspaces))
                 }
             }
@@ -123,16 +123,16 @@ struct ShortcutAppearanceSettingsView: View {
             }
             SettingsSection("Sidebar") {
                 SettingsToggle("Use menu bar style", isOn: $menuBarStyle, help: "Give the sidebar a flat, translucent macOS menu bar look that follows Light and Dark Mode. Overrides the sidebar's chrome style.") { sidebarBool("menu-bar-style", menuBarStyle) }
-                SettingsToggle("Show sidebar", isOn: $sidebarEnabled, help: "Show the workspace rail on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
+                SettingsToggle("Show sidebar", isOn: $sidebarEnabled, help: "Show the sidebar on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
                 SettingsToggle("Focus sidebar monitor only", isOn: $sidebarFocusEnabled, help: "Show the sidebar only on the focused monitor when monitor scope allows it.") { sidebarBool("enable-focus", sidebarFocusEnabled) }
                 SettingsToggle("Reveal sidebar at the display edge", isOn: $sidebarAutoHide, help: "Hide the compact rail until the pointer reaches the left edge.") { sidebarBool("auto-hide", sidebarAutoHide) }
                 SettingsToggle("Keep sidebar expanded", isOn: $sidebarAlwaysExpanded, help: "Reserve the full sidebar width for tiled windows.") { sidebarBool("always-expanded", sidebarAlwaysExpanded) }
-                SettingsToggle("Swipe to create projects", isOn: $swipeToCreateProjects, help: "Create a project by swiping past the first or last project. Swipes always switch between existing projects.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
+                SettingsToggle("Swipe to create spaces", isOn: $swipeToCreateProjects, help: "Create a space by swiping past the first or last space. Swipes always switch between existing spaces.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
                 SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
                 SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
                 SettingsStepper("Menu bar reserve", value: $menuBarReserveHeight, range: 0...72, help: "Use 0 px when the macOS menu bar auto-hides.") { sidebarInt("menu-bar-reserve-height", menuBarReserveHeight) }
-                SettingsPicker("Deleting projects", selection: $projectDeletionAction, help: "Choose what happens to the project's windows.") {
-                    Text("Close project windows").tag(WorkspaceProjectDeletionAction.closeWindows)
+                SettingsPicker("Deleting spaces", selection: $projectDeletionAction, help: "Choose what happens to the space's windows.") {
+                    Text("Close space windows").tag(WorkspaceProjectDeletionAction.closeWindows)
                     Text("Move windows elsewhere").tag(WorkspaceProjectDeletionAction.moveWindowsToFallback)
                 } onChange: { persist("workspace-sidebar", "project-deletion-action", "'\(projectDeletionAction.rawValue)'") }
             }
@@ -176,13 +176,13 @@ struct ShortcutAutomationSettingsView: View {
     var body: some View {
         SettingsScrollView {
             SettingsSection("Event actions") {
-                SettingsMultilineField("On workspace change", text: $workspaceCommands, help: "One command per line. Commands run after changing workspaces.") { saveCommands("exec-on-workspace-change", workspaceCommands) }
+                SettingsMultilineField("On group change", text: $workspaceCommands, help: "One command per line. Commands run after changing groups.") { saveCommands("exec-on-workspace-change", workspaceCommands) }
                 SettingsMultilineField("On focus change", text: $focusCommands, help: "One command per line. Commands run after the focused window changes.") { saveCommands("on-focus-changed", focusCommands) }
                 SettingsMultilineField("On focused monitor change", text: $monitorCommands, help: "One command per line. Commands run after the active display changes.") { saveCommands("on-focused-monitor-changed", monitorCommands) }
                 SettingsMultilineField("On mode change", text: $modeCommands, help: "One command per line. Commands run after a mode changes.") { saveCommands("on-mode-changed", modeCommands) }
             }
             SettingsSection("Advanced rules") {
-                Text("Window-detected rules, execution environment variables, key remapping, custom modes, tap bindings, sequence bindings, and workspace-to-monitor assignments are all available below as TOML blocks. This keeps their variable-length rules editable without hiding any option.")
+                Text("Window-detected rules, execution environment variables, key remapping, custom modes, tap bindings, sequence bindings, and group-to-display assignments are all available below as TOML blocks. This keeps their variable-length rules editable without hiding any option.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)

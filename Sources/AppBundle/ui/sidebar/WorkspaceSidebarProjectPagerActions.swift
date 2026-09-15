@@ -117,7 +117,7 @@ extension WorkspaceSidebarProjectPager {
 
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename Space") {
             onBeginRenameProject(project)
         }
         Menu("Color") {
@@ -150,7 +150,7 @@ extension WorkspaceSidebarProjectPager {
         Button(role: .destructive) {
             onDeleteProject(project)
         } label: {
-            Text("Delete Project")
+            Text("Delete Space")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

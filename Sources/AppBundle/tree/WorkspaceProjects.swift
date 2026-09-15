@@ -18,7 +18,7 @@ func workspaceProjects() -> [WorkspaceProject] {
             displayName = "Default"
         } else {
             numberedProjectIndex += 1
-            displayName = "Project \(numberedProjectIndex)"
+            displayName = "Space \(numberedProjectIndex)"
         }
         return WorkspaceProject(
             id: project.id,
@@ -32,7 +32,7 @@ func workspaceProjects() -> [WorkspaceProject] {
 
 @MainActor
 func workspaceProjectName(_ projectId: WorkspaceProjectId) -> String {
-    workspaceProjects().first { $0.id == projectId }?.name ?? "Project"
+    workspaceProjects().first { $0.id == projectId }?.name ?? "Space"
 }
 
 @MainActor

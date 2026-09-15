@@ -88,7 +88,7 @@ func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> 
 @MainActor
 func showWorkspaceSidebarError(_ body: String) {
     MessageModel.shared.message = Message(
-        description: "Workspace Sidebar Error",
+        description: "Sidebar Error",
         body: body,
     )
 }
@@ -509,17 +509,17 @@ private func confirmWorkspaceSidebarProjectDeletion(_ project: WorkspaceSidebarP
     let alert = NSAlert()
     switch config.workspaceSidebar.projectDeletionAction {
         case .closeWindows:
-            alert.messageText = "Close Project Windows?"
+            alert.messageText = "Close Space Windows?"
             alert.informativeText = """
-            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the project.
+            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the space.
             """
-            alert.addButton(withTitle: "Close Project")
+            alert.addButton(withTitle: "Close Space")
         case .moveWindowsToFallback:
-            alert.messageText = "Delete Project?"
+            alert.messageText = "Delete Space?"
             alert.informativeText = """
-            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another project.
+            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another space.
             """
-            alert.addButton(withTitle: "Delete Project")
+            alert.addButton(withTitle: "Delete Space")
     }
     alert.addButton(withTitle: "Cancel")
     alert.alertStyle = .warning

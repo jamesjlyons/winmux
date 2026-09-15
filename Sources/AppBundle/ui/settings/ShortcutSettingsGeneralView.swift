@@ -16,7 +16,7 @@ struct ShortcutGeneralView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Deleting projects")
+                                Text("Deleting spaces")
                                 Text("Close windows keeps app confirmation dialogs visible and aborts deletion if a window stays open.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -158,7 +158,7 @@ private extension WorkspaceProjectDeletionAction {
     var settingsTitle: String {
         switch self {
             case .closeWindows:
-                "Close project windows"
+                "Close space windows"
             case .moveWindowsToFallback:
                 "Move windows elsewhere"
         }

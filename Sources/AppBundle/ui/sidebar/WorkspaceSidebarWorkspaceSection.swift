@@ -78,13 +78,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()
                 } label: {
-                    Text("Rename Workspace")
+                    Text("Rename Group")
                 }
                 Divider()
                 Button(role: .destructive) {
                     actions.send(.deleteWorkspace(workspace.name))
                 } label: {
-                    Text("Delete Workspace")
+                    Text("Delete Group")
                 }
             }
             .onHover { hover in
@@ -316,16 +316,16 @@ extension WorkspaceSidebarWorkspaceSection {
         if workspace.isGeneratedName, let initial = workspace.displayName.first {
             return String(initial).uppercased()
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "W"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
     }
 
     var generatedWorkspaceBadgeText: String {
-        let prefix = "Workspace "
+        let prefix = "Group "
         if workspace.displayName.hasPrefix(prefix) {
             let suffix = String(workspace.displayName.dropFirst(prefix.count))
             if !suffix.isEmpty { return suffix }
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "W"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
     }
 
     var workspaceBadgeForeground: Color {
@@ -541,7 +541,7 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .buttonStyle(.plain)
         .help("Window group · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
-        .accessibilityLabel("Group of \(group.windowCount) windows")
+        .accessibilityLabel("Tab group of \(group.windowCount) windows")
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(

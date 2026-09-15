@@ -94,7 +94,7 @@ struct WorkspaceSidebarProjectPager: View {
         }
         .frame(width: sectionWidth, height: pagerHeight, alignment: .bottom)
         .contextMenu {
-            Button("New Project") {
+            Button("New Space") {
                 onCreateProject()
             }
         }

@@ -93,7 +93,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
-                        Text("New Workspace")
+                        Text("New Group")
                             .font(.system(size: 13, weight: layout.menuBarStyle ? .regular : .medium))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.48))
                             .lineLimit(1)
@@ -123,7 +123,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .accessibilityLabel("New Workspace")
-        .help("New Workspace")
+        .accessibilityLabel("New Group")
+        .help("New Group")
     }
 }

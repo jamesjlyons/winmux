@@ -23,7 +23,7 @@ public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool 
                             WorkspaceSidebarWorkspaceViewModel(
                                 name: "proof-\(number)",
                                 projectId: snapshot.activeProjectId,
-                                displayName: "Workspace \(number)",
+                                displayName: "Group \(number)",
                                 sidebarLabel: "",
                                 isGeneratedName: true,
                                 monitorScopeId: snapshot.targetMonitorScopeId,
@@ -37,7 +37,7 @@ public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool 
                     snapshot.projects = (0..<count).map { index in
                         WorkspaceSidebarProjectViewModel(
                             id: index == count - 1 ? snapshot.activeProjectId : WorkspaceProjectId(rawValue: "proof-\(index)"),
-                            displayName: index == count - 1 ? "Design and development" : "Project \(index + 1)",
+                            displayName: index == count - 1 ? "Design and development" : "Space \(index + 1)",
                             colorHex: workspaceSidebarProjectColorPresets[index % workspaceSidebarProjectColorPresets.count].hex
                         )
                     }
@@ -76,7 +76,7 @@ public func renderWinMuxSidebarContextProofImages(in directory: URL) throws {
     snapshot.configuration.menuBarStyle = false
     snapshot.selectedMonitorScopeId = workspaceSidebarFocusedScopeId
     snapshot.monitorScopes.append(WorkspaceSidebarMonitorScopeViewModel(
-        id: workspaceSidebarFocusedScopeId, displayName: "Focused Workspace",
+        id: workspaceSidebarFocusedScopeId, displayName: "Focused Group",
         subtitle: nil, systemImageName: "scope", isFocusedMonitor: false
     ))
     let sidebar = WorkspaceSidebarView(snapshot: snapshot)
@@ -1021,8 +1021,8 @@ private struct MarketingNotesWindow: View {
             VStack(alignment: .leading, spacing: 11) {
                 Text("A calmer desktop")
                     .font(.system(size: 17, weight: .bold))
-                Label("Projects keep work together", systemImage: "checkmark.circle.fill")
-                Label("Tabs reduce workspace sprawl", systemImage: "checkmark.circle.fill")
+                Label("Spaces keep groups together", systemImage: "checkmark.circle.fill")
+                Label("Tabs keep group windows organized", systemImage: "checkmark.circle.fill")
                 Label("The sidebar keeps context visible", systemImage: "checkmark.circle.fill")
                 Spacer()
             }

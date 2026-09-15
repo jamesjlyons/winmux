@@ -10,13 +10,33 @@
 https://github.com/user-attachments/assets/51983568-a168-494f-8ae3-5f50ca1efce1
 
 ## Highlights
-### Projects
-Projects are collection of workspaces. Think of it like a parent/child hiearchy, you can switch between projects. Each project has it's own set of workspaces.
+### Spaces and groups
+Spaces organize your contexts. Each group holds related windows, whether they belong to a project or an activity:
+
+```text
+Tap Five (Space)
+├── Subdivide (Group)
+│   └── Windows
+└── Moment Notes (Group)
+    └── Windows
+
+Personal (Space)
+└── Portfolio (Group)
+    └── Windows
+```
+
+Switch spaces to change context, then select a group to bring its windows into view.
+The sidebar calls the top level **Spaces** (formerly Projects) and the window groups
+**Groups** (formerly Workspaces). Existing custom names and saved layouts are preserved.
+
+Configuration keys and CLI commands retain their existing names for compatibility:
+`project` commands and `project-labels` address Spaces; `workspace` commands and
+`workspace-labels` address Groups.
 
 ### Sidebar
-The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional workspace menu bar dropdowns for most everyday tasks. It provides better visibility into spaces and spatial awareness on the desktop.
+The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional window-manager menu bar dropdowns for most everyday tasks. It makes your spaces, groups, and windows visible on the desktop.
 
-You can drag windows in and out of the sidebar from and to the current workspace. You can rearrange windows across all spaces using the sidebar, including tab groups.
+You can drag windows in and out of the sidebar from and to the current group. You can rearrange windows across groups using the sidebar, including tab groups.
 
 By default the sidebar rests as a compact rail and expands when hovered. To hide the rail
 completely until the pointer reaches the left display edge, enable auto-hide. On macOS 26 and
@@ -84,15 +104,15 @@ For borderless tiling, including no border beside the sidebar:
 ```
 ### Tab Groups
 ![](resources/screenshots/tab-groups.png)
-Tab groups allow you to have many windows occupy the same footprint, similar to Yabai stacks but with browser-like tab behavior. This is useful when you want to have multiple pieces of reference information next to an editor, multiple tabs in different browser profiles, or, when you simply want multiple fullscreen views without the additional friction and overhead of creating a new workspace.
+Tab groups allow you to have many windows occupy the same footprint, similar to Yabai stacks but with browser-like tab behavior. This is useful when you want to have multiple pieces of reference information next to an editor, multiple tabs in different browser profiles, or, when you simply want multiple fullscreen views without the additional friction and overhead of creating a new group.
 
-Unlike stack-only layouts, WinMux tab groups behave more intuitively like you would expect tabs to in browsers, and don't need a keyboard shortcut to activate. You can drag tabs from tab groups into another window's [intent zone](#managed-tiling-mode), or in between workspaces. You can also rearrange tab order within a tab group, and navigate through them with relative and absolute keybindings.
+Unlike stack-only layouts, WinMux tab groups behave more intuitively like you would expect tabs to in browsers, and don't need a keyboard shortcut to activate. You can drag tabs from tab groups into another window's [intent zone](#managed-tiling-mode), or in between groups. You can also rearrange tab order within a tab group, and navigate through them with relative and absolute keybindings.
 
 ### Philosophy
 
 #### Automatic tiling
 
-WinMux tiles newly discovered windows by default. To keep their existing macOS size and position while still using WinMux's sidebar, workspaces, and manual layout commands, disable automatic tiling:
+WinMux tiles newly discovered windows by default. To keep their existing macOS size and position while still using WinMux's sidebar, groups, and manual layout commands, disable automatic tiling:
 
 ```toml
 automatically-tile-new-windows = false
@@ -106,18 +126,18 @@ While dragging a window by its title bar, shake it horizontally to toggle betwee
 enable-shake-to-toggle-tiling = false
 ```
 
-#### Workspaces
-You can NOT create workspaces that have no windows in them. Workspaces with no windows are automatically destroyed.
+#### Groups
+Each space keeps at least one group available. Empty groups may be cleaned up automatically; configured persistent groups remain available.
 
 ### Multi-Monitors
-Monitors share the global project/workspace state. Each monitor can be treated as *independent* from each other. They each just use the sidebar to browse through projects and 'select' a workspace to view. 
+Monitors share spaces and groups. Each monitor can independently browse spaces and select a group to view.
 
-Monitors can not be attached to the same workspace at the same time. They can be on the same project at the same time.
+Monitors cannot show the same group at the same time. They can show different groups from the same space.
 
 #### App Launching
 WinMux supports single-modifer keybindings (e.g. triggering an action on press of `⌘`)
 
-I highly recommend that you configure the apps you use every day to be launch with Left/Right Option+Command, or similar shortcuts, otherwise it might be hard to launch common things into the current workspace (and instead, take you to the other workspace where the app is currently active). Here is some of the apps that I have keybinded:
+I highly recommend that you configure the apps you use every day to be launch with Left/Right Option+Command, or similar shortcuts, otherwise it might be hard to launch common things into the current group (and instead, take you to the other group where the app is currently active). Here is some of the apps that I have keybinded:
 
 ```toml
 [mode.main.binding-tap]

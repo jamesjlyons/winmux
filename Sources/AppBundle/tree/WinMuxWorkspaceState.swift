@@ -89,7 +89,7 @@ struct WinMuxWorkspaceState {
             nextProjectCounter += 1
         }
         defer { nextProjectCounter += 1 }
-        return (WorkspaceProjectId("project-\(nextProjectCounter)"), "Project \(nextProjectCounter)")
+        return (WorkspaceProjectId("project-\(nextProjectCounter)"), "Space \(nextProjectCounter)")
     }
 
     func workspace(named name: String) -> Workspace? {
@@ -129,7 +129,7 @@ struct WinMuxWorkspaceState {
     mutating func ensureProjectExists(_ projectId: WorkspaceProjectId) {
         if projectsById[projectId] == nil {
             let order = nextProjectOrder()
-            registerProject(WorkspaceProject(id: projectId, name: "Project", order: order))
+            registerProject(WorkspaceProject(id: projectId, name: "Space", order: order))
         }
     }
 

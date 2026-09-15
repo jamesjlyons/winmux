@@ -14,7 +14,7 @@ struct WorkspaceShortcutSectionView: View {
             WorkspacePatternRow(model: model, kind: .moveTo)
             Divider()
             DisclosureGroup("Custom overrides", isExpanded: $showsOverrides) {
-                Text("Use an override only when a workspace needs a different shortcut.")
+                Text("Use an override only when a group needs a different shortcut.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
@@ -34,7 +34,7 @@ private struct WorkspacePatternRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(kind == .switchTo ? "Switch workspaces" : "Move window to workspace")
+                Text(kind == .switchTo ? "Switch groups" : "Move window to group")
                 Text(kind.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -84,7 +84,7 @@ private struct WorkspaceOverridesGrid: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
             GridRow {
-                Text("Workspace").foregroundStyle(.secondary)
+                Text("Group").foregroundStyle(.secondary)
                 Text("Switch").foregroundStyle(.secondary)
                 Text("Move").foregroundStyle(.secondary)
             }

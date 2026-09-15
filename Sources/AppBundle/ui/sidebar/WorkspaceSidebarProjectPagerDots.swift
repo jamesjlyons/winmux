@@ -39,7 +39,7 @@ extension WorkspaceSidebarProjectPager {
         )
         .accessibilityLabel(project.displayName)
         .accessibilityValue(isCurrent ? "Selected" : "")
-        .accessibilityHint("Click to switch projects. Drag to rearrange.")
+        .accessibilityHint("Click to switch spaces. Drag to rearrange.")
         .accessibilityAction(named: "Move Earlier") { moveProject(project.id, by: -1) }
         .accessibilityAction(named: "Move Later") { moveProject(project.id, by: 1) }
         .accessibilityAddTraits(isCurrent ? [.isSelected] : [])

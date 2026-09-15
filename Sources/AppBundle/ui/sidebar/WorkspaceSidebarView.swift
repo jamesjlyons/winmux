@@ -1050,7 +1050,7 @@ extension WorkspaceSidebarView {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Close browsed project")
+                .help("Close browsed space")
                 .accessibilityLabel("Stop browsing \(projectName(projectId))")
             } else {
                 Text("Active").font(.system(size: 10)).foregroundStyle(.secondary)
@@ -1119,7 +1119,7 @@ extension WorkspaceSidebarView {
     }
 
     private func projectName(_ projectId: WorkspaceProjectId) -> String {
-        snapshot.projects.first { $0.id == projectId }?.displayName ?? "Project"
+        snapshot.projects.first { $0.id == projectId }?.displayName ?? "Space"
     }
 
     private func projectColor(_ projectId: WorkspaceProjectId) -> Color {

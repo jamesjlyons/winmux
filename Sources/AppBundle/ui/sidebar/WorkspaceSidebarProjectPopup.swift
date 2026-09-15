@@ -92,7 +92,7 @@ struct WorkspaceSidebarProjectPopup: View {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
                     .frame(width: 8)
-                Text("New")
+                Text("New Space")
                     .font(.system(size: 12, weight: .medium))
                 Spacer(minLength: 0)
                 checkmark(isVisible: false)
@@ -108,7 +108,7 @@ struct WorkspaceSidebarProjectPopup: View {
 extension WorkspaceSidebarProjectPopup {
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename Space") {
             onRename(project)
         }
         Menu("Color") {
@@ -125,7 +125,7 @@ extension WorkspaceSidebarProjectPopup {
         Button(role: .destructive) {
             onDelete(project)
         } label: {
-            Text("Delete Project")
+            Text("Delete Space")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

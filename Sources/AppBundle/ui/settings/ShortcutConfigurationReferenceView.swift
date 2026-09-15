@@ -17,16 +17,16 @@ struct ShortcutConfigurationReferenceView: View {
                 }
                 ReferenceSection("Rules and integrations") {
                     ReferenceRow("[exec]", "Inherited environment and explicit environment variables for commands.")
-                    ReferenceRow("[workspace-to-monitor-force-assignment]", "Workspace-to-display assignments.")
+                    ReferenceRow("[workspace-to-monitor-force-assignment]", "Group-to-display assignments.")
                     ReferenceRow("on-window-detected", "Window matching rules and commands to run.")
                     ReferenceRow("on-focus-changed", "Commands that run after the focused window changes.")
                     ReferenceRow("on-focused-monitor-changed", "Commands that run after the active display changes.")
                     ReferenceRow("on-mode-changed", "Commands that run after switching modes.")
                 }
                 ReferenceSection("Named sidebar items") {
-                    ReferenceRow("workspace-labels", "Override visible workspace names.")
-                    ReferenceRow("project-labels", "Override visible project names.")
-                    ReferenceRow("project-colors", "Assign project colors using #RRGGBB values.")
+                    ReferenceRow("workspace-labels", "Override visible group names.")
+                    ReferenceRow("project-labels", "Override visible space names.")
+                    ReferenceRow("project-colors", "Assign space colors using #RRGGBB values.")
                 }
                 Text("The Configuration editor validates the entire file before saving and shows parser errors inline.")
                     .font(.caption)

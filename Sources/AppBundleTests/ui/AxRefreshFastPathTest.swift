@@ -88,7 +88,7 @@ final class AxRefreshFastPathTest: XCTestCase {
         try await runRefreshSessionBlocking(.ax("native-minimize"), layoutWorkspaces: false)
 
         XCTAssertNotNil(Workspace.existing(byName: minimizedWorkspace.name))
-        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "Group 2")
         XCTAssertTrue(
             getOrCreateAdjacentBlankWorkspace(
                 projectId: minimizedWorkspace.projectId,

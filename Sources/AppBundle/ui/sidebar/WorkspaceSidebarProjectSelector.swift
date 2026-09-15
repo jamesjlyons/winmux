@@ -47,7 +47,7 @@ struct WorkspaceSidebarProjectSelector: View {
                         }
                     }
                     Divider()
-                    Button("New Project", action: onCreateProject)
+                    Button("New Space", action: onCreateProject)
                     if projects.count > 1 {
                         Menu("Browse alongside…") {
                             if browsedProjectId != nil {
@@ -82,15 +82,15 @@ struct WorkspaceSidebarProjectSelector: View {
                     }
                     if let activeProject {
                         Divider()
-                        Menu("Manage Project") {
-                            Button("Rename Project") { onRenameProject(activeProject) }
+                        Menu("Manage Space") {
+                            Button("Rename Space") { onRenameProject(activeProject) }
                             Menu("Color") {
                                 Button("Auto") { onSetProjectColor(activeProject, nil) }
                                 ForEach(workspaceSidebarProjectColorPresets) { preset in
                                     Button(preset.name) { onSetProjectColor(activeProject, preset.hex) }
                                 }
                             }
-                            Button("Delete Project", role: .destructive) { onDeleteProject(activeProject) }
+                            Button("Delete Space", role: .destructive) { onDeleteProject(activeProject) }
                                 .disabled(!canDeleteWorkspaceProject(activeProject.id))
                         }
                     }
@@ -99,16 +99,16 @@ struct WorkspaceSidebarProjectSelector: View {
                         Circle()
                             .fill(workspaceSidebarProjectColor(projectId: activeProjectId, configuredHex: activeProject?.colorHex))
                             .frame(width: 7, height: 7)
-                        Text(activeProject?.displayName ?? "Project")
+                        Text(activeProject?.displayName ?? "Space")
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .menuStyle(.borderlessButton)
-                .accessibilityLabel("Project")
-                .accessibilityValue(activeProject?.displayName ?? "Project")
-                .help("Switch project")
+                .accessibilityLabel("Space")
+                .accessibilityValue(activeProject?.displayName ?? "Space")
+                .help("Switch space")
             }
         }
         .padding(.horizontal, 7)
