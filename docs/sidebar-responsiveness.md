@@ -31,7 +31,7 @@ the collapse notification and width change start together after pointer and inte
 checks. A pending finalization prevents another close from being scheduled. Reentry cancels
 either stage and can reverse a close already in progress.
 
-The sidebar uses bounded ease-out animations: 140 ms to open and 100 ms to close. The exit
+The initial optimization used bounded ease-out animations: 140 ms to open and 100 ms to close. The exit
 margin is 6 points and pointer events are coalesced at up to 60 Hz, without an idle timer.
 Menu-end grace is 120 ms, with one recheck 10 ms afterward so a stationary pointer still closes
 the sidebar. Active menus, editors, resize gestures, and drag operations retain their locks.
@@ -113,3 +113,16 @@ Baseline evidence is local in `/tmp/winmux-sidebar-before.trace`,
 Updated evidence is in `/tmp/winmux-sidebar-tests.log`, `/tmp/winmux-sidebar-build.log`,
 `/tmp/winmux-sidebar-after-complete.trace`, `/tmp/winmux-sidebar-after-complete-toggle.log`,
 and `/tmp/winmux-sidebar-complete-comparison.json`.
+
+## Faster opening and closing
+
+Opening now uses a 50 ms ease-out animation, down from 140 ms. Closing uses a 40 ms
+animation and matching finalization interval, down from 100 ms. The sidebar width,
+workspace sections, and status content share the transition animation constants.
+The hover-exit grace remains 40 ms, giving 80 ms of configured close intervals before
+event-delivery and rendering overhead.
+
+The measurements above describe the initial 140 ms opening / 100 ms closing build.
+The final timing build was signed, installed, and WinMux Dev restarted. Tests were
+skipped for these timing adjustments at the user's request. Screen-presentation
+timing was not measured. The build log is `/tmp/winmux-closing-40ms-build.log`.
