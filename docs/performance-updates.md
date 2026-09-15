@@ -2,6 +2,8 @@
 
 See the [September 14 deep dive](performance-deep-dive.md) for the follow-up model/snapshot
 optimizations, before/after benchmarks, and remaining opportunities.
+The [September 15 focus pass](focus-performance.md) covers native focus ordering,
+fullscreen cache reuse, exact-window command work, and live focus measurements.
 
 ## Behavior
 

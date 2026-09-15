@@ -191,6 +191,7 @@ final class MacApp: AbstractApp {
 
     @MainActor func nativeFocus(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
+        signposter.emitEvent("Native focus requested", "window: \(windowId, privacy: .public)")
         MacApp.focusJob?.cancel()
         // Performance optimization. If possible avoid doing AX requests
         // (important for apps which are slow at responding even such basic AX requests. E.g. Godot)
@@ -209,6 +210,8 @@ final class MacApp: AbstractApp {
             nsApp.activate(options: .activateIgnoringOtherApps)
         } else {
             MacApp.focusJob = withWindowAsync(windowId) { [nsApp, axApp] window, job in
+                let interval = signposter.beginInterval("Native focus job", id: signposter.makeSignpostID(), "window: \(windowId, privacy: .public)")
+                defer { signposter.endInterval("Native focus job", interval) }
                 AXUIElementSetAttributeValue(axApp.threadGuarded, kAXFocusedWindowAttribute as CFString, window)
                 // Raise firstly to make sure that by the time we activate the app, the window would be already on top
                 window.set(Ax.isMainAttr, true)

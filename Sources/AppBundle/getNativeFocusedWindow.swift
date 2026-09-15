@@ -20,5 +20,7 @@ private var focusedApp: (any AbstractApp)? {
 
 @MainActor
 func getNativeFocusedWindow() async throws -> Window? {
-    try await focusedApp?.getFocusedWindow()
+    let interval = signposter.beginInterval("Native focus lookup", id: signposter.makeSignpostID())
+    defer { signposter.endInterval("Native focus lookup", interval) }
+    return try await focusedApp?.getFocusedWindow()
 }

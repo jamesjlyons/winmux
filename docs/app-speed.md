@@ -96,12 +96,11 @@ The live comparison is in `/tmp/winmux-speed-lg-debug-geometry.log`,
 
 ## Further work, in priority order
 
-1. **Measure switching and focus latency.** Capture `runLightSession`, `Frame requested`,
-   `Window frame job`, and model signposts during repeated real tab/group switches.
-   `runLightSession` currently reads native focus and fullscreen state before the command,
-   then finishes sidebar/tab model updates before requesting changed native focus.
-   Measure each part before changing ordering or caching state; stale fullscreen/focus
-   information can change which window receives input.
+1. **Extend the [focus responsiveness pass](focus-performance.md) to tab/group gestures.**
+   Exact-window focus now has a repeatable native key-window probe and detailed phase
+   signposts. Light sessions request changed native focus immediately after layout and
+   reuse event-invalidated fullscreen state. Capture repeated tab/group gestures next;
+   command-driven key-window timing does not measure their full animation/presentation path.
 2. **Reduce Accessibility queue delays where traces show them.** Preserve one serialized
    queue per app, cancellation of superseded frame jobs, and geometry corrections.
    Any further batching needs to retain origin correction after resizing and size correction

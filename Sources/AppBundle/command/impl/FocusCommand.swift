@@ -8,9 +8,14 @@ struct FocusCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         // todo bug: floating windows break mru
-        let floatingWindows = args.floatingAsTiling ? try await makeFloatingWindowsSeenAsTiling(workspace: target.workspace) : []
+        // A concrete window ID needs no spatial search or temporary floating-window bindings.
+        let needsFloatingGeometry = switch args.target {
+            case .windowId: false
+            default: args.floatingAsTiling
+        }
+        let floatingWindows = needsFloatingGeometry ? try await makeFloatingWindowsSeenAsTiling(workspace: target.workspace) : []
         defer {
-            if args.floatingAsTiling {
+            if needsFloatingGeometry {
                 restoreFloatingWindows(floatingWindows: floatingWindows, workspace: target.workspace)
             }
         }

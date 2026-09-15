@@ -115,7 +115,7 @@ func runRefreshSessionBlocking(
     optimisticallyPreLayoutWorkspaces: Bool = false,
     scope: WindowRefreshScope = .all,
 ) async throws {
-    let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
+    let state = signposter.beginInterval(#function, id: signposter.makeSignpostID(), "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
     if AppShutdownCoordinator.shared.isShuttingDown { return }
@@ -213,7 +213,7 @@ func runLightSession<T>(
     scope: WindowRefreshScope = .all,
     body: @MainActor () async throws -> T,
 ) async throws -> T {
-    let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
+    let state = signposter.beginInterval(#function, id: signposter.makeSignpostID(), "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if activeRefreshTask != nil, let activeEvent = activeScheduledRefreshEvent {
         pendingRefreshRequest = pendingRefreshRequest.map {
@@ -250,7 +250,12 @@ func runLightSession<T>(
 
                 refreshModel()
                 let sessionLayoutBefore = RestartSessionController.shared.workspaceSignatures()
-                let result = try await body()
+                let result: T
+                do {
+                    let interval = signposter.beginInterval("Light session command", id: signposter.makeSignpostID())
+                    defer { signposter.endInterval("Light session command", interval) }
+                    result = try await body()
+                }
                 RestartSessionController.shared.cancelChangedWorkspaces(since: sessionLayoutBefore)
                 try checkCancellation()
                 refreshModel()
@@ -263,12 +268,14 @@ func runLightSession<T>(
                 SecureInputPanel.shared.refresh()
                 try await layoutWorkspaces()
                 try checkCancellation()
-                await updateWorkspaceSidebarModel()
-                await updateWindowTabModel()
-                RestartSessionController.shared.checkpoint()
+                // Queue native focus as soon as placement is ready. Chrome publication can
+                // suspend; input should reach the selected window while those models update.
                 if focusBefore != focusAfter {
                     focusAfter?.nativeFocus() // syncFocusToMacOs
                 }
+                await updateWorkspaceSidebarModel()
+                await updateWindowTabModel()
+                RestartSessionController.shared.checkpoint()
                 if shouldSchedulePostRefresh {
                     scheduleRefreshSession(event, scope: scope)
                 }
@@ -429,6 +436,8 @@ enum OptimalHideCorner {
 
 @MainActor
 private func layoutWorkspaces(reuseUnchangedFrames: Bool = false) async throws {
+    let interval = signposter.beginInterval("Layout workspaces", id: signposter.makeSignpostID())
+    defer { signposter.endInterval("Layout workspaces", interval) }
     try await $reuseGeometryLayoutFrames.withValue(reuseUnchangedFrames) {
         try await applyWorkspaceLayouts()
     }
