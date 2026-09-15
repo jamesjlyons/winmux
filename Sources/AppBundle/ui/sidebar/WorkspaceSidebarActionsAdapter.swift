@@ -52,6 +52,11 @@ func handleWorkspaceSidebarAction(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
             )
             selectWorkspaceSidebarProject(projectId, viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
+        case .reorderProject(let projectId, let targetProjectId):
+            runWorkspaceSidebarSession {
+                reorderWorkspaceProject(projectId, to: targetProjectId)
+                await updateWorkspaceSidebarModel()
+            }
         case .createProject:
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .renameProject(let projectId, let displayName):

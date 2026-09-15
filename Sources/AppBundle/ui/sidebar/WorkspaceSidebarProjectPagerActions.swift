@@ -40,7 +40,7 @@ extension WorkspaceSidebarProjectPager {
                     }
                 }
                 .padding(.horizontal, 4)
-                .frame(minHeight: workspaceSidebarPagerHeight, alignment: .leading)
+                .frame(minWidth: projectTrackWidth, minHeight: workspaceSidebarPagerHeight, alignment: .center)
                 .background {
                     GeometryReader { geometry in
                         Color.clear

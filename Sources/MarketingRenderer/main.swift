@@ -20,7 +20,9 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if isSidebarProof || isMenuBarProof {
+        if arguments.contains("--sidebar-context-proof") {
+            try renderWinMuxSidebarContextProofImages(in: outputURL)
+        } else if isSidebarProof || isMenuBarProof {
             try renderWinMuxSidebarProofImages(in: outputURL, menuBarOnly: isMenuBarProof)
         } else if isSafariPlasticityProof {
             try renderWinMuxSafariPlasticityProofImage(to: outputURL)

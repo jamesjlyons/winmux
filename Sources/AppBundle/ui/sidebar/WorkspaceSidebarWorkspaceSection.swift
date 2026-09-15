@@ -526,8 +526,8 @@ extension WorkspaceSidebarWorkspaceSection {
             actions.send(.selectWindow(group.representativeWindowId))
         } label: {
             WorkspaceSidebarWindowRow(
-                title: group.title.isEmpty ? "Tab Group" : group.title,
-                badge: group.windowCount > 1 ? "\(group.windowCount)" : nil,
+                title: "\(group.windowCount) \(group.windowCount == 1 ? "window" : "windows")",
+                badge: nil,
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
@@ -540,7 +540,8 @@ extension WorkspaceSidebarWorkspaceSection {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(group.title.isEmpty ? "Tab Group" : group.title)
+        .help("Window group · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
+        .accessibilityLabel("Group of \(group.windowCount) windows")
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(

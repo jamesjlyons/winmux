@@ -67,6 +67,7 @@ enum WorkspaceSidebarAction: Equatable {
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
     case selectProject(WorkspaceProjectId)
+    case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)

@@ -457,6 +457,9 @@ extension WorkspaceSidebarView {
                 browseMode = .activeProject
                 actions.send(.selectProject(projectId))
             },
+            onReorderProject: { projectId, targetProjectId in
+                actions.send(.reorderProject(projectId, to: targetProjectId))
+            },
             onCreateProject: { actions.send(.createProject) },
             onBeginRenameProject: { project in
                 beginProjectRename(project)
@@ -635,44 +638,68 @@ extension WorkspaceSidebarView {
         leadingInset: CGFloat,
         trailingInset: CGFloat,
     ) -> some View {
-        WorkspaceSidebarProjectSelector(
-            scopes: snapshot.monitorScopes,
-            projects: snapshot.projects,
-            selectedScopeId: snapshot.selectedMonitorScopeId,
-            activeProjectId: snapshot.activeProjectId,
-            browsedProjectId: browsedProjectId,
-            sectionWidth: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress),
-            onSelectScope: { scopeId in
-                actions.send(.selectMonitorScope(scopeId))
-            },
-            onSelectProject: { projectId in
-                browseMode = .activeProject
-                actions.send(.selectProject(projectId))
-            },
-            onBrowseProject: { projectId in
-                WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.cancelExpansionWork()
-                browseMode = projectId.map { .split(otherProjectId: $0) } ?? .activeProject
-                showsPinnedActiveWorkspaceForBrowsedProject = false
-            },
-            onCreateProject: { actions.send(.createProject) },
-            onRenameProject: { project in
-                beginProjectRename(project)
-            },
-            renamingProjectId: $renamingProjectId,
-            renamingProjectText: $renamingProjectText,
-            onCommitRenameProject: {
-                finishProjectRename()
-            },
-            onCancelRenameProject: {
-                finishProjectRename(cancelled: true)
-            },
-            onSetProjectColor: { project, colorHex in
-                actions.send(.setProjectColor(project.id, colorHex: colorHex))
-            },
-            onDeleteProject: { project in
-                actions.send(.deleteProject(project.id))
-            },
-        )
+        VStack(alignment: .leading, spacing: 6) {
+            WorkspaceSidebarProjectSelector(
+                scopes: snapshot.monitorScopes,
+                projects: snapshot.projects,
+                selectedScopeId: snapshot.selectedMonitorScopeId,
+                activeProjectId: snapshot.activeProjectId,
+                browsedProjectId: browsedProjectId,
+                sectionWidth: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress),
+                onSelectScope: { scopeId in
+                    actions.send(.selectMonitorScope(scopeId))
+                },
+                onSelectProject: { projectId in
+                    browseMode = .activeProject
+                    actions.send(.selectProject(projectId))
+                },
+                onBrowseProject: { projectId in
+                    WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.cancelExpansionWork()
+                    browseMode = projectId.map { .split(otherProjectId: $0) } ?? .activeProject
+                    showsPinnedActiveWorkspaceForBrowsedProject = false
+                },
+                onCreateProject: { actions.send(.createProject) },
+                onRenameProject: { project in
+                    beginProjectRename(project)
+                },
+                renamingProjectId: $renamingProjectId,
+                renamingProjectText: $renamingProjectText,
+                onCommitRenameProject: {
+                    finishProjectRename()
+                },
+                onCancelRenameProject: {
+                    finishProjectRename(cancelled: true)
+                },
+                onSetProjectColor: { project, colorHex in
+                    actions.send(.setProjectColor(project.id, colorHex: colorHex))
+                },
+                onDeleteProject: { project in
+                    actions.send(.deleteProject(project.id))
+                },
+            )
+            if snapshot.selectedMonitorScopeId != workspaceSidebarDefaultScopeId {
+                HStack(spacing: 5) {
+                    Image(systemName: "line.3.horizontal.decrease")
+                    Text(snapshot.monitorScopes.first { $0.id == snapshot.selectedMonitorScopeId }?.displayName ?? "Filtered display")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                    Button {
+                        actions.send(.selectMonitorScope(workspaceSidebarDefaultScopeId))
+                    } label: {
+                        Image(systemName: "xmark")
+                            .padding(4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show all displays")
+                    .accessibilityLabel("Clear display filter")
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress))
+            }
+        }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
         .padding(.top, max(snapshot.configuration.topPadding, workspaceSidebarContentLeadingInset))
@@ -961,38 +988,75 @@ extension WorkspaceSidebarView {
     ) -> some View {
         let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
         return HStack(alignment: .top, spacing: workspaceSidebarSplitPaneGap) {
-            workspacePage(
-                projectId: activeProjectId,
-                workspaces: visibleWorkspacesByProject[activeProjectId] ?? [],
-                expansionProgress: expansionProgress,
-                leadingInset: leadingInset,
-                trailingInset: 0,
-                topPadding: topPadding,
-                isInteractive: true,
-                showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
-                allowsActivation: true,
-            )
+            VStack(alignment: .leading, spacing: 6) {
+                splitProjectHeading(activeProjectId, isBrowsing: false)
+                    .padding(.leading, leadingInset)
+                workspacePage(
+                    projectId: activeProjectId,
+                    workspaces: visibleWorkspacesByProject[activeProjectId] ?? [],
+                    expansionProgress: expansionProgress,
+                    leadingInset: leadingInset,
+                    trailingInset: 0,
+                    topPadding: topPadding,
+                    isInteractive: true,
+                    showsPinnedActiveWorkspace: false,
+                    showsCreateWorkspace: true,
+                    allowsActivation: true,
+                )
+            }
             .frame(width: sectionWidth + leadingInset, alignment: .topLeading)
 
-            workspacePage(
-                projectId: browsedProjectId,
-                workspaces: visibleWorkspacesByProject[browsedProjectId] ?? [],
-                expansionProgress: expansionProgress,
-                leadingInset: 0,
-                trailingInset: trailingInset,
-                topPadding: topPadding,
-                isInteractive: true,
-                showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
-                allowsActivation: false,
-            )
+            VStack(alignment: .leading, spacing: 6) {
+                splitProjectHeading(browsedProjectId, isBrowsing: true)
+                    .padding(.trailing, trailingInset)
+                workspacePage(
+                    projectId: browsedProjectId,
+                    workspaces: visibleWorkspacesByProject[browsedProjectId] ?? [],
+                    expansionProgress: expansionProgress,
+                    leadingInset: 0,
+                    trailingInset: trailingInset,
+                    topPadding: topPadding,
+                    isInteractive: true,
+                    showsPinnedActiveWorkspace: false,
+                    showsCreateWorkspace: true,
+                    allowsActivation: false,
+                )
+            }
             .frame(width: sectionWidth + trailingInset, alignment: .topLeading)
         }
         .frame(
             width: workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) + leadingInset + trailingInset,
             alignment: .topLeading
         )
+    }
+
+    private func splitProjectHeading(_ projectId: WorkspaceProjectId, isBrowsing: Bool) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(projectColor(projectId)).frame(width: 7, height: 7)
+            Text(projectName(projectId))
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+            if isBrowsing {
+                Text("Browsing").font(.system(size: 10)).foregroundStyle(.secondary)
+                Button {
+                    browseMode = .activeProject
+                    showsPinnedActiveWorkspaceForBrowsedProject = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Close browsed project")
+                .accessibilityLabel("Stop browsing \(projectName(projectId))")
+            } else {
+                Text("Active").font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        }
+        .frame(height: 28)
     }
 
     @ViewBuilder

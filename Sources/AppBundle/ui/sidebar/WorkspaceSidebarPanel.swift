@@ -553,7 +553,7 @@ extension WorkspaceSidebarPanel {
               config.workspaceSidebar.enabled,
               let screen = workspaceSidebarPanelScreen(for: monitor)
         else { return nil }
-        guard !shouldSuppressWorkspaceSidebarForFullscreenContent() else { return nil }
+        guard !shouldSuppressWorkspaceSidebarForFullscreenContent(on: monitor) else { return nil }
 
         let sidebarConfig = config.workspaceSidebar
         let expandedWidth = CGFloat(sidebarConfig.width)
@@ -753,7 +753,7 @@ extension WorkspaceSidebarPanel {
             self.scheduleCollapseFinalize()
         }
         pendingCollapse = collapse
-        let collapseDelay: TimeInterval = viewModel.isWorkspaceSidebarExpanded ? 0.08 : 0
+        let collapseDelay: TimeInterval = viewModel.isWorkspaceSidebarExpanded ? 0.16 : 0
         DispatchQueue.main.asyncAfter(deadline: .now() + collapseDelay, execute: collapse)
     }
 

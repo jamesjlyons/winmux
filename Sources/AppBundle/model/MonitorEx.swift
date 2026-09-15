@@ -3,7 +3,9 @@ import AppKit
 extension Monitor {
     @MainActor
     var workspaceSidebarInset: CGFloat {
-        guard config.workspaceSidebar.enabled else { return 0 }
+        guard config.workspaceSidebar.enabled,
+              !shouldSuppressWorkspaceSidebarForFullscreenContent(on: self)
+        else { return 0 }
         return workspaceSidebarResolvedPanelMonitors().contains { $0.rect.topLeftCorner == rect.topLeftCorner }
             ? workspaceSidebarRestingWidth(config.workspaceSidebar)
             : 0

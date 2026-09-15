@@ -5,11 +5,7 @@ import Common
 func workspaceProjects() -> [WorkspaceProject] {
     materializePersistedWorkspaceProjects()
     ensureMinimumWorkspaceForAllProjects()
-    let projects = winMuxWorkspaceState.projectsById.values.sorted {
-        if $0.id == workspaceProjectDefaultId { return true }
-        if $1.id == workspaceProjectDefaultId { return false }
-        return workspaceProjectOrderPrecedes($0, $1)
-    }
+    let projects = winMuxWorkspaceState.projectsById.values.sorted(by: workspaceProjectOrderPrecedes)
     var numberedProjectIndex = 0
     return projects.map { project in
         let displayName: String
@@ -70,6 +66,26 @@ func workspaceProjectOrderPrecedes(_ lhs: WorkspaceProject, _ rhs: WorkspaceProj
         return lhs.order < rhs.order
     }
     return lhs.id < rhs.id
+}
+
+@MainActor
+func reorderWorkspaceProject(_ projectId: WorkspaceProjectId, to targetProjectId: WorkspaceProjectId) {
+    var projects = workspaceProjects()
+    guard let sourceIndex = projects.firstIndex(where: { $0.id == projectId }),
+          let targetIndex = projects.firstIndex(where: { $0.id == targetProjectId }),
+          sourceIndex != targetIndex
+    else { return }
+    projects.insert(projects.remove(at: sourceIndex), at: targetIndex)
+    for (order, project) in projects.enumerated() {
+        guard let stored = winMuxWorkspaceState.projectsById[project.id] else { continue }
+        winMuxWorkspaceState.registerProject(WorkspaceProject(
+            id: stored.id,
+            name: stored.name,
+            order: order,
+            workspaceOrder: stored.workspaceOrder,
+            linkedViewportIds: stored.linkedViewportIds,
+        ))
+    }
 }
 
 @MainActor
