@@ -4,6 +4,7 @@ import SwiftUI
 
 struct WorkspaceSidebarWorkspaceSection: View {
     let workspace: WorkspaceSidebarWorkspaceViewModel
+    let targetMonitorScopeId: String
     let dragPreview: WorkspaceSidebarDropPreviewViewModel?
     let expansionProgress: CGFloat
     let layout: WorkspaceSidebarConfiguration
@@ -31,6 +32,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var hoveredTabGroupId: UInt32? = nil
     @State var isDropTargeted = false
     @State var isDropSettling = false
+    @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var headerHeight: CGFloat { layout.menuBarStyle ? 26 : workspaceSidebarWorkspaceSectionHeaderHeight }
@@ -53,6 +55,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
     var isSearchSelectedWorkspace: Bool { selectedSearchTarget == .workspace(workspace.name) }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
+    var participatesInReorder: Bool { allowsWorkspaceReordering && reorderState.applies(to: targetMonitorScopeId) }
+    var isReorderingWorkspace: Bool { participatesInReorder && reorderState.sourceName == workspace.name }
+    var reorderOffset: CGFloat { participatesInReorder ? reorderState.offset(for: workspace.name) : 0 }
+    var allowsWorkspaceReordering: Bool { !isPinnedActiveWorkspace && !isSearchFiltering && renamingWorkspaceName == nil }
     var inUseOverrideText: String {
         if let monitorName = workspace.monitorName, !monitorName.isEmpty {
             return "In use on \(monitorName)"
@@ -109,9 +115,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .background {
                 ZStack {
                     sectionBackground
-                if !isCompact && allowsWorkspaceActivation {
-                    sectionActivationButton
-                }
+                    if !isCompact && allowsWorkspaceActivation {
+                        sectionActivationButton
+                    }
                 }
             }
             .overlay(alignment: .center) {
@@ -135,21 +141,29 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     )
                 }
             }
+            .shadow(color: isReorderingWorkspace ? .black.opacity(0.18) : .clear, radius: 10, y: 4)
+            .offset(y: reorderOffset)
+            .animation(
+                reduceMotion || (isReorderingWorkspace && !reorderState.isSettling)
+                    ? nil : .interactiveSpring(response: 0.22, dampingFraction: 0.86),
+                value: reorderOffset
+            )
+            .zIndex(isReorderingWorkspace ? 3 : (isDropTarget ? 1 : 0))
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
     func handleSectionClick() {
-        guard allowsWorkspaceActivation else { return }
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(
+                editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+              )
+        else { return }
         if isInUseOnOtherDisplay {
             activeInUseOverrideWorkspaceName = workspace.name
             return
         }
-        if shouldHandleWorkspaceSidebarActivation(
-            isEditing: false,
-            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
-        ) {
-            actions.send(.selectWorkspace(workspace.name))
-        }
+        actions.send(.selectWorkspace(workspace.name))
     }
 
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
@@ -340,12 +354,17 @@ extension WorkspaceSidebarWorkspaceSection {
         Button(action: handleSectionClick) {
             header
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .frame(height: headerHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .contentShape(Rectangle())
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel(workspace.displayName)
+        .accessibilityValue(isActiveOnTargetMonitor ? "Selected" : "")
+        .accessibilityHint("Click to switch groups. Drag to rearrange.")
+        .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
     }
 
     var header: some View {
@@ -453,6 +472,7 @@ extension WorkspaceSidebarWorkspaceSection {
             .accessibilityLabel(workspace.displayName)
             .frame(maxWidth: .infinity, alignment: .center)
             .contentShape(sectionShape)
+            .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
         } else {
             sectionContent.contentShape(sectionShape)
         }
@@ -464,6 +484,7 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(workspace.displayName)
+        .accessibilityHidden(true)
     }
 
     var sectionContent: some View {
@@ -484,8 +505,12 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var headerSlot: some View {
-        header
-            .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+        if !isCompact && !isRenamingWorkspace {
+            headerButton
+        } else {
+            header
+                .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+        }
     }
 }
 extension WorkspaceSidebarWorkspaceSection {

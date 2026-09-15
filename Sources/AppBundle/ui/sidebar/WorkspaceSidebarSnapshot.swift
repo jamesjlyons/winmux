@@ -64,6 +64,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
 
 enum WorkspaceSidebarAction: Equatable {
     case selectWorkspace(String)
+    case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
     case selectProject(WorkspaceProjectId)

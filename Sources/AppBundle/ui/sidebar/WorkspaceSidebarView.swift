@@ -1078,6 +1078,7 @@ extension WorkspaceSidebarView {
             )
         WorkspaceSidebarWorkspaceSection(
             workspace: workspace,
+            targetMonitorScopeId: snapshot.targetMonitorScopeId,
             dragPreview: snapshot.dropPreview,
             expansionProgress: expansionProgress,
             layout: snapshot.configuration,

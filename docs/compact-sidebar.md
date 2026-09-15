@@ -15,6 +15,12 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   settings, persist across launches, and refresh open Appearance settings.
 - Window icons keep a fixed size. Narrow rows remove excess indentation, show one
   group icon, and omit secondary counts. Full titles remain in tooltips.
+- Click a group header to activate it. Drag its header (or its compact badge) to
+  reorder groups within the same space. The whole card follows the pointer while
+  neighboring cards spring into place. Each new snap position produces one subtle
+  trackpad alignment haptic; a small threshold prevents repeated ticks at a boundary.
+  Dropping outside a group cancels. Reordering preserves the active group and
+  window membership, and the session restores the order after relaunch.
 - Filters use a native menu when their inline controls would overflow. Narrow
   project footers use a native menu with creation, rename, color and delete actions.
 - The clock uses a smaller time and simpler date layout when space is limited;

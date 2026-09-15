@@ -43,6 +43,13 @@ func handleWorkspaceSidebarAction(
     switch action {
         case .selectWorkspace(let name):
             focusWorkspaceFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
+        case .reorderWorkspace(let name, let targetName, let placement):
+            runWorkspaceSidebarSession {
+                defer { WorkspaceSidebarWorkspaceReorderState.shared.complete(sourceName: name) }
+                if reorderWorkspace(name, relativeTo: targetName, placement: placement) {
+                    await updateWorkspaceSidebarModel()
+                }
+            }
         case .overrideWorkspaceInUse(let name):
             overrideWorkspaceInUseFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .selectWindow(let windowId):
