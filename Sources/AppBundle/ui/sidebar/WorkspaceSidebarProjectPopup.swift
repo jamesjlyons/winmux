@@ -8,6 +8,7 @@ struct WorkspaceSidebarProjectPopup: View {
     let onRename: (WorkspaceSidebarProjectViewModel) -> Void
     let onSetColor: (WorkspaceSidebarProjectViewModel, String?) -> Void
     let onDelete: (WorkspaceSidebarProjectViewModel) -> Void
+    let onChooseIcon: (WorkspaceSidebarProjectViewModel) -> Void
     var showsCreateAction = true
     var allowsContextMenu = true
     var menuWidth: CGFloat? = nil
@@ -58,6 +59,7 @@ struct WorkspaceSidebarProjectPopup: View {
             onSelect(project.id)
         } label: {
             HStack(spacing: 8) {
+                WorkspaceSidebarProjectIcon(project: project)
                 Text(project.displayName)
                     .font(.system(size: 12, weight: project.id == selectedProjectId ? .semibold : .medium))
                     .foregroundStyle(Color.primary.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
@@ -111,6 +113,7 @@ extension WorkspaceSidebarProjectPopup {
         Button("Rename Space") {
             onRename(project)
         }
+        Button("Choose Icon…") { onChooseIcon(project) }
         Menu("Color") {
             Button("Auto") {
                 onSetColor(project, nil)

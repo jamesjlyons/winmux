@@ -27,6 +27,7 @@ struct ShortcutConfigurationReferenceView: View {
                     ReferenceRow("workspace-labels", "Override visible group names.")
                     ReferenceRow("project-labels", "Override visible space names.")
                     ReferenceRow("project-colors", "Assign space colors using #RRGGBB values.")
+                    ReferenceRow("project-icons", "Assign SF Symbol names to spaces. Omit an entry to use its colored dot.")
                 }
                 Text("The Configuration editor validates the entire file before saving and shows parser errors inline.")
                     .font(.caption)

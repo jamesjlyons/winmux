@@ -29,6 +29,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "workspace-labels": Parser(\.workspaceLabels, parseWorkspaceSidebarLabels),
     "project-labels": Parser(\.projectLabels, parseWorkspaceSidebarLabels),
     "project-colors": Parser(\.projectColors, parseWorkspaceSidebarProjectColors),
+    "project-icons": Parser(\.projectIcons, parseWorkspaceSidebarLabels),
 ]
 
 func parseWorkspaceSidebar(

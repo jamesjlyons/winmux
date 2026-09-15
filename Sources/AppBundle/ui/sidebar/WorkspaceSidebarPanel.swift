@@ -34,8 +34,8 @@ let workspaceSidebarWorkspaceSectionHeaderHeight: CGFloat = 32
 let workspaceSidebarWorkspaceRowHeight: CGFloat = 24
 let workspaceSidebarWorkspaceSectionHeightExpanded: CGFloat = 32
 let workspaceSidebarInUseOverrideEmptySectionMinHeight: CGFloat = 76
-let workspaceSidebarProjectDotFrameWidth: CGFloat = 16
-let workspaceSidebarProjectDotFrameHeight: CGFloat = 16
+let workspaceSidebarProjectDotFrameWidth: CGFloat = 24
+let workspaceSidebarProjectDotFrameHeight: CGFloat = 24
 let workspaceSidebarMenuRowHeight: CGFloat = 28
 let workspaceSidebarMenuRowSpacing: CGFloat = 3
 let workspaceSidebarMenuRowHorizontalPadding: CGFloat = 10
@@ -633,7 +633,7 @@ extension WorkspaceSidebarPanel {
     }
 
     func shouldKeepSidebarOpenForInlineTextEditing() -> Bool {
-        isResizingSidebar || commandExpansionLocksCollapse || (inlineTextEditingActive && inlineTextEditingLocksExpansion)
+        projectIconPicker != nil || isResizingSidebar || commandExpansionLocksCollapse || (inlineTextEditingActive && inlineTextEditingLocksExpansion)
     }
 }
 extension WorkspaceSidebarPanel {
@@ -997,6 +997,7 @@ extension WorkspaceSidebarPanel {
 
     func resetHiddenSidebarState() {
         resetBrowseMode()
+        projectIconPicker?.close()
         // Runs for every inactive panel on every refreshAll — guard the shared-model writes so
         // they don't invalidate every observer each session.
         updateDropTargets([])

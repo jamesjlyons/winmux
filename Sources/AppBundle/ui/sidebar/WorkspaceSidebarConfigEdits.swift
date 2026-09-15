@@ -178,6 +178,28 @@ func updateWorkspaceSidebarProjectColorConfig(
     )
 }
 
+func updateWorkspaceSidebarProjectIconConfig(in configText: String, projectId: String, symbolName: String?) -> String {
+    updateWorkspaceSidebarKeyValueSectionConfig(
+        in: configText,
+        sectionHeader: "[workspace-sidebar.project-icons]",
+        key: projectId,
+        value: symbolName,
+    )
+}
+
+@MainActor
+func persistWorkspaceSidebarProjectIcon(projectId: String, symbolName: String?) throws {
+    let targetUrl = preferredWorkspaceSidebarConfigUrl()
+    // A failed read must not replace an existing config with a new, icon-only file.
+    let currentText = FileManager.default.fileExists(atPath: targetUrl.path)
+        ? try String(contentsOf: targetUrl, encoding: .utf8) : ""
+    let updatedText = updateWorkspaceSidebarProjectIconConfig(
+        in: currentText, projectId: projectId, symbolName: symbolName
+    )
+    try FileManager.default.createDirectory(at: targetUrl.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try updatedText.write(to: targetUrl, atomically: true, encoding: .utf8)
+}
+
 private func updateWorkspaceSidebarKeyValueSectionConfig(
     in configText: String,
     sectionHeader: String,

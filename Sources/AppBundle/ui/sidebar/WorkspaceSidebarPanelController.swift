@@ -42,6 +42,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var dropTargets: [WorkspaceSidebarDropTarget] = []
     var persistentExpansionWidth: CGFloat?
     var isResizingSidebar = false
+    var projectIconPicker: WorkspaceSidebarProjectIconPickerController?
     let hoverExitTolerance: CGFloat = 6
     let hoverPollInterval: TimeInterval = 1.0 / 60.0
     let hoverOpenDelay: TimeInterval = 0

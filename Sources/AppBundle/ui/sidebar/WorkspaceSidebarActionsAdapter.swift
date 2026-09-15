@@ -79,6 +79,11 @@ func handleWorkspaceSidebarAction(
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 setWorkspaceSidebarProjectColor(project, colorHex: colorHex)
             }
+        case .setProjectIcon(let projectId, let symbolName):
+            runWorkspaceSidebarSession {
+                try setWorkspaceSidebarProjectIcon(projectId, symbolName: symbolName)
+                await updateWorkspaceSidebarModel()
+            }
         case .deleteProject(let projectId):
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 deleteWorkspaceSidebarProject(project, viewModel: viewModel)

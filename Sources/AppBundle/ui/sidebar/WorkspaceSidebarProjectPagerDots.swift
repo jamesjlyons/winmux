@@ -23,7 +23,7 @@ extension WorkspaceSidebarProjectPager {
                 isDotHovered: isDotHovered,
                 projectColor: projectColor,
                 buttonWidth: buttonWidth,
-                menuBarStyle: layout.menuBarStyle
+                iconName: project.iconName
             )
         }
         .anchorPreference(key: WorkspaceSidebarProjectDotAnchorKey.self, value: .bounds) {
@@ -59,46 +59,13 @@ private struct WorkspaceSidebarProjectDotLabel: View {
     let isDotHovered: Bool
     let projectColor: Color
     let buttonWidth: CGFloat
-    let menuBarStyle: Bool
+    let iconName: String?
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(isDotHovered ? projectColor.opacity(0.14) : Color.clear)
-                .frame(width: min(34, buttonWidth), height: min(22, workspaceSidebarProjectDotFrameHeight))
-            Capsule(style: .continuous)
-                .fill(projectColor.opacity(isCurrent ? 0.92 : (isDotHovered ? 0.55 : 0.25)))
-                .frame(width: 7, height: 7)
-                .overlay {
-                    if isCurrent {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 5, weight: .heavy))
-                            .foregroundStyle(Color.primary)
-                    }
-                }
-                .overlay {
-                    Capsule(style: .continuous)
-                        .strokeBorder(
-                            isCurrent ? Color.primary.opacity(0.46) : projectColor.opacity(isDotHovered ? 0.55 : 0.22),
-                            lineWidth: menuBarStyle ? 0 : (isCurrent ? 0.8 : 0.5),
-                        )
-                }
-                .overlay {
-                    if isCurrent && !menuBarStyle {
-                        Capsule(style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.primary.opacity(0.18), .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom,
-                                )
-                            )
-                            .padding(0.8)
-                    }
-                }
-        }
-        .frame(width: buttonWidth, height: workspaceSidebarProjectDotFrameHeight, alignment: .center)
-        .contentShape(Rectangle())
+        WorkspaceSidebarProjectSymbol(iconName: iconName)
+            .foregroundStyle(projectColor.opacity(isCurrent ? 0.9 : (isDotHovered ? 0.6 : 0.3)))
+            .frame(width: buttonWidth, height: workspaceSidebarProjectDotFrameHeight, alignment: .center)
+            .contentShape(Rectangle())
     }
 }
 

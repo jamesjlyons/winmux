@@ -21,6 +21,7 @@ struct WorkspaceSidebarProjectSelector: View {
     let onCancelRenameProject: @MainActor @Sendable () -> Void
     let onSetProjectColor: (WorkspaceSidebarProjectViewModel, String?) -> Void
     let onDeleteProject: (WorkspaceSidebarProjectViewModel) -> Void
+    let onChooseProjectIcon: (WorkspaceSidebarProjectViewModel) -> Void
 
     private var activeProject: WorkspaceSidebarProjectViewModel? {
         projects.first { $0.id == activeProjectId }
@@ -36,14 +37,8 @@ struct WorkspaceSidebarProjectSelector: View {
             } else {
                 Menu {
                     ForEach(projects) { project in
-                        Button {
+                        projectMenuItem(project, selected: project.id == activeProjectId) {
                             onSelectProject(project.id)
-                        } label: {
-                            if project.id == activeProjectId {
-                                Label(project.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(project.displayName)
-                            }
                         }
                     }
                     Divider()
@@ -67,6 +62,7 @@ struct WorkspaceSidebarProjectSelector: View {
                         Divider()
                         Menu("Manage Space") {
                             Button("Rename Space") { onRenameProject(activeProject) }
+                            Button("Choose Icon…") { onChooseProjectIcon(activeProject) }
                             Menu("Color") {
                                 Button("Auto") { onSetProjectColor(activeProject, nil) }
                                 ForEach(workspaceSidebarProjectColorPresets) { preset in
@@ -79,9 +75,10 @@ struct WorkspaceSidebarProjectSelector: View {
                     }
                 } label: {
                     HStack(spacing: 7) {
-                        Circle()
-                            .fill(workspaceSidebarProjectColor(projectId: activeProjectId, configuredHex: activeProject?.colorHex))
-                            .frame(width: 7, height: 7)
+                        if let activeProject {
+                            Image(nsImage: WorkspaceSidebarSymbolImages.menuImage(for: activeProject))
+                                .renderingMode(.original)
+                        }
                         Text(activeProject?.displayName ?? "Space")
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -97,5 +94,17 @@ struct WorkspaceSidebarProjectSelector: View {
         .padding(.horizontal, 7)
         .frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
         .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(menuBarStyle ? 0 : 0.07)))
+    }
+
+    private func projectMenuItem(_ project: WorkspaceSidebarProjectViewModel, selected: Bool, action: @escaping () -> Void) -> some View {
+        Toggle(isOn: Binding(get: { selected }, set: { _ in action() })) {
+            Label {
+                Text(project.displayName)
+            } icon: {
+                Image(nsImage: WorkspaceSidebarSymbolImages.menuImage(for: project))
+                    .renderingMode(.original)
+            }
+        }
+        .toggleStyle(.checkbox)
     }
 }

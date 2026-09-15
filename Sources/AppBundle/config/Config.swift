@@ -100,6 +100,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var workspaceLabels: [String: String] = [:]
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
+    var projectIcons: [String: String] = [:]
 }
 
 enum ChromeStyle: String, CaseIterable, Identifiable, Sendable {

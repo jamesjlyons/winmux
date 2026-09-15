@@ -283,12 +283,16 @@ private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectI
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil
+    let hadIcon = config.workspaceSidebar.projectIcons.removeValue(forKey: rawProjectId) != nil
     guard !isUnitTest else { return }
     if hadLabel {
         try persistWorkspaceSidebarProjectLabel(projectId: rawProjectId, label: nil)
     }
     if hadColor {
         try persistWorkspaceSidebarProjectColor(projectId: rawProjectId, colorHex: nil)
+    }
+    if hadIcon {
+        try persistWorkspaceSidebarProjectIcon(projectId: rawProjectId, symbolName: nil)
     }
 }
 

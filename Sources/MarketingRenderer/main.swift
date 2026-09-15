@@ -11,6 +11,7 @@ struct MarketingRendererCommand {
         let isSafariPlasticityProof = arguments.contains("--safari-plasticity-proof")
         let isSidebarProof = arguments.contains("--sidebar-proof")
         let isMenuBarProof = arguments.contains("--menu-bar-proof")
+        let isProjectIconProof = arguments.contains("--project-icon-proof")
         let outputPath = arguments.first(where: { !$0.hasPrefix("--") })
             ?? "resources/marketing/winmux-card-collage-swiftui.png"
         let outputURL = URL(fileURLWithPath: outputPath, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
@@ -22,8 +23,8 @@ struct MarketingRendererCommand {
         )
         if arguments.contains("--sidebar-context-proof") {
             try renderWinMuxSidebarContextProofImages(in: outputURL)
-        } else if isSidebarProof || isMenuBarProof {
-            try renderWinMuxSidebarProofImages(in: outputURL, menuBarOnly: isMenuBarProof)
+        } else if isSidebarProof || isMenuBarProof || isProjectIconProof {
+            try renderWinMuxSidebarProofImages(in: outputURL, menuBarOnly: isMenuBarProof, projectIcons: isProjectIconProof)
         } else if isSafariPlasticityProof {
             try renderWinMuxSafariPlasticityProofImage(to: outputURL)
         } else if isAppsProof {

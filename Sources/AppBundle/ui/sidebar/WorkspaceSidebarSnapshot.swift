@@ -74,6 +74,7 @@ enum WorkspaceSidebarAction: Equatable {
     case createProject
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)
+    case setProjectIcon(WorkspaceProjectId, symbolName: String?)
     case deleteProject(WorkspaceProjectId)
     case selectMonitorScope(String)
     case createWorkspace(projectId: WorkspaceProjectId, monitorScopeId: String)

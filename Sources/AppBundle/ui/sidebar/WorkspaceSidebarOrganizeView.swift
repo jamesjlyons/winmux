@@ -53,9 +53,7 @@ extension WorkspaceSidebarView {
 
     private func organizeProjectHeading(_ project: WorkspaceSidebarProjectViewModel) -> some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex))
-                .frame(width: 7, height: 7)
+            WorkspaceSidebarProjectIcon(project: project)
             Text(project.displayName)
                 .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)

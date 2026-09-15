@@ -50,6 +50,7 @@ func openWorkspaceSidebarFromCommand() {
 @MainActor
 func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.resetBrowseMode()
+    panel.projectIconPicker?.close()
     panel.endInlineTextEditing()
     panel.pendingExpand?.cancel()
     panel.pendingExpand = nil

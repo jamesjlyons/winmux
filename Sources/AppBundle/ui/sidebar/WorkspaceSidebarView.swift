@@ -72,6 +72,11 @@ struct WorkspaceSidebarView: View {
             resetProjectSwipeWithoutAnimation()
         }
         .onChange(of: snapshot.projects) { _ in
+            if let picker = currentPanel()?.projectIconPicker,
+               !snapshot.projects.contains(where: { $0.id == picker.projectId })
+            {
+                picker.close()
+            }
             if let renamingProjectId, !snapshot.projects.contains(where: { $0.id == renamingProjectId }) {
                 finishProjectRename(cancelled: true)
             }
@@ -156,10 +161,12 @@ struct WorkspaceSidebarView: View {
         guard renamingProjectId == nil, renamingWorkspaceName == nil, !isSearchEditing else { return }
         guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 else { return }
         let editingPanel = panel ?? currentPanel() ?? WorkspaceSidebarPanel.shared
+        guard editingPanel.projectIconPicker == nil else { return }
         adoptCommandSidebarSearchIfNeeded(panel: editingPanel)
     }
 
     func adoptCommandSidebarSearchIfNeeded(panel editingPanel: WorkspaceSidebarPanel) {
+        guard editingPanel.projectIconPicker == nil else { return }
         guard renamingProjectId == nil, renamingWorkspaceName == nil else { return }
         if !isSearchEditing {
             isSearchEditing = true
@@ -437,6 +444,7 @@ extension WorkspaceSidebarView {
             onDeleteProject: { project in
                 actions.send(.deleteProject(project.id))
             },
+            onChooseProjectIcon: beginProjectIconPicker,
         )
         .zIndex(2)
         .padding(.leading, leadingInset)
@@ -638,6 +646,7 @@ extension WorkspaceSidebarView {
                 onDeleteProject: { project in
                     actions.send(.deleteProject(project.id))
                 },
+                onChooseProjectIcon: beginProjectIconPicker,
             )
             if snapshot.selectedMonitorScopeId != workspaceSidebarDefaultScopeId {
                 HStack(spacing: 5) {

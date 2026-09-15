@@ -120,6 +120,7 @@ extension WorkspaceSidebarProjectPager {
         Button("Rename Space") {
             onBeginRenameProject(project)
         }
+        Button("Choose Icon…") { onChooseProjectIcon(project) }
         Menu("Color") {
             let selectedColorHex = project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
             Button {

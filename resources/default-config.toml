@@ -72,6 +72,11 @@ on-mode-changed = []
 [workspace-sidebar.project-colors]
     "default" = "#C4B5FD"
 
+# Optional SF Symbol names. Choose Icon… in a space menu opens a searchable picker.
+# Remove an entry (or choose Use Default) to restore the colored dot.
+[workspace-sidebar.project-icons]
+    # "default" = "house"
+
 [mode.main.binding]
     ctrl-f = 'open-sidebar'
     alt-space = 'layout horizontal vertical'

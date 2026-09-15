@@ -3,13 +3,13 @@ import SwiftUI
 
 /// Width regression fixtures rendered with the production sidebar, without running the manager.
 @MainActor
-public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool = false) throws {
+public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool = false, projectIcons: Bool = false) throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let styles: [(ChromeStyle, Bool)] = menuBarOnly ? [(.liquidGlass, true)] : [(.solid, false), (.liquidGlass, false), (.liquidGlass, true)]
     for (style, menuBarStyle) in styles {
         for lightBackground in [false, true] {
-            for count in menuBarOnly ? [3] : [1, 3, 12] {
-                for width: CGFloat in menuBarOnly ? [240, 120, 28] : [240, 200, 180, 140, 120, 60, 44, 40, 36, 28] {
+            for count in menuBarOnly || projectIcons ? [3] : [1, 3, 12] {
+                for width: CGFloat in menuBarOnly || projectIcons ? [240, 120, 28] : [240, 200, 180, 140, 120, 60, 44, 40, 36, 28] {
                     var snapshot = MarketingFixtures.sidebarSnapshot
                     let isCompact = width < 120
                     snapshot.configuration.expandedWidth = isCompact ? 240 : width
@@ -38,7 +38,8 @@ public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool 
                         WorkspaceSidebarProjectViewModel(
                             id: index == count - 1 ? snapshot.activeProjectId : WorkspaceProjectId(rawValue: "proof-\(index)"),
                             displayName: index == count - 1 ? "Design and development" : "Space \(index + 1)",
-                            colorHex: workspaceSidebarProjectColorPresets[index % workspaceSidebarProjectColorPresets.count].hex
+                            colorHex: workspaceSidebarProjectColorPresets[index % workspaceSidebarProjectColorPresets.count].hex,
+                            iconName: projectIcons ? [nil, "music.note", "paintbrush.pointed.fill"][index % 3] : nil
                         )
                     }
                     let view = ZStack {

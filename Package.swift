@@ -55,6 +55,7 @@ let package = Package(
                 .target(name: "Common"),
                 .target(name: "PrivateApi"),
             ],
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
             ],
