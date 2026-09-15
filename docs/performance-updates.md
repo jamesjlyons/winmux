@@ -1,5 +1,8 @@
 # Interaction performance updates
 
+See the [September 14 deep dive](performance-deep-dive.md) for the follow-up model/snapshot
+optimizations, before/after benchmarks, and remaining opportunities.
+
 ## Behavior
 
 - Known move/resize notifications reconcile the emitting windows without application discovery.

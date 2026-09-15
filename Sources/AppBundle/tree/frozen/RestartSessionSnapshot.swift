@@ -20,13 +20,13 @@ struct RestartWindowIdentity: Codable, Equatable, Sendable {
     }
 }
 
-struct RestartWindow: Codable, Sendable {
+struct RestartWindow: Codable, Equatable, Sendable {
     let id: UInt32
     let identity: RestartWindowIdentity
     let floatingFrame: CGRect?
 }
 
-struct RestartProject: Codable, Sendable {
+struct RestartProject: Codable, Equatable, Sendable {
     let id: WorkspaceProjectId
     let name: String
     let order: Int
@@ -42,6 +42,14 @@ struct RestartSessionSnapshot: Codable, Sendable {
     let projects: [RestartProject]?
     let focusedWindowId: UInt32?
     let focusedWorkspace: String?
+
+    /// Timestamps change on every capture; only persistent content should trigger a write.
+    /// Compare values before encoding so an unchanged checkpoint allocates no JSON payload.
+    func hasSameContent(as other: RestartSessionSnapshot) -> Bool {
+        version == other.version && bootSession == other.bootSession && world == other.world &&
+            windows == other.windows && projects == other.projects &&
+            focusedWindowId == other.focusedWindowId && focusedWorkspace == other.focusedWorkspace
+    }
 
     @MainActor static func capture(now: Date = .now) -> RestartSessionSnapshot {
         let workspaces = Workspace.all.filter { !$0.isArchived }

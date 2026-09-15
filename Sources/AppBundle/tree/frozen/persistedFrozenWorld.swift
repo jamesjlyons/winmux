@@ -16,7 +16,7 @@ final class RestartSessionController {
     private var retryDeadline: Date = .distantPast
     private var retryTask: Task<Void, Never>?
     private var saveTask: Task<Void, Never>?
-    private var previousSignature: Data?
+    private var previousSnapshot: RestartSessionSnapshot?
     private var allowsSaving = true
     private var restoring = false
     private var sessionIsActive = true
@@ -149,14 +149,14 @@ final class RestartSessionController {
         }
     }
 
-    func workspaceSignatures() -> [String: Data] {
+    func workspaceSignatures() -> [String: FrozenWorkspace] {
         guard pending != nil else { return [:] }
-        return Dictionary(uniqueKeysWithValues: Workspace.all.compactMap { workspace in
-            (try? JSONEncoder.winMuxDefault.encode(FrozenWorkspace(workspace))).map { (workspace.name, $0) }
+        return Dictionary(uniqueKeysWithValues: Workspace.all.map { workspace in
+            (workspace.name, FrozenWorkspace(workspace))
         })
     }
 
-    func cancelChangedWorkspaces(since before: [String: Data]) {
+    func cancelChangedWorkspaces(since before: [String: FrozenWorkspace]) {
         guard pending != nil else { return }
         let after = workspaceSignatures()
         for name in Set(before.keys).union(after.keys) where before[name] != after[name] { cancelledWorkspaces.insert(name) }
@@ -190,12 +190,9 @@ final class RestartSessionController {
         guard pending == nil, allowsSaving else { return }
         do {
             let snapshot = RestartSessionSnapshot.capture()
-            let signature = try JSONEncoder.winMuxDefault.encode(RestartSessionSnapshot(
-                savedAt: .distantPast, bootSession: snapshot.bootSession, world: snapshot.world, windows: snapshot.windows,
-                projects: snapshot.projects, focusedWindowId: snapshot.focusedWindowId, focusedWorkspace: snapshot.focusedWorkspace))
-            guard previousSignature != signature else { return }
+            guard previousSnapshot.map({ snapshot.hasSameContent(as: $0) }) != true else { return }
             try file.write(snapshot)
-            previousSignature = signature
+            previousSnapshot = snapshot
             lastSave = "\(snapshot.savedAt.formatted(.iso8601)); \(snapshot.world.windowIds.count) windows"
         } catch {
             lastSave = "Failed: \(error.localizedDescription)"

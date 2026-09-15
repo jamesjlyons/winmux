@@ -4,13 +4,16 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     workspaceLabels: [String: String],
     availableMonitors: [Monitor],
 ) async -> [WorkspaceSidebarWorkspaceViewModel] {
+    let orderedWorkspaces = orderedWorkspacesForPresentation()
+    let automaticIndices = automaticWorkspaceDisplayIndices(workspaces: orderedWorkspaces, focusedWorkspace: currentFocus.workspace)
     var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
-    for workspace in orderedWorkspacesForPresentation() {
+    for workspace in orderedWorkspaces {
         workspaces.append(await makeWorkspaceSidebarWorkspaceViewModel(
             workspace,
             currentFocus: currentFocus,
             workspaceLabels: workspaceLabels,
             availableMonitors: availableMonitors,
+            automaticIndices: automaticIndices,
         ))
     }
     return workspaces
@@ -22,12 +25,13 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     currentFocus: LiveFocus,
     workspaceLabels: [String: String],
     availableMonitors: [Monitor],
+    automaticIndices: [WorkspaceId: Int],
 ) async -> WorkspaceSidebarWorkspaceViewModel {
     let workspaceMonitor = workspace.workspaceMonitor
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,
         projectId: workspace.projectId,
-        displayName: workspaceDisplayName(workspace.name),
+        displayName: workspaceDisplayName(workspace.name, automaticIndices: automaticIndices),
         sidebarLabel: workspaceLabels[workspace.name] ?? "",
         isGeneratedName: isSidebarDraftWorkspaceName(workspace.name) || workspace.usesAutomaticDisplayName,
         monitorScopeId: workspaceSidebarMonitorScopeId(for: workspaceMonitor),

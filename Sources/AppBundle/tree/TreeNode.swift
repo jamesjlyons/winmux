@@ -119,7 +119,8 @@ open class TreeNode: Equatable, WinMuxAny {
 
     var childrenByMostRecentUse: [TreeNode] {
         var result = Array(_mruChildren)
-        for child in _children.reversed() where !result.contains(child) {
+        let recentIds = Set(result.map(ObjectIdentifier.init))
+        for child in _children.reversed() where !recentIds.contains(ObjectIdentifier(child)) {
             result.append(child)
         }
         return result

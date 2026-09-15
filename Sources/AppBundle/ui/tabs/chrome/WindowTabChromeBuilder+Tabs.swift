@@ -2,29 +2,18 @@
 func makeWindowTabChromeTabs(
     container: TilingContainer,
     activeWindowId: UInt32,
-) async -> [WindowTabChromeTabItem] {
-    // Fetch tab titles concurrently: expired title-cache entries each cost an AX round-trip,
-    // and fetching them serially makes the strip rebuild wait on the sum of them.
+) -> [WindowTabChromeTabItem] {
+    // Session titles return cached values immediately and schedule their own background reads.
+    // Keep this snapshot in one main-actor turn instead of creating one task per tab.
     let windows = container.children.compactMap(\.tabRepresentativeWindow)
-    var tabsById: [UInt32: WindowTabChromeTabItem] = [:]
-    await withTaskGroup(of: WindowTabChromeTabItem.self) { group in
-        for window in windows {
-            group.addTask { @Sendable @MainActor in
-                await makeWindowTabChromeTab(window: window, activeWindowId: activeWindowId)
-            }
-        }
-        for await tab in group {
-            tabsById[tab.id] = tab
-        }
-    }
-    return windows.compactMap { tabsById[$0.windowId] }
+    return windows.map { makeWindowTabChromeTab(window: $0, activeWindowId: activeWindowId) }
 }
 
 @MainActor
 private func makeWindowTabChromeTab(
     window: Window,
     activeWindowId: UInt32,
-) async -> WindowTabChromeTabItem {
+) -> WindowTabChromeTabItem {
     let appName = window.app.name ?? window.app.rawAppBundleId ?? "Window"
     let title = getSessionWindowTitle(window) ?? appName
     return WindowTabChromeTabItem(

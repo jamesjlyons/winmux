@@ -58,6 +58,7 @@ extension ObservableObject {
 
 @MainActor func updateTrayText() {
     let focus = focus
+    let automaticIndices = automaticWorkspaceDisplayIndices(workspaces: orderedWorkspacesForPresentation(), focusedWorkspace: focus.workspace)
     TrayMenuModel.shared.setIfChanged(\.trayText, activeMode?.takeIf { $0 != mainModeId }?.first.map { "(\($0.uppercased()))" } ?? "A")
     let workspaces = userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).filter {
         $0.projectId == activeWorkspaceProjectId(for: $0.workspaceMonitor)
@@ -71,7 +72,7 @@ extension ObservableObject {
         let hasFullscreenWindows = $0.allLeafWindowsRecursive.contains { $0.isFullscreen }
         return WorkspaceViewModel(
             name: $0.name,
-            displayName: workspaceDisplayName($0.name),
+            displayName: workspaceDisplayName($0.name, automaticIndices: automaticIndices),
             suffix: suffix,
             isFocused: focus.workspace == $0,
             isEffectivelyEmpty: !workspaceHasSidebarVisibleWindows($0),

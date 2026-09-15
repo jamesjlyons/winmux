@@ -1,12 +1,12 @@
 import AppKit
 import Common
 
-enum FrozenTreeNode: Codable, Sendable {
+enum FrozenTreeNode: Codable, Equatable, Sendable {
     case container(FrozenContainer)
     case window(FrozenWindow)
 }
 
-struct FrozenContainer: Codable, Sendable {
+struct FrozenContainer: Codable, Equatable, Sendable {
     let children: [FrozenTreeNode]
     let layout: Layout
     let orientation: Orientation
@@ -29,11 +29,12 @@ struct FrozenContainer: Codable, Sendable {
         layout = container.layout
         orientation = container.orientation
         weight = getWeightOrNil(container) ?? 1
-        mostRecentChildIndices = container.childrenByMostRecentUse.compactMap(\.ownIndex)
+        let childIndices = Dictionary(uniqueKeysWithValues: container.children.enumerated().map { (ObjectIdentifier($0.element), $0.offset) })
+        mostRecentChildIndices = container.childrenByMostRecentUse.compactMap { childIndices[ObjectIdentifier($0)] }
     }
 }
 
-struct FrozenWindow: Codable, Sendable {
+struct FrozenWindow: Codable, Equatable, Sendable {
     let id: UInt32
     let weight: CGFloat
     let isFullscreen: Bool

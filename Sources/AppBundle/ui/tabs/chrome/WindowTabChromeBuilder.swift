@@ -25,7 +25,7 @@ private func makeWindowTabChromeItem(
     guard let activeWindow = container.tabActiveWindow,
           let contentFrame = activeWindowContentFrame(activeWindow, container: container)
     else { return nil }
-    let tabs = await makeWindowTabChromeTabs(container: container, activeWindowId: activeWindow.windowId)
+    let tabs = makeWindowTabChromeTabs(container: container, activeWindowId: activeWindow.windowId)
     guard !tabs.isEmpty else { return nil }
     return WindowTabChromeItem(
         id: ObjectIdentifier(container),
