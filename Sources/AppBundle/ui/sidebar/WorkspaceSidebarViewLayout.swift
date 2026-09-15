@@ -64,7 +64,7 @@ extension WorkspaceSidebarView {
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,
-                topPadding: showsProjectSelector ? 0 : snapshot.configuration.topPadding,
+                topPadding: showsProjectSelector ? 0 : max(snapshot.configuration.topPadding, leadingInset),
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
                 swipeDirection: projectSwipeDirection,
             )

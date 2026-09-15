@@ -12,7 +12,9 @@ func workspaceSidebarProjectReorderIndex(sourceIndex: Int, translation: CGFloat,
 }
 
 extension WorkspaceSidebarProjectPager {
-    private var projectDotStride: CGFloat { isCompact ? workspaceSidebarProjectDotFrameHeight : 40 }
+    private var projectDotStride: CGFloat {
+        isCompact ? workspaceSidebarProjectDotFrameHeight : workspaceSidebarProjectDotFrameWidth
+    }
 
     private func reorderIndex(for projectId: WorkspaceProjectId, translation: CGSize) -> Int? {
         guard let sourceIndex = projects.firstIndex(where: { $0.id == projectId }) else { return nil }
