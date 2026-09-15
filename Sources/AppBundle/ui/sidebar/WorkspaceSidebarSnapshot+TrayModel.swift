@@ -14,5 +14,6 @@ func workspaceSidebarSnapshot(from model: TrayMenuModel) -> WorkspaceSidebarSnap
         hoveredWorkspaceName: model.workspaceSidebarHoveredWorkspaceName,
         dropPreview: model.workspaceSidebarDropPreview,
         configuration: workspaceSidebarConfiguration(),
+        browseMode: model.workspaceSidebarBrowseMode,
     )
 }

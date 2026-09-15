@@ -8,11 +8,11 @@ struct WorkspaceSidebarProjectSelector: View {
     let projects: [WorkspaceSidebarProjectViewModel]
     let selectedScopeId: String
     let activeProjectId: WorkspaceProjectId
-    let browsedProjectId: WorkspaceProjectId?
+    let isOrganizing: Bool
     let sectionWidth: CGFloat
     let onSelectScope: (String) -> Void
     let onSelectProject: (WorkspaceProjectId) -> Void
-    let onBrowseProject: (WorkspaceProjectId?) -> Void
+    let onToggleOrganize: () -> Void
     let onCreateProject: () -> Void
     let onRenameProject: (WorkspaceSidebarProjectViewModel) -> Void
     @Binding var renamingProjectId: WorkspaceProjectId?
@@ -48,25 +48,8 @@ struct WorkspaceSidebarProjectSelector: View {
                     }
                     Divider()
                     Button("New Space", action: onCreateProject)
-                    if projects.count > 1 {
-                        Menu("Browse alongside…") {
-                            if browsedProjectId != nil {
-                                Button("Stop Browsing") { onBrowseProject(nil) }
-                                Divider()
-                            }
-                            ForEach(projects.filter { $0.id != activeProjectId }) { project in
-                                Button {
-                                    onBrowseProject(project.id)
-                                } label: {
-                                    if project.id == browsedProjectId {
-                                        Label(project.displayName, systemImage: "checkmark")
-                                    } else {
-                                        Text(project.displayName)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Toggle("Organize", isOn: Binding(get: { isOrganizing }, set: { _ in onToggleOrganize() }))
+                        .toggleStyle(.checkbox)
                     Menu("Displays") {
                         ForEach(scopes) { scope in
                             Button {

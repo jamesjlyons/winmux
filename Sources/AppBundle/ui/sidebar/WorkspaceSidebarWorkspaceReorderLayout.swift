@@ -66,10 +66,10 @@ func captureWorkspaceSidebarWorkspaceReorderLayout(sourceName: String, startPoin
           let panelRect = panel.visibleScreenRectNormalized()
     else { return nil }
     var seen: Set<String> = []
-    let items = workspaceSidebarDropTargets.compactMap { target -> WorkspaceSidebarWorkspaceReorderItem? in
+    let items = panel.dropTargets.compactMap { target -> WorkspaceSidebarWorkspaceReorderItem? in
         guard case .workspace(let name) = target.kind,
               name == sourceName || canReorderWorkspace(sourceName, relativeTo: name),
-              panelRect.minX <= target.rect.center.x, target.rect.center.x <= panelRect.maxX,
+              target.rect.maxX > panelRect.minX, target.rect.minX < panelRect.maxX,
               seen.insert(name).inserted
         else { return nil }
         return WorkspaceSidebarWorkspaceReorderItem(

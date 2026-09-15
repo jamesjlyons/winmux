@@ -745,30 +745,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarHoverActivationWidth(sidebarConfig), 260)
         XCTAssertEqual(workspaceSidebarCollapsedContentWidth(sidebarConfig), 36)
         XCTAssertFalse(workspaceSidebarAllowsLeftEdgeTrap(sidebarConfig))
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 0,
-                previousExpandedWidth: nil,
-                expandedWidth: 260,
-            ),
-            260,
-        )
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 260,
-                previousExpandedWidth: 260,
-                expandedWidth: 280,
-            ),
-            280,
-        )
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 520,
-                previousExpandedWidth: 260,
-                expandedWidth: 280,
-            ),
-            560,
-        )
+
     }
 
     func testCollapsedAndAutoHiddenSidebarsAllowLeftEdgeTrap() {

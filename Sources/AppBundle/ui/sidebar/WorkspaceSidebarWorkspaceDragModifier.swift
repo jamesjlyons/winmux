@@ -17,14 +17,14 @@ struct WorkspaceSidebarWorkspaceDragModifier: ViewModifier {
                         .onChanged { value in
                             WorkspaceSidebarWorkspaceReorderState.shared.update(
                                 sourceName: name,
-                                pointer: currentDragPointer(),
+                                pointer: currentWorkspaceSidebarDragPointer(),
                                 translation: value.translation
                             )
                         }
                         .onEnded { value in
                             WorkspaceSidebarWorkspaceReorderState.shared.finish(
                                 sourceName: name,
-                                pointer: currentDragPointer(),
+                                pointer: currentWorkspaceSidebarDragPointer(),
                                 translation: value.translation,
                                 reduceMotion: reduceMotion,
                                 actions: actions
@@ -42,15 +42,4 @@ struct WorkspaceSidebarWorkspaceDragModifier: ViewModifier {
         }
     }
 
-    private func currentDragPointer() -> CGPoint {
-        // Use the event's screen position, including when AppKit delivers a queued
-        // drag event before the global cursor sample has caught up.
-        if let event = NSApp.currentEvent, event.window != nil,
-           event.type == .leftMouseDragged || event.type == .leftMouseUp {
-            MousePointerTracker.shared.note(event: event)
-        } else {
-            noteCurrentMousePointerSample()
-        }
-        return MousePointerTracker.shared.currentSample.point
-    }
 }

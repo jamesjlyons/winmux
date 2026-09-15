@@ -24,6 +24,8 @@ public final class TrayMenuModel: ObservableObject {
     @Published var windowTabStrips: [WindowTabStripViewModel] = []
     @Published var isWorkspaceSidebarExpanded: Bool = false
     @Published var workspaceSidebarVisibleWidth: CGFloat = 0
+    /// Transient and panel-local; never synchronized from the shared tray model.
+    @Published var workspaceSidebarBrowseMode: WorkspaceSidebarBrowseMode = .activeProject
     @Published var workspaceSidebarTopPadding: CGFloat = 12
     @Published var workspaceSidebarHoveredWorkspaceName: String? = nil
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()

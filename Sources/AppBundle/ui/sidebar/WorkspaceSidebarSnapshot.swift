@@ -12,6 +12,7 @@ struct WorkspaceSidebarSnapshot: Equatable {
     var hoveredWorkspaceName: String?
     var dropPreview: WorkspaceSidebarDropPreviewViewModel?
     var configuration: WorkspaceSidebarConfiguration
+    var browseMode: WorkspaceSidebarBrowseMode = .activeProject
 
     static let empty = WorkspaceSidebarSnapshot(
         workspaces: [],
@@ -63,6 +64,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
 }
 
 enum WorkspaceSidebarAction: Equatable {
+    case setBrowseMode(WorkspaceSidebarBrowseMode)
     case selectWorkspace(String)
     case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)

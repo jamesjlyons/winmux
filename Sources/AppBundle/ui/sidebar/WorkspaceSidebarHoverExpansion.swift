@@ -19,15 +19,6 @@ func workspaceSidebarCollapsedContentWidth(_ sidebarConfig: WorkspaceSidebarConf
     sidebarConfig.autoHide && !sidebarConfig.alwaysExpanded ? 0 : CGFloat(sidebarConfig.collapsedWidth)
 }
 
-func workspaceSidebarPersistentVisibleWidth(
-    currentWidth: CGFloat,
-    previousExpandedWidth: CGFloat?,
-    expandedWidth: CGFloat,
-) -> CGFloat {
-    let wasShowingSplitBrowse = previousExpandedWidth.map { currentWidth > $0 + 0.5 } ?? false
-    return wasShowingSplitBrowse ? expandedWidth * 2 : expandedWidth
-}
-
 func isWorkspaceSidebarHoverDeepEnoughToExpand(
     mouseX: CGFloat,
     sidebarMinX: CGFloat,

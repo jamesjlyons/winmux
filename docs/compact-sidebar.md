@@ -29,8 +29,15 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   cursor. Drag previews update the live config and panel model together; the
   existing layout refresh updates reserved space when always-expanded is on.
   Width is clamped to 120–480, above collapsed width, and within the target display
-  (accounting for split browsing). Release writes once; Escape cancels; a double
+  (Organize uses the same saved column width). Release writes once; Escape cancels; a double
   click resets to the configured default of 240.
+- **Organize** in the space menu expands the sidebar into one column per space,
+  in saved order. It widens to the display edge, then scrolls horizontally;
+  each column scrolls vertically. Drag windows or tab groups between columns,
+  including onto New Group. Holding a window near a horizontal edge scrolls
+  to more spaces. Display and search filters apply across every column.
+  Leaving the sidebar restores its configured resting state after any active
+  drag, menu or editor finishes. Organize is temporary and local to each display.
 - Project indicators retain color in the selected pill, have quieter inactive
   dots and a selected accessibility state. Hit areas remain 36 × 32 when expanded
   and use the available section width with 32-point height when collapsed.

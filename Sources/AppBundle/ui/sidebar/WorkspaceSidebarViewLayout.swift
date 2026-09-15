@@ -35,7 +35,6 @@ extension WorkspaceSidebarView {
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
-            browsedProjectId: browsedProjectId,
         )
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
@@ -74,7 +73,9 @@ extension WorkspaceSidebarView {
             )
             .frame(maxHeight: .infinity, alignment: .topLeading)
 
-            if (isSidebarCollapsing && !isCompact) || (isSidebarExpanding && isCompact) {
+            if isOrganizing {
+                EmptyView()
+            } else if (isSidebarCollapsing && !isCompact) || (isSidebarExpanding && isCompact) {
                 let compactProjectReserveHeight = min(
                     max(CGFloat(snapshot.projects.count) * workspaceSidebarProjectDotFrameHeight, workspaceSidebarPagerHeight),
                     workspaceSidebarProjectDotFrameHeight * 5
@@ -143,19 +144,7 @@ extension WorkspaceSidebarView {
 private let workspaceSidebarCollapseReservedProjectPagerHeight = workspaceSidebarPagerHeight + 10
 
 extension WorkspaceSidebarView {
-    func workspaceSidebarSplitSectionWidth(expansionProgress: CGFloat) -> CGFloat {
-        let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
-        return (sectionWidth * 2) + workspaceSidebarSplitPaneGap
-    }
-
     func workspaceSidebarContentFrameWidth(expansionProgress: CGFloat) -> CGFloat {
-        guard browsedProjectId != nil else {
-            return max(snapshot.visibleWidth, 0)
-        }
-        return workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) +
-            workspaceSidebarContentLeadingInset +
-            workspaceSidebarContentTrailingInset
+        max(snapshot.visibleWidth, 0)
     }
 }
-
-let workspaceSidebarSplitPaneGap: CGFloat = 8

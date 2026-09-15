@@ -10,7 +10,8 @@ func makeWorkspaceSidebarActionsAdapter(
             handleWorkspaceSidebarAction(action, viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         },
         setDropTargets: { targets in
-            WorkspaceSidebarPanel.updateVisibleDropTargets(targets)
+            WorkspaceSidebarPanel.panel(for: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId)?
+                .updateDropTargets(targets)
         },
         hoverWorkspace: { name, isHovering in
             TrayMenuModel.shared.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, nextWorkspaceSidebarHoveredWorkspaceName(
@@ -41,6 +42,12 @@ func handleWorkspaceSidebarAction(
     targetMonitorScopeId: String? = nil,
 ) {
     switch action {
+        case .setBrowseMode(let mode):
+            if let panel = WorkspaceSidebarPanel.panel(for: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId) {
+                panel.setBrowseMode(mode)
+            } else {
+                viewModel.setIfChanged(\.workspaceSidebarBrowseMode, mode)
+            }
         case .selectWorkspace(let name):
             focusWorkspaceFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .reorderWorkspace(let name, let targetName, let placement):

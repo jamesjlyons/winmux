@@ -65,7 +65,7 @@ public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool 
     }
 }
 
-/// Focused fixtures for display-filter visibility and browsing another project.
+/// Focused fixtures for display-filter visibility and organizing all spaces.
 @MainActor
 public func renderWinMuxSidebarContextProofImages(in directory: URL) throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -86,19 +86,17 @@ public func renderWinMuxSidebarContextProofImages(in directory: URL) throws {
     }.environment(\.colorScheme, .dark)
     try renderMarketingView(filterView, to: directory.appendingPathComponent("display-filter.png"),
                             size: CGSize(width: 240, height: 740))
-    guard let otherProject = snapshot.projects.first(where: { $0.id != snapshot.activeProjectId }) else { return }
-    let splitView = ZStack {
+    snapshot.browseMode = .organize
+    snapshot.selectedMonitorScopeId = workspaceSidebarDefaultScopeId
+    snapshot.visibleWidth = WorkspaceSidebarOrganizeLayout(
+        expandedWidth: 240, projectCount: snapshot.projects.count, availableWidth: 1200
+    ).visibleWidth
+    let organizeView = ZStack {
         Color(white: 0.08)
-        sidebar.splitWorkspacePage(
-            activeProjectId: snapshot.activeProjectId, browsedProjectId: otherProject.id,
-            expansionProgress: 1, leadingInset: 12, trailingInset: 12, topPadding: 0,
-            visibleWorkspacesByProject: Dictionary(grouping: snapshot.workspaces, by: \.projectId)
-        )
-        .padding(.vertical, 12)
+        WorkspaceSidebarView(snapshot: snapshot)
     }.environment(\.colorScheme, .dark)
-    let width = sidebar.workspaceSidebarSplitSectionWidth(expansionProgress: 1) + 24
-    try renderMarketingView(splitView, to: directory.appendingPathComponent("browse-alongside.png"),
-                            size: CGSize(width: width, height: 740))
+    try renderMarketingView(organizeView, to: directory.appendingPathComponent("organize.png"),
+                            size: CGSize(width: snapshot.visibleWidth, height: 740))
 }
 
 /// Exports a deterministic marketing composition that embeds WinMux's production SwiftUI views.

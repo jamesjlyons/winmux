@@ -74,7 +74,7 @@ extension WorkspaceSidebarView {
         verticalTranslation: CGFloat,
         expansionProgress: CGFloat,
     ) -> Bool {
-        guard !snapshot.projects.isEmpty,
+        guard !isOrganizing, !snapshot.projects.isEmpty,
               !isWorkspaceSidebarDragInProgress()
         else {
             return false

@@ -48,7 +48,7 @@ final class SidebarResizeView: NSView {
         guard let panel = WorkspaceSidebarPanel.panel(for: monitorScopeId) else { return }
         resizingPanel = panel
         startWidth = config.workspaceSidebar.width
-        multiplier = panel.viewModel.workspaceSidebarVisibleWidth > CGFloat(startWidth) + 0.5 ? 2 : 1
+        multiplier = panel.viewModel.workspaceSidebarBrowseMode == .organize ? CGFloat(max(panel.viewModel.workspaceSidebarProjects.count, 1)) : 1
         startX = panel.convertPoint(toScreen: event.locationInWindow).x
         panel.isResizingSidebar = true
         panel.cancelExpansionWork()
@@ -74,7 +74,7 @@ final class SidebarResizeView: NSView {
 
     private func updateWidth(_ proposed: CGFloat) {
         guard let panel = resizingPanel else { return }
-        let available = (panel.screen?.frame.width ?? 960) / multiplier
+        let available = panel.screen?.frame.width ?? 960
         let width = clampedWorkspaceSidebarWidth(proposed, collapsedWidth: config.workspaceSidebar.collapsedWidth, availableWidth: available)
         applyWorkspaceSidebarPreviewWidth(width)
     }
@@ -111,8 +111,7 @@ private func applyWorkspaceSidebarPreviewWidth(_ width: Int) {
     guard previousWidth != width else { return }
     config.workspaceSidebar.width = width
     for panel in WorkspaceSidebarPanel.visiblePanels where panel.viewModel.isWorkspaceSidebarExpanded {
-        let isSplit = panel.viewModel.workspaceSidebarVisibleWidth > CGFloat(previousWidth) + 0.5
-        panel.viewModel.workspaceSidebarVisibleWidth = CGFloat(width) * (isSplit ? 2 : 1)
+        panel.viewModel.workspaceSidebarVisibleWidth = panel.expandedPresentationWidth
         if panel.persistentExpansionWidth != nil { panel.persistentExpansionWidth = CGFloat(width) }
     }
     WorkspaceSidebarPanel.refreshAll()
