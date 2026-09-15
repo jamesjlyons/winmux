@@ -22,6 +22,8 @@ private func makeWindowTabChromeItem(
     container: TilingContainer,
     workspace: Workspace,
 ) async -> WindowTabChromeItem? {
+    let interval = signposter.beginInterval("Tab group model", "workspace: \(workspace.id.rawValue)")
+    defer { signposter.endInterval("Tab group model", interval) }
     guard let activeWindow = container.tabActiveWindow,
           let contentFrame = activeWindowContentFrame(activeWindow, container: container)
     else { return nil }

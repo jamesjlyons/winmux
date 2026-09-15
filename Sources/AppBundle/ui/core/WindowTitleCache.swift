@@ -12,12 +12,20 @@ private struct PendingWindowTitle {
     let task: Task<String?, Never>
 }
 
+private struct PendingWindowTitleRefresh {
+    let owner: ObjectIdentifier
+    let id: UUID
+    let task: Task<Void, Never>
+}
+
 private let cachedWindowTitleMaxAge: TimeInterval = 5
 @MainActor private var cachedWindowTitles: [UInt32: CachedWindowTitle] = [:]
 @MainActor private var pendingWindowTitles: [UInt32: PendingWindowTitle] = [:]
 @MainActor private var titleCacheGeneration: UInt64 = 0
-@MainActor private var pendingTitleRefreshWindowIds: Set<UInt32> = []
-@MainActor private var backgroundTitleRefreshTask: Task<Void, Never>?
+@MainActor private var backgroundTitleRefreshes: [UInt32: PendingWindowTitleRefresh] = [:]
+@MainActor private var backgroundTitlePublication: Task<Void, Never>?
+@MainActor private var titlePublicationNeeded = false
+@MainActor private var titlePublicationOverrideForTests: (@MainActor () async -> Void)?
 
 @MainActor
 func resetCachedWindowTitles() {
@@ -25,9 +33,12 @@ func resetCachedWindowTitles() {
     cachedWindowTitles = [:]
     for request in pendingWindowTitles.values { request.task.cancel() }
     pendingWindowTitles = [:]
-    pendingTitleRefreshWindowIds = []
-    backgroundTitleRefreshTask?.cancel()
-    backgroundTitleRefreshTask = nil
+    for refresh in backgroundTitleRefreshes.values { refresh.task.cancel() }
+    backgroundTitleRefreshes = [:]
+    backgroundTitlePublication?.cancel()
+    backgroundTitlePublication = nil
+    titlePublicationNeeded = false
+    titlePublicationOverrideForTests = nil
 }
 
 @MainActor
@@ -40,6 +51,10 @@ func cachedWindowTitle(for window: Window) -> String? {
 func pruneCachedWindowTitles() {
     cachedWindowTitles = cachedWindowTitles.filter { id, entry in
         Window.get(byId: id).map { ObjectIdentifier($0) == entry.owner } == true
+    }
+    for (id, refresh) in backgroundTitleRefreshes where Window.get(byId: id).map({ ObjectIdentifier($0) }) != refresh.owner {
+        refresh.task.cancel()
+        backgroundTitleRefreshes.removeValue(forKey: id)
     }
     for (id, request) in pendingWindowTitles where Window.get(byId: id).map({ ObjectIdentifier($0) }) != request.owner {
         request.task.cancel()
@@ -85,46 +100,70 @@ func getCachedWindowTitle(
 func getSessionWindowTitle(_ window: Window, now: Date = .now) -> String? {
     if let cached = cachedWindowTitles[window.windowId], cached.owner == ObjectIdentifier(window) {
         if now.timeIntervalSince(cached.fetchedAt) >= cachedWindowTitleMaxAge {
-            scheduleBackgroundWindowTitleRefresh(windowId: window.windowId)
+            scheduleBackgroundWindowTitleRefresh(window)
         }
         return cached.title
     }
-    scheduleBackgroundWindowTitleRefresh(windowId: window.windowId)
+    scheduleBackgroundWindowTitleRefresh(window)
     return nil
 }
 
 @MainActor
-private func scheduleBackgroundWindowTitleRefresh(windowId: UInt32) {
-    pendingTitleRefreshWindowIds.insert(windowId)
-    guard backgroundTitleRefreshTask == nil else { return }
-    backgroundTitleRefreshTask = Task { @MainActor in
-        var didAnyTitleChange = false
-        while !pendingTitleRefreshWindowIds.isEmpty, !Task.isCancelled {
-            let batch = pendingTitleRefreshWindowIds
-            pendingTitleRefreshWindowIds = []
-            await withTaskGroup(of: Bool.self) { group in
-                for windowId in batch {
-                    guard let window = Window.get(byId: windowId) else { continue }
-                    group.addTask { @Sendable @MainActor in
-                        let before = cachedWindowTitle(for: window)
-                        let after = await getCachedWindowTitle(window)
-                        return before != after
-                    }
-                }
-                for await changed in group where changed { didAnyTitleChange = true }
-            }
-            guard !Task.isCancelled else { return }
+private func scheduleBackgroundWindowTitleRefresh(_ window: Window) {
+    let windowId = window.windowId
+    let owner = ObjectIdentifier(window)
+    if backgroundTitleRefreshes[windowId]?.owner == owner { return }
+    backgroundTitleRefreshes[windowId]?.task.cancel()
+    let id = UUID()
+    let generation = titleCacheGeneration
+    let task = Task { @MainActor in
+        let before = cachedWindowTitle(for: window)
+        let after = await getCachedWindowTitle(window)
+        guard !Task.isCancelled, generation == titleCacheGeneration,
+              backgroundTitleRefreshes[windowId]?.id == id else { return }
+        backgroundTitleRefreshes.removeValue(forKey: windowId)
+        if before != after { scheduleBackgroundTitlePublication() }
+    }
+    backgroundTitleRefreshes[windowId] = PendingWindowTitleRefresh(owner: owner, id: id, task: task)
+}
+
+@MainActor
+private func scheduleBackgroundTitlePublication() {
+    titlePublicationNeeded = true
+    guard backgroundTitlePublication == nil else { return }
+    let generation = titleCacheGeneration
+    backgroundTitlePublication = Task { @MainActor in
+        defer {
+            if generation == titleCacheGeneration { backgroundTitlePublication = nil }
         }
-        guard !Task.isCancelled else { return }
-        backgroundTitleRefreshTask = nil
-        if didAnyTitleChange {
-            await updateWorkspaceSidebarModel()
-            await updateWindowTabModel()
+        while titlePublicationNeeded {
+            // Coalesce completions for one frame without waiting for an unrelated slow AX app.
+            try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled, generation == titleCacheGeneration else { return }
+            titlePublicationNeeded = false
+            if let titlePublicationOverrideForTests {
+                await titlePublicationOverrideForTests()
+            } else {
+                await updateWorkspaceSidebarModel()
+                await updateWindowTabModel()
+            }
         }
     }
 }
 
 @MainActor
+func setWindowTitlePublicationOverrideForTests(_ override: (@MainActor () async -> Void)?) {
+    titlePublicationOverrideForTests = override
+}
+
+@MainActor
 func waitForBackgroundWindowTitlesForTests() async {
-    await backgroundTitleRefreshTask?.value
+    // Publication can request more titles; drain both kinds of work until quiet.
+    for _ in 0 ..< 100 {
+        let tasks = backgroundTitleRefreshes.values.map(\.task)
+        let publication = backgroundTitlePublication
+        if tasks.isEmpty && publication == nil { return }
+        for task in tasks { await task.value }
+        await publication?.value
+    }
 }

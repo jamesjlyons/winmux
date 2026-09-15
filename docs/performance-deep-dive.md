@@ -107,6 +107,9 @@ diagnostic but opened, completed all samples, and closed normally.
 
 ## Further opportunities, ordered by value
 
+The [September 15 follow-up](performance-follow-up.md) implements four of these opportunities
+and records the profiling decisions for broad model caching and flip capture.
+
 These are code-backed follow-ups requiring their own measurements, not additional claimed wins.
 
 | Priority | Area and evidence | Next step and correctness constraint |

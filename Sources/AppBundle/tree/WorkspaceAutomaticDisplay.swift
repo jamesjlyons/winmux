@@ -4,8 +4,7 @@
 func automaticWorkspaceDisplayIndices(workspaces: [Workspace], focusedWorkspace: Workspace?) -> [WorkspaceId: Int] {
     var counts: [WorkspaceProjectId: Int] = [:]
     var indices: [WorkspaceId: Int] = [:]
-    for workspace in workspaces where workspace.usesAutomaticDisplayName &&
-        isUserFacingWorkspace(workspace, focusedWorkspace: focusedWorkspace)
+    for workspace in userFacingWorkspaces(workspaces, focusedWorkspace: focusedWorkspace) where workspace.usesAutomaticDisplayName
     {
         counts[workspace.projectId, default: 0] += 1
         indices[workspace.id] = counts[workspace.projectId]
@@ -15,9 +14,7 @@ func automaticWorkspaceDisplayIndices(workspaces: [Workspace], focusedWorkspace:
 
 @MainActor
 func automaticWorkspaceDisplayIndex(_ workspace: Workspace, focusedWorkspace: Workspace?) -> Int? {
-    orderedWorkspacesForPresentation()
-        .filter { $0.projectId == workspace.projectId }
-        .filter { userFacingWorkspaces([$0], focusedWorkspace: focusedWorkspace).contains($0) }
+    userFacingWorkspaces(orderedWorkspacesForPresentation().filter { $0.projectId == workspace.projectId }, focusedWorkspace: focusedWorkspace)
         .filter(\.usesAutomaticDisplayName)
         .firstIndex(of: workspace)
         .map { $0 + 1 }
@@ -29,9 +26,7 @@ func automaticWorkspaceDisplayIndexFallback(_ workspaceName: String) -> Int? {
 
 @MainActor
 func scopedAutomaticDisplayWorkspaces(current: Workspace) -> [Workspace] {
-    orderedWorkspacesForPresentation()
-        .filter { $0.projectId == current.projectId }
-        .filter { userFacingWorkspaces([$0], focusedWorkspace: current).contains($0) }
+    userFacingWorkspaces(orderedWorkspacesForPresentation().filter { $0.projectId == current.projectId }, focusedWorkspace: current)
         .filter(\.usesAutomaticDisplayName)
 }
 

@@ -52,6 +52,8 @@ struct RestartSessionSnapshot: Codable, Sendable {
     }
 
     @MainActor static func capture(now: Date = .now) -> RestartSessionSnapshot {
+        let interval = signposter.beginInterval("Session snapshot")
+        defer { signposter.endInterval("Session snapshot", interval) }
         let workspaces = Workspace.all.filter { !$0.isArchived }
         let world = FrozenWorld(workspaces: workspaces.map(FrozenWorkspace.init), monitors: monitors.map(FrozenMonitor.init),
                                 windowIds: workspaces.flatMap(collectAllWindowIds).toSet())

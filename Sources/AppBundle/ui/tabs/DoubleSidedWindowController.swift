@@ -19,14 +19,16 @@ final class DoubleSidedWindowController {
               let rect = window.lastAppliedLayoutPhysicalRect
         else { return }
         let canAnimate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion && CGPreflightScreenCaptureAccess()
+        let captureInterval = signposter.beginInterval("Flip snapshot capture")
         let front = canAnimate ? snapshot(window.windowId) : nil
         let back = canAnimate ? snapshot(other.windowId) : nil
-        if let front, let back,
-           let background = CGWindowListCreateImage(
+        let background = front != nil && back != nil ? CGWindowListCreateImage(
                CGRect(x: rect.topLeftX, y: rect.topLeftY, width: rect.width, height: rect.height)
                    .insetBy(dx: -backdropPadding, dy: -backdropPadding),
                .optionOnScreenBelowWindow, window.windowId, [.nominalResolution]
-           ) {
+           ) : nil
+        signposter.endInterval("Flip snapshot capture", captureInterval)
+        if let front, let back, let background {
             animate(front: front, back: back, background: background, rect: rect)
         }
         focusWindowFromTabStrip(other.windowId, fallbackWorkspace: focus.workspace.name)

@@ -27,6 +27,8 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     availableMonitors: [Monitor],
     automaticIndices: [WorkspaceId: Int],
 ) async -> WorkspaceSidebarWorkspaceViewModel {
+    let interval = signposter.beginInterval("Sidebar workspace model", "workspace: \(workspace.id.rawValue)")
+    defer { signposter.endInterval("Sidebar workspace model", interval) }
     let workspaceMonitor = workspace.workspaceMonitor
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,

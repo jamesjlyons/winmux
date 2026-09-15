@@ -16,6 +16,11 @@ restore for that workspace. A missing display falls back to the main display,
 with floating frames clamped to its visible bounds.
 
 Session files are atomically replaced with a last-good `.backup` alongside them.
+The live tree is captured on the main actor; a separate serial writer compares and saves the
+snapshot. Quit captures the final state before yielding and waits for its write before window
+cleanup. Revisions prevent a delayed checkpoint from replacing a newer quit snapshot. Unchanged
+content skips disk access, and a failed write remains eligible for retry.
+
 The existing version-1 session is imported only when saved during this boot.
 Corrupt files fall back to the backup; unsupported versions are preserved. Saving
 is suspended while disabled, read-only, locked, awaiting Accessibility permission,

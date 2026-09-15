@@ -1,8 +1,9 @@
 import AppKit
+import Common
 
 @MainActor
 func updateWindowTabModel() async {
-    let interval = signposter.beginInterval("Tab model")
+    let interval = signposter.beginInterval("Tab model", "event: \(refreshSessionEvent?.description ?? "background")")
     defer { signposter.endInterval("Tab model", interval) }
     let didClearMouseInteractionChromeSuppression =
         WindowTabStripPanelController.shared.clearMouseInteractionChromeSuppressionIfInactive()
@@ -12,8 +13,6 @@ func updateWindowTabModel() async {
         debugFocusLog("updateWindowTabModel disabled -> cleared")
         return
     }
-    pruneCachedWindowTitles()
-
     let strips = await buildWindowTabStripViewModelsFromChromeItems()
 
     if TrayMenuModel.shared.windowTabStrips != strips {

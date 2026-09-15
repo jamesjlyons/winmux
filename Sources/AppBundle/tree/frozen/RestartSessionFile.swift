@@ -2,7 +2,7 @@ import Common
 import CryptoKit
 import Foundation
 
-struct RestartSessionFile {
+struct RestartSessionFile: Sendable {
     let url: URL
     var backupURL: URL { url.appendingPathExtension("backup") }
 

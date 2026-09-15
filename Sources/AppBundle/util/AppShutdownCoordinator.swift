@@ -9,10 +9,11 @@ final class AppShutdownCoordinator {
 
     func shutdown() async {
         if let shutdownTask { await shutdownTask.value; return }
-        // Flush synchronously before cleanup or another refresh can change window positions.
-        persistFrozenWorldForRestartIfPossible()
+        // Capture now, then wait for the serialized writer before moving windows for cleanup.
+        let finalSave = persistFrozenWorldForRestartIfPossible()
         isShuttingDown = true
         let task = Task { @MainActor in
+            await finalSave?.value
             guard isWinMuxRuntimeReady else { return }
             await runBoundedShutdown(timeout: .seconds(5)) {
                 try? await makeAllWindowsVisibleAndRestoreSize()

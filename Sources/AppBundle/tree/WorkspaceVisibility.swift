@@ -25,6 +25,14 @@ func workspaceOwnedMinimizedWindows(_ workspace: Workspace) -> [Window] {
 }
 
 @MainActor
+func workspaceNamesWithOwnedMinimizedWindows() -> Set<String> {
+    Set(macosMinimizedWindowsContainer.children.compactMap { node in
+        guard let window = node as? Window, case .macos(_, let name) = window.layoutReason else { return nil }
+        return name
+    })
+}
+
+@MainActor
 func workspaceHasLifecycleWindows(_ workspace: Workspace) -> Bool {
     !workspace.isEffectivelyEmpty || !workspaceOwnedMinimizedWindows(workspace).isEmpty
 }
@@ -43,7 +51,18 @@ func isUserFacingWorkspace(_ workspace: Workspace, focusedWorkspace: Workspace? 
 
 @MainActor
 func userFacingWorkspaces(_ workspaces: [Workspace], focusedWorkspace: Workspace? = nil) -> [Workspace] {
-    workspaces.filter { isUserFacingWorkspace($0, focusedWorkspace: focusedWorkspace) }
+    let minimizedNames = workspaceNamesWithOwnedMinimizedWindows()
+    var retainedIds: [WorkspaceScope: WorkspaceId]?
+    return workspaces.filter { workspace in
+        guard !workspace.isArchived else { return false }
+        if workspaceHasSidebarVisibleWindows(workspace) || workspace.isVisible ||
+            workspace.isConfiguredPersistent || minimizedNames.contains(workspace.name)
+        { return true }
+        // Most occupied groups short-circuit above. Resolve empty slots only when needed,
+        // once for this pass, without scanning every minimized window for every group.
+        if retainedIds == nil { retainedIds = retainedEmptyWorkspaceIdsByScope(minimizedWorkspaceNames: minimizedNames) }
+        return retainedIds?[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
+    }
 }
 
 @MainActor

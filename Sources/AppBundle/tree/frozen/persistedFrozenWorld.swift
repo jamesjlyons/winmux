@@ -16,7 +16,8 @@ final class RestartSessionController {
     private var retryDeadline: Date = .distantPast
     private var retryTask: Task<Void, Never>?
     private var saveTask: Task<Void, Never>?
-    private var previousSnapshot: RestartSessionSnapshot?
+    private let writer = RestartSessionWriter()
+    private var saveRevision: UInt64 = 0
     private var allowsSaving = true
     private var restoring = false
     private var sessionIsActive = true
@@ -172,34 +173,40 @@ final class RestartSessionController {
         saveTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled, let self else { return }
-            self.saveTask = nil
+            defer { self.saveTask = nil }
             guard self.canCapture else { return }
-            self.save()
+            await self.save()?.value
         }
     }
 
-    func flushForQuit() {
+    func flushForQuit() -> Task<Void, Never>? {
         saveTask?.cancel()
         saveTask = nil
         guard !isUnitTest, !serverArgs.isReadOnly, isWinMuxRuntimeReady, TrayMenuModel.shared.isEnabled,
-              canObserveSession else { return }
-        save()
+              canObserveSession else { return nil }
+        return save()
     }
 
-    private func save() {
-        guard pending == nil, allowsSaving else { return }
-        do {
-            let snapshot = RestartSessionSnapshot.capture()
-            guard previousSnapshot.map({ snapshot.hasSameContent(as: $0) }) != true else { return }
-            try file.write(snapshot)
-            previousSnapshot = snapshot
-            lastSave = "\(snapshot.savedAt.formatted(.iso8601)); \(snapshot.world.windowIds.count) windows"
-        } catch {
-            lastSave = "Failed: \(error.localizedDescription)"
-            NSLog("WinMux session save failed: %@", error.localizedDescription)
+    private func save() -> Task<Void, Never>? {
+        guard pending == nil, allowsSaving else { return nil }
+        // Capture synchronously before any cleanup or refresh can change the live tree.
+        let snapshot = RestartSessionSnapshot.capture()
+        let file = file
+        saveRevision += 1
+        let revision = saveRevision
+        return Task { @MainActor [weak self, writer] in
+            do {
+                let result = try await writer.write(snapshot, to: file, revision: revision)
+                guard let self, self.saveRevision == revision, let result else { return }
+                self.lastSave = "\(result.snapshot.savedAt.formatted(.iso8601)); \(result.snapshot.world.windowIds.count) windows"
+            } catch {
+                guard let self, self.saveRevision == revision else { return }
+                self.lastSave = "Failed: \(error.localizedDescription)"
+                NSLog("WinMux session save failed: %@", error.localizedDescription)
+            }
         }
     }
 }
 
-@MainActor func persistFrozenWorldForRestartIfPossible() { RestartSessionController.shared.flushForQuit() }
+@MainActor func persistFrozenWorldForRestartIfPossible() -> Task<Void, Never>? { RestartSessionController.shared.flushForQuit() }
 @MainActor @discardableResult func loadPersistedFrozenWorldForStartupIfPresent() -> Bool { RestartSessionController.shared.load() }
