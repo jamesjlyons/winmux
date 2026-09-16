@@ -12,6 +12,7 @@ final class AppShutdownCoordinator {
         // Capture now, then wait for the serialized writer before moving windows for cleanup.
         let finalSave = persistFrozenWorldForRestartIfPossible()
         isShuttingDown = true
+        TrackpadNavigationController.shared.shutdown()
         let task = Task { @MainActor in
             await finalSave?.value
             guard isWinMuxRuntimeReady else { return }

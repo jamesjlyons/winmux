@@ -12,6 +12,7 @@ struct DoctorCommand: Command {
         io.out("Permissions:")
         io.out("  accessibility: \(AXIsProcessTrusted() ? "granted" : "MISSING (required)")")
         io.out("  screen capture: \(CGPreflightScreenCaptureAccess() ? "granted" : "missing (tab previews / radius estimation degraded)")")
+        io.out("  trackpad navigation: \(TrackpadNavigationController.shared.status.description)")
         io.out("")
 
         io.out("Monitors (system window corner radius: \(systemWindowCornerRadius())pt):")

@@ -1,4 +1,87 @@
-# Trackpad navigation feasibility
+# Trackpad tab navigation
+
+## Using the feature
+
+In **Settings → Behavior → Trackpad**, enable **Three-finger swipe to switch
+tabs**. It is off by default. Swipe left for the next tab or right for the previous
+tab in the focused group; either direction wraps. Pointer position and Natural
+Scrolling do not change the target or direction. Reverse direction is optional.
+
+```toml
+[trackpad-navigation]
+enabled = false
+reverse-direction = false
+```
+
+Reserve three-finger horizontal swipes for WinMux: in macOS Trackpad settings,
+use four fingers for desktop/full-screen switching and two for page navigation.
+Turn off three-finger dragging in Accessibility → Pointer Control → Trackpad
+Options. The settings section links to both panes; WinMux does not change them.
+Public global event monitoring cannot suppress native gesture actions.
+
+One deliberate swipe changes one tab as soon as the threshold is crossed. Lift
+all fingers before another switch. Windows outside a tab group and one-tab groups
+do nothing. Two-window pairs use their existing flip behavior; Screen Recording
+is not required to switch, and Reduce Motion disables the rotation as before.
+
+## Implementation
+
+- `PrivateApi/trackpad.m` contains the dynamically loaded MultitouchSupport ABI.
+  The bridge retains devices, copies/validates contacts, unregisters callbacks
+  before stopping, and protects callback/context lifetime with a short lock.
+- `TrackpadInputBackend` processes values on a serial queue. Only begin, commit,
+  cancel, and end events reach the main actor. A watchdog runs only while contacts
+  are present. Device matching/termination notifications trigger rediscovery.
+- `TrackpadSwipeRecognizer` requires three stable contact identities for 40 ms,
+  15% horizontal travel, horizontal dominance of 1.8, and completion within 1.5 s.
+  A 250 ms stream gap cancels. Contact changes, button presses, vertical/diagonal
+  motion, and simultaneous trackpads reject the sequence until release.
+- `TrackpadNavigationController` snapshots the focused group, checks native focus
+  before activation, and shares destination resolution with `focus tab-next` and
+  `focus tab-prev`. The existing tab-click path updates highlight and native focus.
+- Config reload, disablement, shutdown, lock/sleep, and device changes invalidate
+  queued work. Sidebar scrolling suppresses a three-finger-owned sequence and its
+  tail, while a fresh two-finger scroll remains available.
+- Settings and `winmux doctor` expose availability. Missing private symbols or
+  malformed frames leave the rest of WinMux operational. An input-format failure
+  remains disabled until the feature is toggled off and on.
+
+The current settings are also queryable with
+`winmux config --get trackpad-navigation --json` or individual keys such as
+`trackpad-navigation.enabled`.
+
+The private framework is undocumented; successful loading is not proof of gesture
+reliability. Test on the actual hardware after macOS updates.
+
+## Validation
+
+Automated coverage includes recognizer rejection/latching, tab ordering/wrapping,
+stale subscriptions, lifecycle failures, native-focus mismatch, settings edits,
+and sidebar momentum. Run `swift test --filter 'Trackpad|FocusCommandTest'`, then
+the full `swift test` suite and `make dev-build`.
+
+Physical acceptance remains a separate requirement: repeat both directions over
+Safari, a terminal, another app, and the sidebar. Test two-finger scrolling,
+four-finger gestures, partial/diagonal swipes, dragging, multiple displays,
+sleep/lock recovery, and Magic Trackpad reconnection. Require one switch per
+accepted swipe and none for rejected input. Inspect the `Trackpad tab activation`
+signpost alongside visible tab highlight and native focus; test timings alone do
+not establish input-to-visible latency.
+
+### Verified on September 15, 2026
+
+- Full Swift suite: 708 tests, zero failures.
+- Signed WinMux Dev build; live Accessibility permission granted.
+- All 12 pre-existing windows preserved through installation/restart.
+- Live Settings controls start detection (`Ready · 1 trackpad`), persist reverse
+  direction, and stop detection. Final configuration is disabled, direction normal.
+- Native bridge completed ten register/unregister/start/stop cycles without a
+  crash. No touch frames were captured in that short check, so it is lifecycle
+  evidence only.
+- Physical swipes, screen presentation latency, sleep/lock, external trackpad
+  reconnection, and multi-display gestures have not yet been verified.
+
+## Historical feasibility baseline
 
 The personal fork is on `codex/trackpad-navigation`, based on upstream `e0ad328e`.
 Upstream was fetched on September 13, 2026 and had no newer commits.
@@ -64,25 +147,8 @@ These undocumented preference values are recorded without assuming their UI
 meaning. Check System Settings → Trackpad → More Gestures, plus Accessibility →
 Pointer Control → Trackpad Options. No system preferences were changed.
 
-## Navigation follow-up after recognition passes
-
-Keep a pure, tested recognizer separate from the backend and a main-actor
-navigation adapter. Freeze the display and navigation target at gesture start.
-Require exactly three stable contacts, deliberate horizontal displacement, and
-one action only after valid completion. Reject button drags, touch-count changes,
-short motion, cancellation, stale streams, and sleep/disconnection. Ordinary
-scrolling must not enter this recognizer.
-
-Default: left advances a workspace within the current project; right goes back.
-Settings: opt-in enabled, target (workspaces/projects), reverse direction. Do not
-add settings until physical feasibility is confirmed. Project navigation must
-use sidebar ordering and remembered workspace selection. Resolve an existing
-neighbor before activation: workspace-next and sidebar edge swipes can create
-new items, so do not call them as unguarded fallbacks. Keep other-monitor ownership
-rules. Arbitrate the sidebar's existing local scroll handler to avoid duplication.
-
-An external gesture-to-command bridge remains an alternative if the private
-backend proves unreliable; it still needs a bounded navigation entry point.
+The original workspace/project navigation proposal has been superseded by the
+focused-tab behavior above. The standalone probe remains diagnostic-only.
 
 ## Sources
 

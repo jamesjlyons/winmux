@@ -36,6 +36,8 @@ struct ShortcutBehaviorSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(14)
             }
+            TrackpadSettingsSection(model: model)
+                .id(model.settingsRevision)
             SettingsSection("Interaction") {
                 SettingsToggle("Shake to toggle tiling", isOn: $enableShakeToToggleTiling, help: "Shake a window by its title bar to switch between floating and tiled.") { persistRootBool("enable-shake-to-toggle-tiling", enableShakeToToggleTiling) }
                 SettingsToggle("Flatten matching containers", isOn: $flattenContainers, help: "Simplify adjacent containers with the same layout orientation.") { persistRootBool("enable-normalization-flatten-containers", flattenContainers) }
@@ -252,7 +254,7 @@ private struct SettingsScrollView<Content: View>: View {
     }
 }
 
-private struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
     init(_ title: String, @ViewBuilder content: () -> Content) { self.title = title; self.content = content() }
@@ -275,7 +277,7 @@ private struct SettingsSection<Content: View>: View {
     }
 }
 
-private struct SettingsToggle: View {
+struct SettingsToggle: View {
     let title: String; @Binding var isOn: Bool; var help: String? = nil; let save: () -> Void
     init(_ title: String, isOn: Binding<Bool>, help: String? = nil, save: @escaping () -> Void) { self.title = title; _isOn = isOn; self.help = help; self.save = save }
     var body: some View {
@@ -441,7 +443,7 @@ private struct SettingsSolidColorPalette: View {
 }
 
 @MainActor
-private func persistSettingsConfig(section: String?, key: String, renderedValue: String, model: ShortcutSettingsModel) {
+func persistSettingsConfig(section: String?, key: String, renderedValue: String, model: ShortcutSettingsModel) {
     Task { @MainActor in
         do {
             let url = preferredEditableConfigUrl()

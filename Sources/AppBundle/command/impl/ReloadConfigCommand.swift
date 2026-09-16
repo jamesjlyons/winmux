@@ -70,5 +70,6 @@ struct ReloadConfigCommand: Command {
     SecureInputPanel.shared.refresh()
 
     guard isWinMuxRuntimeReady else { return }
+    TrackpadNavigationController.shared.sync()
     scheduleRefreshSession(.configAutoReload)
 }

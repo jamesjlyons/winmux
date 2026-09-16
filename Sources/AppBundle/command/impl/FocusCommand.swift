@@ -132,33 +132,16 @@ struct FocusCommand: Command {
     _ boundariesAction: FocusCmdArgs.WhenBoundariesCrossed,
     _ nextPrev: TabNextPrev,
 ) -> Bool {
-    guard
-        let tabGroupData = currentTabGroupData(target)
-    else {
-        return switch boundariesAction {
-            case .stop, .wrapAroundTheWorkspace: true
-            case .fail: false
-            case .wrapAroundAllMonitors: dieT("Must be discarded by args parser")
-        }
+    switch relativeTabDestination(from: target.windowOrNil, direction: nextPrev, wrapAround: boundariesAction == .wrapAroundTheWorkspace) {
+        case .window(let window): return window.focusWindow()
+        case .invalid: return false
+        case .noGroup, .boundary:
+            return switch boundariesAction {
+                case .stop, .wrapAroundTheWorkspace: true
+                case .fail: false
+                case .wrapAroundAllMonitors: dieT("Must be discarded by args parser")
+            }
     }
-    let currentTab = tabGroupData.currentTab
-    guard let currentIndex = currentTab.ownIndex else { return false }
-
-    var targetIndex = currentIndex + nextPrev.focusOffset
-    if !(0 ..< tabGroupData.group.children.count).contains(targetIndex) {
-        switch boundariesAction {
-            case .stop:
-                return true
-            case .fail:
-                return false
-            case .wrapAroundTheWorkspace:
-                targetIndex = (targetIndex + tabGroupData.group.children.count) % tabGroupData.group.children.count
-            case .wrapAroundAllMonitors:
-                return dieT("Must be discarded by args parser")
-        }
-    }
-
-    return tabWindowToFocus(tabGroupData.group, targetIndex).map { $0.focusWindow() } ?? false
 }
 
 @MainActor

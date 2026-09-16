@@ -14,6 +14,7 @@ struct ConfigCommand: Command {
                 let out = """
                     .
                     mode
+                    trackpad-navigation
                     \(modeKeys.joined(separator: "\n"))
                     """
                 return io.out(out)
@@ -160,17 +161,25 @@ extension [Command] {
             "binding-tap": .map(tapKeyNotationToScript),
         ])
     }
-    return .map(["mode": .map(mode)])
+    return .map([
+        "mode": .map(mode),
+        "trackpad-navigation": .map([
+            "enabled": .scalar(.bool(config.trackpadNavigation.enabled)),
+            "reverse-direction": .scalar(.bool(config.trackpadNavigation.reverseDirection)),
+        ]),
+    ])
 }
 
 enum ConfigScalarValue: Encodable {
     case string(String)
     case int(Int)
+    case bool(Bool)
 
     var describe: String {
         return switch self {
             case .string(let string): string
             case .int(let int): String(int)
+            case .bool(let bool): String(bool)
         }
     }
 
@@ -178,6 +187,7 @@ enum ConfigScalarValue: Encodable {
         let value: Encodable = switch self {
             case .string(let string): string
             case .int(let int): int
+            case .bool(let bool): bool
         }
         var container = encoder.singleValueContainer()
         try container.encode(value)

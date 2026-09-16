@@ -23,6 +23,12 @@ shortcuts-preset = 'none'
 persistent-workspaces = []
 on-mode-changed = []
 
+[trackpad-navigation]
+    # Use three-finger horizontal swipes for tabs in the focused group.
+    # Move macOS desktop switching to four fingers before enabling.
+    enabled = false
+    reverse-direction = false
+
 [key-mapping]
     preset = 'qwerty'
 
