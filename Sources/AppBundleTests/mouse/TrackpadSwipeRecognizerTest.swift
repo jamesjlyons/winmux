@@ -19,12 +19,40 @@ final class TrackpadSwipeRecognizerTest: XCTestCase {
         XCTAssertEqual(recognizer.observe(frame(0.35, x: 0.7)), [.committed(1, .right)])
     }
 
-    func testRequiresStableContactsAndRejectsShortMotion() {
+    func testRejectsShortMotion() {
         var recognizer = TrackpadSwipeRecognizer()
         _ = recognizer.observe(frame(0))
-        XCTAssertEqual(recognizer.observe(frame(0.01, x: 0.3)), [])
         XCTAssertEqual(recognizer.observe(frame(0.05, x: 0.45)), [])
         XCTAssertEqual(recognizer.observe(frame(0.10, count: 0)), [.ended(1)])
+    }
+
+    func testFastFlickCommitsBeforeReleaseWithoutDwell() {
+        var recognizer = TrackpadSwipeRecognizer()
+        XCTAssertEqual(recognizer.observe(frame(0)), [.began(1)])
+        XCTAssertEqual(recognizer.observe(frame(0.008, x: 0.41)), [.committed(1, .left)])
+        XCTAssertEqual(recognizer.observe(frame(0.016, count: 2)), [])
+        XCTAssertEqual(recognizer.observe(frame(0.024, count: 0)), [.ended(1)])
+    }
+
+    func testRapidFlicksRearmImmediatelyAndAllowReversal() {
+        var recognizer = TrackpadSwipeRecognizer()
+        for swipe in 0..<30 {
+            let time = Double(swipe) * 0.032
+            let left = swipe.isMultiple(of: 3)
+            XCTAssertEqual(recognizer.observe(frame(time)), [.began(1)])
+            XCTAssertEqual(recognizer.observe(frame(time + 0.008, x: left ? 0.4 : 0.6)), [.committed(1, left ? .left : .right)])
+            XCTAssertEqual(recognizer.observe(frame(time + 0.016, count: 0)), [.ended(1)])
+        }
+    }
+
+    func testSmallJitterDoesNotBecomeSwipe() {
+        var recognizer = TrackpadSwipeRecognizer()
+        _ = recognizer.observe(frame(0))
+        for tick in 1...20 {
+            XCTAssertEqual(recognizer.observe(frame(Double(tick) * 0.008,
+                x: tick.isMultiple(of: 2) ? 0.55 : 0.45, y: 0.52)), [])
+        }
+        XCTAssertEqual(recognizer.observe(frame(0.17, count: 0)), [.ended(1)])
     }
 
     func testVerticalAndDiagonalGesturesCannotLaterBecomeHorizontal() {

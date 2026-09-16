@@ -20,7 +20,9 @@ Options. The settings section links to both panes; WinMux does not change them.
 Public global event monitoring cannot suppress native gesture actions.
 
 One deliberate swipe changes one tab as soon as the threshold is crossed. Lift
-all fingers before another switch. Windows outside a tab group and one-tab groups
+all fingers before another switch; there is no cooldown between swipes. Rapid
+swipes advance from the latest selected tab, and a new swipe can reverse an
+in-progress two-window flip. Windows outside a tab group and one-tab groups
 do nothing. Two-window pairs use their existing flip behavior; Screen Recording
 is not required to switch, and Reduce Motion disables the rotation as before.
 
@@ -32,13 +34,21 @@ is not required to switch, and Reduce Motion disables the rotation as before.
 - `TrackpadInputBackend` processes values on a serial queue. Only begin, commit,
   cancel, and end events reach the main actor. A watchdog runs only while contacts
   are present. Device matching/termination notifications trigger rediscovery.
-- `TrackpadSwipeRecognizer` requires three stable contact identities for 40 ms,
-  15% horizontal travel, horizontal dominance of 1.8, and completion within 1.5 s.
+- `TrackpadSwipeRecognizer` requires three matching contact identities,
+  8% horizontal travel, horizontal dominance of 1.8, and completion within 1.5 s.
+  There is no minimum duration: a clean fast flick commits on its threshold frame.
   A 250 ms stream gap cancels. Contact changes, button presses, vertical/diagonal
   motion, and simultaneous trackpads reject the sequence until release.
-- `TrackpadNavigationController` snapshots the focused group, checks native focus
-  before activation, and shares destination resolution with `focus tab-next` and
-  `focus tab-prev`. The existing tab-click path updates highlight and native focus.
+- `TrackpadNavigationController` snapshots the focused group and checks the
+  frontmost application synchronously. It shares destination resolution with
+  `focus tab-next` and `focus tab-prev`. The tab-click path updates selection and
+  requests native focus immediately, without an AX query or asynchronous task hop.
+  For 500 ms after a switch, the specific windows in that burst may emit late
+  native-focus notifications without rolling selection back. Another app, an
+  explicit focus change, mouse press, or key press ends this grace period.
+- Two-window flips reuse their snapshots and reverse from their displayed
+  rotation angles. New requests cancel the old completion timer; cancelled native
+  focus jobs also check for cancellation between AX operations.
 - Config reload, disablement, shutdown, lock/sleep, and device changes invalidate
   queued work. Sidebar scrolling suppresses a three-finger-owned sequence and its
   tail, while a fresh two-finger scroll remains available.
@@ -55,8 +65,9 @@ reliability. Test on the actual hardware after macOS updates.
 
 ## Validation
 
-Automated coverage includes recognizer rejection/latching, tab ordering/wrapping,
-stale subscriptions, lifecycle failures, native-focus mismatch, settings edits,
+Automated coverage includes fast flicks, rapid bursts and reversals, late native
+focus, explicit input cancellation, recognizer rejection/latching, tab ordering/wrapping,
+stale subscriptions, lifecycle failures, frontmost-app mismatch, settings edits,
 and sidebar momentum. Run `swift test --filter 'Trackpad|FocusCommandTest'`, then
 the full `swift test` suite and `make dev-build`.
 
@@ -68,7 +79,19 @@ accepted swipe and none for rejected input. Inspect the `Trackpad tab activation
 signpost alongside visible tab highlight and native focus; test timings alone do
 not establish input-to-visible latency.
 
-### Verified on September 15, 2026
+### Responsiveness update verified on September 15, 2026
+
+- Full Swift suite: 715 tests, zero failures, including fast flicks, consecutive
+  swipes, direction reversals, cross-app activation lag, and cancellation.
+- Signed optimized WinMux Dev build installed and relaunched. Live Accessibility
+  remains granted and trackpad input reports `Ready · 1 trackpad`.
+- All 13 windows present before the update were restored. Configuration is
+  unchanged: swipe navigation enabled, reverse direction disabled.
+- Physical feel of the updated gestures awaits user confirmation. Screen Capture
+  remains unavailable, so the interruptible rotation has not been visually tested
+  on this installation.
+
+### Initial implementation verified on September 15, 2026
 
 - Full Swift suite: 708 tests, zero failures.
 - Signed WinMux Dev build; live Accessibility permission granted.

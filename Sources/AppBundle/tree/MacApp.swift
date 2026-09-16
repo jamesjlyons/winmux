@@ -213,9 +213,12 @@ final class MacApp: AbstractApp {
                 let interval = signposter.beginInterval("Native focus job", id: signposter.makeSignpostID(), "window: \(windowId, privacy: .public)")
                 defer { signposter.endInterval("Native focus job", interval) }
                 AXUIElementSetAttributeValue(axApp.threadGuarded, kAXFocusedWindowAttribute as CFString, window)
+                try job.checkCancellation()
                 // Raise firstly to make sure that by the time we activate the app, the window would be already on top
                 window.set(Ax.isMainAttr, true)
+                try job.checkCancellation()
                 AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                try job.checkCancellation()
                 nsApp.activate(options: .activateIgnoringOtherApps)
             }
         }

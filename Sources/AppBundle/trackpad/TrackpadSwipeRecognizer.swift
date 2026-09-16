@@ -30,9 +30,8 @@ enum TrackpadGestureEvent: Equatable, Sendable {
 /// Pure, per-device state. A contact sequence can produce at most one commit.
 /// Cancelled and committed sequences stay latched until every finger lifts.
 struct TrackpadSwipeRecognizer: Sendable {
-    static let minimumTravel = 0.15
+    static let minimumTravel = 0.08
     static let horizontalRatio = 1.8
-    static let stableDuration = 0.04
     static let maximumDuration = 1.5
     static let staleInterval = 0.25
 
@@ -124,7 +123,9 @@ struct TrackpadSwipeRecognizer: Sendable {
             reject(&stream, device: frame.device)
             return events
         }
-        guard frame.timestamp - stream.startTime >= Self.stableDuration else { return events }
+        // Distance, direction and matching contact identities establish intent.
+        // A dwell requirement loses fast flicks that cross the threshold and lift
+        // between frames, and adds latency to every otherwise valid swipe.
         stream.committed = true
         events.append(.committed(frame.device, dx < 0 ? .left : .right))
         return events

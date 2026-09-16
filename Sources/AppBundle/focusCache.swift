@@ -57,6 +57,14 @@ private func shouldIgnoreNativeFocusDuringProjectHold(_ nativeFocused: Window?) 
     if nativeFocused?.parent is MacosPopupWindowsContainer {
         return
     }
+    // A rapid swipe burst can overtake AX focus notifications from an earlier
+    // tab. Keep the latest requested tab until native focus catches up.
+    if TrackpadNavigationController.shared.shouldIgnoreNativeFocus(nativeFocused) {
+        // Reconcile even an unchanged native window after the grace period if
+        // activation failed; otherwise the old cache entry could pin selection.
+        lastKnownNativeFocusedWindowId = nil
+        return
+    }
     let lastKnownNativeFocusedWindowIdBefore = lastKnownNativeFocusedWindowId
     if shouldIgnoreNativeFocusDuringProjectHold(nativeFocused) {
         lastKnownNativeFocusedWindowId = nil

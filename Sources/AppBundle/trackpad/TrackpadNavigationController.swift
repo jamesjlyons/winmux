@@ -24,12 +24,18 @@ final class TrackpadNavigationController: ObservableObject {
     @Published private(set) var status: TrackpadNavigationStatus = .off
     private(set) var ownedDevices: Set<UInt> = []
     private let backend: any TrackpadInputBackend
-    private let nativeFocusMatches: @MainActor (UInt32) async -> Bool
+    private let frontmostPID: @MainActor () -> Int32?
+    private let now: @MainActor () -> Double
     private let activate: @MainActor (Window, Window) -> Void
     private var configuration = TrackpadNavigationConfig()
     private var candidate: (device: UInt, target: TrackpadTabTarget)?
     private var generation: UInt64 = 0
-    private var navigationRevision: UInt64 = 0
+    private struct FocusTransition {
+        let target: TrackpadTabTarget
+        var windowPIDs: [UInt32: Int32]
+        let expiresAt: Double
+    }
+    private var focusTransition: FocusTransition?
     private var running = false
     private var sessionActive = true
     private var sleeping = false
@@ -40,9 +46,10 @@ final class TrackpadNavigationController: ObservableObject {
 
     init(
         backend: any TrackpadInputBackend = MultitouchTrackpadBackend(),
-        nativeFocusMatches: @escaping @MainActor (UInt32) async -> Bool = { id in
-            (try? await getNativeFocusedWindow())?.windowId == id
+        frontmostPID: @escaping @MainActor () -> Int32? = {
+            isUnitTest ? focus.windowOrNil?.app.pid : NSWorkspace.shared.frontmostApplication?.processIdentifier
         },
+        now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime },
         activate: @escaping @MainActor (Window, Window) -> Void = { source, destination in
             if source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
                 DoubleSidedWindowController.shared.flip(source)
@@ -52,7 +59,8 @@ final class TrackpadNavigationController: ObservableObject {
         }
     ) {
         self.backend = backend
-        self.nativeFocusMatches = nativeFocusMatches
+        self.frontmostPID = frontmostPID
+        self.now = now
         self.activate = activate
     }
 
@@ -65,7 +73,14 @@ final class TrackpadNavigationController: ObservableObject {
                      NSWorkspace.didActivateApplicationNotification, NSWorkspace.activeSpaceDidChangeNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
                 let name = notification.name
-                MainActor.assumeIsolated { self?.workspaceChanged(name) }
+                let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+                MainActor.assumeIsolated {
+                    if name == NSWorkspace.didActivateApplicationNotification {
+                        self?.applicationActivated(pid)
+                    } else {
+                        self?.workspaceChanged(name)
+                    }
+                }
             })
         }
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
@@ -118,7 +133,40 @@ final class TrackpadNavigationController: ObservableObject {
 
     func cancelCandidate() {
         candidate = nil
-        navigationRevision &+= 1
+    }
+
+    /// Explicit focus changes and other input end our short native-focus grace
+    /// period. Starting the next swipe does not: AX may still be catching up.
+    func cancelNavigation() {
+        cancelCandidate()
+        focusTransition = nil
+    }
+
+    private var activeTransition: FocusTransition? {
+        guard let transition = focusTransition, now() < transition.expiresAt,
+              transition.target.focusedWindow != nil
+        else {
+            focusTransition = nil
+            return nil
+        }
+        return transition
+    }
+
+    func shouldIgnoreNativeFocus(_ window: Window?) -> Bool {
+        guard let transition = activeTransition, let window else { return false }
+        return window.windowId != transition.target.windowId && transition.windowPIDs[window.windowId] != nil
+    }
+
+    func applicationActivated(_ pid: Int32?) {
+        // An activation notification can itself arrive after another activation.
+        guard pid == frontmostPID() else { return }
+        if let pid, pid == focus.windowOrNil?.app.pid || activeTransition?.windowPIDs.values.contains(pid) == true { return }
+        cancelNavigation()
+    }
+
+    private func canNavigate(from window: Window) -> Bool {
+        guard let pid = frontmostPID() else { return false }
+        return pid == window.app.pid || activeTransition?.windowPIDs.values.contains(pid) == true
     }
 
     func shutdown() {
@@ -131,7 +179,7 @@ final class TrackpadNavigationController: ObservableObject {
 
     private func stopBackend() {
         generation &+= 1
-        cancelCandidate()
+        cancelNavigation()
         ownedDevices.removeAll()
         if running { backend.stop() }
         running = false
@@ -139,52 +187,53 @@ final class TrackpadNavigationController: ObservableObject {
 
     private func receive(_ events: [TrackpadGestureEvent], receivedAt: Double, generation expected: UInt64) {
         guard running, generation == expected else { return }
-        let fresh = ProcessInfo.processInfo.systemUptime - receivedAt <= TrackpadSwipeRecognizer.staleInterval
+        let fresh = now() - receivedAt <= TrackpadSwipeRecognizer.staleInterval
         for event in events {
             switch event {
                 case .began(let device):
                     ownedDevices.insert(device)
                     cancelCandidate()
-                    if fresh, ownedDevices.count == 1, canNavigate, let target = TrackpadTabTarget.capture() {
+                    if fresh, ownedDevices.count == 1, canNavigate, let target = TrackpadTabTarget.capture(),
+                       let window = target.focusedWindow, canNavigate(from: window) {
                         candidate = (device, target)
                     }
                 case .cancelled(let device):
                     if candidate?.device == device { cancelCandidate() }
                 case .ended(let device):
                     ownedDevices.remove(device)
-                    // A committed action may still be awaiting its native-focus
-                    // check when fingers lift. Ending must not cancel that action.
                     if candidate?.device == device { cancelCandidate() }
                 case .committed(let device, let direction):
                     guard fresh, canNavigate, let candidate, candidate.device == device else { continue }
                     self.candidate = nil
-                    commit(candidate.target, direction: direction, generation: expected, receivedAt: receivedAt)
+                    commit(candidate.target, direction: direction)
             }
         }
     }
 
     private var canNavigate: Bool {
         let runtimeActive = isUnitTest || (TrayMenuModel.shared.isEnabled && !serverArgs.isReadOnly && AXIsProcessTrusted())
-        return runtimeActive && !DoubleSidedWindowController.shared.isAnimating && NSEvent.pressedMouseButtons == 0 &&
+        return runtimeActive && NSEvent.pressedMouseButtons == 0 &&
             !isWorkspaceSidebarDragInProgress() && !isWindowTabStripDragInProgress() && getCurrentMouseManipulationKind() == .none
     }
 
-    private func commit(_ target: TrackpadTabTarget, direction: TrackpadSwipeDirection, generation expected: UInt64, receivedAt: Double) {
-        let revision = navigationRevision
-        Task { @MainActor in
-            guard await nativeFocusMatches(target.windowId), generation == expected,
-                  navigationRevision == revision, canNavigate,
-                  ProcessInfo.processInfo.systemUptime - receivedAt <= TrackpadSwipeRecognizer.staleInterval,
-                  let resolved = target.resolve(direction: direction, reversed: configuration.reverseDirection)
-            else { return }
-            let interval = signposter.beginInterval("Trackpad tab activation")
-            activate(resolved.source, resolved.destination)
-            signposter.endInterval("Trackpad tab activation", interval)
-        }
+    private func commit(_ target: TrackpadTabTarget, direction: TrackpadSwipeDirection) {
+        guard let resolved = target.resolve(direction: direction, reversed: configuration.reverseDirection),
+              canNavigate(from: resolved.source)
+        else { return }
+        var windowPIDs = activeTransition?.windowPIDs ?? [:]
+        windowPIDs[resolved.source.windowId] = resolved.source.app.pid
+        windowPIDs[resolved.destination.windowId] = resolved.destination.app.pid
+        let interval = signposter.beginInterval("Trackpad tab activation")
+        // No AX round trip or task hop here. Each swipe advances the logical tab
+        // synchronously, so a burst composes in order, including direction changes.
+        activate(resolved.source, resolved.destination)
+        signposter.endInterval("Trackpad tab activation", interval)
+        guard let nextTarget = TrackpadTabTarget.capture(), nextTarget.windowId == resolved.destination.windowId else { return }
+        focusTransition = FocusTransition(target: nextTarget, windowPIDs: windowPIDs, expiresAt: now() + 0.5)
     }
 
     private func workspaceChanged(_ name: Notification.Name) {
-        cancelCandidate()
+        cancelNavigation()
         switch name {
             case NSWorkspace.willSleepNotification: sleeping = true
             case NSWorkspace.didWakeNotification: sleeping = false
@@ -196,7 +245,7 @@ final class TrackpadNavigationController: ObservableObject {
     }
 
     private func scheduleDeviceRestart() {
-        cancelCandidate()
+        cancelNavigation()
         restartTask?.cancel()
         restartTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))

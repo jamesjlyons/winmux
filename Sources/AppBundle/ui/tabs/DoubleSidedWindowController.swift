@@ -5,31 +5,42 @@ import QuartzCore
 @MainActor
 final class DoubleSidedWindowController {
     static let shared = DoubleSidedWindowController()
-    private var animationPanel: NSPanel?
+    private struct FlipAnimation {
+        let panel: NSPanel
+        let faces: [(windowId: UInt32, layer: CALayer, hiddenAngle: Double)]
+    }
+    private var animation: FlipAnimation?
+    private var completionTask: Task<Void, Never>?
     private let backdropPadding: CGFloat = 64
 
-    var isAnimating: Bool { animationPanel != nil }
+    var isAnimating: Bool { animation != nil }
 
     func flip(_ window: Window) {
-        guard !isAnimating, TrayMenuModel.shared.isEnabled,
+        guard TrayMenuModel.shared.isEnabled,
               let group = window.nearestWindowTabGroup,
               group.usesDoubleSidedWindows,
               group.tabActiveWindow === window,
-              let other = group.children.compactMap({ $0 as? Window }).first(where: { $0 !== window }),
-              let rect = window.lastAppliedLayoutPhysicalRect
+              let other = group.children.compactMap({ $0 as? Window }).first(where: { $0 !== window })
         else { return }
+        if animation?.faces.contains(where: { $0.windowId == window.windowId }) == true,
+           retargetAnimation(to: other.windowId) {
+            focusWindowFromTabStrip(other.windowId, fallbackWorkspace: focus.workspace.name)
+            return
+        }
+        cancelAnimation()
         let canAnimate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion && CGPreflightScreenCaptureAccess()
         let captureInterval = signposter.beginInterval("Flip snapshot capture")
         let front = canAnimate ? snapshot(window.windowId) : nil
         let back = canAnimate ? snapshot(other.windowId) : nil
-        let background = front != nil && back != nil ? CGWindowListCreateImage(
+        let rect = window.lastAppliedLayoutPhysicalRect
+        let background = rect.flatMap { rect in front != nil && back != nil ? CGWindowListCreateImage(
                CGRect(x: rect.topLeftX, y: rect.topLeftY, width: rect.width, height: rect.height)
                    .insetBy(dx: -backdropPadding, dy: -backdropPadding),
                .optionOnScreenBelowWindow, window.windowId, [.nominalResolution]
-           ) : nil
+           ) : nil }
         signposter.endInterval("Flip snapshot capture", captureInterval)
-        if let front, let back, let background {
-            animate(front: front, back: back, background: background, rect: rect)
+        if let front, let back, let background, let rect {
+            animate(front: front, back: back, frontId: window.windowId, backId: other.windowId, background: background, rect: rect)
         }
         focusWindowFromTabStrip(other.windowId, fallbackWorkspace: focus.workspace.name)
     }
@@ -45,7 +56,7 @@ final class DoubleSidedWindowController {
         return image.cropping(to: bounds.insetBy(dx: 1, dy: 1))
     }
 
-    private func animate(front: CGImage, back: CGImage, background: CGImage, rect: Rect) {
+    private func animate(front: CGImage, back: CGImage, frontId: UInt32, backId: UInt32, background: CGImage, rect: Rect) {
         let frame = CGRect(x: rect.topLeftX, y: mainMonitor.height - rect.topLeftY - rect.height,
                            width: rect.width, height: rect.height)
             .insetBy(dx: -backdropPadding, dy: -backdropPadding)
@@ -70,8 +81,8 @@ final class DoubleSidedWindowController {
         var perspective = CATransform3DIdentity
         perspective.m34 = -1 / max(rect.width * 2, 1000)
         root.sublayerTransform = perspective
-        let duration = 0.48
-        for (image, start, end) in [(front, 0.0, Double.pi), (back, -Double.pi, 0.0)] {
+        var faces: [(windowId: UInt32, layer: CALayer, hiddenAngle: Double)] = []
+        for (image, id, start, hidden) in [(front, frontId, 0.0, Double.pi), (back, backId, -Double.pi, -Double.pi)] {
             let face = CALayer()
             face.frame = view.bounds.insetBy(dx: backdropPadding, dy: backdropPadding)
             face.contents = image
@@ -79,21 +90,54 @@ final class DoubleSidedWindowController {
             face.isDoubleSided = false
             face.allowsEdgeAntialiasing = true
             root.addSublayer(face)
-            face.transform = CATransform3DMakeRotation(CGFloat(end), 0, 1, 0)
+            face.transform = CATransform3DMakeRotation(CGFloat(start), 0, 1, 0)
+            faces.append((id, face, hidden))
+        }
+        animation = FlipAnimation(panel: panel, faces: faces)
+        CATransaction.commit()
+        _ = retargetAnimation(to: backId)
+        panel.orderFrontRegardless()
+    }
+
+    /// Reverse from the displayed angles without taking another snapshot or
+    /// waiting for the previous rotation. Reuse the overlay for the same pair.
+    private func retargetAnimation(to windowId: UInt32) -> Bool {
+        guard let animation, animation.faces.contains(where: { $0.windowId == windowId }) else { return false }
+        completionTask?.cancel()
+        let rotations = animation.faces.map { face in
+            let from = (face.layer.presentation()?.value(forKeyPath: "transform.rotation.y") as? Double) ??
+                (face.layer.animation(forKey: "flip") as? CABasicAnimation)?.fromValue as? Double ??
+                (face.layer.value(forKeyPath: "transform.rotation.y") as? Double) ?? 0
+            let to = face.windowId == windowId ? 0 : face.hiddenAngle
+            return (layer: face.layer, from: from, to: to)
+        }
+        let distance = rotations.map { abs($0.to - $0.from) }.max() ?? Double.pi
+        let duration = max(0.06, 0.32 * distance / Double.pi)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for item in rotations {
+            item.layer.transform = CATransform3DMakeRotation(CGFloat(item.to), 0, 1, 0)
             let rotation = CABasicAnimation(keyPath: "transform.rotation.y")
-            rotation.fromValue = start
-            rotation.toValue = end
+            rotation.fromValue = item.from
+            rotation.toValue = item.to
             rotation.duration = duration
             rotation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            face.add(rotation, forKey: "flip")
+            item.layer.add(rotation, forKey: "flip")
         }
-        animationPanel = panel
         CATransaction.commit()
-        panel.orderFrontRegardless()
-        Task { @MainActor in
+        completionTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(duration))
-            panel.orderOut(nil)
-            if animationPanel === panel { animationPanel = nil }
+            guard !Task.isCancelled else { return }
+            animation.panel.orderOut(nil)
+            if self?.animation?.panel === animation.panel { self?.animation = nil }
         }
+        return true
+    }
+
+    private func cancelAnimation() {
+        completionTask?.cancel()
+        completionTask = nil
+        animation?.panel.orderOut(nil)
+        animation = nil
     }
 }
