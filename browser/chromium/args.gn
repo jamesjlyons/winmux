@@ -1,0 +1,9 @@
+# Matched baseline/alpha configurations must differ only in downstream integration.
+is_debug = false
+is_component_build = false
+target_cpu = "arm64"
+symbol_level = 1
+is_chrome_branded = false
+use_remoteexec = false
+# Retain upstream sandbox, site isolation, media and extension defaults.
+# No --no-sandbox, disabled isolation, mock keychain, or hidden-page foregrounding.

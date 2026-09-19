@@ -1,0 +1,40 @@
+import BridgeCore
+import XCTest
+
+final class BridgeSessionTests: XCTestCase {
+    func testHandshakeRequiredAndUnsupportedVersionRejected() {
+        let session = BridgeSession()
+        XCTAssertFalse(session.accept(epoch: "invented", sequence: 1))
+        XCTAssertNil(session.negotiate(version: 2))
+        let epoch = session.negotiate(version: 1)!
+        XCTAssertTrue(session.accept(epoch: epoch, sequence: 1))
+    }
+
+    func testDuplicateStaleAndForeignMessagesRejected() {
+        let session = BridgeSession()
+        let epoch = session.negotiate(version: 1)!
+        XCTAssertTrue(session.accept(epoch: epoch, sequence: 7))
+        XCTAssertFalse(session.accept(epoch: epoch, sequence: 7))
+        XCTAssertFalse(session.accept(epoch: epoch, sequence: 6))
+        XCTAssertFalse(session.accept(epoch: UUID().uuidString, sequence: 8))
+        XCTAssertTrue(session.accept(epoch: epoch, sequence: 8))
+    }
+
+    func testReconnectRotatesEpochAndRenegotiationDoesNotResetSequence() {
+        let first = BridgeSession()
+        let epoch = first.negotiate(version: 1)!
+        XCTAssertTrue(first.accept(epoch: epoch, sequence: 42))
+        XCTAssertEqual(first.negotiate(version: 1), epoch)
+        XCTAssertFalse(first.accept(epoch: epoch, sequence: 1))
+        let second = BridgeSession()
+        XCTAssertNotEqual(second.negotiate(version: 1), epoch)
+        XCTAssertFalse(second.accept(epoch: epoch, sequence: 43))
+    }
+
+    func testRequirementsCannotBeInjectedOrAcceptAdHocIdentities() {
+        XCTAssertNil(SigningIdentity.requirement(identifier: "arbitrary.client", teamID: "W9C2P3N7Q2"))
+        XCTAssertNil(SigningIdentity.requirement(identifier: SigningIdentity.browserID, teamID: "-"))
+        XCTAssertNil(SigningIdentity.requirement(identifier: SigningIdentity.browserID, teamID: "\" or true"))
+        XCTAssertNotNil(SigningIdentity.requirement(identifier: SigningIdentity.helperID, teamID: "W9C2P3N7Q2"))
+    }
+}

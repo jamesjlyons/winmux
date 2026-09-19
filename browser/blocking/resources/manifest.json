@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "retrieved_utc": "2026-09-19",
+  "lists": [
+    {
+      "name": "easylist",
+      "file": "easylist.txt.gz",
+      "url": "https://easylist.to/easylist/easylist.txt",
+      "sha256": "bbe8c20b23ff2d575e2b67b8c94dc986ffe596df227bcb1be7e7da0a2a7ef66a",
+      "version": "202609190406",
+      "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+    },
+    {
+      "name": "easyprivacy",
+      "file": "easyprivacy.txt.gz",
+      "url": "https://easylist.to/easylist/easyprivacy.txt",
+      "sha256": "3a20222981143f120063ff5b6f09a416b886a120fb73d995e93facbcb80d3491",
+      "version": "202609190406",
+      "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+    }
+  ],
+  "replacement_resources": [
+    {
+      "name": "empty.js",
+      "version": 1,
+      "origin": "locally authored empty response",
+      "license": "MIT"
+    }
+  ]
+}

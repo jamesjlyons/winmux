@@ -1,0 +1,20 @@
+{
+  "build_root": "/Users/jameslyons/.codex/worktrees/87a9/winmux/.local/browser/engine",
+  "stage": "fetch",
+  "free_gib": 113.21,
+  "required_free_gib": 200,
+  "machine": "arm64",
+  "os": "27.0",
+  "chromium": {
+    "repository": "https://chromium.googlesource.com/chromium/src.git",
+    "channel": "Stable",
+    "platform": "Mac",
+    "version": "153.0.8010.53",
+    "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+  },
+  "blockers": [
+    "Need at least 200 GiB free before fetch; no files were removed."
+  ],
+  "filesystem": "apfs"
+}

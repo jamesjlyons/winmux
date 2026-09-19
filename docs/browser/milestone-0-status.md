@@ -1,0 +1,143 @@
+# Milestone 0 implementation status — 2026-09-19
+
+**Milestone 0 is incomplete. There is no WinMux Chromium alpha application yet.**
+The independent native components below are built and exercised; the full
+Chromium fetch/build is held at the storage prerequisite. Milestones 1–5 have
+not started, as required by the approved compatibility gate.
+
+## Checkout and environment
+
+- Isolated worktree: `/Users/jameslyons/.codex/worktrees/87a9/winmux`.
+- Branch: `codex/chromium-browser`.
+- Starting commit: `ff1fdd70bb4769e925e7e84196a1e35423ccad65`.
+- Saved checkout remains clean on `main` at that same commit. Existing WinMux
+  binaries, configuration, sessions, and browser profiles were not changed.
+- Complete approved plan: [approved-plan.md](approved-plan.md), 627 lines,
+  SHA-256 `1cb27a24132b7eea8c4827dc3632bb88b2270a2abc3146a41340a7f8e2d08c16`.
+- Live hardware: `Mac15,6`, 36 GiB RAM, 12 logical CPUs, arm64.
+- macOS 27.0 (26A428), Xcode 27.0 (27A266a), Apple Swift 6.4, Rust 1.97.1.
+- Apple Development signing was available and used for the native process proof.
+
+## Built and verified
+
+### Native control plane
+
+The standalone helper builds in release mode and exposes a small Objective-C
+protocol to an Objective-C++ probe. Both sides enforce Apple's code-signing
+requirement at the XPC connection, including team and exact process identity.
+There is no PID-only authentication and no synchronous XPC call.
+
+Four Swift tests passed. The real signed-process test passed these cases:
+
+1. Authorized client exchanges asynchronous messages with the helper.
+2. Duplicate sequence and stale epoch messages are rejected.
+3. A same-team client with the wrong signing identifier is rejected by XPC.
+4. An ad-hoc client fails closed before opening the connection.
+5. A subsequent healthy client still works after rejection.
+6. The client rejects a same-team helper with the wrong signing identifier.
+
+The temporary LaunchAgent is removed after the test. The helper intentionally
+does not start AX window management while the original WinMux is running.
+SMAppService registration code and the bundled LaunchAgent plist compile, but
+registration inside the final browser package is **not verified**.
+
+[Raw native evidence and source hashes](evidence/2026-09-19-native-bridge.json).
+
+### Built-in blocker component
+
+The release Rust static library uses pinned `adblock-rust 0.13.3` with a locked
+dependency graph. It is linked into and exercised from a real C++ executable.
+The repository bundles compressed, checksum-pinned EasyList and EasyPrivacy
+snapshots with attribution and license text. Rule text is compiled outside
+request evaluation; queries perform no disk/network/XPC work.
+
+Five Rust tests and the native ABI probe passed: network matches/exceptions,
+per-site disable, request types, cosmetic selectors and dynamic token deltas,
+cosmetic exceptions, malformed-input handling, bundled-only replacements,
+continued use of the prior instance after a rejected replacement, and concurrent
+queries. The only replacement resource currently bundled is `empty.js`.
+
+Measured with full lists plus deterministic synthetic test rules, four concurrent
+threads, 40,000 requests per run, three runs:
+
+| Run | p95 evaluation | p99 evaluation |
+|---|---:|---:|
+| 1 | 0.031958 ms | 0.053041 ms |
+| 2 | 0.031625 ms | 0.054416 ms |
+| 3 | 0.031792 ms | 0.054334 ms |
+
+Initial compilation measured 50.285 ms. These are **native adapter
+microbenchmarks on the development machine**, not added latency measured in
+Chromium, not a concurrent live-page workload, and not milestone acceptance.
+There is no network-service hook or renderer applying these cosmetics yet.
+Procedural cosmetics, additional bundled scriptlets, updating rules, persistent
+profile/site exceptions, and the blocking toolbar remain pending.
+
+[Raw blocker evidence, list hashes and source hashes](evidence/2026-09-19-blocking.json).
+
+### Build and qualification tools
+
+The upstream control configuration pins Chromium Mac stable `153.0.8010.53`
+(`792bf6722e73a45aa9e47c163b9901bdc17f3230`) and depot_tools
+`0306e4682b4ac35287c726fa35a983157a625902`. GN uses an optimized, non-component
+arm64 build and retains symbols, sandboxing and site isolation. Fetch/build
+commands reject insufficient storage, non-APFS volumes, and unrelated/dirty
+checkouts. These commands have not completed an upstream fetch/build.
+
+The trace evaluator preserves six distinct focus stages and visible selection.
+It requires 1,000 interactions per switch category across multiple runs, build
+provenance, enabled required extensions/blocking, and labeled presentation/input
+evidence. It evaluates supplied traces; it does not collect or independently
+authenticate that evidence. Its fixtures are unit tests, never performance
+measurements. Its successful result can qualify only the covered interaction
+metrics, never the whole milestone or daily driver.
+
+Ten Python tests passed (build safety and qualification), Rust formatting and
+Clippy passed, and the bundled plist passed `plutil`. No native WinMux production
+files were changed, so the existing native application's suite was not rerun.
+
+## Open Milestone 0 gates
+
+| Required deliverable | Current state |
+|---|---|
+| Isolated checkout | Complete |
+| Reproducible optimized Chromium build | Pinned configuration prepared; source/build not fetched |
+| Separately built native helper | Control plane built; existing workspace runtime not integrated |
+| Signed top-level app and embedded helper | Pending Chromium build and packaging |
+| Authenticated helper communication | Component proof passed; browser endpoint not integrated |
+| Direct Chromium rendering | Not built or measured |
+| Required extension installation, authentication, usage, profiles, updates, restart | Not tested |
+| 1Password Mac-app / Touch ID integration | Not tested; user involvement needed once app is ready |
+| Network interception and rendered cosmetic proof | Native engine exercised; Chromium paths pending |
+| Switching, startup, memory, energy and browser benchmark baseline | Not measured |
+
+## Immediate blocker and continuation
+
+[The final preflight](evidence/2026-09-19-preflight.json) found **113.21 GiB free**
+on APFS. The first observation was approximately 108 GiB; available space changed
+during the session. The fetch gate is **200 GiB**, a conservative project reserve
+for source, optimized outputs and comparison artifacts, not an upstream published
+minimum. No full Chromium download was started and no user files were removed.
+
+Continue when an APFS build location with enough space is available. Re-run
+preflight, fetch the pinned source/dependencies, build the unmodified optimized
+control, then implement the downstream Chromium hooks against that checkout.
+The native bridge must be integrated into the browser process and blocking into
+the native request/renderer paths before packaging the separate alpha.
+
+Only after that package exists should extension installation/login, 1Password
+approval, physical input and browser performance be requested or qualified.
+Do not advance to the broad workspace-model migration on these component results.
+
+## Current authoritative references
+
+- [Chromium macOS build instructions](https://chromium.googlesource.com/chromium/src/+/main/docs/mac_build_instructions.md)
+- [Chromium Mac stable release metadata](https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1)
+- [Apple XPC peer signing requirements](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:))
+- [Apple bundled LaunchAgent registration](https://developer.apple.com/documentation/servicemanagement/smappservice/agent(plistname:))
+- [adblock-rust](https://github.com/brave/adblock-rust)
+- [EasyList licensing](https://easylist.to/pages/licence.html)
+- [1Password additional-browser requirements](https://support.1password.com/additional-browsers/)
+
+Context7 was unavailable in this task. Upstream source/docs and Apple docs through
+Sosumi were used; the compiler and signed process proof checked the Apple APIs.

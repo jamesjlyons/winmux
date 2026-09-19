@@ -1,0 +1,94 @@
+# WinMux Browser implementation
+
+This directory implements the independent parts of **Milestone 0** of the
+[approved plan](../docs/browser/approved-plan.md). The full Chromium application
+has not been built. The Milestone 0 exit gate is open, and the native WinMux
+model has not been migrated.
+
+Implemented and exercised:
+
+- A release-built Swift helper control plane and Objective-C++ client using
+  asynchronous XPC. macOS checks the peer's Apple signing anchor, team and exact
+  identifier in both directions. Negotiation and connection epochs reject
+  unsupported versions, duplicate and stale probes.
+- A native Rust blocker with a C ABI, pinned adblock-rust, bundled and hashed
+  EasyList/EasyPrivacy, network exceptions, per-call site control, declarative
+  cosmetic queries, bounded DOM-token deltas, and one bundled replacement.
+- Pinned Chromium/depot_tools metadata, optimized browser-only build settings,
+  storage checks, and a guarded checkout/build command.
+- A trace evaluator that distinguishes activation, frame presentation and
+  input readiness. It cannot qualify transport-only results or a daily driver.
+
+The helper currently exposes only negotiation and a transport probe. It does
+not manage windows, advertise a fake inventory, or start the original WinMux
+runtime. The Chromium bridge, network interception, renderer cosmetics and
+browser packaging remain to be implemented and verified against the full
+checkout. Neither the C ABI probe nor the helper probe is a browser substitute.
+
+## Run the component proofs
+
+From the repository root:
+
+```sh
+cargo fetch --locked --manifest-path browser/blocking/Cargo.toml
+python3 browser/tools/test_blocking.py
+python3 browser/tools/test_native_bridge.py
+python3 -m unittest discover -s browser/tests -v
+```
+
+The native proof needs an Apple Development identity in the keychain. Set
+`BROWSER_SIGNING_IDENTITY` to select a specific identity. It builds in
+`.local/browser/native-build`, creates a temporary per-user LaunchAgent, and
+removes it afterward. It refuses to replace an already registered alpha helper.
+It does not install apps, register SMAppService, request Accessibility, read
+browser profiles or change the running WinMux. No ad-hoc signing fallback is
+accepted for the product; an ad-hoc binary is used only as a rejection test.
+
+The blocker proof compiles and tests the actual C++/Rust ABI using the bundled
+lists, then measures 3 × 40,000 request decisions with four concurrent threads.
+The results are a microbenchmark, not measured browser overhead. JSON/log
+outputs are saved under `.local/browser/`.
+
+## Build the pinned upstream control
+
+Choose an APFS build location with at least 200 GiB free. This is this project's
+working-space reserve for source, optimized artifacts and comparisons, not a
+published Chromium minimum. Nothing is deleted to create space.
+
+```sh
+python3 browser/tools/chromium.py preflight --root /path/to/apfs/winmux-engine
+python3 browser/tools/chromium.py fetch --root /path/to/apfs/winmux-engine
+python3 browser/tools/chromium.py build-control --root /path/to/apfs/winmux-engine
+```
+
+The fetch is intentionally separate from the preflight. Both mutations repeat
+their resource gate. Existing dirty or differently pinned checkouts are refused.
+The pinned depot_tools updater is disabled; GN/Ninja and compiler dependencies
+come through Chromium DEPS. Sandbox, site isolation and normal profile/extension
+behavior remain enabled. No alpha build command exists until the downstream
+integration can be compiled and exercised. The control build is not branded or
+installed as the alpha.
+
+Native helper and eventual browser identities are respectively
+`com.jameslyons.winmux.browser.alpha.workspace` and
+`com.jameslyons.winmux.browser.alpha`. The bundled LaunchAgent plist belongs in
+`Contents/Library/LaunchAgents/`, and its executable belongs in
+`Contents/Helpers/`. `HelperRegistration` wraps SMAppService; enrollment and
+permission attribution still require the actual signed browser package.
+
+## Qualification
+
+See [the current evidence and blockers](../docs/browser/milestone-0-status.md).
+Each measurement must retain the build, rules and extension versions. The
+interaction evaluator accepts a shared monotonic clock, six distinct focus
+stages, visible-selection timestamps, real presentation/input evidence and
+1,000 interactions per switch category across multiple runs:
+
+```sh
+python3 browser/tools/qualify_interactions.py /path/to/interaction-trace.json
+```
+
+Its scope is interaction latency only. Startup, memory/energy, frame pacing,
+browser benchmarks, essential extensions, physical input, recovery and soak
+tests are separate gates in the approved plan. No measurement report is generated
+from the synthetic evaluator fixtures.
