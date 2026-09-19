@@ -20,6 +20,7 @@ struct EnableCommand: Command {
             return !args.failIfNoop
         }
         TrayMenuModel.shared.isEnabled = newState
+        TrackpadNavigationController.shared.sync()
         if !newState {
             TrayMenuModel.shared.isWorkspaceSidebarExpanded = false
             clearPendingWindowDragIntent()

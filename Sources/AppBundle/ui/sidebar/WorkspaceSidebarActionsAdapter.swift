@@ -10,7 +10,8 @@ func makeWorkspaceSidebarActionsAdapter(
             handleWorkspaceSidebarAction(action, viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         },
         setDropTargets: { targets in
-            WorkspaceSidebarPanel.updateVisibleDropTargets(targets)
+            WorkspaceSidebarPanel.panel(for: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId)?
+                .updateDropTargets(targets)
         },
         hoverWorkspace: { name, isHovering in
             TrayMenuModel.shared.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, nextWorkspaceSidebarHoveredWorkspaceName(
@@ -41,8 +42,21 @@ func handleWorkspaceSidebarAction(
     targetMonitorScopeId: String? = nil,
 ) {
     switch action {
+        case .setBrowseMode(let mode):
+            if let panel = WorkspaceSidebarPanel.panel(for: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId) {
+                panel.setBrowseMode(mode)
+            } else {
+                viewModel.setIfChanged(\.workspaceSidebarBrowseMode, mode)
+            }
         case .selectWorkspace(let name):
             focusWorkspaceFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
+        case .reorderWorkspace(let name, let targetName, let placement):
+            runWorkspaceSidebarSession {
+                defer { WorkspaceSidebarWorkspaceReorderState.shared.complete(sourceName: name) }
+                if reorderWorkspace(name, relativeTo: targetName, placement: placement) {
+                    await updateWorkspaceSidebarModel()
+                }
+            }
         case .overrideWorkspaceInUse(let name):
             overrideWorkspaceInUseFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .selectWindow(let windowId):
@@ -52,6 +66,11 @@ func handleWorkspaceSidebarAction(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
             )
             selectWorkspaceSidebarProject(projectId, viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
+        case .reorderProject(let projectId, let targetProjectId):
+            runWorkspaceSidebarSession {
+                reorderWorkspaceProject(projectId, to: targetProjectId)
+                await updateWorkspaceSidebarModel()
+            }
         case .createProject:
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .renameProject(let projectId, let displayName):
@@ -59,6 +78,11 @@ func handleWorkspaceSidebarAction(
         case .setProjectColor(let projectId, let colorHex):
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 setWorkspaceSidebarProjectColor(project, colorHex: colorHex)
+            }
+        case .setProjectIcon(let projectId, let symbolName):
+            runWorkspaceSidebarSession {
+                try setWorkspaceSidebarProjectIcon(projectId, symbolName: symbolName)
+                await updateWorkspaceSidebarModel()
             }
         case .deleteProject(let projectId):
             if let project = workspaceSidebarProjectViewModel(projectId) {
@@ -88,6 +112,10 @@ func handleWorkspaceSidebarAction(
             previewWorkspaceSidebarDrop(windowId, subject: .group, target: target)
         case .clearDropPreview:
             clearWorkspaceSidebarDropPreview()
+        case .setCompactMode(let enabled):
+            setWorkspaceSidebarModeFromMenu(key: "always-expanded", value: !enabled)
+        case .setAutoHide(let enabled):
+            setWorkspaceSidebarModeFromMenu(key: "auto-hide", value: enabled)
     }
 }
 

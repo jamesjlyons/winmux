@@ -17,8 +17,10 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
 
     @State private var isDropTargeted = false
     @State private var isDropSettling = false
+    @State private var isHovered = false
 
     private var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    private var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
     private var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     private var showsDropTarget: Bool {
         guard dragPreview?.targetsNewWorkspace == true else { return false }
@@ -32,12 +34,12 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
         )
     }
     private var sectionShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: isCompact ? compactMetrics.cornerRadius : workspaceSidebarSectionCornerRadius, style: .continuous)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if showsDropTarget, let dragPreview {
+            if showsDropTarget, !isCompact, let dragPreview {
                 WorkspaceSidebarDropPreviewView(
                     preview: dragPreview,
                     rowHeight: workspaceSidebarWorkspaceRowHeight,
@@ -83,40 +85,45 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
                 if isCompact {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.45))
+                        .font(.system(size: min(14, compactMetrics.badgeFontSize), weight: .semibold))
+                        .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.45))
-                        Text("New Workspace")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.48))
+                            .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
+                        Text("New Group")
+                            .font(.system(size: 13, weight: layout.menuBarStyle ? .regular : .medium))
+                            .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.48))
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
                 }
             }
             .padding(.vertical, isCompact ? 3 : 4)
-            .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
+            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
             .frame(
                 width: sectionWidth,
-                height: isCompact ? workspaceSidebarWorkspaceSectionHeightCompact : workspaceSidebarWorkspaceSectionHeightExpanded,
+                height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded,
                 alignment: isCompact ? .center : .leading,
             )
             .background {
-                sectionShape.fill(Color.white.opacity(0.012))
+                sectionShape.fill(Color.primary.opacity(showsDropTarget ? 0.18 : (layout.menuBarStyle ? (isHovered ? 0.08 : 0) : 0.012)))
             }
             .overlay {
-                sectionShape.strokeBorder(
-                    Color.white.opacity(0.10),
-                    style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
-                )
+                if !layout.menuBarStyle || showsDropTarget {
+                    sectionShape.strokeBorder(
+                        Color.primary.opacity(showsDropTarget ? 0.42 : 0.10),
+                        style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
+                    )
+                }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .accessibilityLabel("New Group")
+        .help("New Group")
     }
 }

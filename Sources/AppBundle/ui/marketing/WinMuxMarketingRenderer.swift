@@ -1,6 +1,105 @@
 import AppKit
 import SwiftUI
 
+/// Width regression fixtures rendered with the production sidebar, without running the manager.
+@MainActor
+public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool = false, projectIcons: Bool = false) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let styles: [(ChromeStyle, Bool)] = menuBarOnly ? [(.liquidGlass, true)] : [(.solid, false), (.liquidGlass, false), (.liquidGlass, true)]
+    for (style, menuBarStyle) in styles {
+        for lightBackground in [false, true] {
+            for count in menuBarOnly || projectIcons ? [3] : [1, 3, 12] {
+                for width: CGFloat in menuBarOnly || projectIcons ? [240, 120, 28] : [240, 200, 180, 140, 120, 60, 44, 40, 36, 28] {
+                    var snapshot = MarketingFixtures.sidebarSnapshot
+                    let isCompact = width < 120
+                    snapshot.configuration.expandedWidth = isCompact ? 240 : width
+                    snapshot.configuration.collapsedWidth = isCompact ? width : 40
+                    snapshot.configuration.chromeStyle = style
+                    snapshot.configuration.menuBarStyle = menuBarStyle
+                    snapshot.configuration.showsSeconds = true
+                    snapshot.visibleWidth = width
+                    if isCompact {
+                        snapshot.workspaces = [1, 12, 128].map { number in
+                            WorkspaceSidebarWorkspaceViewModel(
+                                name: "proof-\(number)",
+                                projectId: snapshot.activeProjectId,
+                                displayName: "Group \(number)",
+                                sidebarLabel: "",
+                                isGeneratedName: true,
+                                monitorScopeId: snapshot.targetMonitorScopeId,
+                                monitorName: "Studio Display",
+                                isFocused: number == 1,
+                                isVisible: number == 1,
+                                items: [],
+                            )
+                        }
+                    }
+                    snapshot.projects = (0..<count).map { index in
+                        WorkspaceSidebarProjectViewModel(
+                            id: index == count - 1 ? snapshot.activeProjectId : WorkspaceProjectId(rawValue: "proof-\(index)"),
+                            displayName: index == count - 1 ? "Design and development" : "Space \(index + 1)",
+                            colorHex: workspaceSidebarProjectColorPresets[index % workspaceSidebarProjectColorPresets.count].hex,
+                            iconName: projectIcons ? [nil, "music.note", "paintbrush.pointed.fill"][index % 3] : nil
+                        )
+                    }
+                    let view = ZStack {
+                        if menuBarOnly {
+                            LinearGradient(
+                                colors: lightBackground
+                                    ? [Color(red: 0.9, green: 0.75, blue: 0.78), Color(red: 0.65, green: 0.84, blue: 0.88), Color(red: 0.87, green: 0.83, blue: 0.65)]
+                                    : [Color(red: 0.24, green: 0.14, blue: 0.32), Color(red: 0.08, green: 0.28, blue: 0.34), Color(red: 0.30, green: 0.23, blue: 0.12)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing,
+                            )
+                        } else {
+                            lightBackground ? Color(white: 0.9) : Color(white: 0.08)
+                        }
+                        WorkspaceSidebarView(snapshot: snapshot)
+                            .environment(\.colorScheme, lightBackground ? .light : .dark)
+                    }
+                    let name = "sidebar-\(Int(width))-\(count)-\(menuBarStyle ? "menu-bar" : style.rawValue)-\(lightBackground ? "light" : "dark").png"
+                    try renderMarketingView(view, to: directory.appendingPathComponent(name),
+                                            size: CGSize(width: width, height: 740))
+                }
+            }
+        }
+    }
+}
+
+/// Focused fixtures for display-filter visibility and organizing all spaces.
+@MainActor
+public func renderWinMuxSidebarContextProofImages(in directory: URL) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    var snapshot = MarketingFixtures.sidebarSnapshot
+    snapshot.configuration.expandedWidth = 240
+    snapshot.visibleWidth = 240
+    snapshot.configuration.chromeStyle = .solid
+    snapshot.configuration.menuBarStyle = false
+    snapshot.selectedMonitorScopeId = workspaceSidebarFocusedScopeId
+    snapshot.monitorScopes.append(WorkspaceSidebarMonitorScopeViewModel(
+        id: workspaceSidebarFocusedScopeId, displayName: "Focused Group",
+        subtitle: nil, systemImageName: "scope", isFocusedMonitor: false
+    ))
+    let sidebar = WorkspaceSidebarView(snapshot: snapshot)
+    let filterView = ZStack {
+        Color(white: 0.08)
+        sidebar
+    }.environment(\.colorScheme, .dark)
+    try renderMarketingView(filterView, to: directory.appendingPathComponent("display-filter.png"),
+                            size: CGSize(width: 240, height: 740))
+    snapshot.browseMode = .organize
+    snapshot.selectedMonitorScopeId = workspaceSidebarDefaultScopeId
+    snapshot.visibleWidth = WorkspaceSidebarOrganizeLayout(
+        expandedWidth: 240, projectCount: snapshot.projects.count, availableWidth: 1200
+    ).visibleWidth
+    let organizeView = ZStack {
+        Color(white: 0.08)
+        WorkspaceSidebarView(snapshot: snapshot)
+    }.environment(\.colorScheme, .dark)
+    try renderMarketingView(organizeView, to: directory.appendingPathComponent("organize.png"),
+                            size: CGSize(width: snapshot.visibleWidth, height: 740))
+}
+
 /// Exports a deterministic marketing composition that embeds WinMux's production SwiftUI views.
 /// The renderer does not capture the screen or read pixels from application windows.
 @MainActor
@@ -921,8 +1020,8 @@ private struct MarketingNotesWindow: View {
             VStack(alignment: .leading, spacing: 11) {
                 Text("A calmer desktop")
                     .font(.system(size: 17, weight: .bold))
-                Label("Projects keep work together", systemImage: "checkmark.circle.fill")
-                Label("Tabs reduce workspace sprawl", systemImage: "checkmark.circle.fill")
+                Label("Spaces keep groups together", systemImage: "checkmark.circle.fill")
+                Label("Tabs keep group windows organized", systemImage: "checkmark.circle.fill")
                 Label("The sidebar keeps context visible", systemImage: "checkmark.circle.fill")
                 Spacer()
             }

@@ -1,5 +1,18 @@
 import AppKit
 
+@MainActor
+func currentWorkspaceSidebarDragPointer(event: NSEvent? = nil) -> CGPoint {
+    // A queued drag/up event can precede the global cursor sample. Use the
+    // event's location for both window drops and group reordering.
+    if let event = event ?? NSApp.currentEvent, event.window != nil,
+       event.type == .leftMouseDragged || event.type == .leftMouseUp {
+        MousePointerTracker.shared.note(event: event)
+    } else {
+        noteCurrentMousePointerSample()
+    }
+    return MousePointerTracker.shared.currentSample.point
+}
+
 func isMouseWindowDragInProgress(kind: MouseManipulationKind, draggedWindowId: UInt32?, isLeftMouseButtonDown: Bool) -> Bool {
     kind == .move && draggedWindowId != nil && isLeftMouseButtonDown
 }

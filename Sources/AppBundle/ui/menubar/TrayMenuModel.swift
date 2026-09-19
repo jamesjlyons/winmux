@@ -22,8 +22,12 @@ public final class TrayMenuModel: ObservableObject {
     @Published var workspaceSidebarShowsMonitorSelector: Bool = false
     @Published var workspaceSidebarDropPreview: WorkspaceSidebarDropPreviewViewModel? = nil
     @Published var windowTabStrips: [WindowTabStripViewModel] = []
-    @Published var isWorkspaceSidebarExpanded: Bool = false
+    // Controller bookkeeping; the rendered snapshot observes visibleWidth instead.
+    // Publishing this separately forces another layout before/after the width animation.
+    var isWorkspaceSidebarExpanded: Bool = false
     @Published var workspaceSidebarVisibleWidth: CGFloat = 0
+    /// Transient and panel-local; never synchronized from the shared tray model.
+    @Published var workspaceSidebarBrowseMode: WorkspaceSidebarBrowseMode = .activeProject
     @Published var workspaceSidebarTopPadding: CGFloat = 12
     @Published var workspaceSidebarHoveredWorkspaceName: String? = nil
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()
@@ -58,6 +62,7 @@ extension ObservableObject {
 
 @MainActor func updateTrayText() {
     let focus = focus
+    let automaticIndices = automaticWorkspaceDisplayIndices(workspaces: orderedWorkspacesForPresentation(), focusedWorkspace: focus.workspace)
     TrayMenuModel.shared.setIfChanged(\.trayText, activeMode?.takeIf { $0 != mainModeId }?.first.map { "(\($0.uppercased()))" } ?? "A")
     let workspaces = userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).filter {
         $0.projectId == activeWorkspaceProjectId(for: $0.workspaceMonitor)
@@ -71,7 +76,7 @@ extension ObservableObject {
         let hasFullscreenWindows = $0.allLeafWindowsRecursive.contains { $0.isFullscreen }
         return WorkspaceViewModel(
             name: $0.name,
-            displayName: workspaceDisplayName($0.name),
+            displayName: workspaceDisplayName($0.name, automaticIndices: automaticIndices),
             suffix: suffix,
             isFocused: focus.workspace == $0,
             isEffectivelyEmpty: !workspaceHasSidebarVisibleWindows($0),

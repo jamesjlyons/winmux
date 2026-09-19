@@ -44,6 +44,7 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         var verticalTranslation: CGFloat = 0
         var hasLockedHorizontalIntent = false
         var endWorkItem: DispatchWorkItem?
+        var trackpadScrollGate = TrackpadSidebarScrollGate()
 
         func installMonitor() {
             guard monitor == nil else { return }
@@ -70,6 +71,20 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         }
 
         func handle(_ event: NSEvent) -> NSEvent? {
+            if let view, let window = view.window, event.window === window,
+               view.bounds.contains(view.convert(event.locationInWindow, from: nil)),
+               trackpadScrollGate.shouldSuppress(owned: !TrackpadNavigationController.shared.ownedDevices.isEmpty,
+                   phase: event.phase, momentum: event.momentumPhase)
+            {
+                if hasLockedHorizontalIntent { onEnded?(0, 0) }
+                resetAccumulatedScroll()
+                return nil
+            }
+            if WorkspaceSidebarProjectScrollRegion.contains(event) {
+                if hasLockedHorizontalIntent { onEnded?(0, 0) }
+                resetAccumulatedScroll()
+                return event
+            }
             guard isEnabled,
                   !isWorkspaceSidebarDragInProgress(),
                   event.hasPreciseScrollingDeltas,

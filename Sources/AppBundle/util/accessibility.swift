@@ -3,21 +3,21 @@ import Common
 import PrivateApi
 
 @MainActor
-func checkAccessibilityPermissions() {
+func waitForAccessibilityPermissions() async throws {
     let options = [axTrustedCheckOptionPrompt: true]
-    if !AXIsProcessTrustedWithOptions(options as CFDictionary) {
-        resetAccessibility() // Because macOS doesn't reset it for us when the app signature changes...
-        terminateApp()
+    guard !AXIsProcessTrustedWithOptions(options as CFDictionary) else { return }
+    MessageModel.shared.message = Message(description: "Accessibility Permission",
+        body: "Enable \(winMuxAppDisplayName) in System Settings → Privacy & Security → Accessibility. WinMux will continue automatically once access is granted.")
+    while !AXIsProcessTrusted() {
+        try await Task.sleep(for: .seconds(1))
+        if AppShutdownCoordinator.shared.isShuttingDown { throw CancellationError() }
     }
+    MessageModel.shared.message = nil
 }
 
 func requestScreenRecordingPermissionsIfNeeded() {
     guard !CGPreflightScreenCaptureAccess() else { return }
     _ = CGRequestScreenCaptureAccess()
-}
-
-private func resetAccessibility() {
-    _ = try? Process.run(URL(filePath: "/usr/bin/tccutil"), arguments: ["reset", "Accessibility", winMuxAppId])
 }
 
 protocol ReadableAttr: Sendable {

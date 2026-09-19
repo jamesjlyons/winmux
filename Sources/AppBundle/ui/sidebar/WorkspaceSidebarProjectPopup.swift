@@ -8,6 +8,7 @@ struct WorkspaceSidebarProjectPopup: View {
     let onRename: (WorkspaceSidebarProjectViewModel) -> Void
     let onSetColor: (WorkspaceSidebarProjectViewModel, String?) -> Void
     let onDelete: (WorkspaceSidebarProjectViewModel) -> Void
+    let onChooseIcon: (WorkspaceSidebarProjectViewModel) -> Void
     var showsCreateAction = true
     var allowsContextMenu = true
     var menuWidth: CGFloat? = nil
@@ -42,11 +43,10 @@ struct WorkspaceSidebarProjectPopup: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(.regularMaterial)
-                    .environment(\.colorScheme, .dark)
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.primary.opacity(0.06))
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.75)
+                    .strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.75)
             }
             .compositingGroup()
         }
@@ -59,9 +59,10 @@ struct WorkspaceSidebarProjectPopup: View {
             onSelect(project.id)
         } label: {
             HStack(spacing: 8) {
+                WorkspaceSidebarProjectIcon(project: project)
                 Text(project.displayName)
                     .font(.system(size: 12, weight: project.id == selectedProjectId ? .semibold : .medium))
-                    .foregroundStyle(Color.white.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
+                    .foregroundStyle(Color.primary.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 checkmark(isVisible: project.id == selectedProjectId)
@@ -81,7 +82,7 @@ struct WorkspaceSidebarProjectPopup: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.08))
+            .fill(Color.primary.opacity(0.08))
             .frame(height: 0.5)
             .padding(.horizontal, workspaceSidebarDropdownPadding)
             .padding(.vertical, 1)
@@ -93,12 +94,12 @@ struct WorkspaceSidebarProjectPopup: View {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
                     .frame(width: 8)
-                Text("New")
+                Text("New Space")
                     .font(.system(size: 12, weight: .medium))
                 Spacer(minLength: 0)
                 checkmark(isVisible: false)
             }
-            .foregroundStyle(Color.white.opacity(0.78))
+            .foregroundStyle(Color.primary.opacity(0.78))
             .modifier(WorkspaceSidebarDropdownMenuRowStyle(isSelected: false, rowHeight: rowHeight))
             .contentShape(Rectangle())
         }
@@ -109,9 +110,10 @@ struct WorkspaceSidebarProjectPopup: View {
 extension WorkspaceSidebarProjectPopup {
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename Space") {
             onRename(project)
         }
+        Button("Choose Icon…") { onChooseIcon(project) }
         Menu("Color") {
             Button("Auto") {
                 onSetColor(project, nil)
@@ -126,7 +128,7 @@ extension WorkspaceSidebarProjectPopup {
         Button(role: .destructive) {
             onDelete(project)
         } label: {
-            Text("Delete Project")
+            Text("Delete Space")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

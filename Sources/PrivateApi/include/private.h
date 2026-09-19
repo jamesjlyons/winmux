@@ -2,6 +2,7 @@
 #define private_header_h
 
 #import <ApplicationServices/ApplicationServices.h>
+#include "trackpad.h"
 
 // Potential alternative 1?
 // func allWindowsOnCurrentMacOsSpace() {

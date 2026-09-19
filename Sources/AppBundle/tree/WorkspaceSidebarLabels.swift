@@ -46,28 +46,33 @@ func clearOrphanedWorkspaceSidebarLabels() {
 }
 
 @MainActor
-func workspaceDefaultDisplayName(_ workspaceName: String) -> String {
+func workspaceDefaultDisplayName(_ workspaceName: String, automaticIndices: [WorkspaceId: Int]? = nil) -> String {
     if let workspace = Workspace.existing(byName: workspaceName) {
         guard workspace.usesAutomaticDisplayName else { return workspaceName }
-        if let index = automaticWorkspaceDisplayIndex(workspace, focusedWorkspace: focus.workspace)
-            ?? automaticWorkspaceDisplayIndexFallback(workspaceName)
+        let displayIndex: Int?
+        if let automaticIndices {
+            displayIndex = automaticIndices[workspace.id]
+        } else {
+            displayIndex = automaticWorkspaceDisplayIndex(workspace, focusedWorkspace: focus.workspace)
+        }
+        if let index = displayIndex ?? automaticWorkspaceDisplayIndexFallback(workspaceName)
         {
-            return "Workspace \(index)"
+            return "Group \(index)"
         }
         return workspaceName
     }
     if let index = sidebarDraftWorkspaceIndex(workspaceName) {
-        return "Workspace \(index)"
+        return "Group \(index)"
     }
     return workspaceName
 }
 
 @MainActor
-func workspaceDisplayName(_ workspaceName: String) -> String {
+func workspaceDisplayName(_ workspaceName: String, automaticIndices: [WorkspaceId: Int]? = nil) -> String {
     if let configuredName = config.workspaceSidebar.workspaceLabels[workspaceName]?.trimmingCharacters(in: .whitespacesAndNewlines),
        !configuredName.isEmpty
     {
         return configuredName
     }
-    return workspaceDefaultDisplayName(workspaceName)
+    return workspaceDefaultDisplayName(workspaceName, automaticIndices: automaticIndices)
 }

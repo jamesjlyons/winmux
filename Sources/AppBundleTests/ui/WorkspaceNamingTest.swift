@@ -64,8 +64,8 @@ final class WorkspaceNamingTest: XCTestCase {
         second.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 2, parent: second.rootTilingContainer)
 
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 2")
     }
 
     func testAutomaticWorkspaceDisplayNamesFollowProjectOrderInsteadOfRawNameSort() {
@@ -82,8 +82,8 @@ final class WorkspaceNamingTest: XCTestCase {
                 .map(\.name),
             ["10", "2"],
         )
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 2")
     }
 
     func testReconcileRepairsMissingProjectWorkspaceIndex() {
@@ -106,7 +106,7 @@ final class WorkspaceNamingTest: XCTestCase {
                 .map(\.name),
             ["1", "2"],
         )
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 2")
     }
 
     func testNextAutomaticWorkspaceRawNameReusesLowestNumericGap() {
@@ -154,8 +154,8 @@ final class WorkspaceNamingTest: XCTestCase {
 
         XCTAssertEqual(first.name, "1")
         XCTAssertEqual(second.name, "3")
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 2")
         XCTAssertTrue(Workspace.existing(byName: "3") === second)
     }
 
@@ -179,8 +179,8 @@ final class WorkspaceNamingTest: XCTestCase {
                 .map(\.name),
             ["10", "7"],
         )
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(third.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(third.name), "Group 2")
     }
 
     func testWorkspaceNameAfterCompactionUsesCurrentAutomaticName() throws {
@@ -193,7 +193,7 @@ final class WorkspaceNamingTest: XCTestCase {
         try deleteWorkspaceForSidebar(workspaceName: deleted.name)
 
         XCTAssertEqual(survivor.name, "2")
-        XCTAssertEqual(workspaceDisplayName(survivor.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(survivor.name), "Group 1")
         XCTAssertNil(config.workspaceSidebar.workspaceLabels[survivor.name])
     }
 
@@ -209,7 +209,7 @@ final class WorkspaceNamingTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertEqual(focused.name, "3")
-        XCTAssertEqual(workspaceDisplayName(focused.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(focused.name), "Group 2")
         XCTAssertTrue(focus.workspace === focused)
     }
 
@@ -221,8 +221,8 @@ final class WorkspaceNamingTest: XCTestCase {
         second.markAsSidebarManaged()
         _ = TestWindow.new(id: 4, parent: second.rootTilingContainer)
 
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 2")
     }
 
     func testSidebarWorkspaceCreationUsesAutomaticWorkspaceName() {
@@ -263,8 +263,8 @@ final class WorkspaceNamingTest: XCTestCase {
         secondaryWorkspace.seedMonitorIfNeeded(secondary)
         _ = TestWindow.new(id: 11, parent: secondaryWorkspace.rootTilingContainer)
 
-        XCTAssertEqual(workspaceDisplayName(mainWorkspace.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(secondaryWorkspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(mainWorkspace.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(secondaryWorkspace.name), "Group 2")
         XCTAssertEqual(mainWorkspace.projectId, workspaceProjectDefaultId)
         XCTAssertEqual(secondaryWorkspace.projectId, workspaceProjectDefaultId)
     }
@@ -281,8 +281,8 @@ final class WorkspaceNamingTest: XCTestCase {
         _ = TestWindow.new(id: 13, parent: projectWorkspace.rootTilingContainer)
 
         XCTAssertNotEqual(defaultWorkspace.projectId, projectWorkspace.projectId)
-        XCTAssertEqual(workspaceDisplayName(defaultWorkspace.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(defaultWorkspace.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Group 1")
     }
 
     func testWorkspaceSidebarRenameUsesDisplayLabelWithoutRenamingWorkspaceIdentity() throws {
@@ -308,7 +308,7 @@ final class WorkspaceNamingTest: XCTestCase {
         try resetWorkspaceSidebarName(workspaceName: workspace.name)
 
         XCTAssertEqual(workspace.name, "1")
-        XCTAssertEqual(workspaceDisplayName(workspace.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(workspace.name), "Group 1")
         XCTAssertNil(config.workspaceSidebar.workspaceLabels[workspace.name])
     }
 
@@ -318,10 +318,10 @@ final class WorkspaceNamingTest: XCTestCase {
         _ = TestWindow.new(id: 214, parent: workspace.rootTilingContainer)
         try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Code")
 
-        try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Workspace 1")
+        try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Group 1")
 
         XCTAssertEqual(workspace.name, "1")
-        XCTAssertEqual(workspaceDisplayName(workspace.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(workspace.name), "Group 1")
         XCTAssertNil(config.workspaceSidebar.workspaceLabels[workspace.name])
     }
 
@@ -347,7 +347,7 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNil(Workspace.existing(byName: "1"))
         XCTAssertTrue(Workspace.existing(byName: "2") === second)
         XCTAssertTrue(firstWindow.nodeWorkspace === second)
-        XCTAssertEqual(workspaceDisplayName(second.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(second.name), "Group 1")
         XCTAssertNil(config.workspaceSidebar.workspaceLabels[first.name])
     }
 
@@ -516,7 +516,7 @@ final class WorkspaceNamingTest: XCTestCase {
         )
         XCTAssertEqual(
             workspaceProjects().filter { $0.id.hasPrefix("project-") }.map(\.name),
-            ["Project 1", "Project 2", "Project 3"],
+            ["Space 1", "Space 2", "Space 3"],
         )
     }
 

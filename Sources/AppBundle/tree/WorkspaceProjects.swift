@@ -5,11 +5,7 @@ import Common
 func workspaceProjects() -> [WorkspaceProject] {
     materializePersistedWorkspaceProjects()
     ensureMinimumWorkspaceForAllProjects()
-    let projects = winMuxWorkspaceState.projectsById.values.sorted {
-        if $0.id == workspaceProjectDefaultId { return true }
-        if $1.id == workspaceProjectDefaultId { return false }
-        return workspaceProjectOrderPrecedes($0, $1)
-    }
+    let projects = winMuxWorkspaceState.projectsById.values.sorted(by: workspaceProjectOrderPrecedes)
     var numberedProjectIndex = 0
     return projects.map { project in
         let displayName: String
@@ -22,7 +18,7 @@ func workspaceProjects() -> [WorkspaceProject] {
             displayName = "Default"
         } else {
             numberedProjectIndex += 1
-            displayName = "Project \(numberedProjectIndex)"
+            displayName = "Space \(numberedProjectIndex)"
         }
         return WorkspaceProject(
             id: project.id,
@@ -36,7 +32,7 @@ func workspaceProjects() -> [WorkspaceProject] {
 
 @MainActor
 func workspaceProjectName(_ projectId: WorkspaceProjectId) -> String {
-    workspaceProjects().first { $0.id == projectId }?.name ?? "Project"
+    workspaceProjects().first { $0.id == projectId }?.name ?? "Space"
 }
 
 @MainActor
@@ -70,6 +66,26 @@ func workspaceProjectOrderPrecedes(_ lhs: WorkspaceProject, _ rhs: WorkspaceProj
         return lhs.order < rhs.order
     }
     return lhs.id < rhs.id
+}
+
+@MainActor
+func reorderWorkspaceProject(_ projectId: WorkspaceProjectId, to targetProjectId: WorkspaceProjectId) {
+    var projects = workspaceProjects()
+    guard let sourceIndex = projects.firstIndex(where: { $0.id == projectId }),
+          let targetIndex = projects.firstIndex(where: { $0.id == targetProjectId }),
+          sourceIndex != targetIndex
+    else { return }
+    projects.insert(projects.remove(at: sourceIndex), at: targetIndex)
+    for (order, project) in projects.enumerated() {
+        guard let stored = winMuxWorkspaceState.projectsById[project.id] else { continue }
+        winMuxWorkspaceState.registerProject(WorkspaceProject(
+            id: stored.id,
+            name: stored.name,
+            order: order,
+            workspaceOrder: stored.workspaceOrder,
+            linkedViewportIds: stored.linkedViewportIds,
+        ))
+    }
 }
 
 @MainActor
@@ -267,12 +283,16 @@ private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectI
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil
+    let hadIcon = config.workspaceSidebar.projectIcons.removeValue(forKey: rawProjectId) != nil
     guard !isUnitTest else { return }
     if hadLabel {
         try persistWorkspaceSidebarProjectLabel(projectId: rawProjectId, label: nil)
     }
     if hadColor {
         try persistWorkspaceSidebarProjectColor(projectId: rawProjectId, colorHex: nil)
+    }
+    if hadIcon {
+        try persistWorkspaceSidebarProjectIcon(projectId: rawProjectId, symbolName: nil)
     }
 }
 

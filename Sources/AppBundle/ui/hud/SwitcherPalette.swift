@@ -189,7 +189,12 @@ func makeSwitcherPaletteItem(
     // UI happened to fetch its title. Fetch first-sight titles before showing the palette so
     // folder names are searchable immediately; known stale titles still return instantly and
     // refresh in the background.
-    let title = await getSessionWindowTitle(window) ?? appName
+    let title: String
+    if let cached = getSessionWindowTitle(window) {
+        title = cached
+    } else {
+        title = await getCachedWindowTitle(window) ?? appName
+    }
     return SwitcherPaletteItem(
         id: window.windowId,
         title: title,

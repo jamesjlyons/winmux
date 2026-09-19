@@ -24,19 +24,19 @@ enum WorkspaceMutationError: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .workspaceNotFound(let name):
-                "Workspace '\(name)' no longer exists."
+                "Group '\(name)' no longer exists."
             case .workspaceCannotBeDeleted(let name):
-                "Workspace '\(name)' cannot be deleted."
+                "Group '\(name)' cannot be deleted."
             case .projectNotFound(let id):
-                "Project '\(id)' no longer exists."
+                "Space '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):
-                "Project '\(name)' cannot be deleted."
+                "Space '\(name)' cannot be deleted."
             case .projectCloseBlocked(let name, let count):
-                "Project '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
+                "Space '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .emptyName:
                 "Name cannot be empty."
             case .duplicateProjectName(let name):
-                "A project named '\(name)' already exists."
+                "A space named '\(name)' already exists."
         }
     }
 }

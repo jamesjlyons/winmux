@@ -16,6 +16,7 @@ extension WorkspaceSidebarProjectPager {
                 .frame(width: sectionWidth, alignment: .center)
             }
             .frame(width: sectionWidth, height: compactProjectControlsHeight, alignment: .center)
+            .background(WorkspaceSidebarProjectScrollRegion())
             .clipped()
             .onAppear {
                 scrollCompactProjectTrackToCurrent(proxy)
@@ -32,14 +33,14 @@ extension WorkspaceSidebarProjectPager {
     var projectDotTrack: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .center, spacing: 4) {
+                HStack(alignment: .center, spacing: 0) {
                     ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
                         projectDot(project, index: index)
                             .id(project.id)
                     }
                 }
                 .padding(.horizontal, 4)
-                .frame(minHeight: workspaceSidebarPagerHeight, alignment: .leading)
+                .frame(minWidth: projectTrackWidth, minHeight: workspaceSidebarPagerHeight, alignment: .center)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -56,6 +57,7 @@ extension WorkspaceSidebarProjectPager {
                 }
             }
             .frame(width: projectTrackWidth, height: workspaceSidebarPagerHeight, alignment: .leading)
+            .background(WorkspaceSidebarProjectScrollRegion())
             .coordinateSpace(name: "workspaceSidebarProjectTrack")
             .clipped()
             .mask(projectTrackFadeMask)
@@ -98,7 +100,7 @@ extension WorkspaceSidebarProjectPager {
 
     private func scrollProjectTrackToCurrent(_ proxy: ScrollViewProxy) {
         guard let selectedProject else { return }
-        scrollProjectTrack(to: projectTrackScrollTargetId ?? selectedProject.id, proxy: proxy)
+        scrollProjectTrack(to: selectedProject.id, proxy: proxy)
     }
 
     private func scrollProjectTrack(to projectId: WorkspaceProjectId?, proxy: ScrollViewProxy) {
@@ -114,131 +116,11 @@ extension WorkspaceSidebarProjectPager {
     }
 
     @ViewBuilder
-    var projectMenu: some View {
-        Group {
-            if let selectedProject, renamingProjectId == selectedProject.id {
-                WorkspaceSidebarProjectRenameField(
-                    project: selectedProject,
-                    text: $renamingProjectText,
-                    onCommit: onCommitRenameProject,
-                    onCancel: onCancelRenameProject,
-                )
-            } else {
-                projectMenuButton
-            }
-        }
-            .frame(width: projectMenuWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-            .contextMenu {
-                if let selectedProject {
-                    projectContextMenuItems(for: selectedProject)
-                }
-            }
-    }
-
-    var projectControls: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(alignment: .center, spacing: 6) {
-                Spacer(minLength: 0)
-                projectMenu
-                    .frame(width: projectMenuWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-                newProjectButton
-                    .frame(width: projectCreateButtonWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-            }
-            .frame(width: sectionWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-
-            if showsProjectIndicator {
-                projectDotTrack
-                    .frame(width: projectTrackWidth, height: workspaceSidebarPagerHeight, alignment: .leading)
-            }
-        }
-        .frame(width: sectionWidth, height: expandedProjectControlsHeight, alignment: .bottomTrailing)
-    }
-
-    private var projectMenuButton: some View {
-        Button {
-            isProjectMenuOpen.toggle()
-        } label: {
-            HStack(spacing: 4) {
-                Text(selectedProject?.displayName ?? "Project")
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
-                    .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
-            }
-            .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isProjectMenuOpen))
-        }
-        .buttonStyle(.plain)
-        .frame(height: workspaceSidebarPagerHeight, alignment: .center)
-    }
-
-    private var newProjectButton: some View {
-        Button {
-            onCreateProject()
-            isProjectMenuOpen = false
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(isHovered ? 0.86 : 0.72))
-                .frame(width: workspaceSidebarDropdownHeight - (workspaceSidebarDropdownPadding * 2))
-                .modifier(WorkspaceSidebarDropdownControlStyle(isActive: false))
-        }
-        .buttonStyle(.plain)
-        .help("New Project")
-        .frame(height: workspaceSidebarPagerHeight, alignment: .center)
-    }
-
-    @ViewBuilder
-    var projectPopup: some View {
-        if isProjectMenuOpen {
-            WorkspaceSidebarProjectPopup(
-                projects: projects,
-                selectedProjectId: selectedProjectId,
-                onSelect: { projectId in
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        onSelectProject(projectId)
-                    }
-                },
-                onCreate: {
-                    onCreateProject()
-                    isProjectMenuOpen = false
-                },
-                onRename: { project in
-                    onBeginRenameProject(project)
-                    isProjectMenuOpen = false
-                },
-                onSetColor: onSetProjectColor,
-                onDelete: { project in
-                    onDeleteProject(project)
-                    isProjectMenuOpen = false
-                },
-                showsCreateAction: false,
-                menuWidth: projectPopupWidth,
-            )
-            .frame(width: projectPopupWidth)
-            .offset(
-                x: -(projectCreateButtonWidth + 6),
-                y: -(expandedProjectControlsHeight + workspaceSidebarSectionGap)
-            )
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottomTrailing)),
-                removal: .opacity,
-            ))
-            .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: isProjectMenuOpen)
-            .zIndex(100)
-        }
-    }
-
-    @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename Space") {
             onBeginRenameProject(project)
         }
+        Button("Choose Icon…") { onChooseProjectIcon(project) }
         Menu("Color") {
             let selectedColorHex = project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
             Button {
@@ -269,7 +151,7 @@ extension WorkspaceSidebarProjectPager {
         Button(role: .destructive) {
             onDeleteProject(project)
         } label: {
-            Text("Delete Project")
+            Text("Delete Space")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

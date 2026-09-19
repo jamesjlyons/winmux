@@ -12,6 +12,7 @@ struct DoctorCommand: Command {
         io.out("Permissions:")
         io.out("  accessibility: \(AXIsProcessTrusted() ? "granted" : "MISSING (required)")")
         io.out("  screen capture: \(CGPreflightScreenCaptureAccess() ? "granted" : "missing (tab previews / radius estimation degraded)")")
+        io.out("  trackpad navigation: \(TrackpadNavigationController.shared.status.description)")
         io.out("")
 
         io.out("Monitors (system window corner radius: \(systemWindowCornerRadius())pt):")
@@ -23,6 +24,12 @@ struct DoctorCommand: Command {
 
         let workspaces = Workspace.all
         io.out("State: \(workspaces.count) workspaces, \(MacWindow.allWindows.count) windows, focus=\(focus.windowOrNil?.windowId.description ?? "none") (workspace \(focus.workspace.name))")
+        io.out("")
+        let session = RestartSessionController.shared
+        io.out("Session: \(session.file.url.path)")
+        io.out("  save: \(session.lastSave)")
+        io.out("  restore: \(session.lastRestore)")
+        io.out("  matched: \(session.matchedCount), unmatched: \(session.unmatchedCount)")
         io.out("")
 
         // Per-app AX latency: time a trivial round-trip to each app's AX thread. Apps near the

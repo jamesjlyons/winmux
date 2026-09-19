@@ -90,38 +90,6 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
     ]
 }
 
-private func workspaceSidebarSnapshotForTopFilterBar(
-    projects: [WorkspaceSidebarProjectViewModel],
-    monitorScopes: [WorkspaceSidebarMonitorScopeViewModel],
-) -> WorkspaceSidebarSnapshot {
-    WorkspaceSidebarSnapshot(
-        workspaces: [],
-        projects: projects,
-        activeProjectId: workspaceProjectDefaultId,
-        monitorScopes: monitorScopes,
-        selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
-        targetMonitorScopeId: workspaceSidebarDefaultScopeId,
-        focusedMonitorScopeId: "",
-        visibleWidth: 240,
-        hoveredWorkspaceName: nil,
-        dropPreview: nil,
-        configuration: WorkspaceSidebarConfiguration(
-            collapsedWidth: 44,
-            expandedWidth: 240,
-            topPadding: 12,
-            showMonitorSelector: true,
-            showsClock: true,
-            showsSeconds: true,
-            showsDate: false,
-            showsWeekday: false,
-            showsStatusPills: false,
-            chromeStyle: .liquidGlass,
-            solidChromeColor: .midnight,
-            solidChromeCustomColor: "#191B20",
-        ),
-    )
-}
-
 final class WorkspaceSidebarDragTest: XCTestCase {
     func testCompactClockAccessibilityHonorsSecondsVisibility() {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
@@ -136,74 +104,6 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             workspaceSidebarCompactClockAccessibilitySummary(date: date, showsSeconds: true),
             timeWithSeconds,
         )
-    }
-
-    @MainActor
-    func testTopFilterBarHidesForSingleProjectWithoutFocusFilter() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertFalse(view.shouldShowTopFilterBar)
-    }
-
-    @MainActor
-    func testTopFilterBarShowsWhenFocusFilterIsEnabled() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarFocusedScopeId,
-                    displayName: "Focused",
-                    subtitle: nil,
-                    systemImageName: "scope",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertTrue(view.shouldShowTopFilterBar)
-    }
-
-    @MainActor
-    func testTopFilterBarShowsWhenAnotherProjectExists() {
-        let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: "project-1", displayName: "Project 1", colorHex: nil),
-            ],
-            monitorScopes: [
-                WorkspaceSidebarMonitorScopeViewModel(
-                    id: workspaceSidebarDefaultScopeId,
-                    displayName: "Default",
-                    subtitle: nil,
-                    systemImageName: "display",
-                    isFocusedMonitor: false,
-                ),
-            ],
-        ))
-
-        XCTAssertTrue(view.shouldShowTopFilterBar)
     }
 
     @MainActor
@@ -512,6 +412,29 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
+    func testProjectSwipeDoesNotCreateOrPreviewAtEitherEdgeWhenDisabled() {
+        for projectCount in [1, 3] {
+            for (currentIndex, direction) in [(0, -1), (projectCount - 1, 1)] {
+                for distance: CGFloat in [22, 104, 500] {
+                    XCTAssertFalse(shouldCreateWorkspaceSidebarProjectAfterSwipe(
+                        currentIndex: currentIndex,
+                        projectCount: projectCount,
+                        direction: direction,
+                        distance: distance,
+                        allowsCreation: false,
+                    ))
+                    XCTAssertEqual(workspaceSidebarProjectEdgeCreationProgress(
+                        currentIndex: currentIndex,
+                        projectCount: projectCount,
+                        direction: direction,
+                        distance: distance,
+                        allowsCreation: false,
+                    ), 0)
+                }
+            }
+        }
+    }
+
     func testProjectSwipeCreatesOnlyPastEdgesAfterBreakPoint() {
         XCTAssertFalse(
             shouldCreateWorkspaceSidebarProjectAfterSwipe(
@@ -519,6 +442,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 120,
+                allowsCreation: true,
             ),
         )
         XCTAssertFalse(
@@ -527,6 +451,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 96,
+                allowsCreation: true,
             ),
         )
         XCTAssertTrue(
@@ -535,6 +460,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 110,
+                allowsCreation: true,
             ),
         )
         XCTAssertTrue(
@@ -543,6 +469,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: -1,
                 distance: 110,
+                allowsCreation: true,
             ),
         )
     }
@@ -554,6 +481,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 100,
+                allowsCreation: true,
             ),
             0,
         )
@@ -563,6 +491,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 22,
+                allowsCreation: true,
             ),
             0,
         )
@@ -572,6 +501,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 projectCount: 3,
                 direction: 1,
                 distance: 104,
+                allowsCreation: true,
             ),
             1,
         )
@@ -647,14 +577,14 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertNil(workspaceSidebarColor(hex: "not-a-color"))
     }
 
-    func testProjectSwipeScrollDeltaUsesDragDirection() {
+    func testProjectSwipeScrollDeltaPreservesSystemDirection() {
         XCTAssertEqual(
             workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: 0, scrollingDeltaX: 24),
-            -24,
+            24,
         )
         XCTAssertEqual(
-            workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: -24, scrollingDeltaX: -10),
-            -14,
+            workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: 24, scrollingDeltaX: -10),
+            14,
         )
     }
 
@@ -743,15 +673,24 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
-    func testWorkspaceSidebarStatusBottomPaddingMatchesLeadingEdgePadding() {
-        XCTAssertEqual(
-            workspaceSidebarStatusBottomPadding(isCompact: true),
-            workspaceSidebarOuterLeadingPadding(isCompact: true),
-        )
-        XCTAssertEqual(
-            workspaceSidebarStatusBottomPadding(isCompact: false),
-            workspaceSidebarOuterLeadingPadding(isCompact: false),
-        )
+    @MainActor
+    func testSidebarContentsFitRailThroughoutExpansionFrom28Points() {
+        for collapsedWidth: CGFloat in [28, 36, 40, 44, 60, 120] {
+            var layout = WorkspaceSidebarConfiguration.empty
+            layout.collapsedWidth = collapsedWidth
+            layout.expandedWidth = 280
+            for progress: CGFloat in [0, 0.25, 0.57, 0.58, 0.75, 1] {
+                let leading = workspaceSidebarOuterLeadingPadding(expansionProgress: progress, layout: layout)
+                let trailing = workspaceSidebarOuterTrailingPadding(expansionProgress: progress, layout: layout)
+                let section = workspaceSidebarSectionWidth(progress, layout: layout)
+                let visibleWidth = collapsedWidth + (layout.expandedWidth - collapsedWidth) * progress
+                XCTAssertEqual(leading + section + trailing, visibleWidth, accuracy: 0.001)
+                XCTAssertEqual(leading, trailing)
+                let metrics = WorkspaceSidebarCompactMetrics(sectionWidth: section)
+                XCTAssertLessThanOrEqual(metrics.badgeWidth + metrics.horizontalInset * 2, section)
+                XCTAssertGreaterThanOrEqual(metrics.controlHeight, 28)
+            }
+        }
     }
 
     func testWorkspaceSidebarFooterBottomPaddingAddsSpaceWithoutClock() {
@@ -806,30 +745,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarHoverActivationWidth(sidebarConfig), 260)
         XCTAssertEqual(workspaceSidebarCollapsedContentWidth(sidebarConfig), 36)
         XCTAssertFalse(workspaceSidebarAllowsLeftEdgeTrap(sidebarConfig))
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 0,
-                previousExpandedWidth: nil,
-                expandedWidth: 260,
-            ),
-            260,
-        )
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 260,
-                previousExpandedWidth: 260,
-                expandedWidth: 280,
-            ),
-            280,
-        )
-        XCTAssertEqual(
-            workspaceSidebarPersistentVisibleWidth(
-                currentWidth: 520,
-                previousExpandedWidth: 260,
-                expandedWidth: 280,
-            ),
-            560,
-        )
+
     }
 
     func testCollapsedAndAutoHiddenSidebarsAllowLeftEdgeTrap() {
@@ -900,13 +816,13 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testChromeIsNotSuppressedForWinMuxFullscreen() {
+    func testWorkspaceSidebarIsSuppressedForWinMuxFullscreen() {
         setUpWorkspacesForTests()
         let window = TestWindow.new(id: 7010, parent: focus.workspace.rootTilingContainer)
         window.isFullscreen = true
 
         XCTAssertFalse(shouldSuppressChromeForFullscreenContent(on: mainMonitor))
-        XCTAssertFalse(shouldSuppressWorkspaceSidebarForFullscreenContent())
+        XCTAssertTrue(shouldSuppressWorkspaceSidebarForFullscreenContent(on: mainMonitor))
     }
 
     @MainActor
@@ -916,7 +832,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         defer { shouldSuppressChromeForNativeFullscreenContent = false }
 
         XCTAssertTrue(shouldSuppressChromeForFullscreenContent(on: mainMonitor))
-        XCTAssertTrue(shouldSuppressWorkspaceSidebarForFullscreenContent())
+        XCTAssertTrue(shouldSuppressWorkspaceSidebarForFullscreenContent(on: mainMonitor))
     }
 
     func testWorkspaceHoverExitDoesNotClearNewerHoveredWorkspace() {

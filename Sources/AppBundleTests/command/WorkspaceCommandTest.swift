@@ -41,7 +41,7 @@ final class WorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.name, "2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Group 2")
     }
 
     func testDirectWorkspaceFocusDoesNotSkipBlankNumericWorkspace() async throws {
@@ -119,9 +119,9 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.name, "2")
         XCTAssertNil(Workspace.existing(byName: "4"))
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Workspace 2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 3")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Group 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Group 3")
     }
 
     func testNextWorkspaceAfterRawNameGapCreatesRawTwoNotRawFour() async throws {
@@ -140,9 +140,9 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.name, "2")
         XCTAssertNil(Workspace.existing(byName: "4"))
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Workspace 2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 3")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Group 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Group 3")
     }
 
     func testWorkspaceNextPrevFollowDisplayOrderWhenRawNamesSortDifferently() async throws {
@@ -157,9 +157,9 @@ final class WorkspaceCommandTest: XCTestCase {
         _ = TestWindow.new(id: 29, parent: third.rootTilingContainer)
         _ = first.focusWorkspace()
 
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(secondDisplay.name), "Workspace 2")
-        XCTAssertEqual(workspaceDisplayName(third.name), "Workspace 3")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
+        XCTAssertEqual(workspaceDisplayName(secondDisplay.name), "Group 2")
+        XCTAssertEqual(workspaceDisplayName(third.name), "Group 3")
 
         assertEquals(
             try await WorkspaceCommand(args: WorkspaceCmdArgs(target: .relative(.next)))
@@ -211,7 +211,7 @@ final class WorkspaceCommandTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertNil(Workspace.existing(byName: "2"))
-        XCTAssertEqual(workspaceDisplayName("1"), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName("1"), "Group 1")
     }
 
     func testWorkspaceNextCreatesBlankNumericWorkspaceAtRightEdge() async throws {
@@ -226,7 +226,7 @@ final class WorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.name, "2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Group 2")
     }
 
     func testWorkspaceNextBlankNumericWorkspaceIsDeletedAfterLeavingItEmpty() async throws {
@@ -246,7 +246,7 @@ final class WorkspaceCommandTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertNil(Workspace.existing(byName: "2"))
-        XCTAssertEqual(workspaceDisplayName("1"), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName("1"), "Group 1")
     }
 
     func testDirectWorkspaceShortcutPrefersActiveProjectDisplayIndex() async throws {
@@ -264,7 +264,7 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertTrue(focus.workspace === projectWorkspace)
         XCTAssertEqual(focus.workspace.projectId, project.id)
-        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Group 1")
     }
 
     func testDirectWorkspaceShortcutCreatesNextWorkspaceInsideActiveProject() async throws {
@@ -285,7 +285,7 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.projectId, project.id)
         XCTAssertFalse(focus.workspace === defaultWorkspace2)
-        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Group 2")
     }
 
     func testWorkspaceNextCreatesWorkspaceInsideActiveProject() async throws {
@@ -306,7 +306,7 @@ final class WorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.projectId, project.id)
         XCTAssertFalse(focus.workspace === defaultWorkspace2)
-        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Group 2")
     }
 
     func testWorkspaceNextDoesNotCreateBlankWorkspaceWhenWrapping() async throws {

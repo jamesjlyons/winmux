@@ -62,9 +62,14 @@ struct ReloadConfigCommand: Command {
 /// filesystem auto-reloads share the same live-update behavior.
 @MainActor private func applyReloadedConfigurationToRunningApp() {
     WorkspaceSidebarPanel.refreshAll()
+    // Snapshots read the config directly, even when panel geometry and model values are unchanged.
+    for panel in WorkspaceSidebarPanel.visiblePanels {
+        panel.viewModel.objectWillChange.send()
+    }
     WindowTabStripPanelController.shared.refresh()
     SecureInputPanel.shared.refresh()
 
     guard isWinMuxRuntimeReady else { return }
+    TrackpadNavigationController.shared.sync()
     scheduleRefreshSession(.configAutoReload)
 }

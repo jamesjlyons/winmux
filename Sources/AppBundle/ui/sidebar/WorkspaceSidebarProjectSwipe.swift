@@ -32,8 +32,9 @@ func shouldCreateWorkspaceSidebarProjectAfterSwipe(
     projectCount: Int,
     direction: Int,
     distance: CGFloat,
+    allowsCreation: Bool,
 ) -> Bool {
-    guard let currentIndex, projectCount > 0 else { return false }
+    guard allowsCreation, let currentIndex, projectCount > 0 else { return false }
     let pulledBeforeFirst = direction < 0 && currentIndex == 0
     let pulledAfterLast = direction > 0 && currentIndex == projectCount - 1
     return (pulledBeforeFirst || pulledAfterLast) && distance >= workspaceSidebarProjectSwipeCreateThreshold
@@ -44,8 +45,9 @@ func workspaceSidebarProjectEdgeCreationProgress(
     projectCount: Int,
     direction: Int?,
     distance: CGFloat,
+    allowsCreation: Bool,
 ) -> CGFloat {
-    guard let currentIndex, let direction, projectCount > 0 else { return 0 }
+    guard allowsCreation, let currentIndex, let direction, projectCount > 0 else { return 0 }
     let pulledBeforeFirst = direction < 0 && currentIndex == 0
     let pulledAfterLast = direction > 0 && currentIndex == projectCount - 1
     guard pulledBeforeFirst || pulledAfterLast else { return 0 }
@@ -99,5 +101,6 @@ func workspaceSidebarProjectSwipeSwitchProgress(distance: CGFloat) -> CGFloat {
 }
 
 func workspaceSidebarProjectSwipeTranslationAfterScroll(currentTranslation: CGFloat, scrollingDeltaX: CGFloat) -> CGFloat {
-    currentTranslation - scrollingDeltaX
+    // AppKit already applies the user's scroll-direction preference to this delta.
+    currentTranslation + scrollingDeltaX
 }

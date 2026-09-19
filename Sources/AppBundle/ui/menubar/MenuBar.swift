@@ -11,8 +11,8 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
         checkForUpdates: (() -> Void)? = nil,
     ) -> some Scene { // todo should it be converted to "SwiftUI struct"?
         MenuBarExtra {
-            let shortIdentification = "\(winMuxAppName) v\(winMuxAppVersion) \(gitShortHash)"
-            let identification      = "\(winMuxAppName) v\(winMuxAppVersion) \(gitHash)"
+            let shortIdentification = "\(winMuxAppDisplayName) v\(winMuxAppVersion) \(gitShortHash)"
+            let identification      = "\(winMuxAppDisplayName) v\(winMuxAppVersion) \(gitHash)"
         Text(shortIdentification)
         Button("Copy to clipboard") { identification.copyToClipboard() }
             .keyboardShortcut("C", modifiers: .command)
@@ -37,15 +37,12 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
         Button("File an issue...") {
             openURLString(winmuxNewIssueURL)
         }
-        Button("Quit \(winMuxAppName)") {
-            Task {
-                defer { terminateApp() }
-                try await terminationHandler.beforeTermination()
-            }
+        Button("Quit \(winMuxAppDisplayName)") {
+            terminateApp()
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
         if viewModel.isEnabled {
-            MenuBarAppIcon().environmentObject(viewModel)
+            MenuBarAppIcon()
         } else {
             Image(systemName: "pause.circle.fill")
                 .resizable()

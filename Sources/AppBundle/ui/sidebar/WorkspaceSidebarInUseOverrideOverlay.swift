@@ -23,7 +23,7 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
             VStack(spacing: 8) {
                 Text(text)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.88))
+                    .foregroundStyle(Color.primary.opacity(0.88))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
@@ -31,7 +31,7 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
                 Button(action: onOverride) {
                     Text("Override")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 4)
                 }
@@ -42,7 +42,7 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isOverrideHovered ? 0.28 : 0), lineWidth: 0.6)
+                        .strokeBorder(Color.primary.opacity(isOverrideHovered ? 0.28 : 0), lineWidth: 0.6)
                 }
                 .onHover { hovering in
                     isOverrideHovered = hovering

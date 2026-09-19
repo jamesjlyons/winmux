@@ -4,6 +4,57 @@ private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
 private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
 private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
 
+@MainActor
+func setWorkspaceSidebarModeFromMenu(key: String, value: Bool) {
+    Task { @MainActor in
+        do {
+            let url = preferredWorkspaceSidebarConfigUrl()
+            let current = try String(contentsOf: url, encoding: .utf8)
+            let updated = updateWorkspaceSidebarScalarConfig(in: current, key: key, renderedValue: value ? "true" : "false")
+            let parsed = parseConfig(updated)
+            guard parsed.errors.isEmpty else {
+                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
+            }
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+            guard try await reloadConfig(forceConfigUrl: url) else {
+                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: "Saved the sidebar setting, but could not reload the config."])
+            }
+            ShortcutSettingsModel.shared.reload()
+            WorkspaceSidebarPanel.refreshAll()
+        } catch {
+            showWorkspaceSidebarError(error.localizedDescription)
+        }
+    }
+}
+
+func updateWorkspaceSidebarWidthConfig(in configText: String, width: Int) -> String {
+    // TOML also permits a root-level dotted assignment. Keep its shape and comments.
+    var lines = configText.components(separatedBy: "\n")
+    for index in lines.indices {
+        if lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("[") { break }
+        if workspaceSidebarConfigKey(in: lines[index]) == "workspace-sidebar.width" {
+            let indent = String(lines[index].prefix(while: { $0.isWhitespace }))
+            let comment = trailingTomlComment(in: lines[index]).map { " " + $0 } ?? ""
+            lines[index] = "\(indent)workspace-sidebar.width = \(width)\(comment)"
+            return lines.joined(separator: "\n")
+        }
+    }
+    return updateWorkspaceSidebarScalarConfig(in: configText, key: "width", renderedValue: "\(width)")
+}
+
+@MainActor
+func persistWorkspaceSidebarWidth(_ width: Int) throws -> URL {
+    let url = preferredWorkspaceSidebarConfigUrl()
+    let current = try String(contentsOf: url, encoding: .utf8)
+    let updated = updateWorkspaceSidebarWidthConfig(in: current, width: width)
+    let parsed = parseConfig(updated)
+    guard parsed.errors.isEmpty else {
+        throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
+    }
+    try updated.write(to: url, atomically: true, encoding: .utf8)
+    return url
+}
+
 func updateWorkspaceSidebarMenuBarReserveConfig(
     in configText: String,
     height: Int,
@@ -125,6 +176,28 @@ func updateWorkspaceSidebarProjectColorConfig(
         key: projectId,
         value: colorHex,
     )
+}
+
+func updateWorkspaceSidebarProjectIconConfig(in configText: String, projectId: String, symbolName: String?) -> String {
+    updateWorkspaceSidebarKeyValueSectionConfig(
+        in: configText,
+        sectionHeader: "[workspace-sidebar.project-icons]",
+        key: projectId,
+        value: symbolName,
+    )
+}
+
+@MainActor
+func persistWorkspaceSidebarProjectIcon(projectId: String, symbolName: String?) throws {
+    let targetUrl = preferredWorkspaceSidebarConfigUrl()
+    // A failed read must not replace an existing config with a new, icon-only file.
+    let currentText = FileManager.default.fileExists(atPath: targetUrl.path)
+        ? try String(contentsOf: targetUrl, encoding: .utf8) : ""
+    let updatedText = updateWorkspaceSidebarProjectIconConfig(
+        in: currentText, projectId: projectId, symbolName: symbolName
+    )
+    try FileManager.default.createDirectory(at: targetUrl.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try updatedText.write(to: targetUrl, atomically: true, encoding: .utf8)
 }
 
 private func updateWorkspaceSidebarKeyValueSectionConfig(

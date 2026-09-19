@@ -18,9 +18,7 @@ private func displayRefreshDriverCallback(
     let timestamp = displayRefreshHostClockFrequency > 0
         ? Double(now.pointee.hostTime) / displayRefreshHostClockFrequency
         : CACurrentMediaTime()
-    Task { @MainActor in
-        driver.fire(timestamp: timestamp)
-    }
+    driver.enqueue(timestamp: timestamp)
     return kCVReturnSuccess
 }
 
@@ -30,7 +28,19 @@ final class DisplayRefreshDriver: @unchecked Sendable {
 
     private struct Subscription {
         weak var owner: AnyObject?
+        let startedAt: CFTimeInterval
         let callback: (CFTimeInterval) -> Void
+    }
+
+    nonisolated private let mailbox = DisplayFrameMailbox()
+
+    nonisolated fileprivate func enqueue(timestamp: CFTimeInterval) {
+        guard let generation = mailbox.submit(timestamp) else { return }
+        Task { @MainActor in
+            guard let latest = self.mailbox.take(generation: generation) else { return }
+            signposter.emitEvent("Display delivery", "sample age ms: \((CACurrentMediaTime() - latest) * 1000)")
+            self.fire(timestamp: latest)
+        }
     }
 
     private var subscriptions: [ObjectIdentifier: Subscription] = [:]
@@ -40,7 +50,9 @@ final class DisplayRefreshDriver: @unchecked Sendable {
     private init() {}
 
     func add(owner: AnyObject, callback: @escaping (CFTimeInterval) -> Void) {
-        subscriptions[ObjectIdentifier(owner)] = Subscription(owner: owner, callback: callback)
+        let key = ObjectIdentifier(owner)
+        let startedAt = subscriptions[key]?.startedAt ?? CACurrentMediaTime()
+        subscriptions[key] = Subscription(owner: owner, startedAt: startedAt, callback: callback)
         startIfNeeded()
     }
 
@@ -51,6 +63,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
 
     private func startIfNeeded() {
         guard !subscriptions.isEmpty, displayLink == nil, fallbackTimer == nil else { return }
+        mailbox.start()
         if startDisplayLink() {
             return
         }
@@ -76,9 +89,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
 
     private func startFallbackTimer() {
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            Task { @MainActor in
-                DisplayRefreshDriver.shared.fire(timestamp: CACurrentMediaTime())
-            }
+            DisplayRefreshDriver.shared.enqueue(timestamp: CACurrentMediaTime())
         }
         fallbackTimer = timer
         RunLoop.main.add(timer, forMode: .common)
@@ -87,6 +98,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
     private func stopIfIdle() {
         pruneReleasedOwners()
         guard subscriptions.isEmpty else { return }
+        mailbox.stop()
         if let displayLink {
             CVDisplayLinkStop(displayLink)
             self.displayLink = nil
@@ -115,7 +127,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
             stopIfIdle()
             return
         }
-        for subscription in subscriptions.values {
+        for subscription in subscriptions.values where timestamp >= subscription.startedAt {
             subscription.callback(timestamp)
         }
     }

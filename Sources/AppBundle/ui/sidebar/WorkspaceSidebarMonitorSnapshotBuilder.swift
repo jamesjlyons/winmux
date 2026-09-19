@@ -22,7 +22,7 @@ func buildWorkspaceSidebarMonitorScopes(
     var scopes = [
         WorkspaceSidebarMonitorScopeViewModel(
             id: workspaceSidebarDefaultScopeId,
-            displayName: "Default",
+            displayName: "All Displays",
             subtitle: nil,
             systemImageName: "display",
             isFocusedMonitor: false,
@@ -31,7 +31,7 @@ func buildWorkspaceSidebarMonitorScopes(
     if config.workspaceSidebar.enableFocus {
         scopes.append(WorkspaceSidebarMonitorScopeViewModel(
             id: workspaceSidebarFocusedScopeId,
-            displayName: "Focused",
+            displayName: "Focused Group",
             subtitle: nil,
             systemImageName: "scope",
             isFocusedMonitor: false,

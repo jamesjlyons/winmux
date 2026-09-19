@@ -6,6 +6,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "enable-focus": Parser(\.enableFocus, parseBool),
     "auto-hide": Parser(\.autoHide, parseBool),
     "always-expanded": Parser(\.alwaysExpanded, parseBool),
+    "swipe-to-create-projects": Parser(\.swipeToCreateProjects, parseBool),
     "collapsed-width": Parser(\.collapsedWidth, parseWorkspaceSidebarWidth),
     "width": Parser(\.width, parseWorkspaceSidebarWidth),
     "monitor": Parser(\.monitor) { value, backtrace, errors in
@@ -17,6 +18,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "show-date": Parser(\.showDate, parseBool),
     "show-weekday": Parser(\.showWeekday, parseBool),
     "chrome-style": Parser(\.chromeStyle, parseChromeStyle),
+    "menu-bar-style": Parser(\.menuBarStyle, parseBool),
     "solid-chrome-color": Parser(\.solidChromeColor, parseChromeSolidColor),
     "solid-chrome-custom-color": Parser(\.solidChromeCustomColor, parseChromeSolidCustomColor),
     "use-liquid-glass": Parser(\.chromeStyle) { raw, backtrace in
@@ -27,6 +29,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "workspace-labels": Parser(\.workspaceLabels, parseWorkspaceSidebarLabels),
     "project-labels": Parser(\.projectLabels, parseWorkspaceSidebarLabels),
     "project-colors": Parser(\.projectColors, parseWorkspaceSidebarProjectColors),
+    "project-icons": Parser(\.projectIcons, parseWorkspaceSidebarLabels),
 ]
 
 func parseWorkspaceSidebar(

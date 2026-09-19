@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WorkspaceSidebarOptionalDragModifier: ViewModifier {
@@ -15,12 +16,10 @@ struct WorkspaceSidebarOptionalDragModifier: ViewModifier {
                             isDragging = true
                             beginWorkspaceSidebarItemDrag()
                         }
-                        noteCurrentMousePointerSample()
-                        onChanged(MousePointerTracker.shared.currentSample.point)
+                        onChanged(currentWorkspaceSidebarDragPointer())
                     }
                     .onEnded { _ in
-                        noteCurrentMousePointerSample()
-                        onEnded(MousePointerTracker.shared.currentSample.point)
+                        onEnded(currentWorkspaceSidebarDragPointer())
                         if isDragging {
                             isDragging = false
                             endWorkspaceSidebarItemDrag()

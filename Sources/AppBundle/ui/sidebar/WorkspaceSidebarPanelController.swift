@@ -37,14 +37,18 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var lastEdgeTrapSample: MousePointerSample?
     var edgeTrapStartedAt: TimeInterval?
     var edgeTrapSuppressedUntil: TimeInterval = 0
-    var splitBrowseCollapseSuppressedUntil: Date = .distantPast
+    var organizeCollapseSuppressedUntil: Date = .distantPast
+    var dropTargetFrames: [WorkspaceSidebarDropTargetFrame] = []
+    var dropTargets: [WorkspaceSidebarDropTarget] = []
     var persistentExpansionWidth: CGFloat?
-    let hoverExitTolerance: CGFloat = 20
-    let hoverPollInterval: TimeInterval = 1.0 / 30.0
-    let hoverOpenDelay: TimeInterval = 0.05
-    let hoverCueAnimationResponse: TimeInterval = 0.18
-    let animationDuration: TimeInterval = 0.14
-    let menuTrackingEndGrace: TimeInterval = 0.75
+    var isResizingSidebar = false
+    var projectIconPicker: WorkspaceSidebarProjectIconPickerController?
+    let hoverExitTolerance: CGFloat = 6
+    let hoverPollInterval: TimeInterval = 1.0 / 60.0
+    let hoverOpenDelay: TimeInterval = 0
+    let hoverCueAnimationResponse: TimeInterval = 0.12
+    let animationDuration: TimeInterval = workspaceSidebarExpansionDuration
+    let menuTrackingEndGrace: TimeInterval = 0.12
     let edgeTrapBandWidth: CGFloat = 18
     let edgeTrapReleaseVelocityThreshold: CGFloat = 4
     let edgeTrapReleaseDelay: TimeInterval = 0.2
@@ -89,13 +93,14 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         panelsByMonitorScopeId[monitorScopeId]
     }
 
-    static func updateVisibleDropTargets(_ targets: [WorkspaceSidebarDropTargetFrame]) {
-        workspaceSidebarDropTargets = visiblePanels.flatMap { $0.convertDropTargets(targets) }
+    static func updateVisibleDropTargets() {
+        workspaceSidebarDropTargets = visiblePanels.flatMap(\.dropTargets)
     }
 
     static func refreshAll() {
-        let activeMonitorScopeIds = Set(workspaceSidebarResolvedPanelMonitors().map { workspaceSidebarMonitorScopeId(for: $0) })
-        for monitor in workspaceSidebarResolvedPanelMonitors() {
+        let panelMonitors = workspaceSidebarResolvedPanelMonitors()
+        let activeMonitorScopeIds = Set(panelMonitors.map { workspaceSidebarMonitorScopeId(for: $0) })
+        for monitor in panelMonitors {
             let scopeId = workspaceSidebarMonitorScopeId(for: monitor)
             let panel = panelsByMonitorScopeId[scopeId] ?? WorkspaceSidebarPanel(monitor: monitor)
             panelsByMonitorScopeId[scopeId] = panel
@@ -114,15 +119,14 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     }
 
     func syncModelFromShared() {
+        let interval = signposter.beginInterval("Sidebar panel sync")
+        defer { signposter.endInterval("Sidebar panel sync", interval) }
         // Equality-guarded: this runs several times per refresh session, and each unguarded
         // @Published write would invalidate the whole sidebar SwiftUI tree even when nothing
         // changed. workspaceSidebarVisibleWidth/isWorkspaceSidebarExpanded are panel-local and
-        // never synced. experimentalUISettings is stateless (reads UserDefaults live) and only
-        // the menu bar label observes it, so it isn't synced either.
-        viewModel.setIfChanged(\.trayText, TrayMenuModel.shared.trayText)
-        viewModel.setIfChanged(\.trayItems, TrayMenuModel.shared.trayItems)
+        // never synced. Menu-bar fields and tab strips are not consumed by the sidebar;
+        // copying them would publish unrelated changes to its entire SwiftUI tree.
         viewModel.setIfChanged(\.isEnabled, TrayMenuModel.shared.isEnabled)
-        viewModel.setIfChanged(\.workspaces, TrayMenuModel.shared.workspaces)
         viewModel.setIfChanged(\.workspaceSidebarWorkspaces, TrayMenuModel.shared.workspaceSidebarWorkspaces)
         viewModel.setIfChanged(\.workspaceSidebarProjects, TrayMenuModel.shared.workspaceSidebarProjects)
         viewModel.setIfChanged(\.workspaceSidebarActiveProjectId, resolvedLocalActiveProjectId())
@@ -132,7 +136,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         viewModel.setIfChanged(\.workspaceSidebarFocusedMonitorScopeId, TrayMenuModel.shared.workspaceSidebarFocusedMonitorScopeId)
         viewModel.setIfChanged(\.workspaceSidebarShowsMonitorSelector, TrayMenuModel.shared.workspaceSidebarShowsMonitorSelector)
         viewModel.setIfChanged(\.workspaceSidebarDropPreview, TrayMenuModel.shared.workspaceSidebarDropPreview)
-        viewModel.setIfChanged(\.windowTabStrips, TrayMenuModel.shared.windowTabStrips)
         viewModel.setIfChanged(\.workspaceSidebarTopPadding, TrayMenuModel.shared.workspaceSidebarTopPadding)
         viewModel.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, resolvedLocalHoveredWorkspaceName())
     }

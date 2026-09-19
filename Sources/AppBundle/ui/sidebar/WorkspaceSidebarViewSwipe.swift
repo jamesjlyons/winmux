@@ -51,6 +51,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: direction,
             distance: abs(horizontalTranslation),
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         )
         let shouldNavigate =
             workspaceSidebarProjectIndexAfterSwipe(
@@ -73,7 +74,7 @@ extension WorkspaceSidebarView {
         verticalTranslation: CGFloat,
         expansionProgress: CGFloat,
     ) -> Bool {
-        guard !snapshot.projects.isEmpty,
+        guard !isOrganizing, !snapshot.projects.isEmpty,
               !isWorkspaceSidebarDragInProgress()
         else {
             return false

@@ -49,6 +49,8 @@ func openWorkspaceSidebarFromCommand() {
 
 @MainActor
 func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
+    panel.resetBrowseMode()
+    panel.projectIconPicker?.close()
     panel.endInlineTextEditing()
     panel.pendingExpand?.cancel()
     panel.pendingExpand = nil
@@ -63,7 +65,7 @@ func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.shouldLockNextSidebarSearchExpansion = false
     panel.bufferedCommandSidebarSearchKeys = []
     removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
-    panel.animateVisibleSidebarWidth(workspaceSidebarRestingWidth(config.workspaceSidebar), animation: .easeInOut(duration: panel.animationDuration))
+    panel.animateVisibleSidebarWidth(workspaceSidebarRestingWidth(config.workspaceSidebar), animation: config.workspaceSidebar.alwaysExpanded ? workspaceSidebarExpansionAnimation : workspaceSidebarCollapseAnimation)
     panel.viewModel.isWorkspaceSidebarExpanded = config.workspaceSidebar.alwaysExpanded
     panel.updateMousePassthrough()
 }

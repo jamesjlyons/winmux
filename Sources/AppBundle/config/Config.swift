@@ -62,6 +62,7 @@ struct Config: ConvenienceCopyable {
     var gaps: Gaps = .zero
     var workspaceSidebar = WorkspaceSidebarConfig()
     var windowTabs = WindowTabsConfig()
+    var trackpadNavigation = TrackpadNavigationConfig()
     var workspaceToMonitorForceAssignment: [String: [MonitorDescription]] = [:]
     var modes: [String: Mode] = [:]
     var onWindowDetected: [WindowDetectedCallback] = []
@@ -82,6 +83,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var enableFocus: Bool = false
     var autoHide: Bool = false
     var alwaysExpanded: Bool = false
+    var swipeToCreateProjects: Bool = false
     var collapsedWidth: Int = 44
     var width: Int = 240
     var monitor: [MonitorDescription] = []
@@ -91,6 +93,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var showDate: Bool = true
     var showWeekday: Bool = true
     var chromeStyle: ChromeStyle = .liquidGlass
+    var menuBarStyle: Bool = false
     var solidChromeColor: ChromeSolidColor = .midnight
     var solidChromeCustomColor: String = "#191B20"
     var menuBarReserveHeight: Int = 28
@@ -98,6 +101,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var workspaceLabels: [String: String] = [:]
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
+    var projectIcons: [String: String] = [:]
 }
 
 enum ChromeStyle: String, CaseIterable, Identifiable, Sendable {

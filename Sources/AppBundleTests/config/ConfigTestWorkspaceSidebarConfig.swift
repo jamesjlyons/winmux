@@ -12,6 +12,7 @@ extension ConfigTest {
                 enable-focus = true
                 auto-hide = true
                 always-expanded = true
+                swipe-to-create-projects = true
                 width = 280
                 monitor = ['secondary', 2]
                 show-status-pills = false
@@ -42,6 +43,7 @@ extension ConfigTest {
                 enableFocus: true,
                 autoHide: true,
                 alwaysExpanded: true,
+                swipeToCreateProjects: true,
                 collapsedWidth: 44,
                 width: 280,
                 monitor: [.secondary, .sequenceNumber(2)],
@@ -67,6 +69,7 @@ extension ConfigTest {
         )
         assertEquals(backwardCompatibleErrors, [])
         XCTAssertFalse(backwardCompatible.workspaceSidebar.alwaysExpanded)
+        XCTAssertFalse(backwardCompatible.workspaceSidebar.swipeToCreateProjects)
 
         let (solidChrome, solidChromeErrors) = parseConfig(
             """
@@ -151,6 +154,73 @@ extension ConfigTest {
         assertEquals(actionErrors.descriptions, [
             "workspace-sidebar.project-deletion-action: Possible values: close-windows, move-windows-to-fallback",
         ])
+    }
+
+    func testSidebarMenuBarStyleSettingsRoundTrip() {
+        XCTAssertFalse(WorkspaceSidebarConfig().menuBarStyle)
+        let (legacy, legacyErrors) = parseConfig("""
+        [workspace-sidebar]
+            use-liquid-glass = false
+        """)
+        assertEquals(legacyErrors, [])
+        XCTAssertFalse(legacy.workspaceSidebar.menuBarStyle)
+        XCTAssertEqual(legacy.workspaceSidebar.chromeStyle, .solid)
+
+        var text = """
+        [workspace-sidebar]
+            enabled = true
+            width = 180
+            chrome-style = 'solid'
+            solid-chrome-color = 'mint'
+        """
+        for enabled in [true, false] {
+            text = updateSettingsScalarConfig(
+                in: text,
+                section: "workspace-sidebar",
+                key: "menu-bar-style",
+                renderedValue: enabled ? "true" : "false",
+            )
+            let (parsed, errors) = parseConfig(text)
+            assertEquals(errors, [])
+            XCTAssertEqual(parsed.workspaceSidebar.menuBarStyle, enabled)
+            XCTAssertEqual(parsed.workspaceSidebar.chromeStyle, .solid)
+            XCTAssertEqual(parsed.workspaceSidebar.solidChromeColor, .mint)
+            XCTAssertTrue(parsed.workspaceSidebar.enabled)
+            XCTAssertEqual(parsed.workspaceSidebar.width, 180)
+        }
+        let (_, errors) = parseConfig("""
+        [workspace-sidebar]
+            menu-bar-style = 'true'
+        """)
+        XCTAssertFalse(errors.isEmpty)
+    }
+
+    func testSidebarSwipeCreationSettingsRoundTrip() {
+        XCTAssertFalse(WorkspaceSidebarConfig().swipeToCreateProjects)
+        var text = """
+        [workspace-sidebar]
+            enabled = true
+            width = 180
+        """
+        for enabled in [true, false] {
+            text = updateSettingsScalarConfig(
+                in: text,
+                section: "workspace-sidebar",
+                key: "swipe-to-create-projects",
+                renderedValue: enabled ? "true" : "false",
+            )
+            let (parsed, errors) = parseConfig(text)
+            assertEquals(errors, [])
+            XCTAssertEqual(parsed.workspaceSidebar.swipeToCreateProjects, enabled)
+            XCTAssertTrue(parsed.workspaceSidebar.enabled)
+            XCTAssertEqual(parsed.workspaceSidebar.width, 180)
+        }
+
+        let (_, errors) = parseConfig("""
+        [workspace-sidebar]
+            swipe-to-create-projects = 'true'
+        """)
+        XCTAssertFalse(errors.isEmpty)
     }
 
     func testParseWindowTabs() {

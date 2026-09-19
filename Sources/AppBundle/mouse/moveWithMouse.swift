@@ -52,7 +52,7 @@ private func handleMovedEvent(windowId: UInt32?, notif: String) async {
     guard (try? await isManipulatedWithMouse(window)) == true else {
         moveWithMouseSessionWindowIdsInFlight.remove(windowId)
         moveWithMouseTrailingRerunWindowIds.remove(windowId)
-        scheduleRefreshSession(.ax(notif))
+        scheduleRefreshSession(.ax(notif), scope: .geometry(window))
         return
     }
     Task {
@@ -66,7 +66,7 @@ private func handleMovedEvent(windowId: UInt32?, notif: String) async {
         }
         do {
             try checkCancellation()
-            try await runLightSession(.ax(notif), token) {
+            try await runLightSession(.ax(notif), token, scope: .geometry(window)) {
                 try await moveWithMouse(window)
             }
         } catch is CancellationError {

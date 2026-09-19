@@ -69,7 +69,10 @@ final class TestWindow: Window, CustomStringConvertible {
 
     override var isHiddenInCorner: Bool { _isHiddenInCorner }
 
+    private(set) var frameWriteCount = 0
+
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
+        frameWriteCount += 1
         let currentRect = _rect ?? Rect(topLeftX: topLeft?.x ?? 0, topLeftY: topLeft?.y ?? 0, width: size?.width ?? 0, height: size?.height ?? 0)
         _rect = Rect(
             topLeftX: topLeft?.x ?? currentRect.topLeftX,

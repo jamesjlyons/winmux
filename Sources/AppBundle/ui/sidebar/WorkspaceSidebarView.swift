@@ -3,17 +3,14 @@ import Common
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
+    @Environment(\.colorScheme) var colorScheme
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
     @State var projectSwipeTranslation: CGFloat = 0
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
     @State var projectSwipeDidCrossBreakPoint = false
     @State var projectPagerWidth: CGFloat = 0
-    @State var browseMode: WorkspaceSidebarBrowseMode = .activeProject
     @State var activeInUseOverrideWorkspaceName: String? = nil
-    @State var isProjectMenuOpen = false
-    @State var isSidebarCollapsing = false
-    @State var isSidebarExpanding = false
     @State var renamingProjectId: WorkspaceProjectId? = nil
     @State var renamingProjectText = ""
     @State var renamingWorkspaceName: String? = nil
@@ -49,15 +46,17 @@ struct WorkspaceSidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.clear)
+        .contentShape(Rectangle())
+        .contextMenu {
+            WorkspaceSidebarContextMenu(configuration: snapshot.configuration, actions: actions)
+        }
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
+            guard WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.isResizingSidebar != true else { return }
             if visibleWidth <= collapsedWidth + 0.5 {
                 resetTransientSidebarState()
                 finishSidebarSearch(clearText: true)
-            } else if visibleWidth >= collapsedWidth + 8 {
-                isSidebarCollapsing = false
             }
             if visibleWidth >= expandedWidth - 0.5 {
-                isSidebarExpanding = false
                 beginSidebarSearchIfNeeded()
             }
         }
@@ -65,29 +64,18 @@ struct WorkspaceSidebarView: View {
             debugWorkspaceSidebarProjectLog(
                 "snapshotActiveProjectChanged active=\(projectId.rawValue) visibleWidth=\(snapshot.visibleWidth) projects=\(snapshot.projects.map(\.id.rawValue))"
             )
-            browseMode = .activeProject
+            setBrowseMode(.activeProject)
             showsPinnedActiveWorkspaceForBrowsedProject = true
             activeInUseOverrideWorkspaceName = nil
             finishProjectRename(cancelled: true)
             finishSidebarSearch(clearText: true)
             resetProjectSwipeWithoutAnimation()
         }
-        .onChange(of: browseMode) { mode in
-            guard snapshot.visibleWidth > collapsedWidth + 0.5,
-                  let panel = WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)
-            else { return }
-            let targetWidth = mode.isSplit ? expandedWidth * 2 : expandedWidth
-            debugWorkspaceSidebarHoverLog("browseProjectWidthChange panel=\(snapshot.targetMonitorScopeId) project=\(mode.otherProjectId?.rawValue ?? "nil") snapshotWidth=\(snapshot.visibleWidth) target=\(targetWidth) frame=\(panel.frame) mouse=\(NSEvent.mouseLocation)")
-            panel.cancelExpansionWork()
-            panel.viewModel.isWorkspaceSidebarExpanded = true
-            panel.splitBrowseCollapseSuppressedUntil = mode.isSplit ? Date().addingTimeInterval(0.65) : .distantPast
-            isSidebarCollapsing = false
-            isSidebarExpanding = false
-            panel.animateVisibleSidebarWidth(targetWidth, animation: .easeInOut(duration: panel.animationDuration))
-        }
         .onChange(of: snapshot.projects) { _ in
-            if let browsedProjectId, !snapshot.projects.contains(where: { $0.id == browsedProjectId }) {
-                browseMode = .activeProject
+            if let picker = currentPanel()?.projectIconPicker,
+               !snapshot.projects.contains(where: { $0.id == picker.projectId })
+            {
+                picker.close()
             }
             if let renamingProjectId, !snapshot.projects.contains(where: { $0.id == renamingProjectId }) {
                 finishProjectRename(cancelled: true)
@@ -95,26 +83,14 @@ struct WorkspaceSidebarView: View {
             if let renamingWorkspaceName, !snapshot.workspaces.contains(where: { $0.name == renamingWorkspaceName }) {
                 finishWorkspaceRename(cancelled: true)
             }
-            isProjectMenuOpen = false
             resetProjectSwipeWithoutAnimation()
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
-            guard snapshot.visibleWidth > collapsedWidth + 0.5 else {
-                isSidebarCollapsing = false
-                return
-            }
             finishSidebarSearch(clearText: true)
-            withAnimation(.easeOut(duration: 0.08)) {
-                isProjectMenuOpen = false
-                isSidebarCollapsing = true
-                isSidebarExpanding = false
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillExpandNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
-            isSidebarCollapsing = false
-            isSidebarExpanding = true
             let panel = notificationPanel(from: notification)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
                 beginSidebarSearchIfNeeded(panel: panel)
@@ -125,13 +101,6 @@ struct WorkspaceSidebarView: View {
                   panel.monitorScopeId == snapshot.targetMonitorScopeId
             else { return }
             adoptCommandSidebarSearchIfNeeded(panel: panel)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDismissProjectMenusNotification)) { _ in
-            if isProjectMenuOpen {
-                withAnimation(.easeOut(duration: 0.10)) {
-                    isProjectMenuOpen = false
-                }
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerChangedNotification)) { notification in
             guard let pointer = workspaceSidebarDragPointer(from: notification) else { return }
@@ -146,11 +115,10 @@ struct WorkspaceSidebarView: View {
         debugWorkspaceSidebarRenameLog("beginProjectRename project=\(project.id.rawValue) displayName=\(project.displayName) active=\(snapshot.activeProjectId.rawValue) visibleWidth=\(snapshot.visibleWidth)")
         finishSidebarSearch(clearText: false)
         if project.id != snapshot.activeProjectId {
-            browseMode = .split(otherProjectId: project.id)
+            setBrowseMode(.organize)
         }
         renamingProjectId = project.id
         renamingProjectText = project.displayName
-        isProjectMenuOpen = false
         currentPanel()?.prepareForInlineTextEditing()
     }
 
@@ -191,12 +159,14 @@ struct WorkspaceSidebarView: View {
 
     func beginSidebarSearchIfNeeded(panel: WorkspaceSidebarPanel? = nil) {
         guard renamingProjectId == nil, renamingWorkspaceName == nil, !isSearchEditing else { return }
-        guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 || isSidebarExpanding else { return }
+        guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 else { return }
         let editingPanel = panel ?? currentPanel() ?? WorkspaceSidebarPanel.shared
+        guard editingPanel.projectIconPicker == nil else { return }
         adoptCommandSidebarSearchIfNeeded(panel: editingPanel)
     }
 
     func adoptCommandSidebarSearchIfNeeded(panel editingPanel: WorkspaceSidebarPanel) {
+        guard editingPanel.projectIconPicker == nil else { return }
         guard renamingProjectId == nil, renamingWorkspaceName == nil else { return }
         if !isSearchEditing {
             isSearchEditing = true
@@ -311,13 +281,15 @@ struct WorkspaceSidebarView: View {
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
-            browsedProjectId: browsedProjectId,
         )
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
             projects: snapshot.projects,
             query: searchText,
         )
+        if isOrganizing {
+            return snapshot.projects.flatMap { filteredWorkspacesByProject[$0.id] ?? [] }
+        }
         let projectId: WorkspaceProjectId
         if let index = projectPagerDisplayIndex, snapshot.projects.indices.contains(index) {
             projectId = snapshot.projects[index].id
@@ -329,9 +301,12 @@ struct WorkspaceSidebarView: View {
 }
 
 extension WorkspaceSidebarView {
-    var browsedProjectId: WorkspaceProjectId? {
-        browseMode.otherProjectId
+    var isOrganizing: Bool { snapshot.browseMode == .organize }
+
+    func setBrowseMode(_ mode: WorkspaceSidebarBrowseMode) {
+        actions.send(.setBrowseMode(mode))
     }
+
 }
 
 private func workspaceSidebarDragPointer(from notification: Notification) -> CGPoint? {
@@ -363,15 +338,9 @@ extension WorkspaceSidebarView {
         visibleWorkspacesByProject: [WorkspaceProjectId: [WorkspaceSidebarWorkspaceViewModel]],
         swipeDirection: Int?,
     ) -> some View {
-        if let browsedProjectId,
-           browsedProjectId != snapshot.activeProjectId
-        {
-            splitWorkspacePage(
-                activeProjectId: snapshot.activeProjectId,
-                browsedProjectId: browsedProjectId,
+        if isOrganizing {
+            organizeWorkspacePage(
                 expansionProgress: expansionProgress,
-                leadingInset: leadingInset,
-                trailingInset: trailingInset,
                 topPadding: topPadding,
                 visibleWorkspacesByProject: visibleWorkspacesByProject
             )
@@ -455,25 +424,19 @@ extension WorkspaceSidebarView {
             selectedProjectId: snapshot.activeProjectId,
             expansionProgress: expansionProgress,
             layout: snapshot.configuration,
-            isProjectMenuOpen: $isProjectMenuOpen,
-            renamingProjectId: $renamingProjectId,
-            renamingProjectText: $renamingProjectText,
             onSelectProject: { projectId in
                 debugWorkspaceSidebarProjectLog(
-                    "pagerSectionSelect project=\(projectId.rawValue) active=\(snapshot.activeProjectId.rawValue) browsed=\(browsedProjectId?.rawValue ?? "nil")"
+                    "pagerSectionSelect project=\(projectId.rawValue) active=\(snapshot.activeProjectId.rawValue)"
                 )
-                browseMode = .activeProject
+                setBrowseMode(.activeProject)
                 actions.send(.selectProject(projectId))
+            },
+            onReorderProject: { projectId, targetProjectId in
+                actions.send(.reorderProject(projectId, to: targetProjectId))
             },
             onCreateProject: { actions.send(.createProject) },
             onBeginRenameProject: { project in
                 beginProjectRename(project)
-            },
-            onCommitRenameProject: {
-                finishProjectRename()
-            },
-            onCancelRenameProject: {
-                finishProjectRename(cancelled: true)
             },
             onSetProjectColor: { project, colorHex in
                 actions.send(.setProjectColor(project.id, colorHex: colorHex))
@@ -481,6 +444,7 @@ extension WorkspaceSidebarView {
             onDeleteProject: { project in
                 actions.send(.deleteProject(project.id))
             },
+            onChooseProjectIcon: beginProjectIconPicker,
         )
         .zIndex(2)
         .padding(.leading, leadingInset)
@@ -567,6 +531,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: direction,
             distance: distance,
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         ) else {
             return false
         }
@@ -590,7 +555,7 @@ extension WorkspaceSidebarView {
 }
 extension WorkspaceSidebarView {
     var selectedProjectIndex: Int? {
-        let projectId = browsedProjectId ?? snapshot.activeProjectId
+        let projectId = snapshot.activeProjectId
         return snapshot.projects.firstIndex { $0.id == projectId }
             ?? snapshot.projects.indices.first
     }
@@ -618,12 +583,8 @@ extension WorkspaceSidebarView {
     }
 
     func resetTransientSidebarState() {
-        browseMode = .activeProject
         showsPinnedActiveWorkspaceForBrowsedProject = true
         activeInUseOverrideWorkspaceName = nil
-        isProjectMenuOpen = false
-        isSidebarCollapsing = false
-        isSidebarExpanding = false
         finishWorkspaceRename(cancelled: true)
         resetProjectEdgeDrag()
         resetProjectSwipeWithoutAnimation()
@@ -644,60 +605,81 @@ extension WorkspaceSidebarView {
 
 }
 extension WorkspaceSidebarView {
-    func monitorSelectorSection(
+    func projectSelectorSection(
         expansionProgress: CGFloat,
         leadingInset: CGFloat,
         trailingInset: CGFloat,
     ) -> some View {
-        WorkspaceSidebarMonitorSelector(
-            scopes: snapshot.monitorScopes,
-            projects: snapshot.projects,
-            selectedScopeId: snapshot.selectedMonitorScopeId,
-            activeProjectId: snapshot.activeProjectId,
-            browsedProjectId: browsedProjectId,
-            expansionProgress: expansionProgress,
-            sectionWidth: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress),
-            onSelectScope: { scopeId in
-                if scopeId == workspaceSidebarDefaultScopeId {
-                    browseMode = .activeProject
+        VStack(alignment: .leading, spacing: 6) {
+            WorkspaceSidebarProjectSelector(
+                scopes: snapshot.monitorScopes,
+                projects: snapshot.projects,
+                selectedScopeId: snapshot.selectedMonitorScopeId,
+                activeProjectId: snapshot.activeProjectId,
+                isOrganizing: isOrganizing,
+                sectionWidth: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress),
+                onSelectScope: { scopeId in
+                    actions.send(.selectMonitorScope(scopeId))
+                },
+                onSelectProject: { projectId in
+                    setBrowseMode(.activeProject)
+                    actions.send(.selectProject(projectId))
+                },
+                onToggleOrganize: {
+                    setBrowseMode(isOrganizing ? .activeProject : .organize)
+                },
+                onCreateProject: { actions.send(.createProject) },
+                onRenameProject: { project in
+                    beginProjectRename(project)
+                },
+                renamingProjectId: $renamingProjectId,
+                renamingProjectText: $renamingProjectText,
+                onCommitRenameProject: {
+                    finishProjectRename()
+                },
+                onCancelRenameProject: {
+                    finishProjectRename(cancelled: true)
+                },
+                onSetProjectColor: { project, colorHex in
+                    actions.send(.setProjectColor(project.id, colorHex: colorHex))
+                },
+                onDeleteProject: { project in
+                    actions.send(.deleteProject(project.id))
+                },
+                onChooseProjectIcon: beginProjectIconPicker,
+            )
+            if snapshot.selectedMonitorScopeId != workspaceSidebarDefaultScopeId {
+                HStack(spacing: 5) {
+                    Image(systemName: "line.3.horizontal.decrease")
+                    Text(snapshot.monitorScopes.first { $0.id == snapshot.selectedMonitorScopeId }?.displayName ?? "Filtered display")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                    Button {
+                        actions.send(.selectMonitorScope(workspaceSidebarDefaultScopeId))
+                    } label: {
+                        Image(systemName: "xmark")
+                            .padding(4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show all displays")
+                    .accessibilityLabel("Clear display filter")
                 }
-                actions.send(.selectMonitorScope(scopeId))
-            },
-            onSelectProject: { projectId in
-                WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.cancelExpansionWork()
-                browseMode = projectId.map { .split(otherProjectId: $0) } ?? .activeProject
-                showsPinnedActiveWorkspaceForBrowsedProject = false
-            },
-            onRenameProject: { project in
-                beginProjectRename(project)
-            },
-            renamingProjectId: $renamingProjectId,
-            renamingProjectText: $renamingProjectText,
-            onCommitRenameProject: {
-                finishProjectRename()
-            },
-            onCancelRenameProject: {
-                finishProjectRename(cancelled: true)
-            },
-            onSetProjectColor: { project, colorHex in
-                actions.send(.setProjectColor(project.id, colorHex: colorHex))
-            },
-            onDeleteProject: { project in
-                actions.send(.deleteProject(project.id))
-            },
-        )
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress))
+            }
+        }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
-        .padding(.top, snapshot.configuration.topPadding)
+        .padding(.top, max(snapshot.configuration.topPadding, workspaceSidebarContentLeadingInset))
         .padding(.bottom, workspaceSidebarSectionGap)
         .zIndex(100)
     }
 
     func workspaceSidebarTopSectionWidth(expansionProgress: CGFloat) -> CGFloat {
-        if browsedProjectId != nil {
-            return workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress)
-        }
-        return workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
+        max(0, snapshot.visibleWidth - workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration) - workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration))
     }
 
     func statusSection(
@@ -716,7 +698,7 @@ extension WorkspaceSidebarView {
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
         .padding(.top, 4)
-        .padding(.bottom, workspaceSidebarStatusBottomPadding(isCompact: isCompact) + 4)
+        .padding(.bottom, leadingInset + 4)
     }
 
     func sidebarSearchSection(
@@ -727,13 +709,13 @@ extension WorkspaceSidebarView {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.66))
+                .foregroundStyle(Color.primary.opacity(0.66))
                 .frame(width: 14)
 
             Text(searchText)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
-                .foregroundStyle(Color.white.opacity(0.9))
+                .foregroundStyle(Color.primary.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -742,7 +724,7 @@ extension WorkspaceSidebarView {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(Color.primary.opacity(0.7))
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
@@ -753,11 +735,11 @@ extension WorkspaceSidebarView {
         .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarSearchHeight)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.11))
+                .fill(Color.primary.opacity(0.11))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.6)
         }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
@@ -770,24 +752,28 @@ extension WorkspaceSidebarView {
         WorkspaceSidebarPanelShape(rightCornerRadius: workspaceSidebarPanelRightCornerRadius)
     }
 
+    @ViewBuilder
     func sidebarSurface<S: Shape>(in shape: S) -> some View {
         // The sidebar meets the display edge, so an outline around all four sides reads as a
         // second, lighter panel behind the content. Keep the material flat and use only the
         // trailing separator to define its boundary.
-        GlassSurface(
-            shape: shape,
-            hasBorder: false,
-            style: snapshot.configuration.chromeStyle,
-            solidColor: snapshot.configuration.resolvedSolidChromeColor,
-        )
-        // This panel has no safe-area inset. Expanding the material here gives the native
-        // glass backing layer a rectangular area outside the rounded trailing corners.
-        .clipShape(shape)
+        if snapshot.configuration.menuBarStyle {
+            WorkspaceSidebarMenuBarSurface(shape: shape)
+                .clipShape(shape)
+        } else {
+            GlassSurface(
+                shape: shape,
+                hasBorder: false,
+                style: snapshot.configuration.chromeStyle,
+                solidColor: snapshot.configuration.resolvedSolidChromeColor,
+            )
+            .clipShape(shape)
+        }
     }
 
     func sidebarSwipeCaptureOverlay(expansionProgress: CGFloat) -> some View {
         WorkspaceSidebarProjectSwipeScrollCapture(
-            isEnabled: !snapshot.projects.isEmpty,
+            isEnabled: !isOrganizing && !snapshot.projects.isEmpty,
             onChanged: { horizontalTranslation, verticalTranslation in
                 handleProjectSwipeChanged(
                     horizontalTranslation: horizontalTranslation,
@@ -860,7 +846,7 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: index == displayIndex,
                 showsPinnedActiveWorkspace: showsPinnedActiveWorkspaceForBrowsedProject,
-                showsCreateWorkspace: browsedProjectId == nil,
+                showsCreateWorkspace: true,
                 allowsActivation: allowsWorkspaceActivation(projectId: project.id),
             )
                     .frame(width: pageWidth, alignment: .topLeading)
@@ -908,8 +894,8 @@ extension WorkspaceSidebarView {
                         emitsDropTarget: true,
                         allowsWorkspaceActivation: allowsActivation ?? allowsWorkspaceActivation(projectId: projectId),
                         isPinnedActiveWorkspace: false,
-                        projectContextLabel: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectName(projectId) : nil,
-                        projectContextColor: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectColor(projectId) : nil
+                        projectContextLabel: nil,
+                        projectContextColor: nil
                     )
                 }
                 if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
@@ -957,51 +943,7 @@ extension WorkspaceSidebarView {
             .padding(.bottom, 10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    func splitWorkspacePage(
-        activeProjectId: WorkspaceProjectId,
-        browsedProjectId: WorkspaceProjectId,
-        expansionProgress: CGFloat,
-        leadingInset: CGFloat,
-        trailingInset: CGFloat,
-        topPadding: CGFloat,
-        visibleWorkspacesByProject: [WorkspaceProjectId: [WorkspaceSidebarWorkspaceViewModel]],
-    ) -> some View {
-        let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
-        return HStack(alignment: .top, spacing: workspaceSidebarSplitPaneGap) {
-            workspacePage(
-                projectId: activeProjectId,
-                workspaces: visibleWorkspacesByProject[activeProjectId] ?? [],
-                expansionProgress: expansionProgress,
-                leadingInset: leadingInset,
-                trailingInset: 0,
-                topPadding: topPadding,
-                isInteractive: true,
-                showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
-                allowsActivation: true,
-            )
-            .frame(width: sectionWidth + leadingInset, alignment: .topLeading)
-
-            workspacePage(
-                projectId: browsedProjectId,
-                workspaces: visibleWorkspacesByProject[browsedProjectId] ?? [],
-                expansionProgress: expansionProgress,
-                leadingInset: 0,
-                trailingInset: trailingInset,
-                topPadding: topPadding,
-                isInteractive: true,
-                showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
-                allowsActivation: false,
-            )
-            .frame(width: sectionWidth + trailingInset, alignment: .topLeading)
-        }
-        .frame(
-            width: workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) + leadingInset + trailingInset,
-            alignment: .topLeading
-        )
+        .workspaceSidebarDropViewport()
     }
 
     @ViewBuilder
@@ -1023,6 +965,7 @@ extension WorkspaceSidebarView {
             )
         WorkspaceSidebarWorkspaceSection(
             workspace: workspace,
+            targetMonitorScopeId: snapshot.targetMonitorScopeId,
             dragPreview: snapshot.dropPreview,
             expansionProgress: expansionProgress,
             layout: snapshot.configuration,
@@ -1055,7 +998,6 @@ extension WorkspaceSidebarView {
 
     func allowsWorkspaceActivation(projectId: WorkspaceProjectId) -> Bool {
         snapshot.selectedMonitorScopeId == workspaceSidebarDefaultScopeId &&
-            browsedProjectId == nil &&
             projectId == snapshot.activeProjectId
     }
 
@@ -1064,7 +1006,7 @@ extension WorkspaceSidebarView {
     }
 
     private func projectName(_ projectId: WorkspaceProjectId) -> String {
-        snapshot.projects.first { $0.id == projectId }?.displayName ?? "Project"
+        snapshot.projects.first { $0.id == projectId }?.displayName ?? "Space"
     }
 
     private func projectColor(_ projectId: WorkspaceProjectId) -> Color {
@@ -1075,7 +1017,7 @@ extension WorkspaceSidebarView {
         displayedProjectId: WorkspaceProjectId,
         pageWorkspaces: [WorkspaceSidebarWorkspaceViewModel]
     ) -> WorkspaceSidebarWorkspaceViewModel? {
-        guard browsedProjectId != nil,
+        guard isOrganizing,
               displayedProjectId != snapshot.activeProjectId,
               !pageWorkspaces.contains(where: { workspaceIsActiveOnTargetMonitor($0) }),
               let focusedWorkspace = snapshot.workspaces.first(where: { workspaceIsActiveOnTargetMonitor($0) }),

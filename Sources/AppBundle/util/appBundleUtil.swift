@@ -8,14 +8,22 @@ let signposter = OSSignposter(subsystem: winMuxAppId, category: .pointsOfInteres
 let myPid = NSRunningApplication.current.processIdentifier
 let lockScreenAppBundleId = "com.apple.loginwindow"
 
-func interceptTermination(_ _signal: Int32) {
-    signal(_signal, { signal in
-        check(Thread.current.isMainThread)
-        Task {
-            defer { exit(signal) }
-            try await terminationHandler.beforeTermination()
+@MainActor private var terminationSignals: [DispatchSourceSignal] = []
+
+@MainActor
+func interceptTermination(_ signalNumber: Int32) {
+    signal(signalNumber, SIG_IGN)
+    let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+    source.setEventHandler {
+        Task { @MainActor in
+            await AppShutdownCoordinator.shared.shutdown()
+            // AppKit can defer termination while the login window owns the session.
+            // Signals still flush and clean up through the same bounded coordinator.
+            Darwin.exit(0)
         }
-    } as sig_t)
+    }
+    source.resume()
+    terminationSignals.append(source)
 }
 
 @MainActor
@@ -25,33 +33,31 @@ func initTerminationHandler() {
 
 private struct AppServerTerminationHandler: TerminationHandler {
     func beforeTermination() async throws {
-        persistFrozenWorldForRestartIfPossible()
-        try await makeAllWindowsVisibleAndRestoreSize()
-        await toggleReleaseServerIfDebug(.on)
+        await AppShutdownCoordinator.shared.shutdown()
     }
 }
 
 @MainActor
-private func makeAllWindowsVisibleAndRestoreSize() async throws {
+func makeAllWindowsVisibleAndRestoreSize() async throws {
     // Make all windows fullscreen before Quit
     for (_, window) in MacWindow.allWindowsMap {
+        try Task.checkCancellation()
         // makeAllWindowsVisibleAndRestoreSize may be invoked when something went wrong (e.g. some windows are unbound)
         // that's why it's not allowed to use `.parent` call in here
         let monitor = try await window.getCenter()?.monitorApproximation ?? mainMonitor
         let monitorVisibleRect = monitor.visibleRect
         let windowSize = window.lastFloatingSize ?? CGSize(width: monitorVisibleRect.width, height: monitorVisibleRect.height)
         let point = CGPoint(
-            x: (monitorVisibleRect.width - windowSize.width) / 2,
-            y: (monitorVisibleRect.height - windowSize.height) / 2,
+            x: monitorVisibleRect.minX + (monitorVisibleRect.width - windowSize.width) / 2,
+            y: monitorVisibleRect.minY + (monitorVisibleRect.height - windowSize.height) / 2,
         )
         try await window.setAxFrameBlocking(point, windowSize)
     }
 }
 
 @MainActor
-func terminateApp() -> Never {
+func terminateApp() {
     NSApplication.shared.terminate(nil)
-    die("Unreachable code")
 }
 
 extension String {
@@ -137,8 +143,10 @@ extension CGPoint: @retroactive Hashable { // todo migrate to self written Point
     let isDebug = false
 #endif
 
+private let isVerboseFocusLoggingEnabled = ProcessInfo.processInfo.environment["WINMUX_DEBUG_FOCUS"] == "1"
+
 func debugFocusLog(_ message: @autoclosure () -> String) {
-    guard isDebug else { return }
+    guard isDebug, isVerboseFocusLoggingEnabled else { return }
     fputs("[focus-debug] \(Date()) \(message())\n", stderr)
 }
 

@@ -45,8 +45,8 @@ extension ShortcutSettingsModel {
 
         var subtitle: String {
             switch self {
-                case .switchTo: "Change focus to workspace N"
-                case .moveTo: "Send the focused window to workspace N"
+                case .switchTo: "Change focus to group N"
+                case .moveTo: "Send the focused window to group N"
             }
         }
     }

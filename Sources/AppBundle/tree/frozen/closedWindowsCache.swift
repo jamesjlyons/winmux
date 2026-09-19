@@ -8,17 +8,26 @@ import AppKit
 /// so that once the screen is unlocked, WinMux could restore windows to where they were
 @MainActor private var closedWindowsCache = FrozenWorld(workspaces: [], monitors: [], windowIds: [])
 
-struct FrozenMonitor: Codable, Sendable {
+struct FrozenMonitor: Codable, Equatable, Sendable {
     let topLeftCorner: CGPoint
     let visibleWorkspace: String
+    var displayUUID: String?
+    var visibleRect: CGRect?
+    var lastActiveWorkspaceByProject: [String: String]?
 
     @MainActor init(_ monitor: Monitor) {
         topLeftCorner = monitor.rect.topLeftCorner
         visibleWorkspace = monitor.activeWorkspace.name
+        displayUUID = monitor.persistentDisplayUUID
+        visibleRect = CGRect(origin: monitor.visibleRect.topLeftCorner, size: CGSize(width: monitor.visibleRect.width, height: monitor.visibleRect.height))
+        lastActiveWorkspaceByProject = winMuxWorkspaceState.monitorViewportsById[MonitorViewportId(monitor)]?
+            .lastActiveWorkspaceByProject.reduce(into: [:]) { result, entry in
+                result[entry.key.rawValue] = winMuxWorkspaceState.workspaceById[entry.value]?.name
+            }
     }
 }
 
-struct FrozenWorkspace: Codable, Sendable {
+struct FrozenWorkspace: Codable, Equatable, Sendable {
     let name: String
     let projectId: WorkspaceProjectId
     let namingStyle: WorkspaceNamingStyle
@@ -63,11 +72,12 @@ struct FrozenWorkspace: Codable, Sendable {
 }
 
 @MainActor func cacheClosedWindowIfNeeded() {
-    let frozenWorld = snapshotCurrentFrozenWorld()
-    if frozenWorld.windowIds.isSubset(of: closedWindowsCache.windowIds) {
-        return // already cached
-    }
-    closedWindowsCache = frozenWorld
+    // A burst of destruction notifications should freeze the tree only for the first new
+    // window set. Checking IDs first avoids rebuilding every container for already-cached IDs.
+    guard Workspace.all.contains(where: { workspace in
+        collectAllWindowIds(workspace: workspace).contains { !closedWindowsCache.windowIds.contains($0) }
+    }) else { return }
+    closedWindowsCache = snapshotCurrentFrozenWorld()
 }
 
 @MainActor
@@ -173,14 +183,14 @@ private func restoreTreeRecursive(frozenContainer: FrozenContainer, parent: NonL
 }
 
 @MainActor
-private func applyFrozenWindowState(_ window: Window, _ frozenWindow: FrozenWindow) {
+func applyFrozenWindowState(_ window: Window, _ frozenWindow: FrozenWindow) {
     window.isFullscreen = frozenWindow.isFullscreen
     window.noOuterGapsInFullscreen = frozenWindow.noOuterGapsInFullscreen
     window.layoutReason = frozenWindow.layoutReason
 }
 
 @MainActor
-private func restoreFrozenUnconventionalWindow(
+func restoreFrozenUnconventionalWindow(
     _ window: Window,
     _ frozenWindow: FrozenWindow,
     on workspace: Workspace,
@@ -214,7 +224,7 @@ private func restoreFrozenUnconventionalWindow(
     }
 }
 
-private func collectFrozenWindows(_ frozenWorkspace: FrozenWorkspace) -> [UInt32: FrozenWindow] {
+func collectFrozenWindows(_ frozenWorkspace: FrozenWorkspace) -> [UInt32: FrozenWindow] {
     var result = [UInt32: FrozenWindow]()
     for frozenWindow in frozenWorkspace.floatingWindows {
         result[frozenWindow.id] = frozenWindow

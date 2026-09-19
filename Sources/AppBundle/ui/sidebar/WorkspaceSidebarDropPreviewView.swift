@@ -25,16 +25,16 @@ struct WorkspaceSidebarDropPreviewView: View {
     private var newWorkspacePreview: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
-                Text("New Workspace")
+                Text("New Group")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.85))
+                    .foregroundStyle(Color.primary.opacity(0.85))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 Text("\(preview.windowCount)")
                     .font(.system(size: 12, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.35))
+                    .foregroundStyle(Color.primary.opacity(0.35))
             }
             .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
             .padding(.trailing, workspaceSidebarRowHorizontalPadding)
@@ -46,10 +46,10 @@ struct WorkspaceSidebarDropPreviewView: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
-        .background(sectionShape.fill(Color.white.opacity(0.015)))
+        .background(sectionShape.fill(Color.primary.opacity(0.015)))
         .overlay {
             sectionShape.strokeBorder(
-                Color.white.opacity(0.42),
+                Color.primary.opacity(0.42),
                 style: StrokeStyle(lineWidth: 1, dash: [5, 3])
             )
         }
@@ -98,19 +98,19 @@ struct WorkspaceSidebarDropPreviewView: View {
             }
             Text(preview.label)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.82))
+                .foregroundStyle(Color.primary.opacity(0.82))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
             Text("\(preview.windowCount)")
                 .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.50))
+                .foregroundStyle(Color.primary.opacity(0.50))
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(Color.white.opacity(0.085)))
+        .background(rowShape.fill(Color.primary.opacity(0.085)))
     }
 
     private func singleWindowRow(
@@ -128,7 +128,7 @@ struct WorkspaceSidebarDropPreviewView: View {
             }
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
-                .foregroundStyle(Color.white.opacity(0.78))
+                .foregroundStyle(Color.primary.opacity(0.78))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
@@ -137,6 +137,6 @@ struct WorkspaceSidebarDropPreviewView: View {
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(Color.white.opacity(0.06)))
+        .background(rowShape.fill(Color.primary.opacity(0.06)))
     }
 }

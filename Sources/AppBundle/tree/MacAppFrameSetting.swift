@@ -4,22 +4,45 @@ import AppKit
 /// the frame already matches: layout re-asserts frames constantly and the vast majority of these
 /// calls are no-ops, so the no-op path must not pay the disableAnimations read.
 func setFrame(_ window: AXUIElement, app: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws {
-    let currentTopLeft: CGPoint? = topLeft == nil ? nil : window.get(Ax.topLeftCornerAttr)
-    let currentSize: CGSize? = size == nil ? nil : window.get(Ax.sizeAttr)
+    let interval = signposter.beginInterval("Apply window frame")
+    defer { signposter.endInterval("Apply window frame", interval) }
+    try updateWindowFrame(
+        topLeft, size,
+        getPosition: { window.get(Ax.topLeftCornerAttr) },
+        getSize: { window.get(Ax.sizeAttr) },
+        setPosition: { window.set(Ax.topLeftCornerAttr, $0) },
+        setSize: { window.set(Ax.sizeAttr, $0) },
+        checkCancellation: { try job.checkCancellation() },
+        perform: { body in try disableAnimations(app: app, job, body) }
+    )
+}
+
+/// Kept independent of AX transport so clamp/cancellation behavior can be tested faithfully.
+func updateWindowFrame(
+    _ topLeft: CGPoint?, _ size: CGSize?,
+    getPosition: @escaping () -> CGPoint?, getSize: @escaping () -> CGSize?,
+    setPosition: @escaping (CGPoint) -> Void, setSize: @escaping (CGSize) -> Void,
+    checkCancellation: @escaping () throws -> Void,
+    perform: (() throws -> Void) throws -> Void,
+) throws {
+    let currentTopLeft = topLeft == nil ? nil : getPosition()
+    let currentSize = size == nil ? nil : getSize()
     let positionMatches = topLeft == nil || currentTopLeft == topLeft
     let sizeMatches = size == nil || currentSize == size
-    if positionMatches && sizeMatches {
-        return
-    }
-    try disableAnimations(app: app, job) {
-        if let size { window.set(Ax.sizeAttr, size) }
-        try job.checkCancellation()
-        if let topLeft { window.set(Ax.topLeftCornerAttr, topLeft) } else { return }
-        try job.checkCancellation()
-        // Moving a window can make macOS clamp its size (e.g. crossing monitors), so the size may
-        // need re-asserting. Only re-set when it actually changed: an AX read is much cheaper than
-        // an unconditional write, which forces a second layout pass in the target app every time.
-        if let size, window.get(Ax.sizeAttr) != size { window.set(Ax.sizeAttr, size) }
+    guard !positionMatches || !sizeMatches else { return }
+    try perform {
+        try checkCancellation()
+        let didResize = size != nil && !sizeMatches
+        if let size, didResize { setSize(size) }
+        try checkCancellation()
+        guard let topLeft else { return }
+        // Resizing can shift the origin, even if it matched before the resize.
+        let shouldMove = didResize ? getPosition() != topLeft : !positionMatches
+        guard shouldMove else { return }
+        setPosition(topLeft)
+        try checkCancellation()
+        // Moving across monitors can clamp size. Correct it only when necessary.
+        if let size, getSize() != size { setSize(size) }
     }
 }
 

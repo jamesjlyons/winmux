@@ -7,7 +7,7 @@ public let shortcutSettingsWindowId = "\(winMuxAppName).shortcutSettings"
 
 @MainActor
 public func getShortcutSettingsWindow(model: ShortcutSettingsModel) -> some Scene {
-    SwiftUI.Window("WinMux Settings", id: shortcutSettingsWindowId) {
+    SwiftUI.Window("\(winMuxAppDisplayName) Settings", id: shortcutSettingsWindowId) {
         ShortcutSettingsView(model: model)
             .frame(width: 760, height: 620)
             .onAppear {
@@ -44,7 +44,7 @@ enum SettingsSidebarItem: Hashable, Identifiable {
     var label: String {
         switch self {
             case .shortcuts: "Shortcuts"
-            case .workspaces: "Workspaces"
+            case .workspaces: "Groups"
             case .behavior: "Behavior"
             case .appearance: "Appearance"
             case .configuration: "Configuration"
@@ -90,6 +90,7 @@ struct ShortcutSettingsView: View {
                         ShortcutBehaviorSettingsView(model: model)
                     case .appearance:
                         ShortcutAppearanceSettingsView(model: model)
+                            .id(model.settingsRevision)
                     case .configuration:
                         ShortcutAdvancedView(model: model)
                     case .reference:

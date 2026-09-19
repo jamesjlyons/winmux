@@ -5,9 +5,9 @@ import SwiftUI
 extension WorkspaceSidebarView {
     func sidebarContent(expansionProgress: CGFloat) -> some View {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
-        let leadingInset = workspaceSidebarOuterLeadingPadding(isCompact: isCompact)
-        let trailingInset = workspaceSidebarOuterTrailingPadding(isCompact: isCompact)
-        let showsMonitorSelector = !isCompact && shouldShowTopFilterBar
+        let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
+        let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
+        let showsProjectSelector = !isCompact
         let projectSwipeDirection = workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,
             verticalTranslation: 0,
@@ -19,6 +19,7 @@ extension WorkspaceSidebarView {
             projectCount: snapshot.projects.count,
             direction: projectSwipeDirection,
             distance: abs(projectSwipeTranslation),
+            allowsCreation: snapshot.configuration.swipeToCreateProjects,
         )
         let hasSwipeTarget = projectSwipeDirection.flatMap { direction in
             workspaceSidebarProjectIndexAfterSwipe(
@@ -34,7 +35,6 @@ extension WorkspaceSidebarView {
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
-            browsedProjectId: browsedProjectId,
         )
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
@@ -43,8 +43,8 @@ extension WorkspaceSidebarView {
         )
 
         return VStack(alignment: .leading, spacing: 0) {
-            if showsMonitorSelector {
-                monitorSelectorSection(
+            if showsProjectSelector {
+                projectSelectorSection(
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,
                     trailingInset: trailingInset,
@@ -63,7 +63,7 @@ extension WorkspaceSidebarView {
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,
-                topPadding: showsMonitorSelector ? 0 : snapshot.configuration.topPadding,
+                topPadding: showsProjectSelector ? 0 : max(snapshot.configuration.topPadding, leadingInset),
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
                 swipeDirection: projectSwipeDirection,
             )
@@ -73,13 +73,8 @@ extension WorkspaceSidebarView {
             )
             .frame(maxHeight: .infinity, alignment: .topLeading)
 
-            if (isSidebarCollapsing && !isCompact) || (isSidebarExpanding && isCompact) {
-                let compactProjectReserveHeight = min(
-                    max(CGFloat(snapshot.projects.count) * workspaceSidebarProjectDotFrameHeight, workspaceSidebarPagerHeight),
-                    workspaceSidebarProjectDotFrameHeight * 5
-                )
-                Color.clear
-                    .frame(height: isCompact ? compactProjectReserveHeight + 8 : workspaceSidebarCollapseReservedProjectPagerHeight)
+            if isOrganizing {
+                EmptyView()
             } else {
                 projectPagerSection(
                     expansionProgress: expansionProgress,
@@ -116,41 +111,31 @@ extension WorkspaceSidebarView {
                     NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
                 }
         }
-        .environment(\.colorScheme, .dark)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.white.opacity(GlassToken.separatorOpacity))
+                .fill(Color.primary.opacity(snapshot.configuration.menuBarStyle ? 0 : GlassToken.separatorOpacity))
                 .frame(width: 0.5)
         }
         .clipShape(sidebarShape)
         .overlay {
             sidebarSwipeCaptureOverlay(expansionProgress: expansionProgress)
         }
+        .overlay(alignment: .trailing) {
+            if expansionProgress >= 1 {
+                WorkspaceSidebarResizeHandle(monitorScopeId: snapshot.targetMonitorScopeId)
+                    .frame(width: 8)
+                    .frame(maxHeight: .infinity)
+                    .help("Drag to resize. Double-click to reset width. Escape to cancel.")
+                    .accessibilityLabel("Resize sidebar")
+            }
+        }
+        .environment(\.colorScheme, snapshot.configuration.menuBarStyle ? colorScheme : .dark)
+        .environment(\.workspaceSidebarMenuBarStyle, snapshot.configuration.menuBarStyle)
     }
 }
-
-private let workspaceSidebarCollapseReservedProjectPagerHeight = (workspaceSidebarPagerHeight * 2) + 10
 
 extension WorkspaceSidebarView {
-    var shouldShowTopFilterBar: Bool {
-        let hasFocusFilter = snapshot.monitorScopes.contains { $0.id == workspaceSidebarFocusedScopeId }
-        let hasOtherProjects = snapshot.projects.contains { $0.id != snapshot.activeProjectId }
-        return hasFocusFilter || hasOtherProjects
-    }
-
-    func workspaceSidebarSplitSectionWidth(expansionProgress: CGFloat) -> CGFloat {
-        let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
-        return (sectionWidth * 2) + workspaceSidebarSplitPaneGap
-    }
-
     func workspaceSidebarContentFrameWidth(expansionProgress: CGFloat) -> CGFloat {
-        guard browsedProjectId != nil else {
-            return max(snapshot.visibleWidth, 0)
-        }
-        return workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) +
-            workspaceSidebarContentLeadingInset +
-            workspaceSidebarContentTrailingInset
+        max(snapshot.visibleWidth, 0)
     }
 }
-
-let workspaceSidebarSplitPaneGap: CGFloat = 8

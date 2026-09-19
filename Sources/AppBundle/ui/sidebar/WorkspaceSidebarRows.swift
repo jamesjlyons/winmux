@@ -5,6 +5,8 @@ import SwiftUI
 // MARK: - Window Row
 
 struct WorkspaceSidebarWindowRow: View {
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
+    @Environment(\.workspaceSidebarDensity) private var density
     enum Style {
         case window
         case tabGroupHeader
@@ -25,22 +27,23 @@ struct WorkspaceSidebarWindowRow: View {
     private var isTabGroupChild: Bool { style == .tabGroupChild }
     private var isActiveRow: Bool { isFocused && !suppressFocusedStyle }
     private var rowShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: menuBarStyle ? 5 : workspaceSidebarRowCornerRadius, style: .continuous)
     }
 
     var body: some View {
         HStack(spacing: workspaceSidebarAppIconTextSpacing) {
             appIconStack
+                .fixedSize()
             Text(title)
-                .font(.system(size: isTabGroupHeader ? 13 : 12.5, weight: isActiveRow ? .semibold : .regular))
+                .font(.system(size: menuBarStyle || isTabGroupHeader ? 13 : 12.5, weight: isActiveRow ? (menuBarStyle ? .medium : .semibold) : .regular))
                 .foregroundStyle(rowTextColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
-            if let badge {
+            if !density.isNarrow, let badge {
                 Text(badge)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(isTabGroupHeader ? Color.white.opacity(0.50) : Color.white.opacity(0.38))
+                    .foregroundStyle(isTabGroupHeader ? Color.primary.opacity(0.50) : Color.primary.opacity(0.38))
             }
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
@@ -62,12 +65,14 @@ struct WorkspaceSidebarWindowRow: View {
     private var appIconStack: some View {
         if isTabGroupHeader {
             HStack(spacing: -3) {
-                ForEach(Array(appIconInputs.prefix(4).enumerated()), id: \.offset) { _, input in
+                ForEach(Array(appIconInputs.prefix(density.isNarrow ? 1 : 4).enumerated()), id: \.offset) { _, input in
                     appIcon(input)
                 }
             }
         } else if let input = appIconInputs.first {
             appIcon(input)
+        } else {
+            fallbackIcon
         }
     }
 
@@ -84,44 +89,56 @@ struct WorkspaceSidebarWindowRow: View {
                     .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
                     .cornerRadius(3)
                     .opacity(rowIconOpacity)
+            } else {
+                fallbackIcon
             }
         }
+    }
+
+    private var fallbackIcon: some View {
+        Image(systemName: "app")
+            .font(.system(size: workspaceSidebarAppIconSize))
+            .foregroundStyle(Color.primary.opacity(0.45))
+            .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
     }
 
     private var rowTextColor: Color {
+        if menuBarStyle { return Color.primary.opacity(isTabGroupChild ? 0.78 : 0.95) }
         if isActiveRow {
-            return Color.white.opacity(isTabGroupHeader ? 0.96 : 1)
+            return Color.primary.opacity(isTabGroupHeader ? 0.96 : 1)
         }
         if isTabGroupChild {
-            return Color.white.opacity(0.58)
+            return Color.primary.opacity(0.58)
         }
-        return Color.white.opacity(0.78)
+        return Color.primary.opacity(0.78)
     }
 
     private var rowIconOpacity: Double {
-        isTabGroupChild ? 0.56 : 1
+        isTabGroupChild ? (menuBarStyle ? 0.8 : 0.56) : 1
     }
 
     private var rowBackgroundFill: Color {
+        if menuBarStyle { return Color.primary.opacity(isActiveRow ? 0.08 : 0) }
         if isActiveRow {
             if isTabGroupHeader {
-                return Color.white.opacity(0.14)
+                return Color.primary.opacity(0.14)
             }
             if isTabGroupChild {
-                return Color.white.opacity(0.055)
+                return Color.primary.opacity(0.055)
             }
-            return Color.white.opacity(0.085)
+            return Color.primary.opacity(0.085)
         }
         return Color.clear
     }
 
     private var rowHoverOverlayFill: Color {
+        if menuBarStyle { return Color.primary.opacity(0.08) }
         if isTabGroupHeader {
-            return Color.white.opacity(0.04)
+            return Color.primary.opacity(0.04)
         }
         if isTabGroupChild {
-            return Color.white.opacity(0.03)
+            return Color.primary.opacity(0.03)
         }
-        return Color.white.opacity(0.045)
+        return Color.primary.opacity(0.045)
     }
 }

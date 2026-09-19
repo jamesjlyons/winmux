@@ -15,5 +15,9 @@ func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
         chromeStyle: config.workspaceSidebar.chromeStyle,
         solidChromeColor: config.workspaceSidebar.solidChromeColor,
         solidChromeCustomColor: config.workspaceSidebar.solidChromeCustomColor,
+        isCompactMode: !config.workspaceSidebar.alwaysExpanded,
+        autoHide: config.workspaceSidebar.autoHide,
+        swipeToCreateProjects: config.workspaceSidebar.swipeToCreateProjects,
+        menuBarStyle: config.workspaceSidebar.menuBarStyle,
     )
 }

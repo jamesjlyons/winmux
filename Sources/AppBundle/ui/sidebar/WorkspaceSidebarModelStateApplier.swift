@@ -20,11 +20,9 @@ func applyWorkspaceSidebarModelState(_ state: WorkspaceSidebarModelState, previo
         TrayMenuModel.shared.workspaceSidebarActiveProjectId != state.activeProjectId
 
     updateWorkspaceSidebarTrayModel(with: state)
-    WorkspaceSidebarPanel.syncVisiblePanelModelsFromShared()
     let didWorkspaceChange = TrayMenuModel.shared.workspaceSidebarWorkspaces != state.workspaces
     if didWorkspaceChange {
         TrayMenuModel.shared.workspaceSidebarWorkspaces = state.workspaces
-        WorkspaceSidebarPanel.syncVisiblePanelModelsFromShared()
     }
     if didWorkspaceChange ||
         state.topPadding != previousTopPadding ||
@@ -32,7 +30,10 @@ func applyWorkspaceSidebarModelState(_ state: WorkspaceSidebarModelState, previo
         didProjectChange ||
         WorkspaceSidebarPanel.visiblePanels.isEmpty
     {
+        // refreshAll synchronizes each active panel after all shared fields are ready.
         WorkspaceSidebarPanel.refreshAll()
+    } else {
+        WorkspaceSidebarPanel.syncVisiblePanelModelsFromShared()
     }
 }
 

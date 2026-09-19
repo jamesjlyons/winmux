@@ -9,10 +9,11 @@ RELEASE_TAG ?= v$(VERSION)
 RELEASE_NOTES ?= auto
 PUBLISH ?= 1
 APP_INSTALL_DIR ?= /Applications
+DEV_BUILD_CONFIGURATION ?= release
 SPARKLE_PUBLIC_KEY ?= kcc3956V3+Yo8GtwFJ8Odb9sphIr09/9dsuoYBNtxf0=
 ARGS ?=
 
-.PHONY: generate xcodeproj build build-clean run run-clean cli release install installed clean
+.PHONY: dev-build dev-test dev-install dev-run generate xcodeproj build build-clean run run-clean cli release install installed clean
 
 generate:
 	/bin/bash -lc 'cd "$(CURDIR)" && \
@@ -41,43 +42,32 @@ build:
 	rm -rf .debug && \
 	mkdir .debug && \
 	cp -r .build/debug/winmux .debug && \
-	cp -r .build/debug/WinMuxApp .debug'
+	cp -r .build/debug/WinMuxApp .debug && \
+	cp -R .build/debug/Sparkle.framework .debug/ && \
+	for bundle in .build/debug/*.bundle; do [ ! -d "$$bundle" ] || cp -R "$$bundle" .debug/; done'
 
 build-clean:
 	/bin/bash -lc 'cd "$(CURDIR)" && rm -rf .build .debug'
 	$(MAKE) build VERSION="$(VERSION)"
 
-run:
-	$(MAKE) build VERSION="$(VERSION)"
-	/bin/bash -lc 'cd "$(CURDIR)" && \
-	if pgrep -x yabai >/dev/null 2>&1; then echo "warning: yabai is still running and may conflict with WinMux" >&2; fi && \
-	if pgrep -x skhd >/dev/null 2>&1; then echo "warning: skhd is still running; its yabai shortcuts will keep firing" >&2; fi && \
-	config_path="$${WINMUX_CONFIG_PATH:-}"; \
-	if [ -n "$$config_path" ]; then \
-	    if [ ! -f "$$config_path" ]; then \
-	        echo "Missing WinMux config: $$config_path" >&2; \
-	        exit 1; \
-	    fi; \
-	    exec ./.debug/WinMuxApp --config-path "$$config_path" $(ARGS); \
-	else \
-	    exec ./.debug/WinMuxApp $(ARGS); \
-	fi'
+dev-build:
+	$(MAKE) generate VERSION="$(VERSION)"
+	/bin/bash -lc 'cd "$(CURDIR)" && source ./script/setup.sh && swift build -c "$(DEV_BUILD_CONFIGURATION)" -Xswiftc -DDEBUG'
+	VERSION="$(VERSION)" DEV_BUILD_CONFIGURATION="$(DEV_BUILD_CONFIGURATION)" ./script/dev-app.sh build
 
-run-clean:
-	$(MAKE) build-clean VERSION="$(VERSION)"
-	/bin/bash -lc 'cd "$(CURDIR)" && \
-	if pgrep -x yabai >/dev/null 2>&1; then echo "warning: yabai is still running and may conflict with WinMux" >&2; fi && \
-	if pgrep -x skhd >/dev/null 2>&1; then echo "warning: skhd is still running; its yabai shortcuts will keep firing" >&2; fi && \
-	config_path="$${WINMUX_CONFIG_PATH:-}"; \
-	if [ -n "$$config_path" ]; then \
-	    if [ ! -f "$$config_path" ]; then \
-	        echo "Missing WinMux config: $$config_path" >&2; \
-	        exit 1; \
-	    fi; \
-	    exec ./.debug/WinMuxApp --config-path "$$config_path" $(ARGS); \
-	else \
-	    exec ./.debug/WinMuxApp $(ARGS); \
-	fi'
+dev-test:
+	/bin/bash -lc 'cd "$(CURDIR)" && source ./script/setup.sh && swift test -c "$(DEV_BUILD_CONFIGURATION)" -Xswiftc -DDEBUG'
+
+dev-install: dev-build
+	./script/dev-app.sh install
+
+dev-run:
+	./script/dev-app.sh run $(ARGS)
+
+run: dev-install
+	./script/dev-app.sh run $(ARGS)
+
+run-clean: build-clean run
 
 cli:
 	$(MAKE) build VERSION="$(VERSION)"

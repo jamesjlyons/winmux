@@ -4,6 +4,7 @@ import SwiftUI
 
 struct WorkspaceSidebarWorkspaceSection: View {
     let workspace: WorkspaceSidebarWorkspaceViewModel
+    let targetMonitorScopeId: String
     let dragPreview: WorkspaceSidebarDropPreviewViewModel?
     let expansionProgress: CGFloat
     let layout: WorkspaceSidebarConfiguration
@@ -31,13 +32,16 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var hoveredTabGroupId: UInt32? = nil
     @State var isDropTargeted = false
     @State var isDropSettling = false
+    @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    let headerHeight: CGFloat = workspaceSidebarWorkspaceSectionHeaderHeight
+    var headerHeight: CGFloat { layout.menuBarStyle ? 26 : workspaceSidebarWorkspaceSectionHeaderHeight }
     let rowHeight: CGFloat = workspaceSidebarWorkspaceRowHeight
 
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
+    var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var showsWindowRows: Bool { expansionProgress >= workspaceSidebarRowsRevealProgress }
     var sectionMinHeight: CGFloat? {
@@ -51,6 +55,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
     var isSearchSelectedWorkspace: Bool { selectedSearchTarget == .workspace(workspace.name) }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
+    var participatesInReorder: Bool { allowsWorkspaceReordering && reorderState.applies(to: targetMonitorScopeId) }
+    var isReorderingWorkspace: Bool { participatesInReorder && reorderState.sourceName == workspace.name }
+    var reorderOffset: CGFloat { participatesInReorder ? reorderState.offset(for: workspace.name) : 0 }
+    var allowsWorkspaceReordering: Bool { !isPinnedActiveWorkspace && !isSearchFiltering && renamingWorkspaceName == nil }
     var inUseOverrideText: String {
         if let monitorName = workspace.monitorName, !monitorName.isEmpty {
             return "In use on \(monitorName)"
@@ -58,13 +66,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
         return "In use on another display"
     }
     var sectionShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: isCompact ? compactMetrics.cornerRadius : workspaceSidebarSectionCornerRadius, style: .continuous)
     }
 
     var body: some View {
         interactiveSectionContent
             .padding(.vertical, isCompact ? 3 : 4)
-            .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
+            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,13 +84,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()
                 } label: {
-                    Text("Rename Workspace")
+                    Text("Rename Group")
                 }
                 Divider()
                 Button(role: .destructive) {
                     actions.send(.deleteWorkspace(workspace.name))
                 } label: {
-                    Text("Delete Workspace")
+                    Text("Delete Group")
                 }
             }
             .onHover { hover in
@@ -96,10 +104,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 isTargeted: $isDropTargeted,
                 isSettling: $isDropSettling,
             ))
-            .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
+            .environment(\.workspaceSidebarDensity, density)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
-            .animation(.spring(response: 0.2, dampingFraction: 0.82), value: expansionProgress)
+            .animation(isCompact ? workspaceSidebarCollapseAnimation : workspaceSidebarExpansionAnimation, value: expansionProgress)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: isHovered)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredWindowId)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredTabGroupId)
@@ -107,9 +115,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .background {
                 ZStack {
                     sectionBackground
-                if !isCompact && allowsWorkspaceActivation {
-                    sectionActivationButton
-                }
+                    if !isCompact && allowsWorkspaceActivation {
+                        sectionActivationButton
+                    }
                 }
             }
             .overlay(alignment: .center) {
@@ -119,7 +127,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     .zIndex(5)
             }
             .shadow(
-                color: isDropTarget ? Color.white.opacity(0.16) : .clear,
+                color: isDropTarget ? Color.primary.opacity(0.16) : .clear,
                 radius: isDropTarget ? 12 : 0
             )
             .background {
@@ -133,21 +141,29 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     )
                 }
             }
+            .shadow(color: isReorderingWorkspace ? .black.opacity(0.18) : .clear, radius: 10, y: 4)
+            .offset(y: reorderOffset)
+            .animation(
+                reduceMotion || (isReorderingWorkspace && !reorderState.isSettling)
+                    ? nil : .interactiveSpring(response: 0.22, dampingFraction: 0.86),
+                value: reorderOffset
+            )
+            .zIndex(isReorderingWorkspace ? 3 : (isDropTarget ? 1 : 0))
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
     func handleSectionClick() {
-        guard allowsWorkspaceActivation else { return }
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(
+                editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+              )
+        else { return }
         if isInUseOnOtherDisplay {
             activeInUseOverrideWorkspaceName = workspace.name
             return
         }
-        if shouldHandleWorkspaceSidebarActivation(
-            isEditing: false,
-            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
-        ) {
-            actions.send(.selectWorkspace(workspace.name))
-        }
+        actions.send(.selectWorkspace(workspace.name))
     }
 
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
@@ -181,14 +197,14 @@ extension WorkspaceSidebarWorkspaceSection {
             .fill(sectionBackgroundFill)
             .background { sectionGlassCard }
             .overlay {
-                if isActiveWorkspaceSelection {
+                if isActiveWorkspaceSelection && !layout.menuBarStyle {
                     sectionShape
-                        .strokeBorder(Color.white.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
+                        .strokeBorder(Color.primary.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
                 }
-                if isPinnedActiveWorkspace && !isSearchFiltering {
+                if isPinnedActiveWorkspace && !isSearchFiltering && !layout.menuBarStyle {
                     sectionShape
                         .strokeBorder(
-                            Color.white.opacity(0.24),
+                            Color.primary.opacity(0.24),
                             style: StrokeStyle(lineWidth: 1, dash: [5, 4])
                         )
                 }
@@ -203,7 +219,10 @@ extension WorkspaceSidebarWorkspaceSection {
     /// tint fills on top. No-op on older systems; the plain tint fill stands in.
     @ViewBuilder
     var sectionGlassCard: some View {
-        if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
+        if layout.menuBarStyle {
+            // Selection and hover fills supply the hierarchy on the flat menu material.
+            Color.clear
+        } else if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
             GlassEffectContainer {
                 ZStack {
                     Color.clear.glassEffect(.regular, in: sectionShape)
@@ -239,16 +258,22 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var sectionBackgroundFill: Color {
+        if layout.menuBarStyle {
+            if isDropTarget { return Color.primary.opacity(0.12) }
+            if isSearchSelectedWorkspace { return Color.primary.opacity(0.08) }
+            if allowsWorkspaceActivation && isInUseOnOtherDisplay { return Color.red.opacity(0.06) }
+            return Color.primary.opacity(isCompact ? (isActiveOnTargetMonitor ? 0.14 : (isHovered ? 0.08 : 0)) : 0)
+        }
         if isDropTarget {
             // A neutral lift works against both solid colors and Liquid Glass without
             // introducing the system accent color into themed chrome.
-            return Color.white.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
+            return Color.primary.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
         }
         if isSearchSelectedWorkspace {
-            return Color.white.opacity(0.105)
+            return Color.primary.opacity(0.105)
         }
         if isSearchFiltering {
-            return isHovered ? Color.white.opacity(0.045) : Color.white.opacity(0.015)
+            return isHovered ? Color.primary.opacity(0.045) : Color.primary.opacity(0.015)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             let redOpacity: Double = workspace.isFocused ? 0.16 : 0.065
@@ -256,20 +281,20 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color(nsColor: .systemRed).opacity(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return Color.white.opacity(isHovered ? 0.15 : 0.10)
+            return Color.primary.opacity(isHovered ? 0.15 : 0.10)
         }
         if isActiveOnTargetMonitor {
             let compactOpacity: Double = workspace.isFocused ? 0.24 : 0.14
             let expandedOpacity: Double = workspace.isFocused ? 0.12 : 0.07
-            return Color.white.opacity(isCompact ? compactOpacity : expandedOpacity)
+            return Color.primary.opacity(isCompact ? compactOpacity : expandedOpacity)
         }
         if isFromOtherDisplay {
             return Color(nsColor: .systemPink).opacity(isHovered ? 0.10 : 0.05)
         }
         if isHovered {
-            return Color.white.opacity(0.045)
+            return Color.primary.opacity(0.045)
         }
-        return Color.white.opacity(0.015)
+        return Color.primary.opacity(0.015)
     }
 
     var isActiveWorkspaceSelection: Bool {
@@ -290,12 +315,12 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     var workspaceBadge: some View {
         Text(workspaceBadgeText)
-            .font(.system(size: 18, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+            .font(.system(size: layout.menuBarStyle ? min(13, compactMetrics.badgeFontSize) : compactMetrics.badgeFontSize, weight: isActiveOnTargetMonitor ? .medium : .regular))
             .monospacedDigit()
             .foregroundStyle(workspaceBadgeForeground)
             .lineLimit(1)
-            .minimumScaleFactor(0.65)
-            .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
+            .minimumScaleFactor(0.4)
+            .frame(width: compactMetrics.badgeWidth, height: compactMetrics.badgeWidth)
     }
 
     var workspaceBadgeText: String {
@@ -305,23 +330,23 @@ extension WorkspaceSidebarWorkspaceSection {
         if workspace.isGeneratedName, let initial = workspace.displayName.first {
             return String(initial).uppercased()
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "W"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
     }
 
     var generatedWorkspaceBadgeText: String {
-        let prefix = "Workspace "
+        let prefix = "Group "
         if workspace.displayName.hasPrefix(prefix) {
             let suffix = String(workspace.displayName.dropFirst(prefix.count))
             if !suffix.isEmpty { return suffix }
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "W"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
     }
 
     var workspaceBadgeForeground: Color {
         if isActiveOnTargetMonitor {
-            return Color.white
+            return Color.primary
         }
-        return Color.white.opacity(0.70)
+        return Color.primary.opacity(0.70)
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
@@ -329,28 +354,40 @@ extension WorkspaceSidebarWorkspaceSection {
         Button(action: handleSectionClick) {
             header
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .frame(height: headerHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .contentShape(Rectangle())
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel(workspace.displayName)
+        .accessibilityValue(isActiveOnTargetMonitor ? "Selected" : "")
+        .accessibilityHint("Click to switch groups. Drag to rearrange.")
+        .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
     }
 
     var header: some View {
         Group {
             if isCompact {
                 workspaceBadge
-                    .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 expandedHeader
             }
         }
+        .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
     }
 
     var expandedHeader: some View {
         HStack(spacing: workspaceSidebarHeaderSpacing) {
+            if layout.menuBarStyle {
+                Image(systemName: isPinnedActiveWorkspace ? "pin.fill" : "checkmark")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 10)
+                    .opacity(isActiveOnTargetMonitor || isPinnedActiveWorkspace ? 1 : 0)
+            }
             if isRenamingWorkspace {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingWorkspaceText,
@@ -360,12 +397,12 @@ extension WorkspaceSidebarWorkspaceSection {
                 )
             } else {
                 Text(workspace.displayName)
-                    .font(.system(size: 15, weight: isActiveOnTargetMonitor ? .bold : .semibold))
-                    .foregroundStyle(isActiveOnTargetMonitor ? Color.white : Color.white.opacity(0.85))
+                    .font(.system(size: 13, weight: isActiveOnTargetMonitor ? .medium : .regular))
+                    .foregroundStyle(isActiveOnTargetMonitor ? Color.primary : Color.primary.opacity(0.85))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            if let projectContextLabel, let projectContextColor {
+            if !density.isNarrow, let projectContextLabel, let projectContextColor {
                 Text(projectContextLabel)
                     .font(.system(size: 8.5, weight: .bold))
                     .foregroundStyle(projectContextColor.opacity(0.86))
@@ -383,7 +420,7 @@ extension WorkspaceSidebarWorkspaceSection {
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
+        .padding(.leading, density.isNarrow ? 2 : workspaceSidebarHeaderRowLeadingPadding)
         .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -397,7 +434,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     workspaceItemView(item)
                 }
             }
-            .padding(.leading, workspaceSidebarWindowRowsLeadingIndent)
+            .padding(.leading, density.isNarrow || layout.menuBarStyle ? 0 : workspaceSidebarWindowRowsLeadingIndent)
         }
     }
 
@@ -413,7 +450,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var dropPreviewRow: some View {
-        if dragPreview?.targetWorkspaceName == workspace.name {
+        if !isCompact, dragPreview?.targetWorkspaceName == workspace.name {
             WorkspaceSidebarDropPreviewView(preview: dragPreview.orDie(), rowHeight: rowHeight)
             .transition(.asymmetric(
                 insertion: .move(edge: .top).combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .opacity),
@@ -432,8 +469,10 @@ extension WorkspaceSidebarWorkspaceSection {
                     .contentShape(sectionShape)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(workspace.displayName)
             .frame(maxWidth: .infinity, alignment: .center)
             .contentShape(sectionShape)
+            .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
         } else {
             sectionContent.contentShape(sectionShape)
         }
@@ -445,13 +484,20 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(workspace.displayName)
+        .accessibilityHidden(true)
     }
 
     var sectionContent: some View {
         VStack(alignment: .leading, spacing: 3) {
             headerSlot
-                .frame(height: headerHeight)
+                .frame(height: isCompact ? compactMetrics.controlHeight - 6 : headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .background {
+                    if layout.menuBarStyle && !isCompact {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.primary.opacity(isHovered && hoveredWindowId == nil && hoveredTabGroupId == nil ? 0.08 : 0))
+                    }
+                }
             windowRows
             dropPreviewRow
         }
@@ -459,8 +505,12 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var headerSlot: some View {
-        header
-            .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+        if !isCompact && !isRenamingWorkspace {
+            headerButton
+        } else {
+            header
+                .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+        }
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
@@ -481,7 +531,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     tab,
                     allowsDrag: true,
                     subject: .window,
-                    leadingHitInset: workspaceSidebarTabGroupChildLeadingIndent,
+                    leadingHitInset: density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent,
                 )
             }
         }
@@ -501,8 +551,8 @@ extension WorkspaceSidebarWorkspaceSection {
             actions.send(.selectWindow(group.representativeWindowId))
         } label: {
             WorkspaceSidebarWindowRow(
-                title: group.title.isEmpty ? "Tab Group" : group.title,
-                badge: group.windowCount > 1 ? "\(group.windowCount)" : nil,
+                title: "\(group.windowCount) \(group.windowCount == 1 ? "window" : "windows")",
+                badge: nil,
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
@@ -515,6 +565,8 @@ extension WorkspaceSidebarWorkspaceSection {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("Window group · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
+        .accessibilityLabel("Tab group of \(group.windowCount) windows")
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(
@@ -587,6 +639,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .workspaceSidebarDrag(enabled: allowsDrag) {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
+        .help(window.title ?? window.appName)
         .onHover { hover in
             hoveredWindowId = nextWorkspaceSidebarHoveredWindowId(
                 currentHoveredWindowId: hoveredWindowId,

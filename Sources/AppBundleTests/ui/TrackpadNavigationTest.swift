@@ -1,0 +1,262 @@
+@testable import AppBundle
+import Common
+import XCTest
+
+@MainActor
+final class TrackpadNavigationTest: XCTestCase {
+    override func setUp() async throws { setUpWorkspacesForTests() }
+
+    private func group() -> [Window] {
+        let container = TilingContainer(parent: Workspace.get(byName: name).rootTilingContainer,
+            adaptiveWeight: 1, .h, .tabGroup, index: INDEX_BIND_LAST)
+        let windows = (1...3).map { TestWindow.new(id: UInt32($0), parent: container) }
+        _ = windows[0].focusWindow()
+        return windows
+    }
+
+    func testTargetUsesTabOrderWrappingAndReverseDirection() throws {
+        let windows = group()
+        let target = try XCTUnwrap(TrackpadTabTarget.capture())
+        XCTAssertEqual(target.resolve(direction: .left, reversed: false)?.destination.windowId, windows[1].windowId)
+        XCTAssertEqual(target.resolve(direction: .right, reversed: false)?.destination.windowId, windows[2].windowId)
+        XCTAssertEqual(target.resolve(direction: .left, reversed: true)?.destination.windowId, windows[2].windowId)
+        XCTAssertEqual(target.resolve(direction: .right, reversed: true)?.destination.windowId, windows[1].windowId)
+    }
+
+    func testTargetRejectsFocusAndMembershipChanges() throws {
+        let windows = group()
+        let target = try XCTUnwrap(TrackpadTabTarget.capture())
+        _ = windows[1].focusWindow()
+        XCTAssertNil(target.resolve(direction: .left, reversed: false))
+        _ = windows[0].focusWindow()
+        _ = TestWindow.new(id: 4, parent: windows[0].parent!)
+        XCTAssertNil(target.resolve(direction: .left, reversed: false))
+    }
+
+    func testNoTargetOutsideGroupOrWithSingleTab() {
+        let root = Workspace.get(byName: name).rootTilingContainer
+        _ = TestWindow.new(id: 1, parent: root).focusWindow()
+        XCTAssertNil(TrackpadTabTarget.capture())
+        let container = TilingContainer(parent: root, adaptiveWeight: 1, .h, .tabGroup, index: INDEX_BIND_LAST)
+        _ = TestWindow.new(id: 2, parent: container).focusWindow()
+        XCTAssertNil(TrackpadTabTarget.capture())
+    }
+
+    func testLifecycleAndStaleCallbacks() async {
+        _ = group()
+        let backend = FakeTrackpadBackend()
+        var activations = 0
+        let controller = TrackpadNavigationController(backend: backend, activate: { _, _ in activations += 1 })
+        controller.update(configuration: .init(enabled: false), isActive: true)
+        XCTAssertEqual(backend.starts, 0)
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(controller.status, .ready(1))
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(backend.starts, 1)
+        backend.send([.began(1), .committed(1, .left), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(activations, 1)
+        controller.update(configuration: .init(enabled: true), isActive: false)
+        XCTAssertEqual(controller.status, .paused)
+        XCTAssertEqual(backend.stops, 1)
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        backend.send([.began(1), .committed(1, .left)], subscription: 0)
+        await drainMainQueue()
+        XCTAssertEqual(activations, 1)
+        controller.shutdown()
+    }
+
+    func testCancellationFrontmostAppMismatchAndOldEventsNeverNavigate() async {
+        _ = group()
+        let backend = FakeTrackpadBackend()
+        var activations = 0
+        var matches = false
+        let controller = TrackpadNavigationController(backend: backend, frontmostPID: { matches ? 0 : 999 }, activate: { _, _ in activations += 1 })
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        backend.send([.began(1), .committed(1, .left)])
+        await drainMainQueue()
+        XCTAssertEqual(activations, 0)
+        matches = true
+        backend.send([.ended(1), .began(1)])
+        await drainMainQueue()
+        controller.cancelCandidate()
+        backend.send([.committed(1, .left), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(activations, 0)
+        XCTAssertTrue(controller.ownedDevices.isEmpty)
+        backend.send([.began(1), .committed(1, .left), .ended(1)], receivedAt: ProcessInfo.processInfo.systemUptime - 1)
+        await drainMainQueue()
+        XCTAssertEqual(activations, 0)
+        controller.shutdown()
+    }
+
+    func testBackendFailureAndUnavailableDeviceStatus() async {
+        let backend = FakeTrackpadBackend()
+        backend.result = .unavailable
+        let controller = TrackpadNavigationController(backend: backend)
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(controller.status, .unavailable)
+        controller.update(configuration: .init(enabled: false), isActive: true)
+        backend.result = .listening(0)
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(controller.status, .noTrackpad)
+        backend.failures.last?()
+        await drainMainQueue()
+        XCTAssertEqual(controller.status, .invalidInput)
+        let starts = backend.starts
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(backend.starts, starts)
+        controller.update(configuration: .init(enabled: false), isActive: true)
+        backend.result = .listening(1)
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        XCTAssertEqual(controller.status, .ready(1))
+        controller.shutdown()
+    }
+
+    func testBurstAdvancesEveryTabInOrderWithoutWaitingForNativeFocus() async {
+        let windows = group()
+        let backend = FakeTrackpadBackend()
+        var visited: [UInt32] = []
+        let controller = TrackpadNavigationController(backend: backend, activate: { _, destination in
+            visited.append(destination.windowId)
+            _ = destination.focusWindow()
+        })
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        // All input is delivered in one main-queue turn. The old asynchronous
+        // validation lost every commit except the last in this situation.
+        let directions: [TrackpadSwipeDirection] = [.left, .left, .right, .left, .left, .right]
+        backend.send(directions.flatMap { [.began(1), .committed(1, $0), .ended(1)] })
+        await drainMainQueue()
+        XCTAssertEqual(visited, [2, 3, 2, 3, 1, 3])
+        XCTAssertEqual(focus.windowOrNil, windows[2])
+        XCTAssertTrue(controller.ownedDevices.isEmpty)
+        controller.shutdown()
+    }
+
+    func testCrossAppBurstToleratesOwnActivationNotificationsAndLateNativeFocus() async {
+        let container = TilingContainer(parent: Workspace.get(byName: name).rootTilingContainer,
+            adaptiveWeight: 1, .h, .tabGroup, index: INDEX_BIND_LAST)
+        let windows = (1...3).map { id in
+            Window(id: UInt32(id), TrackpadTestApp(pid: Int32(id)), lastFloatingSize: nil,
+                parent: container, adaptiveWeight: 1, index: INDEX_BIND_LAST)
+        }
+        _ = windows[0].focusWindow()
+        let backend = FakeTrackpadBackend()
+        var frontmost: Int32 = 1
+        var time = ProcessInfo.processInfo.systemUptime
+        var visited: [UInt32] = []
+        let controller = TrackpadNavigationController(backend: backend, frontmostPID: { frontmost }, now: { time }, activate: { _, destination in
+            visited.append(destination.windowId)
+            _ = destination.focusWindow()
+        })
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        backend.send([.began(1), .committed(1, .left), .ended(1), .began(1)])
+        await drainMainQueue()
+        // macOS is still activating the previous request while fingers land.
+        frontmost = 2
+        controller.applicationActivated(2)
+        backend.send([.committed(1, .left), .ended(1), .began(1), .committed(1, .right), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(visited, [2, 3, 2])
+        XCTAssertTrue(controller.shouldIgnoreNativeFocus(windows[0]))
+        XCTAssertTrue(controller.shouldIgnoreNativeFocus(windows[2]))
+        XCTAssertFalse(controller.shouldIgnoreNativeFocus(windows[1]))
+
+        let unrelated = TestWindow.new(id: 99, parent: Workspace.get(byName: name).rootTilingContainer)
+        XCTAssertFalse(controller.shouldIgnoreNativeFocus(unrelated))
+        // The grace period is bounded; failed activation cannot pin logical focus.
+        time += 0.51
+        XCTAssertFalse(controller.shouldIgnoreNativeFocus(windows[0]))
+        controller.shutdown()
+    }
+
+    func testUnrelatedAppActivationAndExplicitInputCancelPendingSwipe() async {
+        let windows = group()
+        let backend = FakeTrackpadBackend()
+        var frontmost: Int32 = 0
+        var visited: [UInt32] = []
+        let controller = TrackpadNavigationController(backend: backend, frontmostPID: { frontmost }, activate: { _, destination in
+            visited.append(destination.windowId)
+            _ = destination.focusWindow()
+        })
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        backend.send([.began(1), .committed(1, .left), .ended(1), .began(1)])
+        await drainMainQueue()
+        XCTAssertTrue(controller.shouldIgnoreNativeFocus(windows[0]))
+        frontmost = 999
+        controller.applicationActivated(frontmost)
+        frontmost = 0
+        backend.send([.committed(1, .left), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(visited, [2])
+        XCTAssertFalse(controller.shouldIgnoreNativeFocus(windows[0]))
+        backend.send([.began(1)])
+        await drainMainQueue()
+        controller.cancelNavigation() // A click or key press takes precedence.
+        backend.send([.committed(1, .left), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(visited, [2])
+        controller.shutdown()
+    }
+
+    func testFocusOrGroupChangeMidSwipeDoesNotNavigate() async {
+        let windows = group()
+        let backend = FakeTrackpadBackend()
+        var activations = 0
+        let controller = TrackpadNavigationController(backend: backend, activate: { _, _ in activations += 1 })
+        controller.update(configuration: .init(enabled: true), isActive: true)
+        backend.send([.began(1)])
+        await drainMainQueue()
+        _ = windows[1].focusWindow()
+        backend.send([.committed(1, .left), .ended(1), .began(1)])
+        await drainMainQueue()
+        _ = TestWindow.new(id: 4, parent: windows[0].parent!)
+        backend.send([.committed(1, .left), .ended(1)])
+        await drainMainQueue()
+        XCTAssertEqual(activations, 0)
+        controller.shutdown()
+    }
+
+    func testSidebarSuppressesOnlyOwnedSequenceIncludingMomentum() {
+        var gate = TrackpadSidebarScrollGate()
+        XCTAssertFalse(gate.shouldSuppress(owned: false, phase: .began, momentum: []))
+        XCTAssertTrue(gate.shouldSuppress(owned: true, phase: .changed, momentum: []))
+        XCTAssertTrue(gate.shouldSuppress(owned: false, phase: .ended, momentum: []))
+        XCTAssertTrue(gate.shouldSuppress(owned: false, phase: [], momentum: .began))
+        XCTAssertTrue(gate.shouldSuppress(owned: false, phase: [], momentum: .ended))
+        XCTAssertFalse(gate.shouldSuppress(owned: false, phase: .began, momentum: []))
+    }
+
+    private func drainMainQueue() async { try? await Task.sleep(for: .milliseconds(20)) }
+}
+
+private final class TrackpadTestApp: AbstractApp {
+    let pid: Int32
+    let rawAppBundleId: String? = nil
+    let name: String? = nil
+    let execPath: String? = nil
+    let bundlePath: String? = nil
+    init(pid: Int32) { self.pid = pid }
+    @MainActor func getFocusedWindow() -> Window? { nil }
+}
+
+@MainActor
+private final class FakeTrackpadBackend: TrackpadInputBackend {
+    var result: TrackpadBackendStatus = .listening(1)
+    var starts = 0
+    var stops = 0
+    var subscriptions: [@Sendable ([TrackpadGestureEvent], Double) -> Void] = []
+    var failures: [@Sendable () -> Void] = []
+
+    func start(deliver: @escaping @Sendable ([TrackpadGestureEvent], Double) -> Void,
+               invalidInput: @escaping @Sendable () -> Void) -> TrackpadBackendStatus {
+        starts += 1
+        subscriptions.append(deliver)
+        failures.append(invalidInput)
+        return result
+    }
+    func stop() { stops += 1 }
+    func send(_ events: [TrackpadGestureEvent], subscription: Int? = nil, receivedAt: Double = ProcessInfo.processInfo.systemUptime) {
+        subscriptions[subscription ?? subscriptions.count - 1](events, receivedAt)
+    }
+}

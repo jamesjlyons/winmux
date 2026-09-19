@@ -1,12 +1,12 @@
+import Common
 import SwiftUI
 
-/// A compact rendering of the windows in the app icon.
+/// A native window-pane symbol that follows the menu bar's foreground appearance.
 struct MenuBarAppIcon: View {
-    @EnvironmentObject private var viewModel: TrayMenuModel
-
     var body: some View {
-        Image(viewModel.experimentalUISettings.iconAppearance == .color ? "MenuBarIcon" : "MenuBarIconMonochrome")
-            .renderingMode(viewModel.experimentalUISettings.iconAppearance == .color ? .original : .template)
-            .accessibilityLabel("WinMux")
+        Image(systemName: "rectangle.split.3x1")
+            .renderingMode(.template)
+            .symbolRenderingMode(.monochrome)
+            .accessibilityLabel(winMuxAppDisplayName)
     }
 }

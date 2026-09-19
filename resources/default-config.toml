@@ -23,6 +23,12 @@ shortcuts-preset = 'none'
 persistent-workspaces = []
 on-mode-changed = []
 
+[trackpad-navigation]
+    # Use three-finger horizontal swipes for tabs in the focused group.
+    # Move macOS desktop switching to four fingers before enabling.
+    enabled = false
+    reverse-direction = false
+
 [key-mapping]
     preset = 'qwerty'
 
@@ -43,6 +49,8 @@ on-mode-changed = []
     auto-hide = false
     # Keep the full sidebar open and reserve its width for tiled windows.
     always-expanded = false
+    # Allow sidebar swipes past the first or last project to create a new project.
+    swipe-to-create-projects = false
     collapsed-width = 50
     width = 280
     # Omit monitor to show an independent sidebar on every display.
@@ -57,6 +65,8 @@ on-mode-changed = []
     show-weekday = true
     # Apply this style to sidebar, tab groups, and switcher chrome. Use 'solid' for opaque color.
     chrome-style = 'liquid-glass'
+    # Give just the sidebar a flat, translucent macOS menu bar look.
+    menu-bar-style = false
     # Used when chrome-style = 'solid'. Choose from the Appearance palette, or use 'custom'.
     solid-chrome-color = 'midnight'
     # Used when solid-chrome-color = 'custom'.
@@ -67,6 +77,11 @@ on-mode-changed = []
 
 [workspace-sidebar.project-colors]
     "default" = "#C4B5FD"
+
+# Optional SF Symbol names. Choose Icon… in a space menu opens a searchable picker.
+# Remove an entry (or choose Use Default) to restore the colored dot.
+[workspace-sidebar.project-icons]
+    # "default" = "house"
 
 [mode.main.binding]
     ctrl-f = 'open-sidebar'

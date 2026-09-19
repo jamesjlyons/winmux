@@ -65,8 +65,8 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
         .init(
             id: "workspaces",
             category: .common,
-            title: "Workspaces",
-            summary: "Use one modifier pattern for workspace numbers, then override specific workspaces only when needed.",
+            title: "Groups",
+            summary: "Use one modifier pattern for group numbers, then override specific groups only when needed.",
             actions: [],
         ),
     ]

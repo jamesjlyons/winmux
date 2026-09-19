@@ -10,8 +10,8 @@ final class AxRefreshFastPathTest: XCTestCase {
         var refreshCount = 0
         var normalizeCount = 0
         setBlockingRefreshOverridesForTests(
-            refresh: { refreshCount += 1 },
-            normalizeLayoutReason: { normalizeCount += 1 }
+            refresh: { _ in refreshCount += 1 },
+            normalizeLayoutReason: { _ in normalizeCount += 1 }
         )
 
         _ = first.focusWindow()
@@ -30,8 +30,8 @@ final class AxRefreshFastPathTest: XCTestCase {
         var refreshCount = 0
         var normalizeCount = 0
         setBlockingRefreshOverridesForTests(
-            refresh: { refreshCount += 1 },
-            normalizeLayoutReason: { normalizeCount += 1 }
+            refresh: { _ in refreshCount += 1 },
+            normalizeLayoutReason: { _ in normalizeCount += 1 }
         )
 
         _ = first.focusWindow()
@@ -56,8 +56,8 @@ final class AxRefreshFastPathTest: XCTestCase {
         var refreshCount = 0
         var normalizeCount = 0
         setBlockingRefreshOverridesForTests(
-            refresh: { refreshCount += 1 },
-            normalizeLayoutReason: { normalizeCount += 1 }
+            refresh: { _ in refreshCount += 1 },
+            normalizeLayoutReason: { _ in normalizeCount += 1 }
         )
 
         try await runRefreshSessionBlocking(.ax(kAXWindowCreatedNotification as String))
@@ -72,7 +72,7 @@ final class AxRefreshFastPathTest: XCTestCase {
         TrayMenuModel.shared.isEnabled = true
         config.automaticallyUnhideMacosHiddenApps = true
         appForTests = TestApp.shared
-        setBlockingRefreshOverridesForTests(refresh: {})
+        setBlockingRefreshOverridesForTests(refresh: { _ in})
 
         let survivingWorkspace = Workspace.get(byName: "1")
         survivingWorkspace.markAsAutomaticallyNamed()
@@ -88,7 +88,7 @@ final class AxRefreshFastPathTest: XCTestCase {
         try await runRefreshSessionBlocking(.ax("native-minimize"), layoutWorkspaces: false)
 
         XCTAssertNotNil(Workspace.existing(byName: minimizedWorkspace.name))
-        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "Group 2")
         XCTAssertTrue(
             getOrCreateAdjacentBlankWorkspace(
                 projectId: minimizedWorkspace.projectId,

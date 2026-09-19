@@ -191,6 +191,7 @@ final class MacApp: AbstractApp {
 
     @MainActor func nativeFocus(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
+        signposter.emitEvent("Native focus requested", "window: \(windowId, privacy: .public)")
         MacApp.focusJob?.cancel()
         // Performance optimization. If possible avoid doing AX requests
         // (important for apps which are slow at responding even such basic AX requests. E.g. Godot)
@@ -209,18 +210,26 @@ final class MacApp: AbstractApp {
             nsApp.activate(options: .activateIgnoringOtherApps)
         } else {
             MacApp.focusJob = withWindowAsync(windowId) { [nsApp, axApp] window, job in
+                let interval = signposter.beginInterval("Native focus job", id: signposter.makeSignpostID(), "window: \(windowId, privacy: .public)")
+                defer { signposter.endInterval("Native focus job", interval) }
                 AXUIElementSetAttributeValue(axApp.threadGuarded, kAXFocusedWindowAttribute as CFString, window)
+                try job.checkCancellation()
                 // Raise firstly to make sure that by the time we activate the app, the window would be already on top
                 window.set(Ax.isMainAttr, true)
+                try job.checkCancellation()
                 AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                try job.checkCancellation()
                 nsApp.activate(options: .activateIgnoringOtherApps)
             }
         }
     }
 
     func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
+        signposter.emitEvent("Frame requested", "window: \(windowId)")
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
+            let interval = signposter.beginInterval("Window frame job", "window: \(windowId)")
+            defer { signposter.endInterval("Window frame job", interval) }
             try setFrame(window, app: axApp.threadGuarded, topLeft, size, job)
         }
     }
@@ -357,8 +366,10 @@ final class MacApp: AbstractApp {
     }
 
     @MainActor
-    static func refreshAllAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> [MacApp: [UInt32]] {
-        for (_, app) in MacApp.allAppsMap { // gc dead apps
+    static func refreshAllAndGetAliveWindowIds(frontmostAppBundleId: String?, scope: WindowRefreshScope = .all) async throws -> [MacApp: [UInt32]] {
+        let interval = signposter.beginInterval("Enumerate apps")
+        defer { signposter.endInterval("Enumerate apps", interval) }
+        for (_, app) in MacApp.allAppsMap where scope.contains(app.pid) { // gc dead apps
             try checkCancellation()
             if app.nsApp.isTerminated {
                 await app.destroy()
@@ -376,7 +387,7 @@ final class MacApp: AbstractApp {
             // Register new apps
             for nsApp in NSWorkspace.shared.runningApplications {
                 try checkCancellation()
-                if nsApp.activationPolicy == .regular {
+                if nsApp.activationPolicy == .regular && scope.contains(nsApp.processIdentifier) {
                     refreshTheApp(nsApp)
                 }
             }
@@ -385,7 +396,7 @@ final class MacApp: AbstractApp {
                 // "About this Mac" window, TouchID, and a lot of other utility windows
                 // We don't monitor them actively as we do for regular apps, but if a window of one of those utility
                 // apps got focused it will end up in allAppsMap
-                if app.nsApp.activationPolicy != .regular {
+                if app.nsApp.activationPolicy != .regular && scope.contains(app.pid) {
                     refreshTheApp(app.nsApp)
                 }
             }

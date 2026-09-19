@@ -12,6 +12,7 @@ struct WorkspaceSidebarSnapshot: Equatable {
     var hoveredWorkspaceName: String?
     var dropPreview: WorkspaceSidebarDropPreviewViewModel?
     var configuration: WorkspaceSidebarConfiguration
+    var browseMode: WorkspaceSidebarBrowseMode = .activeProject
 
     static let empty = WorkspaceSidebarSnapshot(
         workspaces: [],
@@ -41,6 +42,10 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var chromeStyle: ChromeStyle
     var solidChromeColor: ChromeSolidColor
     var solidChromeCustomColor: String
+    var isCompactMode = true
+    var autoHide = false
+    var swipeToCreateProjects = false
+    var menuBarStyle = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -59,13 +64,17 @@ struct WorkspaceSidebarConfiguration: Equatable {
 }
 
 enum WorkspaceSidebarAction: Equatable {
+    case setBrowseMode(WorkspaceSidebarBrowseMode)
     case selectWorkspace(String)
+    case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
     case selectProject(WorkspaceProjectId)
+    case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)
+    case setProjectIcon(WorkspaceProjectId, symbolName: String?)
     case deleteProject(WorkspaceProjectId)
     case selectMonitorScope(String)
     case createWorkspace(projectId: WorkspaceProjectId, monitorScopeId: String)
@@ -78,6 +87,8 @@ enum WorkspaceSidebarAction: Equatable {
     case previewWindowDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case previewTabGroupDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case clearDropPreview
+    case setCompactMode(Bool)
+    case setAutoHide(Bool)
 }
 
 struct WorkspaceSidebarActions {
