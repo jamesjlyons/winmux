@@ -7,6 +7,124 @@
 
 <p align="left">A powerful sidebar-first window manager for macOS.</p>
 
+## Changes in this fork
+
+This fork of [WinMux](https://github.com/ZimengXiong/winmux) adds a more flexible sidebar,
+easier ways to organize windows, trackpad gestures, and layout restoration when you restart
+the app. It also includes performance improvements and a separate development app.
+
+### Sidebar
+
+- **A smaller sidebar.** The compact sidebar now fits down to 28 points.
+  Labels, buttons, icons, and the clock adjust to narrower widths.
+- **Drag the edge to resize it.** Your width is saved when you let go. Press Escape to
+  cancel or double-click the edge to reset. Windows make room when the sidebar stays expanded.
+- **Change its behavior with a right-click.** Toggle Compact Mode and Auto-hide directly
+  from the sidebar.
+- **Choose a menu bar look.** An optional translucent style uses smaller controls and a
+  simple clock. It follows your Mac's appearance and accessibility settings, with Liquid
+  Glass on macOS 26 and later.
+- **Open and close with less delay.** Hovering opens the sidebar immediately. Moving away
+  closes it sooner, and moving back reverses the close. It stays open while you use a menu,
+  edit a name, resize, or drag something.
+- **Cleaner details.** Labels are lighter, spacing is tighter, and space indicators are
+  evenly sized. The selected indicator is brighter, with its name shown directly above
+  it on hover. The app also has a native monochrome menu bar icon.
+- **More room in fullscreen.** Fullscreen windows and tab groups hide the sidebar and
+  reclaim its space on that display. Leaving fullscreen brings it back.
+
+[Sidebar guide](docs/compact-sidebar.md) · [Opening and closing changes](docs/sidebar-responsiveness.md)
+
+### Organizing windows
+
+- **Spaces → Groups → Windows.** Projects are now called Spaces, and Workspaces are
+  called Groups. Your existing names and layouts carry over. CLI commands and config
+  keys keep their old names so existing setups continue to work.
+- **One menu for your spaces.** Switch, create, rename, color, or delete spaces from the
+  menu at the top of the sidebar. Display filters live there too, replacing the duplicate
+  controls that used to appear at the bottom.
+- **See every space in Organize.** This replaces Browse Alongside with a column for each
+  space. Drag windows or whole tab groups between them, or drop onto New Group. Search
+  and display filters work across all columns, and dragging near an edge scrolls the view.
+- **Drag spaces and groups into order.** Rearrange space dots or icons, including Default.
+  Drag group headers or compact badges to reorder groups within a space. Groups move aside
+  as you drag, with a small trackpad tick at each position. Your order survives a restart.
+- **Give spaces their own icons.** Choose Icon… opens a searchable SF Symbols picker that
+  works offline and supports the keyboard. Icons use the space's color and stay attached
+  when you rename or reorder it. Use Default brings back the colored dot.
+
+[Organize and reordering guide](docs/compact-sidebar.md) · [Space icons](docs/project-icons.md)
+
+### Trackpad gestures
+
+- **Swipe between tabs with three fingers.** Turn this on in Settings → Behavior → Trackpad.
+  Swipe left for the next tab and right for the previous one, wrapping at either end.
+  It acts on the focused tab group wherever your pointer is. You can reverse the direction.
+- **Keep swiping without waiting.** Each swipe changes one tab. Lift your fingers and swipe
+  again immediately; reversing direction can also reverse an ongoing two-window flip.
+- **Fewer accidental actions.** Short or diagonal gestures are ignored. Tab gestures
+  don't also switch sidebar spaces, and two-finger scrolling remains available.
+- **Sidebar swipes follow your Mac's scroll direction.** Swiping past the first or last
+  space creates another only if you enable **Swipe to create spaces**, which is off by default.
+
+Three-finger navigation is off by default and uses a private macOS framework. The
+[trackpad guide](docs/trackpad-navigation.md) explains setup, conflicts with macOS gestures,
+status checks, and the hardware testing still needed.
+
+### Restarting and permissions
+
+- **Pick up where you left off.** Restarting WinMux restores the arrangement of windows
+  that are still open: spaces, group order, displays, tiles, tabs, floating positions,
+  and the selected window. This applies within the same Mac session; it doesn't reopen
+  apps or documents after a reboot.
+- **Recover from interruptions.** Layouts are saved as you work, with a backup if the
+  latest save is damaged. Restoration handles windows that take longer to appear and
+  disconnected displays, and leaves a group alone once you start changing it.
+- **Save before quitting.** Normal quits and system termination save the final layout
+  before cleanup. Force Quit uses the most recent saved checkpoint. Dev builds and
+  separate config files keep their own sessions.
+- **Fewer permission interruptions.** WinMux waits for Accessibility permission and
+  continues when you grant it, without resetting access. Screen Recording is requested
+  when you choose a feature that needs it, rather than on every launch.
+
+[Session restoration and permissions](docs/restart-sessions.md)
+
+### Performance
+
+Several changes reduce the work WinMux does during everyday interactions:
+
+- Moving or resizing a window updates the affected windows instead of scanning every app.
+- Drag previews follow the display's refresh rate and avoid repeatedly copying the whole layout.
+- Window placement and keyboard focus happen before sidebar and tab updates.
+- Window titles load in the background, so one slow app doesn't hold up other title updates.
+- Group lists and saved layouts skip repeated calculations and unnecessary updates.
+- Saving layouts runs separately from the interface and avoids writing unchanged data.
+
+The measurements and their limits are recorded in the [interaction notes](docs/performance-updates.md),
+[model and layout audit](docs/performance-deep-dive.md), [follow-up audit](docs/performance-follow-up.md),
+and [focus notes](docs/focus-performance.md).
+
+### Development builds and testing
+
+- **A separate WinMux Dev app.** It has its own name and saved state, with upstream
+  automatic updates disabled. Signed updates keep a stable app identity to help preserve
+  permissions. Installation checks the signature and prevents replacing a running copy.
+- **Optimized builds by default.** The Dev build and test commands use compiler optimization
+  for everyday use, with a Debug option for development. Packaging now includes the
+  frameworks and resources needed to launch correctly.
+- **More ways to check changes.** Added visual fixtures for sidebar sizes, appearances,
+  and icons; trackpad, focus, and resize diagnostics; performance logging; an icon catalog
+  generator; and regression tests for the new behavior.
+
+To try this fork, follow the [WinMux Dev setup](docs/restart-sessions.md). It requires an
+Apple Development signing certificate. The Homebrew instructions below install the original
+WinMux. See [Dev build performance](docs/app-speed.md) for the build options and measurements.
+
+This overview covers the 31 commits after upstream v0.5.4, through `11dd2331`.
+[View the full comparison](https://github.com/jamesjlyons/winmux/compare/e0ad328e...11dd2331).
+
+---
+
 https://github.com/user-attachments/assets/51983568-a168-494f-8ae3-5f50ca1efce1
 
 ## Highlights
