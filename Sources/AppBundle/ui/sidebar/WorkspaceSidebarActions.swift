@@ -255,7 +255,9 @@ func moveTabGroupToNewWorkspaceFromSidebar(_ windowId: UInt32, projectId: Worksp
 private func moveSidebarSource(_ windowId: UInt32, subject: WindowDragSubject, toWorkspace workspaceName: String) {
     runWorkspaceSidebarSession {
         guard let sourceWindow = Window.get(byId: windowId),
-              let targetWorkspace = Workspace.existing(byName: workspaceName)
+              let targetWorkspace = Workspace.existing(byName: workspaceName),
+              !targetWorkspace.isArchived,
+              sourceWindow.nodeWorkspace != targetWorkspace
         else { return }
         let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
         syncClosedWindowsCacheToCurrentWorld()
@@ -273,7 +275,9 @@ private func moveSidebarSourceToNewWorkspace(
     monitorScopeId: String,
 ) {
     runWorkspaceSidebarSession {
-        guard let sourceWindow = Window.get(byId: windowId) else { return }
+        guard let sourceWindow = Window.get(byId: windowId),
+              winMuxWorkspaceState.projectsById[projectId] != nil
+        else { return }
         let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
         let targetMonitor = workspaceSidebarTargetMonitor(
             scopeId: monitorScopeId,

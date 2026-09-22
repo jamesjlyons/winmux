@@ -43,6 +43,11 @@ struct WindowTabGroupHandleView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .accessibilityLabel("Focus Tab Group")
+        .contextMenu {
+            if let windowId {
+                WindowMoveMenu(windowId: windowId, workspaceName: workspaceName, subject: .group)
+            }
+        }
         .frame(width: windowTabStripReservedGroupHandleWidth())
         .contentShape(Rectangle())
         .onTapGesture {

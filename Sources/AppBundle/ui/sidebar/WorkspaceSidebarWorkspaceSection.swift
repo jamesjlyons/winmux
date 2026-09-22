@@ -567,6 +567,15 @@ extension WorkspaceSidebarWorkspaceSection {
         .buttonStyle(.plain)
         .help("Window group · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
         .accessibilityLabel("Tab group of \(group.windowCount) windows")
+        .contextMenu {
+            WindowMoveMenu(
+                windowId: group.representativeWindowId,
+                workspaceName: group.workspaceName,
+                subject: .group,
+                targetMonitorScopeId: targetMonitorScopeId,
+                actions: actions,
+            )
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(
@@ -640,6 +649,15 @@ extension WorkspaceSidebarWorkspaceSection {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
         .help(window.title ?? window.appName)
+        .contextMenu {
+            WindowMoveMenu(
+                windowId: window.windowId,
+                workspaceName: window.workspaceName,
+                subject: subject,
+                targetMonitorScopeId: targetMonitorScopeId,
+                actions: actions,
+            )
+        }
         .onHover { hover in
             hoveredWindowId = nextWorkspaceSidebarHoveredWindowId(
                 currentHoveredWindowId: hoveredWindowId,
