@@ -41,6 +41,7 @@ login keychain. The scripts deliberately fail if signing is unavailable.
 ```sh
 make dev-build                      # optimized Dev build and signing; leaves the running app alone
 make dev-test                       # test the same optimized Dev configuration
+make check                          # CI checks: Debug, optimized Dev, appcast, and dependency lockfile
 # Quit WinMux Dev so it saves its session.
 ./script/dev-app.sh install          # installs /Applications/WinMux Dev.app
 make dev-run                        # runs that installed app
@@ -62,6 +63,10 @@ that is easier to step through in a debugger; the same option applies to `dev-te
 packaging retains its historical Debug default; pass `DEV_BUILD_CONFIGURATION=release`
 only after compiling with `swift build -c release -Xswiftc -DDEBUG`.
 See [overall app speed](app-speed.md) for measurements and limitations.
+
+GitHub Actions runs `make check` on pull requests and pushes to `main`, using the
+Swift version pinned in `.swift-version`. These checks do not require a signing
+certificate or install an app.
 
 Moving from an old ad-hoc build may require granting Accessibility and Screen
 Recording once to the signed **WinMux Dev** app. Subsequent updates using this
