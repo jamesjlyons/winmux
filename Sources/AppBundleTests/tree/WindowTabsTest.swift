@@ -338,6 +338,7 @@ final class WindowTabsTest: XCTestCase {
             targetWindowId: 4,
             lastNativeFocusedWindowId: 1,
             logicalWindowsCount: 4,
+            isFloating: false,
         ))
     }
 

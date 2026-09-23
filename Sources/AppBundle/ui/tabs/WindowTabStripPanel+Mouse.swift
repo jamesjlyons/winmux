@@ -4,20 +4,26 @@ import SwiftUI
 extension WindowTabStripPanel {
     func shouldUpdate(content: WindowTabGroupChromeContent, strip: WindowTabStripViewModel) -> Bool {
         let frameChanged = currentPanelFrame != strip.frame
-        let occlusionChanged = tabStripIsOccludedByFloatingWindow != strip.tabStripIsOccludedByFloatingWindow
-        if currentContent == content, !frameChanged, !occlusionChanged, isVisible {
+        if currentContent == content, !frameChanged, isVisible {
             updateMousePolicy()
             return false
         }
         return true
     }
 
-    func updateMousePolicy() {
+    func updateMousePolicy(at screenPoint: CGPoint = NSEvent.mouseLocation) {
         let ignoresForMouseManipulation = currentlyManipulatedWithMouseWindowId != nil &&
             shouldIgnoreWindowTabStripMouseEventsDuringDrag(detachOrigin: getCurrentMouseTabDetachOrigin())
-        ignoresMouseEvents = externallyIgnoresMouseEvents ||
+        // A floating window can cover only part of the strip. Passing through the
+        // whole panel makes exposed tabs click the desktop underneath instead.
+        let pointerIsOccluded = currentPanelFrame?.contains(screenPoint) == true &&
+            currentContent?.occludingFloatingWindowFrames.contains(where: { $0.contains(screenPoint) }) == true
+        let shouldIgnoreMouseEvents = externallyIgnoresMouseEvents ||
             ignoresForMouseManipulation ||
-            tabStripIsOccludedByFloatingWindow
+            pointerIsOccluded
+        if ignoresMouseEvents != shouldIgnoreMouseEvents {
+            ignoresMouseEvents = shouldIgnoreMouseEvents
+        }
     }
 }
 

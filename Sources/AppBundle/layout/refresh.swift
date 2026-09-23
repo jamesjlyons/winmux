@@ -179,7 +179,10 @@ func runRefreshSessionBlocking(
                 if shouldLayoutWorkspaces {
                     try await layoutWorkspaces(reuseUnchangedFrames: !scope.requiresDiscovery)
                     try checkCancellation()
-                    if shouldSyncFocusBackToMacOs(
+                    if focusNewFloatingWindowAfterLayout() {
+                        refreshModel()
+                        updateTrayText()
+                    } else if shouldSyncFocusBackToMacOs(
                         nativeFocused: nativeFocused,
                         frontmostActivationPolicy: frontmostActivationPolicy,
                     ) {

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 @MainActor
 final class WindowTabStripPanelController {
@@ -229,6 +229,12 @@ extension WindowTabStripPanelController {
 }
 
 extension WindowTabStripPanelController {
+    func updateMousePolicies(at screenPoint: CGPoint) {
+        for panel in stripPanels.values where panel.isVisible {
+            panel.updateMousePolicy(at: screenPoint)
+        }
+    }
+
     func setHiddenPassiveTabGroupChrome(_ ids: Set<ObjectIdentifier>) {
         guard hiddenPassiveTabGroupChromeIds != ids else { return }
         hiddenPassiveTabGroupChromeIds = ids

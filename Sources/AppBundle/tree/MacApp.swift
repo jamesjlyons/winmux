@@ -201,6 +201,7 @@ final class MacApp: AbstractApp {
                 targetWindowId: windowId,
                 lastNativeFocusedWindowId: lastNativeFocusedWindowId,
                 logicalWindowsCount: logicalWindowCount,
+                isFloating: Window.get(byId: windowId)?.isFloating == true,
             )
         debugFocusLog(
             "MacApp.nativeFocus app=\(nsApp.localizedName ?? rawAppBundleId ?? String(pid)) target=\(windowId) lastNative=\(lastNativeFocusedWindowId?.description ?? "nil") logicalWindowsCount=\(logicalWindowCount) windowsCount=\(windowsCount) strategy=\(useActivationOnly ? "activate" : "ax-focus")"
@@ -485,6 +486,9 @@ func shouldUseActivationOnlyForNativeFocus(
     targetWindowId: UInt32,
     lastNativeFocusedWindowId: UInt32?,
     logicalWindowsCount: Int,
+    isFloating: Bool,
 ) -> Bool {
-    lastNativeFocusedWindowId == targetWindowId || logicalWindowsCount == 1
+    // Activating an app can leave its floating dialog behind another window.
+    // Always issue the explicit AX raise for floating targets.
+    !isFloating && (lastNativeFocusedWindowId == targetWindowId || logicalWindowsCount == 1)
 }

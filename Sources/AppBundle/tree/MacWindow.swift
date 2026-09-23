@@ -49,6 +49,7 @@ final class MacWindow: Window {
         let didRestoreClosedWindowsCache = didRestorePersistedFrozenWorld ? false : try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {
             try await tryOnWindowDetected(window)
+            noteNewFloatingWindow(window)
         }
         return window
     }

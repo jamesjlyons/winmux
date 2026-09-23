@@ -84,6 +84,7 @@ enum GlobalObserver {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
+            WindowTabStripPanelController.shared.updateMousePolicies(at: NSEvent.mouseLocation)
             if isMouseDownEvent { TrackpadNavigationController.shared.cancelNavigation() }
             if isLeftMouseDownEvent {
                 Task { @MainActor in
