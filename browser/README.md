@@ -37,7 +37,8 @@ python3 -m unittest discover -s browser/tests -v
 ```
 
 The native proof needs an Apple Development identity in the keychain. Set
-`BROWSER_SIGNING_IDENTITY` to select a specific identity. It builds in
+`BROWSER_SIGNING_IDENTITY` to the certificate's SHA-1 fingerprint to select an
+exact identity when more than one team is available. It builds in
 `.local/browser/native-build`, creates a temporary per-user LaunchAgent, and
 removes it afterward. It refuses to replace an already registered alpha helper.
 It does not install apps, register SMAppService, request Accessibility, read
@@ -64,6 +65,10 @@ python3 browser/tools/chromium.py build-control --root /path/to/apfs/winmux-engi
 On machines with less memory, pass `--jobs 4` to `build-control` to bound local
 compiler concurrency. The chosen limit is recorded in the build manifest; it
 does not change the browser's optimized build settings or qualification targets.
+The pinned tool wrapper bootstraps its hermetic Python runtime when necessary.
+The build configuration uses Apple's linker for native arm64 because the pinned
+LLVM linker cannot parse the Xcode 27 SDK's `arm64e.x1` TAPI targets. Keep this
+setting identical for later alpha comparisons.
 
 The fetch is intentionally separate from the preflight. Both mutations repeat
 their resource gate. Existing dirty or differently pinned checkouts are refused.

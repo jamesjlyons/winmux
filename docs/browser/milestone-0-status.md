@@ -11,19 +11,32 @@ have not started, as required by the approved compatibility gate.
 - Active worktree: `/Users/james/.codex/worktrees/chromium-browser/winmux`.
 - Engine directory: `/Users/james/Documents/Codex/winmux/.local/browser-engine`.
 - APFS preflight passed with 364.32 GiB free; the earlier storage blocker is
-  resolved on this computer. Pinned Chromium source/dependency fetching started.
+  resolved on this computer. The pinned Chromium source, dependencies and hooks
+  completed. GN generated the optimized control build and four-job local
+  compilation is running; no completed browser artifact is claimed yet.
 - Hardware: `MacBookPro18,1`, arm64, 16 GiB RAM, 10 logical CPUs; macOS 27.0.1,
   Xcode 27.0, Swift 6.4, and locally installed Rust 1.97.1.
 - All 19 existing automated tests passed here (10 Python, 4 Swift, 5 Rust).
   The C++ blocker probe passed, the Objective-C++ bridge probe compiled, the
   helper plist validated, and Rust formatting/Clippy checks passed.
-- This machine has no valid Apple code-signing identity. The signed XPC process
-  proof has not been repeated here. Signed alpha packaging and extension
-  qualification require that identity later.
+- Xcode automatic signing created an Apple Development certificate for the
+  selected Personal Team (`F7QMMNZWXX`). The public certificate's team and SHA-1
+  fingerprint were verified, and the exact identity is saved in the ignored
+  `.local/browser/signing.env`. Signing is awaiting the macOS Keychain prompt;
+  the signed XPC process proof has not yet been repeated here.
 - The build command now accepts `--jobs 4` to bound local compiler concurrency
   and records the limit and hardware in the completed build manifest. This Mac
   is a separate test environment from the plan's 36 GiB M3 Pro; its component
   results do not qualify browser performance on either machine.
+- The first GN invocation exposed a missing depot_tools Python bootstrap:
+  `DEPOT_TOOLS_UPDATE=0` also skips that automatic initialization. The build
+  wrapper now runs upstream `ensure_bootstrap` when needed without updating the
+  pinned tool revision. The resumed GN invocation succeeded and compilation
+  started. The 10 Python checks still pass after this correction.
+- The pinned LLVM linker rejected the Xcode 27 SDK's `arm64e.x1` TAPI targets.
+  The native arm64 configuration now uses upstream-supported Apple's linker
+  (`use_lld = false`); compilation resumed past the failing link. Later alpha
+  comparisons must use the same linker setting.
 
 [Local component evidence](evidence/2026-09-30-local-components.json). Current
 download/compiler logs are under `.local/browser/` in the active worktree.

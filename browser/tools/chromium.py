@@ -100,6 +100,11 @@ def build(path, env, jobs=None):
         raise RuntimeError("Baseline requires an unmodified upstream checkout")
     if output("git", "rev-parse", "HEAD", cwd=path / "depot_tools") != PINS["depot_tools"]["revision"]:
         raise RuntimeError("depot_tools revision differs from pins.json")
+    # Disabling depot_tools updates also skips gclient's Python bootstrap. Its
+    # GN/autoninja wrappers still require the pinned hermetic Python runtime.
+    # ensure_bootstrap initializes it without updating the repository revision.
+    if not (path / "depot_tools/python3_bin_reldir.txt").is_file():
+        run(str(path / "depot_tools/ensure_bootstrap"), cwd=path / "depot_tools", env=env)
     build_dir = source / "out/WinMuxControl"
     build_dir.mkdir(parents=True, exist_ok=True)
     args = (CONFIG / "args.gn").read_bytes()

@@ -5,5 +5,8 @@ target_cpu = "arm64"
 symbol_level = 1
 is_chrome_branded = false
 use_remoteexec = false
+# Apple's linker supports the arm64e.x1 TAPI targets in the Xcode 27 SDK.
+# Use the same supported native arm64 linker for control and alpha builds.
+use_lld = false
 # Retain upstream sandbox, site isolation, media and extension defaults.
 # No --no-sandbox, disabled isolation, mock keychain, or hidden-page foregrounding.
