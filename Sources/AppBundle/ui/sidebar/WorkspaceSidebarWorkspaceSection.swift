@@ -173,6 +173,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return
         }
         switch payload {
+            case .surface(let id): actions.send(.moveSurface(id, toWorkspace: workspace.name))
             case .window(let windowId):
                 actions.send(.moveWindow(windowId, toWorkspace: workspace.name))
             case .tabGroup(let representativeWindowId):
@@ -184,6 +185,7 @@ extension WorkspaceSidebarWorkspaceSection {
 @MainActor
 private func workspaceSidebarPayload(_ payload: WorkspaceSidebarDragPayload, comesFromWorkspace workspaceName: String) -> Bool {
     switch payload {
+        case .surface: return false
         case .window(let windowId):
             return Window.get(byId: windowId)?.nodeWorkspace?.name == workspaceName
         case .tabGroup(let representativeWindowId):
@@ -441,6 +443,8 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
+            case .surface, .surfaceGroup:
+                WorkspaceSidebarSurfaceTreeView(item: item, actions: actions)
             case .browserTab(let tab):
                 Button { actions.send(.selectSurface(tab.surfaceID)) } label: {
                     HStack(spacing: 6) {

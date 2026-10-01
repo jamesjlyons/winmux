@@ -1,3 +1,4 @@
+import WorkspaceCore
 import Foundation
 import UniformTypeIdentifiers
 
@@ -6,11 +7,13 @@ let workspaceSidebarTabGroupDragPrefix = "tab-group:"
 let workspaceSidebarDragPayloadType = UTType(exportedAs: "dev.winmux.sidebar-drag-payload")
 
 enum WorkspaceSidebarDragPayload: Equatable, Sendable {
+    case surface(SurfaceID)
     case window(UInt32)
     case tabGroup(UInt32)
 
     var encodedValue: String {
         switch self {
+            case .surface(let id): "surface:\(id.description)"
             case .window(let windowId):
                 "\(workspaceSidebarWindowDragPrefix)\(windowId)"
             case .tabGroup(let representativeWindowId):
@@ -19,7 +22,9 @@ enum WorkspaceSidebarDragPayload: Equatable, Sendable {
     }
 
     init?(encodedValue: String) {
-        if encodedValue.hasPrefix(workspaceSidebarWindowDragPrefix),
+        if encodedValue.hasPrefix("surface:"), let id = SurfaceID(string: String(encodedValue.dropFirst(8))) {
+            self = .surface(id)
+        } else if encodedValue.hasPrefix(workspaceSidebarWindowDragPrefix),
            let rawValue = UInt32(encodedValue.dropFirst(workspaceSidebarWindowDragPrefix.count)) {
             self = .window(rawValue)
         } else if encodedValue.hasPrefix(workspaceSidebarTabGroupDragPrefix),

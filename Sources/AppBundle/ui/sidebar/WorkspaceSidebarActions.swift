@@ -560,6 +560,8 @@ func workspaceSidebarFallbackWorkspaceName(forSurfaceID surfaceID: SurfaceID) ->
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
+                case .surface, .surfaceGroup:
+                    if item.surfaceIDs.contains(surfaceID) { return workspace.name }
                 case .browserTab(let tab):
                     if tab.surfaceID == surfaceID { return tab.workspaceName }
                 case .window(let window) where window.surfaceID == surfaceID:
@@ -598,6 +600,8 @@ func workspaceSidebarFallbackWorkspaceName(for windowId: UInt32) -> String? {
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
+                case .surface, .surfaceGroup:
+                    if let window = Window.get(byId: windowId), item.surfaceIDs.contains(window.surfaceID) { return workspace.name }
                 case .browserTab:
                     continue
                 case .window(let window) where window.windowId == windowId:
@@ -753,5 +757,42 @@ private func commitActiveWorkspaceSidebarDragIfPossible() -> Bool {
             return true
         case .monitor:
             return false
+    }
+}
+
+
+@MainActor
+func moveSurfaceFromSidebar(_ id: SurfaceID, toWorkspace name: String) {
+    runWorkspaceSidebarSession {
+        guard let workspace = Workspace.existing(byName: name) else { return }
+        moveSidebarSurface(id, to: workspace)
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+func moveSurfaceToNewWorkspaceFromSidebar(_ id: SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String) {
+    runWorkspaceSidebarSession {
+        guard BrowserWorkspaceController.shared.isAvailable(id) else { return }
+        let monitor = workspaceSidebarTargetMonitor(scopeId: monitorScopeId,
+            fallbackWindow: Window.get(bySurfaceID: id), fallbackPoint: mouseLocation)
+        let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: monitor)
+        moveSidebarSurface(id, to: workspace)
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+private func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace) {
+    switch id {
+    case .browserTab:
+        BrowserWorkspaceController.shared.moveBrowserSurface(id, to: workspace.name)
+    case .nativeWindow:
+        // Resolve the durable ID inside this session, never a previously captured
+        // numeric window number which may now belong to a different application.
+        guard let window = Window.get(bySurfaceID: id), window.isBound else { return }
+        syncClosedWindowsCacheToCurrentWorld()
+        suppressPostDragAxObserverEvents(for: [window.windowId])
+        applySidebarWorkspaceMove(sourceNode: window, sourceWindow: window, targetWorkspace: workspace)
     }
 }

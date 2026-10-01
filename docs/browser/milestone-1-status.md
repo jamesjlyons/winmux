@@ -112,18 +112,17 @@ the live helper or reads signed-in browser UI.
 
 The real sidebar now shows and operates Chromium tabs in the explicitly isolated
 preview described below. The installed browser/helper have not been upgraded,
-and a combined native-window manager is not yet activated.
+and native activation has now been verified against a launch-bound synthetic fixture.
 
-1. Verify the explicit isolated native-management activation described below
-   once the user completes macOS's protected permission prompt. The config/socket/
-   session separation, ownership checks, host reconciliation and shared native
-   focus clock are implemented. Do not repeat the pending password request.
+1. macOS approval is granted and isolated native/browser switching passed. The
+   config/socket/session separation, ownership checks, host reconciliation and
+   shared native focus clock are implemented. No permission request remains.
    Existing native keyboard/gesture traversal still enumerates native windows;
    traversal across mixed stacks belongs to the generalized model below.
 2. Generalize the layout tree, drag/drop, groups and split hosts to accept both
-   surface kinds. Add typed surface commands while keeping native numeric CLI
-   compatibility. Native trees/drag still use `Window`; browser rows currently
-   append to their assigned workspace, and placement is only in memory.
+   surface kinds. The alpha sidebar now uses the shared recursive SurfaceTree
+   described below, with typed moves and mixed groups. Native geometry and global
+   traversal still use `Window`; shared organization is only in memory.
 3. Implement owner host geometry, visibility and tab transfer for mixed stacks
    and splits, then persist shared placements without copying browser sessions.
 
@@ -238,3 +237,49 @@ rejection, authoritative inventory after recovery, **17.03 seconds** of stabilit
 exit 0 and test-service cleanup. The enrolled helper identity stayed unchanged.
 This preserves transport correctness; it does not satisfy the pending live
 native-window proof.
+
+
+## Permission granted and shared sidebar tree — 2026-10-01
+
+- The user confirmed macOS approval. `alpha-native-3` then reached **Native
+  workspace ready (isolated state)**. Computer Use selected both launch-bound
+  synthetic native windows and both fresh local browser tabs. Native key-window
+  notifications and Chromium's selected tab confirmed the owner transitions.
+  This resolves the earlier protected-permission blocker; no further approval
+  request is pending. It does not establish input-ready latency.
+- `SurfaceTree` now gives the alpha sidebar one recursive organization for native
+  and browser IDs, with reorder, grouping/ungrouping, root moves, removal pruning
+  and workspace merging. Owner refreshes preserve mixed order; temporary browser
+  disconnects retain placement, and confirmed owner removal prunes it. Profile
+  UUIDs remain part of browser identity. No fake native windows are created.
+- The actual alpha sidebar renders both kinds through the same row and drag
+  payload. It exposes Move Earlier/Later, Group with Selected Item, Ungroup Items,
+  typed moves to existing/new workspace headers, and owner-specific Close. Search
+  and search selection recurse into mixed groups. Native numeric CLI and the
+  standalone sidebar remain on their existing paths.
+- Browser-only workspaces count as occupied during lifecycle/sidebar decisions.
+  Moving workspace contents to a deletion fallback also moves browser references
+  and shared organization. Native move dispatch resolves the durable ID inside
+  the session so a recycled native window number cannot redirect the operation.
+- The signed **alpha-tree-1** passed live Computer Use grouping of **WinMux Native
+  One + WinMux Sidebar Two**, reordering those children, selecting the browser tab
+  (inventory revision 5), selecting the native window (key-window notification),
+  and ungrouping with all four original items still present. A screenshot is
+  retained with the evidence. Physical dragging and cross-workspace moves were
+  not exercised in this UI run; their typed payload/model paths are implemented.
+- **734 native regression tests, 17 WorkspaceCore tests, 5 bridge tests and 35
+  Python checks pass.** The new package passes deep/strict signature verification
+  and its native source hashes match. Both isolated test browsers exited 0,
+  temporary services were removed and fixtures were stopped. Installed alpha
+  PID 33776 and enrolled transport helper PID 17212 stayed unchanged.
+- These are **sidebar organization groups**, not yet mixed pane layouts. The
+  native geometry tree remains native-only; browser host geometry/visibility,
+  tab transfer, mixed splits, global mixed keyboard/gesture traversal and durable
+  shared placement persistence are the next work. Existing native tab-group
+  membership is not yet imported into the new sidebar organization. Normal
+  Chromium controls remain available. Performance and extension work stay deferred.
+
+[Verified evidence](evidence/2026-10-01-mixed-sidebar-tree.json) ·
+[Actual mixed-sidebar screenshot](evidence/2026-10-01-mixed-sidebar-tree.jpeg).
+Current staging app: `.local/browser/packages/alpha-tree-1/WinMux Browser Alpha.app`.
+It has not replaced the installed application or its enrolled helper.

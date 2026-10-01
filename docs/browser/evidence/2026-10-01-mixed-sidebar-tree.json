@@ -1,0 +1,118 @@
+{
+  "scope": "live_native_browser_selection_and_shared_sidebar_organization",
+  "captured_utc": "2026-10-01T21:59:29.598059+00:00",
+  "permission": {
+    "user_confirmed": true,
+    "runtime_ready_observed": true,
+    "helper_log": ".local/browser/native-ui-test-2/helper.log"
+  },
+  "native_browser_switching": {
+    "package": "alpha-native-3",
+    "synthetic_native_fixture_pid": 53194,
+    "native_key_window_events": [
+      {
+        "key_changes": 1,
+        "title": "WinMux Native Two",
+        "window_id": 3679
+      },
+      {
+        "key_changes": 2,
+        "title": "WinMux Native One",
+        "window_id": 3677
+      },
+      {
+        "key_changes": 3,
+        "title": "WinMux Native Two",
+        "window_id": 3679
+      }
+    ],
+    "browser_selected_tab_observed": [
+      "WinMux Sidebar One",
+      "WinMux Sidebar Two"
+    ],
+    "browser_inventory_revision_after_switch": 5,
+    "sidebar_native_host_duplicates_observed": false,
+    "result": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.e55d8987-899e-4008-8fe9-bbbcc6002ceb",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-native-3/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 53194,
+      "browser_pid": 53207,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "fixture_stopped": true
+  },
+  "limits": [
+    "Key-window notification and Chromium selection do not establish input-ready latency.",
+    "Groups organize sidebar leaves; native geometry still uses the existing native tree.",
+    "Browser pane geometry, visibility, tab transfer, mixed splits, global mixed keyboard traversal and durable organization remain pending.",
+    "Existing installed browser and signed-in compatibility profile are preserved; no performance or extension qualification was resumed."
+  ],
+  "mixed_tree_ui": {
+    "package": "alpha-tree-1",
+    "native_ready": true,
+    "fixture_pid": 55110,
+    "browser_pid": 55210,
+    "group_created": [
+      "WinMux Native One",
+      "WinMux Sidebar Two"
+    ],
+    "group_reordered": [
+      "WinMux Sidebar Two",
+      "WinMux Native One"
+    ],
+    "browser_selection_inventory_revision": 5,
+    "native_return": {
+      "key_window": "WinMux Native One",
+      "key_changes": 4,
+      "window_id": 3750
+    },
+    "ungroup_preserved_all_four_items": true,
+    "screenshot": "docs/browser/evidence/2026-10-01-mixed-sidebar-tree.jpeg",
+    "physical_drag_tested": false,
+    "cross_workspace_moves_live_tested": false,
+    "fixture_stopped": true,
+    "result": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.5fbc28e8-9d9d-4924-964a-d6172d17dd75",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-tree-1/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 55110,
+      "browser_pid": 55210,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    }
+  },
+  "checks": {
+    "native_regression_tests": 734,
+    "native_regression_failures": 0,
+    "workspace_core_tests": 17,
+    "bridge_tests": 5,
+    "python_tests": 35,
+    "logs": [
+      ".local/browser/surface-tree-regression-2.log",
+      ".local/browser/surface-tree-core-final.log",
+      ".local/browser/surface-tree-python.log"
+    ]
+  },
+  "package": {
+    "path": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-tree-1/WinMux Browser Alpha.app",
+    "verified": true,
+    "notarized": false,
+    "manifest_sha256": "b9c5746df624c36ea3ffa7fe39c0c3969b465d3c02904f22024b6d59a719a1d5",
+    "helper_sha256": "591b833e3d99e084463fe209c837327082067c4f22591667c9c6f641d33b4200",
+    "native_sources_match": true
+  },
+  "preserved_processes": {
+    "installed_browser_pid": 33776,
+    "original_enrolled_helper_pid": 17212
+  }
+}

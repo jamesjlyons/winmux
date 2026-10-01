@@ -62,6 +62,11 @@ private func workspaceSidebarSearchResultItem(
     terms: [String],
 ) -> WorkspaceSidebarItemViewModel? {
     switch item.kind {
+        case .surface(let surface):
+            return workspaceSidebarSearchTextMatches([surface.title, surface.appName, workspace.displayName, workspace.name, projectName], terms: terms) ? item : nil
+        case .surfaceGroup(let id, let children):
+            let matches = children.compactMap { workspaceSidebarSearchResultItem($0, workspace: workspace, projectName: projectName, terms: terms) }
+            return matches.isEmpty ? nil : .init(kind: .surfaceGroup(id, matches))
         case .browserTab(let tab):
             return workspaceSidebarSearchTextMatches(
                 [tab.title, "WinMux Browser", workspace.displayName, workspace.name, projectName], terms: terms) ? item : nil

@@ -19,7 +19,7 @@ func retainedEmptyWorkspaceId(in scope: WorkspaceScope, minimizedWorkspaceNames:
     let orderedWorkspaces = orderedWorkspaces(in: scope)
     let minimizedNames = minimizedWorkspaceNames ?? workspaceNamesWithOwnedMinimizedWindows()
     let ordinaryEmptyWorkspaces = orderedWorkspaces.filter {
-        $0.isEffectivelyEmpty && !minimizedNames.contains($0.name) && !$0.isConfiguredPersistent
+        !BrowserWorkspaceController.shared.containsBrowserItems(in: $0.name) && $0.isEffectivelyEmpty && !minimizedNames.contains($0.name) && !$0.isConfiguredPersistent
     }.sorted {
         if $0.lifecycle != $1.lifecycle {
             return $0.lifecycle == .durable

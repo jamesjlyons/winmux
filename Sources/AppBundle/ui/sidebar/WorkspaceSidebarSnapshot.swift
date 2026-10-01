@@ -1,3 +1,4 @@
+import Foundation
 import CoreGraphics
 import WorkspaceCore
 
@@ -72,6 +73,12 @@ enum WorkspaceSidebarAction: Equatable {
     case selectWindow(UInt32)
     case selectSurface(SurfaceID)
     case closeSurface(SurfaceID)
+    case reorderSurface(SurfaceID, earlier: Bool)
+    case moveSurfaceBefore(SurfaceID, SurfaceID)
+    case groupSurfaceWithSelection(SurfaceID)
+    case ungroupSurfaces(UUID)
+    case moveSurface(SurfaceID, toWorkspace: String)
+    case moveSurfaceToNewWorkspace(SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String)
     case selectProject(WorkspaceProjectId)
     case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject

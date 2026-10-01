@@ -11,7 +11,8 @@ func orderedUserFacingWorkspaces(in projectId: WorkspaceProjectId, focusedWorksp
 @MainActor
 func workspaceHasSidebarVisibleWindows(_ workspace: Workspace) -> Bool {
     !workspace.rootTilingContainer.isEffectivelyEmpty ||
-        !workspace.floatingWindows.isEmpty
+        !workspace.floatingWindows.isEmpty ||
+        BrowserWorkspaceController.shared.containsBrowserItems(in: workspace.name)
 }
 
 @MainActor
@@ -34,7 +35,8 @@ func workspaceNamesWithOwnedMinimizedWindows() -> Set<String> {
 
 @MainActor
 func workspaceHasLifecycleWindows(_ workspace: Workspace) -> Bool {
-    !workspace.isEffectivelyEmpty || !workspaceOwnedMinimizedWindows(workspace).isEmpty
+    !workspace.isEffectivelyEmpty || !workspaceOwnedMinimizedWindows(workspace).isEmpty ||
+        BrowserWorkspaceController.shared.containsBrowserItems(in: workspace.name)
 }
 
 @MainActor

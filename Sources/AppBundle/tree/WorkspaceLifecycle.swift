@@ -118,6 +118,7 @@ func closestWorkspaceForDeletion(
 @MainActor
 func moveWorkspaceContents(from source: Workspace, to target: Workspace) {
     guard source != target else { return }
+    BrowserWorkspaceController.shared.moveWorkspaceContents(from: source.name, to: target.name)
     for child in source.children {
         switch child.nodeCases {
             case .window(let window):

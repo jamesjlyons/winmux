@@ -46,15 +46,18 @@ final class BrowserNativeManagementTest: XCTestCase {
     }
 
     func testNativeCommandAndEmptyWorkspaceFenceBrowserIntent() {
-        let controller = BrowserWorkspaceController.shared, connection = UUID()
-        defer { controller.disconnected(connection) }
+        let controller = BrowserWorkspaceController.shared, connection = UUID(), epoch = UUID()
+        defer {
+            controller.received(.init(revision: 2, full: true, tabs: []), epoch: epoch, connection: connection)
+            controller.disconnected(connection)
+        }
         let tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         var requests: [BrowserActionRequest] = []
         var replies: [@MainActor (BrowserActionReply) -> Void] = []
         controller.connected(connection, processID: -1) { request, reply in requests.append(request); replies.append(reply) }
         controller.received(.init(revision: 1, full: true, tabs: [
             .init(surfaceID: tab, hostID: "host:1", title: "Synthetic", selected: true)
-        ]), epoch: UUID(), connection: connection)
+        ]), epoch: epoch, connection: connection)
         let native = TestWindow.new(id: 91, parent: focus.workspace.rootTilingContainer)
         XCTAssertTrue(native.focusWindow())
         XCTAssertEqual(controller.select(tab), .issued)

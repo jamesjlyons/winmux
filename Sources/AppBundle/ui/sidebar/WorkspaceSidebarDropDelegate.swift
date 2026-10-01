@@ -59,6 +59,7 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
 
     private func sendPreview(for payload: WorkspaceSidebarDragPayload) {
         switch payload {
+            case .surface: break
             case .window(let windowId):
                 actions.send(.previewWindowDrop(windowId, target: target))
             case .tabGroup(let representativeWindowId):

@@ -65,6 +65,18 @@ func handleWorkspaceSidebarAction(
             focusSurfaceFromSidebar(surfaceID)
         case .closeSurface(let surfaceID):
             BrowserWorkspaceController.shared.close(surfaceID)
+        case .reorderSurface(let id, let earlier):
+            BrowserWorkspaceController.shared.organize(id, earlier: earlier)
+        case .moveSurfaceBefore(let id, let target):
+            BrowserWorkspaceController.shared.organize(id, before: target)
+        case .groupSurfaceWithSelection(let id):
+            BrowserWorkspaceController.shared.organize(id, groupWithSelection: true)
+        case .ungroupSurfaces(let id):
+            BrowserWorkspaceController.shared.ungroup(id)
+        case .moveSurface(let id, let workspace):
+            moveSurfaceFromSidebar(id, toWorkspace: workspace)
+        case .moveSurfaceToNewWorkspace(let id, let project, let scope):
+            moveSurfaceToNewWorkspaceFromSidebar(id, projectId: project, monitorScopeId: scope)
         case .selectProject(let projectId):
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"

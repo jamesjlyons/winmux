@@ -10,6 +10,8 @@ public final class BrowserWorkspaceController {
     let focusCoordinator = SurfaceFocusCoordinator()
     private var sessions: [UUID: BrowserSurfaceSession] = [:]
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
+    private(set) var surfaceTree = SurfaceTree()
+    var usesSurfaceTree = false
     private var placements: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
@@ -45,7 +47,12 @@ public final class BrowserWorkspaceController {
     public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID) {
         guard let session = sessions[connection] else { return }
         if session.epoch == nil { session.connect(epoch: epoch) }
+        let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
+        for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
+            placements.removeValue(forKey: id)
+            surfaceTree.remove(id)
+        }
         let workspace = previewWindow == nil ? focus.workspace.name : "browser-alpha"
         for id in session.inventory.tabs.keys where placements[id] == nil { placements[id] = workspace }
         scheduleRefresh()
@@ -65,6 +72,7 @@ public final class BrowserWorkspaceController {
     }
 
     func adoptNativeWorkspace() {
+        usesSurfaceTree = BrowserNativeManagement.lease != nil
         for (id, workspace) in placements where Workspace.existing(byName: workspace) == nil {
             placements[id] = focus.workspace.name
         }
@@ -159,8 +167,84 @@ public final class BrowserWorkspaceController {
     }
 
     func close(_ id: SurfaceID) {
-        guard let session = owner(of: id) else { return }
-        _ = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestClose()
+        if case .nativeWindow = id {
+            _ = NativeWindowSurfaceAdapter(surfaceID: id).requestClose()
+        } else if let session = owner(of: id) {
+            _ = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestClose()
+        }
+    }
+
+    func organizedRows(native: [WorkspaceSidebarItemViewModel], in workspace: String) -> [WorkspaceSidebarItemViewModel] {
+        guard usesSurfaceTree else { return native + rows(in: workspace) }
+        var available: [SurfaceID: WorkspaceSidebarItemViewModel] = [:]
+        var ordered: [SurfaceID] = []
+        func collect(_ item: WorkspaceSidebarItemViewModel) {
+            switch item.kind {
+            case .window(let window):
+                ordered.append(window.surfaceID)
+                available[window.surfaceID] = .init(kind: .surface(.init(surfaceID: window.surfaceID,
+                    title: window.title ?? window.appName, appName: window.appName, isFocused: window.isFocused)))
+            case .browserTab(let tab):
+                ordered.append(tab.surfaceID)
+                available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
+                    title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused)))
+            case .tabGroup(let group): group.tabs.forEach { collect(.init(kind: .window($0))) }
+            case .surface, .surfaceGroup: break
+            }
+        }
+        (native + rows(in: workspace)).forEach(collect)
+        surfaceTree.reconcile(ordered, in: workspace,
+                              retaining: Set(placements.filter { $0.value == workspace }.map(\.key)))
+        func project(_ node: SurfaceTreeNode) -> WorkspaceSidebarItemViewModel? {
+            switch node {
+            case .surface(let id): return available[id]
+            case .group(let id, let children):
+                let visible = children.compactMap(project)
+                return visible.isEmpty ? nil : .init(kind: .surfaceGroup(id, visible))
+            }
+        }
+        return (surfaceTree.roots[workspace] ?? []).compactMap(project)
+    }
+
+    /// Organization never implies host movement or completed focus. Native owners
+    /// are revalidated at dispatch; browser profile identity is preserved.
+    func organize(_ id: SurfaceID, before target: SurfaceID? = nil, earlier: Bool? = nil, groupWithSelection: Bool = false) {
+        guard usesSurfaceTree, isAvailable(id) else { return }
+        if let target {
+            guard isAvailable(target) else { return }
+            _ = surfaceTree.move(id, before: target)
+        } else if let earlier { _ = surfaceTree.reorder(id, earlier: earlier) }
+        else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
+            _ = surfaceTree.group(id, with: target)
+        }
+        scheduleRefresh()
+    }
+
+    func ungroup(_ id: UUID) { _ = surfaceTree.ungroup(id); scheduleRefresh() }
+
+    func isAvailable(_ id: SurfaceID) -> Bool {
+        switch id {
+        case .nativeWindow: Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil
+        case .browserTab: owner(of: id) != nil
+        }
+    }
+
+    func moveBrowserSurface(_ id: SurfaceID, to workspace: String) {
+        guard usesSurfaceTree, owner(of: id) != nil else { return }
+        placements[id] = workspace
+        _ = surfaceTree.moveToRoot(id, in: workspace)
+        scheduleRefresh()
+    }
+
+    func containsBrowserItems(in workspace: String) -> Bool {
+        usesSurfaceTree && placements.values.contains(workspace)
+    }
+
+    func moveWorkspaceContents(from source: String, to target: String) {
+        guard source != target else { return }
+        for (id, workspace) in placements where workspace == source { placements[id] = target }
+        surfaceTree.mergeWorkspace(source, into: target)
+        scheduleRefresh()
     }
 
     private func scheduleRefresh() {
@@ -182,11 +266,16 @@ public final class BrowserWorkspaceController {
         window.title = "WinMux Browser Sidebar"
         window.isReleasedWhenClosed = false
         previewWindow = window
+        usesSurfaceTree = true
         window.contentView = NSHostingView(rootView: BrowserSidebarPreviewView(state: previewState,
             actions: WorkspaceSidebarActions(send: { [weak self] action in
                 switch action {
                     case .selectSurface(let id): _ = self?.select(id)
                     case .closeSurface(let id): self?.close(id)
+                    case .reorderSurface(let id, let earlier): self?.organize(id, earlier: earlier)
+                    case .moveSurfaceBefore(let id, let target): self?.organize(id, before: target)
+                    case .groupSurfaceWithSelection(let id): self?.organize(id, groupWithSelection: true)
+                    case .ungroupSurfaces(let id): self?.ungroup(id)
                     default: break
                 }
             })))
@@ -205,7 +294,7 @@ public final class BrowserWorkspaceController {
         snapshot.workspaces = [.init(name: "browser-alpha", projectId: workspaceProjectDefaultId,
             displayName: "Browser tabs", sidebarLabel: "", isGeneratedName: false,
             monitorScopeId: workspaceSidebarDefaultScopeId, monitorName: "", isFocused: true, isVisible: true,
-            items: rows(in: "browser-alpha"))]
+            items: organizedRows(native: [], in: "browser-alpha"))]
         previewState.snapshot = snapshot
     }
 }

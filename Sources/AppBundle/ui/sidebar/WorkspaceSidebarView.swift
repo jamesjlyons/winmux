@@ -919,6 +919,8 @@ extension WorkspaceSidebarView {
                         },
                         onDropPayload: { payload in
                             switch payload {
+                                case .surface(let id):
+                                    actions.send(.moveSurfaceToNewWorkspace(id, projectId: projectId, monitorScopeId: createMonitorScopeId))
                                 case .window(let windowId):
                                     actions.send(.moveWindowToNewWorkspace(
                                         windowId,

@@ -106,4 +106,63 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
     private func record(_ id: SurfaceID) -> BrowserTabRecord {
         .init(surfaceID: id, hostID: "host:1", title: "Synthetic web tab", selected: true, hostWindowID: 91)
     }
+
+    func testMixedOrganizationUsesLiveOwnersAndSurvivesDisconnect() async throws {
+        let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID()
+        controller.usesSurfaceTree = true
+        let tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [record(tab)]), epoch: epoch, connection: connection)
+        let native = TestWindow.new(id: 41, parent: focus.workspace.rootTilingContainer)
+        let nativeRow = WorkspaceSidebarItemViewModel(kind: .window(await makeWorkspaceSidebarWindowViewModel(
+            for: native, workspaceName: focus.workspace.name, currentFocus: focus)))
+        _ = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
+        XCTAssertEqual(controller.select(native.surfaceID), .issued)
+        controller.organize(tab, groupWithSelection: true)
+        var items = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
+        XCTAssertEqual(items.count, 1)
+        guard case .surfaceGroup(let group, _) = items[0].kind else { return XCTFail("No mixed group") }
+        XCTAssertEqual(items[0].surfaceIDs, [native.surfaceID, tab])
+        controller.disconnected(connection)
+        items = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
+        XCTAssertEqual(items.flatMap(\.surfaceIDs), [native.surfaceID])
+        let reconnect = UUID()
+        controller.connected(reconnect, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 2, full: true, tabs: [record(tab)]), epoch: UUID(), connection: reconnect)
+        items = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
+        XCTAssertEqual(items[0].id, "surface-group:\(group)")
+        XCTAssertEqual(items[0].surfaceIDs, [native.surfaceID, tab])
+        controller.close(tab)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: tab), focus.workspace.name, "Issued close cannot remove placement")
+    }
+
+    func testUnifiedSearchAndTypedDragIncludeBothKindsInsideGroups() {
+        let a = SurfaceID.nativeWindow(UUID()), b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let item = WorkspaceSidebarItemViewModel(kind: .surfaceGroup(UUID(), [
+            .init(kind: .surface(.init(surfaceID: a, title: "Native fixture", appName: "Fixture", isFocused: false))),
+            .init(kind: .surface(.init(surfaceID: b, title: "Synthetic browser", appName: "WinMux Browser", isFocused: true))),
+        ]))
+        let workspace = WorkspaceSidebarWorkspaceViewModel(name: "mixed", projectId: workspaceProjectDefaultId,
+            displayName: "Mixed", sidebarLabel: "", isGeneratedName: false, monitorScopeId: "test", monitorName: nil,
+            isFocused: true, isVisible: true, items: [item])
+        let filtered = workspaceSidebarFilteredWorkspacesByProject([workspaceProjectDefaultId: [workspace]], projects: [], query: "browser")
+        XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: filtered[workspaceProjectDefaultId] ?? []), [.surface(b)])
+        for id in [a, b] {
+            XCTAssertEqual(WorkspaceSidebarDragPayload(encodedValue: WorkspaceSidebarDragPayload.surface(id).encodedValue), .surface(id))
+        }
+        XCTAssertNil(WorkspaceSidebarDragPayload(encodedValue: "surface:native:41"))
+    }
+
+    func testClosedOrReusedNativeLeafCannotBeReorganized() async {
+        let controller = BrowserWorkspaceController()
+        controller.usesSurfaceTree = true
+        let native = TestWindow.new(id: 41, parent: focus.workspace.rootTilingContainer)
+        let row = await makeWorkspaceSidebarWindowViewModel(for: native, workspaceName: focus.workspace.name, currentFocus: focus)
+        _ = controller.organizedRows(native: [.init(kind: .window(row))], in: focus.workspace.name)
+        native.unbindFromParent()
+        _ = TestWindow.new(id: 41, parent: focus.workspace.rootTilingContainer)
+        let before = controller.surfaceTree
+        controller.organize(native.surfaceID, earlier: false)
+        XCTAssertEqual(controller.surfaceTree, before)
+    }
 }
