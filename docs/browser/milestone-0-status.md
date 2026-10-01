@@ -6,6 +6,25 @@ qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started, as required by the approved compatibility gate.
 
+## Preliminary helper resource observation — 2026-10-01
+
+- A read-only collector observed the already enrolled transport helper for
+  300.003 seconds after a 15-second settling period, sampling every five seconds.
+  Its physical footprint stayed at **3,981,816 bytes (3.80 MiB)**. Kernel CPU
+  counters showed no increase during the window. Apple's `footprint` utility
+  independently reported the same byte count.
+- This is one transport-only helper on the 16 GiB development Mac. It does not
+  qualify the full workspace workload, browser process tree, startup, switching,
+  energy, or integration overhead against the control. No app UI was operated
+  by the collector, and it did not read browser profiles or process arguments.
+- The collector converts Mach CPU ticks using the system timebase (125/3 here).
+  A short self-process cross-check agreed with Python's process CPU clock within
+  0.023%. It rejects process replacement, counter regression, system sleep,
+  excessive sample gaps and incomplete windows. Nineteen Python tests pass,
+  including six resource-measurement checks.
+
+[Raw samples, package provenance and validation](evidence/2026-10-01-helper-resources.json).
+
 ## Required extensions installed; account validation pending — 2026-10-01
 
 - The verified `alpha-blocking-1` package is also installed at
@@ -260,10 +279,10 @@ files were changed, so the existing native application's suite was not rerun.
 | Signed top-level app and embedded helper | Private alpha packaged; full signature verification passed |
 | Authenticated helper communication | Signed browser and embedded helper exchange verified, including restart and wrong-client rejection |
 | Direct Chromium rendering | Control and signed alpha launch; performance not qualified |
-| Required extension installation, authentication, usage, profiles, updates, restart | Not tested |
-| 1Password Mac-app / Touch ID integration | Not tested; user involvement needed once app is ready |
-| Network interception and rendered cosmetic proof | Native engine exercised; Chromium paths pending |
-| Switching, startup, memory, energy and browser benchmark baseline | Not measured |
+| Required extension installation, authentication, usage, profiles, updates, restart | Official extensions installed/enabled; functional qualification in progress |
+| 1Password Mac-app / Touch ID integration | Browser account signed in; desktop Add Browser verification pending |
+| Network interception and rendered cosmetic proof | Signed browser and untouched control comparison passed |
+| Switching, startup, memory, energy and browser benchmark baseline | Preliminary helper-only CPU/footprint measured; matched browser reports pending |
 
 ## Historical storage blocker — resolved on the second Mac
 

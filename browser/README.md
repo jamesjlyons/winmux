@@ -113,6 +113,25 @@ Native helper and eventual browser identities are respectively
 `Contents/Helpers/`. `HelperRegistration` wraps SMAppService; enrollment and
 permission attribution still require the actual signed browser package.
 
+## Observe the running native helper
+
+The read-only macOS collector requires a PID, exact executable and verified
+package manifest. It samples only that process and refuses to overwrite an
+existing report. It does not start apps, query accounts or inspect profiles.
+
+```sh
+python3 browser/tools/measure_helper.py --pid HELPER_PID \
+  --executable '/path/to/WinMux Browser Alpha.app/Contents/Helpers/WinMuxWorkspaceHelper' \
+  --package-manifest /path/to/winmux-package-manifest.json \
+  --output .local/browser/new-helper-observation.json
+```
+
+The default is five minutes after a 30-second settling delay. CPU uses elapsed
+kernel counters as a percentage of one core; physical footprint is distinct
+from resident size. Changed process identity, sleep, counter regression and
+incomplete sampling invalidate the series. A valid observation still does not
+qualify Milestone 0 or represent a full browser/control comparison.
+
 ## Qualification
 
 See [the current evidence and blockers](../docs/browser/milestone-0-status.md).

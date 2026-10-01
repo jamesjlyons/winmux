@@ -1,0 +1,602 @@
+{
+  "scope": "preliminary_single_helper_resource_observation",
+  "milestone_0_qualified": false,
+  "workspace_workload_qualified": false,
+  "workload": "Existing transport helper, no window management or injected load",
+  "recorded_utc": "2026-10-01T17:45:14.102726+00:00",
+  "pid": 17212,
+  "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-transport-3/WinMux Browser Alpha.app/Contents/Helpers/WinMuxWorkspaceHelper",
+  "executable_sha256": "444ff9acf612a921eeeb0e2ba5140232c66bebf4f0e740054d4814fbfc966730",
+  "package_manifest_sha256": "7ae6900abff44910e1502211fe8bacad7a2bd77164080447acd5f30f377d822f",
+  "collector_sha256": "1354c7b497c05d09bde3018ed56bf44dcd0438ef13d4faf19f1336b00b1a70bf",
+  "hardware": {
+    "model": "MacBookPro18,1",
+    "memory_bytes": 17179869184,
+    "os": "27.0.1",
+    "architecture": "arm64"
+  },
+  "mach_timebase": {
+    "numer": 125,
+    "denom": 3
+  },
+  "requested_seconds": 300.0,
+  "interval_seconds": 5.0,
+  "settle_seconds": 15.0,
+  "limits": [
+    "One process only; no browser tree or control comparison",
+    "No extension, startup, input, presentation or energy qualification",
+    "Footprint is sampled, not the lifetime peak; hardware is the 16 GiB development Mac",
+    "Settling waits without injecting work; it does not prove workload inactivity"
+  ],
+  "samples": [
+    {
+      "continuous_ns": 72562797641250,
+      "awake_ns": 49066983138875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72567801218833,
+      "awake_ns": 49071986712791,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72572804714458,
+      "awake_ns": 49076990213458,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72577808510291,
+      "awake_ns": 49081994012708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72582812872875,
+      "awake_ns": 49086998374708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72587813813500,
+      "awake_ns": 49091999310708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72592814639458,
+      "awake_ns": 49097000136875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72597818509541,
+      "awake_ns": 49102004005000,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72602826487666,
+      "awake_ns": 49107011988333,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72607831532541,
+      "awake_ns": 49112017027041,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72612836784000,
+      "awake_ns": 49117022280041,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72617840622333,
+      "awake_ns": 49122026115708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72622844174791,
+      "awake_ns": 49127029669000,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72627848509708,
+      "awake_ns": 49132034004291,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72632850782625,
+      "awake_ns": 49137036276625,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72637855923583,
+      "awake_ns": 49142041416958,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72642859760833,
+      "awake_ns": 49147045255583,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72647863488833,
+      "awake_ns": 49152048986875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72652867289125,
+      "awake_ns": 49157052782500,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72657872445916,
+      "awake_ns": 49162057939750,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72662877721166,
+      "awake_ns": 49167063214041,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72667881792083,
+      "awake_ns": 49172067285083,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72672883867541,
+      "awake_ns": 49177069360708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72677889217583,
+      "awake_ns": 49182074714833,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72682890347833,
+      "awake_ns": 49187075844541,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72687893660916,
+      "awake_ns": 49192079153875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72692896391208,
+      "awake_ns": 49197081888125,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72697900223041,
+      "awake_ns": 49202085719166,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72702905736583,
+      "awake_ns": 49207091241208,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72707911080833,
+      "awake_ns": 49212096588333,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72712913696250,
+      "awake_ns": 49217099189416,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72717914846041,
+      "awake_ns": 49222100344000,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72722917696000,
+      "awake_ns": 49227103193791,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72727922037125,
+      "awake_ns": 49232107534625,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72732926128500,
+      "awake_ns": 49237111625250,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72737930275541,
+      "awake_ns": 49242115774583,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72742934234458,
+      "awake_ns": 49247119744166,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72747935557291,
+      "awake_ns": 49252121056500,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72752943522958,
+      "awake_ns": 49257129029166,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72757947490000,
+      "awake_ns": 49262132986625,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72762952679750,
+      "awake_ns": 49267138173666,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72767957913625,
+      "awake_ns": 49272143409916,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72772962368041,
+      "awake_ns": 49277147868333,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72777967272041,
+      "awake_ns": 49282152783541,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72782972446083,
+      "awake_ns": 49287157943333,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72787976122958,
+      "awake_ns": 49292161633875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72792979412250,
+      "awake_ns": 49297164906833,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72797980018000,
+      "awake_ns": 49302165512583,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72802985175458,
+      "awake_ns": 49307170668875,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72807990503458,
+      "awake_ns": 49312176155416,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72812996971291,
+      "awake_ns": 49317182481833,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72817998608541,
+      "awake_ns": 49322184104958,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72823004248083,
+      "awake_ns": 49327189745416,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72828007751458,
+      "awake_ns": 49332193248916,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72833011087666,
+      "awake_ns": 49337196586583,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72838016243750,
+      "awake_ns": 49342201736541,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72843021560208,
+      "awake_ns": 49347207058708,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72848024850458,
+      "awake_ns": 49352210365541,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72853030875000,
+      "awake_ns": 49357216376291,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72858034921916,
+      "awake_ns": 49362220431208,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    },
+    {
+      "continuous_ns": 72862801013875,
+      "awake_ns": 49366986520250,
+      "cpu_ns": 32408291,
+      "physical_footprint_bytes": 3981816,
+      "resident_bytes": 3932160,
+      "process_start_ticks": 1030721827070,
+      "executable_uuid": "e56cfcf70e92305aa65c5f9e68082f31"
+    }
+  ],
+  "valid_series": true,
+  "problems": [],
+  "metrics": {
+    "elapsed_seconds": 300.003372625,
+    "cpu_seconds": 0.0,
+    "average_cpu_percent_one_core": 0.0,
+    "sampled_max_physical_footprint_bytes": 3981816,
+    "sampled_min_physical_footprint_bytes": 3981816
+  },
+  "validation": {
+    "python_tests_passed": 19,
+    "independent_footprint_utility_bytes": 3981816,
+    "self_process_cpu_crosscheck": {
+      "sampled_cpu_ns": 199756500,
+      "python_process_time_ns": 199712000,
+      "ratio": 1.0002228208620414
+    },
+    "clock_units_source": "https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/task.c",
+    "struct_layout": "Xcode 27 macOS SDK sys/resource.h: rusage_info_v0"
+  }
+}
