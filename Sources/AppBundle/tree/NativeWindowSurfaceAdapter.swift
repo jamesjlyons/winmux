@@ -10,7 +10,7 @@ struct NativeWindowSurfaceAdapter: SurfaceAdapter {
     func requestFocus() -> SurfaceActionOutcome {
         guard let window = Window.get(bySurfaceID: surfaceID),
               let target = window.toLiveFocusOrNil() else { return .unavailable }
-        _ = setFocus(to: target)
+        guard setFocus(to: target, recordSurfaceIntent: false) else { return .unavailable }
         window.nativeFocus()
         return .issued
     }

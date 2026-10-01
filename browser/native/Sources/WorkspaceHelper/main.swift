@@ -199,20 +199,48 @@ do {
     var service = SigningIdentity.serviceName
     var testReport: URL?
     var sidebarEnabled = false
+    var nativeState: URL?
+    var nativeProcessID: Int32?
     let arguments = CommandLine.arguments
     if arguments.count > 1 {
         let prefix = SigningIdentity.serviceName + ".test."
-        guard (arguments.count == 3 || (arguments.count == 4 && arguments[3] == "--sidebar-preview")), arguments[1].hasPrefix(prefix),
+        let nativeMode = (arguments.count == 5 || arguments.count == 7) && arguments[3] == "--manage-native"
+        guard (arguments.count == 3 || (arguments.count == 4 && arguments[3] == "--sidebar-preview") || nativeMode), arguments[1].hasPrefix(prefix),
               UUID(uuidString: String(arguments[1].dropFirst(prefix.count))) != nil,
               arguments[2].hasPrefix("/") else { throw NSError(domain: "WinMuxBrowser.TestService", code: 1) }
         service = arguments[1]
         testReport = URL(fileURLWithPath: arguments[2])
-        sidebarEnabled = arguments.count == 4
+        sidebarEnabled = arguments.count >= 4
+        if nativeMode {
+            guard arguments[4].hasPrefix("/") else { throw NSError(domain: "WinMuxBrowser.NativeState", code: 1) }
+            nativeState = URL(fileURLWithPath: arguments[4])
+            if arguments.count == 7 {
+                guard arguments[5] == "--native-process", let pid = Int32(arguments[6]), pid > 0 else {
+                    throw NSError(domain: "WinMuxBrowser.NativeProcess", code: 1)
+                }
+                nativeProcessID = pid
+            }
+        }
     }
 #if canImport(AppBundle)
+    let appDelegate = WinMuxApplicationDelegate()
     if sidebarEnabled {
         NSApplication.shared.setActivationPolicy(.accessory)
-        DispatchQueue.main.async { BrowserWorkspaceController.shared.showIsolatedSidebar() }
+        if let nativeState {
+            NSApplication.shared.delegate = appDelegate
+            let scopedPID = nativeProcessID
+            Task { @MainActor in
+                do {
+                    try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID)
+                    FileHandle.standardError.write(Data("Native workspace ready (isolated state).\n".utf8))
+                } catch {
+                    FileHandle.standardError.write(Data("Native workspace refused: \(error.localizedDescription)\n".utf8))
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+        } else {
+            DispatchQueue.main.async { BrowserWorkspaceController.shared.showIsolatedSidebar() }
+        }
     }
 #else
     guard !sidebarEnabled else { throw NSError(domain: "WinMuxBrowser.SidebarUnavailable", code: 1) }
@@ -222,11 +250,10 @@ do {
     listener.setConnectionCodeSigningRequirement(requirement)
     listener.delegate = delegate
     listener.resume()
-    // This M0 control-plane process intentionally does not start AX management:
-    // the existing WinMux may still own native windows during qualification.
+    // Enrollment is transport-only; native management requires explicit activation.
     withExtendedLifetime((listener, delegate)) {
 #if canImport(AppBundle)
-        if sidebarEnabled { NSApplication.shared.run(); return }
+        if sidebarEnabled { withExtendedLifetime(appDelegate) { NSApplication.shared.run() }; return }
 #endif
         RunLoop.current.run()
     }

@@ -18,6 +18,11 @@ final class RefreshFocusSyncTest: XCTestCase {
     }
 
     @MainActor
+    func testBrowserForegroundDoesNotRefocusTheOldNativeLeaf() {
+        XCTAssertFalse(shouldSyncFocusBackToMacOs(nativeFocused: nil, frontmostActivationPolicy: .regular, browserOwnsForeground: true))
+    }
+
+    @MainActor
     func testShouldSyncFocusBackToRegularWorkspaceWindow() {
         setUpWorkspacesForTests()
 

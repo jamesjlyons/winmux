@@ -22,6 +22,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--native-process", type=int,
+                        help="Explicitly activate isolated native management of ONLY this launch-bound fixture PID")
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     manifest = json.loads((app.parent / "winmux-package-manifest.json").read_text())
@@ -41,9 +43,14 @@ def main():
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
     service = browser_id + ".workspace.test." + str(uuid.uuid4())
+    helper_arguments = [str(helper), service, str(output / "helper.json"), "--sidebar-preview"]
+    if args.native_process is not None:
+        if args.native_process <= 0:
+            parser.error("Native fixture PID must be positive")
+        helper_arguments = [str(helper), service, str(output / "helper.json"), "--manage-native",
+                            str(output / "native-state"), "--native-process", str(args.native_process)]
     plist = output / "helper.plist"
-    plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": [str(helper), service,
-        str(output / "helper.json"), "--sidebar-preview"], "MachServices": {service: True},
+    plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": helper_arguments, "MachServices": {service: True},
         "RunAtLoad": True, "ProcessType": "Interactive",
         "StandardOutPath": str(output / "helper.log"), "StandardErrorPath": str(output / "helper.log")}))
     for name, title in [("one", "WinMux Sidebar One"), ("two", "WinMux Sidebar Two")]:
@@ -54,6 +61,9 @@ def main():
         (output / "one.html").as_uri(), (output / "two.html").as_uri()]
     result = {"scope": "isolated_live_sidebar", "service": service, "app": str(app), "completed": False,
               "limits": ["No native manager activation; mixed layouts and native input readiness not qualified"]}
+    if args.native_process is not None:
+        result.update(scope="isolated_native_browser_sidebar", native_fixture_pid=args.native_process,
+                      limits=["Native management restricted to the explicit fixture process; mixed layouts not qualified"])
     process, bootstrapped = None, False
     with (output / "browser.log").open("x") as log:
         try:

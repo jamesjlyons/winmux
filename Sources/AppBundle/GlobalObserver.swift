@@ -84,7 +84,10 @@ enum GlobalObserver {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
-            if isMouseDownEvent { TrackpadNavigationController.shared.cancelNavigation() }
+            if isMouseDownEvent {
+                TrackpadNavigationController.shared.cancelNavigation()
+                BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
+            }
             if isLeftMouseDownEvent {
                 Task { @MainActor in
                     await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()

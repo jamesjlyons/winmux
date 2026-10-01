@@ -26,7 +26,10 @@ private var normalizeLayoutReasonOverrideForTests: (@MainActor @Sendable (Window
 func shouldSyncFocusBackToMacOs(
     nativeFocused: Window?,
     frontmostActivationPolicy: NSApplication.ActivationPolicy?,
+    browserOwnsForeground: Bool = false,
 ) -> Bool {
+    if BrowserWorkspaceController.shared.holdsPendingBrowserFocus { return false }
+    if browserOwnsForeground { return false }
     if nativeFocused?.participatesInWorkspaceFocus == false {
         return false
     }
@@ -182,6 +185,7 @@ func runRefreshSessionBlocking(
                     if shouldSyncFocusBackToMacOs(
                         nativeFocused: nativeFocused,
                         frontmostActivationPolicy: frontmostActivationPolicy,
+                        browserOwnsForeground: BrowserWorkspaceController.shared.ownsForegroundBrowser,
                     ) {
                         let logicalFocused = focus.windowOrNil
                         if logicalFocused?.windowId != nativeFocused?.windowId {

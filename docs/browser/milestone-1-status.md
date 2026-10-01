@@ -114,12 +114,12 @@ The real sidebar now shows and operates Chromium tabs in the explicitly isolated
 preview described below. The installed browser/helper have not been upgraded,
 and a combined native-window manager is not yet activated.
 
-1. Add explicit native management activation with isolated configuration, socket
-   and session state, and an ownership check before running AppBundle's startup.
-   Normal helper launch remains transport-only; `--sidebar-preview` starts just
-   the sidebar in a uniquely named test service. It never starts AX management.
-   Reconcile any previously discovered host bindings before enabling native
-   layouts, and route keyboard/gesture selection through shared focus intent.
+1. Verify the explicit isolated native-management activation described below
+   once the user completes macOS's protected permission prompt. The config/socket/
+   session separation, ownership checks, host reconciliation and shared native
+   focus clock are implemented. Do not repeat the pending password request.
+   Existing native keyboard/gesture traversal still enumerates native windows;
+   traversal across mixed stacks belongs to the generalized model below.
 2. Generalize the layout tree, drag/drop, groups and split hosts to accept both
    surface kinds. Add typed surface commands while keeping native numeric CLI
    compatibility. Native trees/drag still use `Window`; browser rows currently
@@ -185,3 +185,56 @@ launches only fresh synthetic tabs and a uniquely named sidebar service. Use
 Computer Use for its UI; create `<new-dir>/stop` to cleanly remove the test session.
 It also stops automatically after fifteen minutes. This is a staging proof, not
 the daily-driver activation path.
+
+## Isolated native activation — 2026-10-01
+
+- The embedded helper now accepts explicit `--manage-native <state-directory>`
+  activation on a uniquely named staging service. Normal enrollment stays
+  transport-only, and `--sidebar-preview` stays free of native management.
+- Native startup uses a dedicated marked state directory, explicit configuration,
+  separate restart snapshot and a short path-specific Unix socket. It does not
+  import the original config, remove its socket, migrate its LaunchAgents, change
+  its login registration or toggle the standalone manager in debug builds.
+- An exclusive per-user lease refuses simultaneous alpha managers. A running
+  standalone WinMux is checked before startup and again after Accessibility
+  approval. A newly launched standalone manager revokes alpha mutation access;
+  alpha exits without restoring windows over that manager. An optional PID and
+  launch-date scope restricts discovery to a disposable native test process.
+- Authenticated browser ownership now removes previously discovered native leaves
+  without treating them as closed windows or focusing a replacement. Pending AX
+  placement/focus jobs are quarantined. Installed alpha browser windows are also
+  conservatively excluded before a bridge handshake.
+- Native command/keyboard/gesture selections now use the shared focus clock,
+  including selecting the previously focused native leaf and moving to an empty
+  workspace. Native selection dispatches before browser fence replies. A bounded
+  pending-focus hold prevents stale AX observations immediately undoing a browser
+  request; explicit pointer input clears it. This is not input-readiness proof.
+- Native refresh does not raise the old native leaf over a foreground browser.
+  Browser intent suppresses stale native sidebar highlights. Alpha gesture
+  selection bypasses the screenshot-based double-sided flip path.
+- The live test uses only the synthetic `WinMux Native Fixture` app and two fresh
+  local browser tabs. Its signed browser/helper authenticated, but native startup
+  reached macOS's protected Device Control and Data Access password prompt.
+  **Native/browser live selection is not yet verified.** The user has been asked
+  once to approve that prompt; do not read credentials or repeat the request.
+- Mixed trees, drag/drop, groups, split hosts, browser-host geometry and shared
+  placement persistence remain the next implementation work. Permission approval
+  blocks the live native proof, not this independent implementation. Performance
+  and extension checks remain deferred by the user's direction.
+
+The final staging app is `.local/browser/packages/alpha-native-3/WinMux Browser
+Alpha.app`; it passes deep/strict signing and its recorded native source hashes
+match this implementation. **731 native regression tests, 30 final targeted
+focus/gesture tests, 16 bridge/core tests and 35 Python checks pass.** The initial
+live attempt used package 1; its browser exited 0 and its unique service and
+synthetic fixture were removed while waiting for the protected approval. The
+installed browser and previously enrolled helper remain unchanged.
+
+[Native activation evidence and precise limits](evidence/2026-10-01-native-activation.json).
+
+The final package also passed a real signed **headless** browser/helper check:
+focus and repeated fences, close/repeated close, stale/foreign/conflicting request
+rejection, authoritative inventory after recovery, **17.03 seconds** of stability,
+exit 0 and test-service cleanup. The enrolled helper identity stayed unchanged.
+This preserves transport correctness; it does not satisfy the pending live
+native-window proof.

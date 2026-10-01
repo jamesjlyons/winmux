@@ -153,6 +153,7 @@ def package(args, identity, team, source):
     helper.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(native_build / "release/WinMuxWorkspaceHelper", helper)
     (helper_app / "Contents/Resources").mkdir()
+    shutil.copy2(ROOT / "resources/default-config.toml", helper_app / "Contents/Resources/default-config.toml")
     (helper_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
         "CFBundleIdentifier": HELPER_ID, "CFBundleName": "WinMux Workspace",
         "CFBundleDisplayName": "WinMux Workspace", "CFBundleExecutable": helper.name,
@@ -199,6 +200,7 @@ def package(args, identity, team, source):
                     for p in sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
                                     | set((ROOT / "Sources/Common").rglob("*.swift")))},
                   native_package_sha256=sha256(ROOT / "Package.swift"),
+                  default_config_sha256=sha256(ROOT / "resources/default-config.toml"),
                   package_tool_sha256=sha256(Path(__file__)))
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"app": str(app), "verified": True, "notarized": False}, indent=2))

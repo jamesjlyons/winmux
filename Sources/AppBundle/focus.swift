@@ -117,7 +117,12 @@ func replaceWorkspaceNameInFocusState(oldName: String, newName: String) {
 /// WINMUX_WORKSPACE env before accessing the global focus.
 @MainActor var focus: LiveFocus { _focus.live }
 
-@MainActor func setFocus(to newFocus: LiveFocus) -> Bool {
+@MainActor func setFocus(to newFocus: LiveFocus, recordSurfaceIntent: Bool = true) -> Bool {
+    defer {
+        if recordSurfaceIntent, _focus == newFocus.frozen {
+            BrowserWorkspaceController.shared.nativeSelectionChanged(newFocus.windowOrNil?.surfaceID)
+        }
+    }
     if _focus == newFocus.frozen {
         return newFocus.workspace.isVisible || newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     }

@@ -17,7 +17,7 @@ func makeWorkspaceSidebarTabGroupViewModel(
         workspaceName: workspaceName,
         title: sidebarDisplayLabel(for: representativeWindow),
         windowCount: container.allLeafWindowsRecursive.count,
-        isFocused: representativeWindow.moveNode == currentFocus.windowOrNil?.moveNode,
+        isFocused: !BrowserWorkspaceController.shared.hasBrowserSelection && representativeWindow.moveNode == currentFocus.windowOrNil?.moveNode,
         tabs: tabs,
     )
 }

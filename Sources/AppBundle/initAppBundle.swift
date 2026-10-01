@@ -3,60 +3,71 @@ import Common
 import Foundation
 
 @MainActor public func initAppBundle() {
-    Task {
-        initTerminationHandler()
-        isCli = false
-        initServerArgs()
-        var bootstrappedConfigUrl: URL? = nil
-        interceptTermination(SIGINT)
-        interceptTermination(SIGTERM)
-        do {
-            bootstrappedConfigUrl = try ensureBootstrapConfigExistsIfNeeded()
-        } catch {
-            MessageModel.shared.message = Message(
-                description: "Config Bootstrap Error",
-                body: error.localizedDescription,
-            )
-        }
-        if try await !reloadConfig(forceConfigUrl: bootstrappedConfigUrl) {
-            var out = ""
-            check(
-                try await reloadConfig(forceConfigUrl: defaultConfigUrl, stdout: &out),
-                """
-                Can't load default config. Your installation is probably corrupted.
-                Please don't modify '\(defaultConfigUrl)'
+    Task { try await initializeAppBundle() }
+}
 
-                \(out)
-                """,
-            )
-        }
-        MonitorConfigurationObserver.shared.prepareForStartup()
-
+@MainActor
+func initializeAppBundle(isolatedBrowser: Bool = false) async throws {
+    initTerminationHandler()
+    isCli = false
+    if !isolatedBrowser { initServerArgs() }
+    if isolatedBrowser {
         try await waitForAccessibilityPermissions()
-        await toggleReleaseServerIfDebug(.off)
-        // Screen capture is optional. Request it only from a settings action, so a
-        // denied or stale permission does not show a system prompt on every launch.
-        startUnixSocketServer()
-        GlobalObserver.initObserver()
-        MonitorConfigurationObserver.shared.startObserving()
-        RestartSessionController.shared.observeSession()
-        let didLoadPersistedFrozenWorld = loadPersistedFrozenWorldForStartupIfPresent()
-        Workspace.reconcileWorkspaceState() // init workspaces after loading saved metadata
-        _ = Workspace.all.first?.focusWorkspace()
-        try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
-        try await runLightSession(.startup, .forceRun) {
-            if !didLoadPersistedFrozenWorld {
-                smartLayoutAtStartup()
-            }
-            _ = try await config.afterStartupCommand.runCmdSeq(.defaultEnv, .emptyStdin)
+        try BrowserNativeManagement.checkOwnership()
+        guard serverArgs.nativeLease?.isRevoked == false else { throw NativeManagementError.anotherManager }
+    }
+    var bootstrappedConfigUrl: URL? = nil
+    interceptTermination(SIGINT)
+    interceptTermination(SIGTERM)
+    do {
+        bootstrappedConfigUrl = try ensureBootstrapConfigExistsIfNeeded()
+    } catch {
+        MessageModel.shared.message = Message(
+            description: "Config Bootstrap Error",
+            body: error.localizedDescription,
+        )
+    }
+    if try await !reloadConfig(forceConfigUrl: bootstrappedConfigUrl) {
+        if isolatedBrowser { throw NativeManagementError.invalidConfiguration }
+        var out = ""
+        check(
+            try await reloadConfig(forceConfigUrl: defaultConfigUrl, stdout: &out),
+            """
+            Can't load default config. Your installation is probably corrupted.
+            Please don't modify '\(defaultConfigUrl)'
+
+            \(out)
+            """,
+        )
+    }
+    MonitorConfigurationObserver.shared.prepareForStartup()
+
+    if !isolatedBrowser { try await waitForAccessibilityPermissions() }
+    BrowserWorkspaceController.shared.reconcileNativeHosts()
+    await toggleReleaseServerIfDebug(.off)
+    // Screen capture is optional. Request it only from a settings action, so a
+    // denied or stale permission does not show a system prompt on every launch.
+    startUnixSocketServer()
+    GlobalObserver.initObserver()
+    MonitorConfigurationObserver.shared.startObserving()
+    RestartSessionController.shared.observeSession()
+    let didLoadPersistedFrozenWorld = loadPersistedFrozenWorldForStartupIfPresent()
+    Workspace.reconcileWorkspaceState() // init workspaces after loading saved metadata
+    _ = Workspace.all.first?.focusWorkspace()
+    BrowserWorkspaceController.shared.adoptNativeWorkspace()
+    try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
+    try await runLightSession(.startup, .forceRun) {
+        if !didLoadPersistedFrozenWorld {
+            smartLayoutAtStartup()
         }
-        isWinMuxRuntimeReady = true
-        TrackpadNavigationController.shared.startObserving()
-        RestartSessionController.shared.checkpoint()
-        if bootstrappedConfigUrl != nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                ShortcutSettingsModel.shared.requestWindowOpen()
-            }
+        _ = try await config.afterStartupCommand.runCmdSeq(.defaultEnv, .emptyStdin)
+    }
+    isWinMuxRuntimeReady = true
+    TrackpadNavigationController.shared.startObserving()
+    RestartSessionController.shared.checkpoint()
+    if bootstrappedConfigUrl != nil {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            ShortcutSettingsModel.shared.requestWindowOpen()
         }
     }
 }
@@ -79,6 +90,8 @@ var isStartup: Bool { _isStartup ?? dieT("isStartup is not initialized") }
 struct ServerArgs: Sendable {
     var configLocation: String? = nil
     var isReadOnly: Bool = false
+    var browserState: BrowserNativeState? = nil
+    var nativeLease: NativeManagementLease? = nil
 }
 
 private let serverHelp = """
@@ -94,7 +107,14 @@ private let serverHelp = """
     """
 
 nonisolated(unsafe) private var _serverArgs = ServerArgs()
-var serverArgs: ServerArgs { _serverArgs }
+var serverArgs: ServerArgs {
+    var result = _serverArgs
+    if result.nativeLease?.isRevoked == true { result.isReadOnly = true }
+    return result
+}
+func configureBrowserNativeState(_ state: BrowserNativeState, lease: NativeManagementLease) {
+    _serverArgs = ServerArgs(configLocation: state.config.path, browserState: state, nativeLease: lease)
+}
 private func initServerArgs() {
     let args = CommandLine.arguments.slice(1...) ?? []
     if args.contains(where: { $0 == "-h" || $0 == "--help" }) {

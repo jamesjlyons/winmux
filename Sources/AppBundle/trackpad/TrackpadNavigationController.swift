@@ -51,7 +51,7 @@ final class TrackpadNavigationController: ObservableObject {
         },
         now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime },
         activate: @escaping @MainActor (Window, Window) -> Void = { source, destination in
-            if source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
+            if serverArgs.browserState == nil, source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
                 DoubleSidedWindowController.shared.flip(source)
             } else {
                 focusWindowFromTabStrip(destination.windowId, fallbackWorkspace: focus.workspace.name)

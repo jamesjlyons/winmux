@@ -8,7 +8,7 @@ public final class SurfaceFocusCoordinator {
     public private(set) var target: SurfaceID?
     public init() {}
 
-    public func select(_ target: SurfaceID) -> UInt64? {
+    public func select(_ target: SurfaceID?) -> UInt64? {
         guard generation < .max else { return nil }
         generation += 1
         self.target = target

@@ -14,6 +14,24 @@ public final class BrowserWorkspaceController {
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
     private var refreshPending = false
+    private var browserFocusDeadline: Date?
+
+    var ownsForegroundBrowser: Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return false }
+        return app.bundleIdentifier == "com.jameslyons.winmux.browser.alpha" ||
+            excludesNativeDiscovery(processID: app.processIdentifier)
+    }
+
+    var hasBrowserSelection: Bool {
+        guard let id = focusCoordinator.target, case .browserTab = id else { return false }
+        return owner(of: id) != nil
+    }
+
+    var holdsPendingBrowserFocus: Bool {
+        hasBrowserSelection && browserFocusDeadline.map { $0 > .now } == true
+    }
+
+    func cancelPendingBrowserFocusHold() { browserFocusDeadline = nil }
 
     public func connected(_ connection: UUID, processID: Int32, send: @escaping BrowserSurfaceSession.Transport) {
         processBindings = processBindings.filter { _, binding in
@@ -21,6 +39,7 @@ public final class BrowserWorkspaceController {
         }
         processBindings[connection] = (processID, NSRunningApplication(processIdentifier: processID)?.launchDate)
         sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, send: send)
+        reconcileNativeHosts()
     }
 
     public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID) {
@@ -43,6 +62,51 @@ public final class BrowserWorkspaceController {
     func excludesNativeDiscovery(processID: pid_t) -> Bool {
         guard let process = NSRunningApplication(processIdentifier: processID), !process.isTerminated else { return false }
         return processBindings.values.contains { $0.pid == processID && $0.launch == process.launchDate }
+    }
+
+    func adoptNativeWorkspace() {
+        for (id, workspace) in placements where Workspace.existing(byName: workspace) == nil {
+            placements[id] = focus.workspace.name
+        }
+        scheduleRefresh()
+    }
+
+    func reconcileNativeHosts() {
+        for app in MacApp.allAppsMap.values where excludesNativeDiscovery(processID: app.pid) {
+            app.quarantineBrowserHost()
+        }
+        for window in MacWindow.allWindows where excludesNativeDiscovery(processID: window.app.pid) {
+            window.relinquishToBrowser()
+        }
+    }
+
+    /// All native logical selection paths (commands, gestures, mouse and sidebar)
+    /// retire old browser work, including selecting the same native window again.
+    func nativeSelectionChanged(_ id: SurfaceID?) {
+        let leavingBrowser = hasBrowserSelection
+        browserFocusDeadline = nil
+        guard !sessions.isEmpty, let generation = focusCoordinator.select(id) else { return }
+        if leavingBrowser, let id {
+            // A command can select the same native logical leaf that was current
+            // before entering the browser. Dispatch even when the native tree's
+            // before/after focus is unchanged; never await a browser fence.
+            _ = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
+        }
+        fenceBrowsers(generation: generation, target: id)
+        scheduleRefresh()
+    }
+
+    private func fenceBrowsers(generation: UInt64, target: SurfaceID?) {
+        for session in sessions.values {
+            // The fence is revision/target independent on the owner; an empty
+            // workspace still cancels the old tab focus without inventing an ID.
+            guard let wireID = target ?? session.inventory.tabs.keys.first else { continue }
+            session.supersedeFocus(generation: generation, target: wireID) { [weak self] outcome in
+                guard outcome == .issued, let self, let target,
+                      self.focusCoordinator.isCurrent(generation, target: target) else { return }
+                _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
+            }
+        }
     }
 
     func owner(of id: SurfaceID) -> BrowserSurfaceSession? {
@@ -68,6 +132,7 @@ public final class BrowserWorkspaceController {
                 guard let session = owner(of: id) else { return .unavailable }
                 let result = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestFocus()
                 if result == .issued {
+                    browserFocusDeadline = Date().addingTimeInterval(1)
                     let generation = focusCoordinator.generation
                     for other in sessions.values where other !== session {
                         other.supersedeFocus(generation: generation, target: id) { [weak self, weak session] outcome in
@@ -83,19 +148,11 @@ public final class BrowserWorkspaceController {
                 scheduleRefresh()
                 return result
             case .nativeWindow:
+                browserFocusDeadline = nil
                 guard Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil else { return .unavailable }
                 guard let generation = focusCoordinator.select(id) else { return .unavailable }
                 let result = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
-                for session in sessions.values {
-                    session.supersedeFocus(generation: generation, target: id) { [weak self] outcome in
-                        guard outcome == .issued, let self,
-                              self.focusCoordinator.isCurrent(generation, target: id) else { return }
-                        // Never wait for a stalled browser to switch native apps.
-                        // Reaffirm only this still-current, live native target after
-                        // the browser queue has retired its earlier focus work.
-                        _ = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
-                    }
-                }
+                fenceBrowsers(generation: generation, target: id)
                 scheduleRefresh()
                 return result
         }

@@ -57,6 +57,13 @@ final class MacWindow: Window {
         return window
     }
 
+    /// Ownership handoff is not a close: no close cache, replacement focus or AX writes.
+    @MainActor func relinquishToBrowser() {
+        guard MacWindow.allWindowsMap.removeValue(forKey: windowId) === self else { return }
+        unregisterSurface()
+        unbindFromParent()
+    }
+
     // var description: String {
     //     let description = [
     //         ("title", title),

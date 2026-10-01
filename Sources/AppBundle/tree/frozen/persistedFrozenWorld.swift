@@ -35,6 +35,7 @@ final class RestartSessionController {
 
     var file: RestartSessionFile {
         if let fileOverride { return fileOverride }
+        if let state = serverArgs.browserState { return RestartSessionFile(url: state.session) }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return RestartSessionFile(url: RestartSessionFile.location(appSupport: support, appName: winMuxAppName, explicitConfigPath: serverArgs.configLocation))
     }
