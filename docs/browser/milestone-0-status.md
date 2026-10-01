@@ -41,6 +41,12 @@ have not started, as required by the approved compatibility gate.
   The native arm64 configuration now uses upstream-supported Apple's linker
   (`use_lld = false`); compilation resumed past the failing link. Later alpha
   comparisons must use the same linker setting.
+- Overnight monitoring on October 1 found closed-lid and maintenance sleep
+  interruptions despite the build's idle-sleep assertion. A temporary
+  `caffeinate -s -w <build-process-pid>` assertion was attached to the live build
+  on AC power. `pmset` confirmed `PreventSystemSleep`, and compilation continued
+  through the follow-up check. The assertion releases when the build exits;
+  no persistent power settings were changed. This is not a completed build.
 
 [Local component evidence](evidence/2026-09-30-local-components.json) and
 [Personal Team signed XPC evidence](evidence/2026-09-30-native-bridge.json).
