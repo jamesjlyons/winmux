@@ -1,0 +1,63 @@
+diff --git a/chrome/browser/chrome_browser_interface_binders.cc b/chrome/browser/chrome_browser_interface_binders.cc
+index 547d96a968bd9b7db11065c15f760054afcbd2b5..1f1c5935530032635989aa0fff69737e8b98b41f 100644
+--- a/chrome/browser/chrome_browser_interface_binders.cc
++++ b/chrome/browser/chrome_browser_interface_binders.cc
+@@ -9,6 +9,9 @@
+ #include "base/feature_list.h"
+ #include "base/functional/bind.h"
+ #include "build/build_config.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/winmux/cosmetics_host.h"
++#endif
+ #include "build/chromeos_buildflags.h"
+ #include "chrome/browser/accessibility/accessibility_labels_service.h"
+ #include "chrome/browser/accessibility/accessibility_labels_service_factory.h"
+@@ -455,6 +458,9 @@ void BindCredentialManager(
+ void PopulateChromeFrameBinders(
+     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
+     content::RenderFrameHost* render_frame_host) {
++#if BUILDFLAG(IS_MAC)
++  map->Add<winmux::mojom::Cosmetics>(&winmux::CosmeticsHost::Create);
++#endif
+   map->Add<glic::mojom::WebClientHandler>(&glic::BindGlicWebClientHandler);
+   // Defense in depth: privileged capability interfaces are not even registered
+   // for a frame outside a privileged process, so a non-PWC frame cannot
+diff --git a/chrome/renderer/BUILD.gn b/chrome/renderer/BUILD.gn
+index 94d46c0511dfc2c7b6256b3a61d478d1f97063ce..cabfef511dcfa4a76dec238870529b315f843c82 100644
+--- a/chrome/renderer/BUILD.gn
++++ b/chrome/renderer/BUILD.gn
+@@ -233,6 +233,10 @@ static_library("renderer") {
+     "//v8",
+   ]
+ 
++  if (is_mac) {
++    deps += [ "//chrome/renderer/winmux:cosmetics_agent" ]
++  }
++
+   if (is_mac || is_win || is_linux || is_chromeos) {
+     deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+   }
+diff --git a/chrome/renderer/chrome_content_renderer_client.cc b/chrome/renderer/chrome_content_renderer_client.cc
+index 1cfb0d2c2139fb80a754cd3b3d53c4e3fd050b6b..a9b516729516a61f6dc3695f56ab932208df25b1 100644
+--- a/chrome/renderer/chrome_content_renderer_client.cc
++++ b/chrome/renderer/chrome_content_renderer_client.cc
+@@ -33,6 +33,9 @@
+ #include "base/values.h"
+ #include "build/branding_buildflags.h"
+ #include "build/build_config.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/renderer/winmux/cosmetics_agent.h"
++#endif
+ #include "chrome/common/buildflags.h"
+ #include "chrome/common/channel_info.h"
+ #include "chrome/common/chrome_content_client.h"
+@@ -621,6 +624,9 @@ void ChromeContentRendererClient::RenderFrameCreated(
+   service_manager::BinderRegistry* registry = render_frame_observer->registry();
+ 
+   new prerender::NoStatePrefetchRenderFrameObserver(render_frame);
++#if BUILDFLAG(IS_MAC)
++  new winmux::CosmeticsAgent(render_frame);
++#endif
+ 
+   auto content_settings_delegate =
+       std::make_unique<ChromeContentSettingsAgentDelegate>(render_frame);

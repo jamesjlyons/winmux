@@ -7,11 +7,14 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 
 import chromium
 
 ROOT = chromium.ROOT
 CONFIG = ROOT / "browser/chromium"
+OWNED_PREFIXES = ("chrome/browser/winmux/", "chrome/renderer/winmux/",
+                  "components/winmux/", "services/network/winmux/")
 
 
 def digest(data):
@@ -25,6 +28,28 @@ def owned_patch_state(source, patch):
     if actual not in (b"", patch):
         raise RuntimeError("Unowned Chromium changes found; refusing to overwrite")
     return bool(actual)
+
+
+def integration_patches():
+    return sorted((CONFIG / "patches").glob("*.patch"))
+
+
+def owned_patch_prefix(source, patches):
+    """Accept only the clean pin or an exact prefix of the owned patch series."""
+    command = ["git", "diff", "--binary", "--full-index", "--no-ext-diff", "--no-color", "HEAD"]
+    actual = subprocess.check_output(command, cwd=source)
+    matched = 0 if not actual else None
+    with tempfile.TemporaryDirectory(prefix="winmux-patch-index-") as directory:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(directory) / "index"))
+        chromium.run("git", "read-tree", "HEAD", cwd=source, env=env)
+        for count, patch in enumerate(patches, 1):
+            chromium.run("git", "apply", "--cached", str(patch), cwd=source, env=env)
+            expected = subprocess.check_output(command + ["--cached"], cwd=source, env=env)
+            if actual == expected:
+                matched = count
+    if matched is None:
+        raise RuntimeError("Unowned Chromium changes found; refusing to overwrite")
+    return matched
 
 
 def acquire_engine_lock(engine, exclusive=True):
@@ -76,19 +101,23 @@ def build(args, engine):
     build_args = (CONFIG / "args.gn").read_bytes()
     if baseline["configuration"] != "browser-only-control" or baseline["args_sha256"] != digest(build_args):
         raise RuntimeError("A completed control with matching configuration is required")
-    patch = (CONFIG / "patches/0001-workspace-bridge.patch").read_bytes()
-    patch_applied = owned_patch_state(source, patch)
+    patches = integration_patches()
+    patch_prefix = owned_patch_prefix(source, patches)
     state_path = engine / "alpha-build-state.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     old_hashes = state.get("overlay_sha256", {})
+    previous_library_hash = state.get("blocking", {}).get("library_sha256")
     overlay = {
         str(p.relative_to(CONFIG / "overlay")): p.read_bytes()
         for p in (CONFIG / "overlay").rglob("*") if p.is_file()
     }
     overlay["chrome/browser/winmux/WMBridgeProtocol.h"] = (
         ROOT / "browser/native/Sources/BridgeProtocol/include/WMBridgeProtocol.h").read_bytes()
-    owned_dir = source / "chrome/browser/winmux"
-    existing = {str(p.relative_to(source)) for p in owned_dir.rglob("*") if p.is_file()}
+    overlay["components/winmux/blocking/winmux_blocking.h"] = (
+        ROOT / "browser/blocking/include/winmux_blocking.h").read_bytes()
+    existing = {str(p.relative_to(source)) for prefix in OWNED_PREFIXES
+                for p in (source / prefix).rglob("*") if p.is_file()}
+    existing.discard("components/winmux/blocking/prebuilt/libwinmux_blocking.dylib")
     if existing - overlay.keys():
         raise RuntimeError("Unknown files in the integration directory")
     for name, data in overlay.items():
@@ -106,21 +135,25 @@ def build(args, engine):
         chromium.run("cp", "-cpR", str(output), str(control))
         (control / "winmux-control-owner.json").write_text(json.dumps(owner, indent=2) + "\n")
     marker.write_text(json.dumps(owner, indent=2) + "\n")
-    if not patch_applied:
-        chromium.run("git", "apply", "--check", str(CONFIG / "patches/0001-workspace-bridge.patch"), cwd=source)
-        chromium.run("git", "apply", str(CONFIG / "patches/0001-workspace-bridge.patch"), cwd=source)
+    for patch in patches[patch_prefix:]:
+        chromium.run("git", "apply", "--check", str(patch), cwd=source)
+        chromium.run("git", "apply", str(patch), cwd=source)
     for name, data in overlay.items():
         target = source / name
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists() or target.read_bytes() != data:
             target.write_bytes(data)
-    state = {**owner, "configuration": "alpha-transport-proof", "build_succeeded": False,
-             "patch_sha256": digest(patch), "args_sha256": digest(build_args),
+    state = {**owner, "configuration": "alpha-milestone-0", "build_succeeded": False,
+             "patches_sha256": {p.name: digest(p.read_bytes()) for p in patches}, "args_sha256": digest(build_args),
              "overlay_sha256": {name: digest(data) for name, data in overlay.items()},
              "build_jobs": args.jobs, "build_directory": str(output),
              "control_directory": str(control)}
     state_path.write_text(json.dumps(state, indent=2) + "\n")
     manifest_path = output / "winmux-build-manifest.json"
+    manifest_path.write_text(json.dumps(state, indent=2) + "\n")
+    import prepare_blocking
+    state["blocking"] = prepare_blocking.prepare(output, args.jobs, previous_library_hash)
+    state_path.write_text(json.dumps(state, indent=2) + "\n")
     manifest_path.write_text(json.dumps(state, indent=2) + "\n")
     if (output / "args.gn").read_bytes() != build_args:
         (output / "args.gn").write_bytes(build_args)
@@ -128,7 +161,9 @@ def build(args, engine):
     env["PATH"] += os.pathsep + str(engine / "depot_tools")
     chromium.run(str(engine / "depot_tools/gn"), "gen", str(output), cwd=source, env=env)
     chromium.run(str(engine / "depot_tools/autoninja"), "-C", str(output), "-j", str(args.jobs),
-                 "chrome/browser/winmux:workspace_bridge", cwd=source, env=env)
+                 "chrome/browser/winmux:workspace_bridge", "components/winmux/blocking:engine",
+                 "chrome/renderer/winmux:cosmetics_agent",
+                 "obj/services/network/network_service/url_filter.o", cwd=source, env=env)
     chromium.run(str(engine / "depot_tools/autoninja"), "-C", str(output), "-j", str(args.jobs),
                  "chrome", "chrome/installer/mac", cwd=source, env=env)
     state.update(build_succeeded=True, native_revision=chromium.output("git", "rev-parse", "HEAD", cwd=ROOT),

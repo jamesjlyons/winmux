@@ -41,20 +41,20 @@ def verify_identity(path, identifier, team):
 
 
 def validate_manifest(manifest, source):
-    if manifest.get("configuration") != "alpha-transport-proof" or manifest.get("build_succeeded") is not True:
+    if manifest.get("configuration") != "alpha-milestone-0" or manifest.get("build_succeeded") is not True:
         raise RuntimeError("A successfully built alpha is required; raw control builds cannot be packaged")
     if manifest.get("chromium_revision") != chromium.PINS["chromium"]["revision"]:
         raise RuntimeError("Unexpected alpha Chromium revision")
     if manifest.get("args_sha256") != sha256(ROOT / "browser/chromium/args.gn"):
         raise RuntimeError("Alpha build configuration no longer matches")
-    if manifest.get("patch_sha256") != sha256(ROOT / "browser/chromium/patches/0001-workspace-bridge.patch"):
+    if manifest.get("patches_sha256") != {p.name: sha256(p) for p in build_alpha.integration_patches()}:
         raise RuntimeError("Alpha patch changed since compilation")
     hashes = manifest.get("overlay_sha256", {})
     if not hashes:
         raise RuntimeError("Missing alpha source provenance")
     for name, expected in hashes.items():
         relative = Path(name)
-        if relative.is_absolute() or ".." in relative.parts or relative.parts[:3] != ("chrome", "browser", "winmux"):
+        if relative.is_absolute() or ".." in relative.parts or not name.startswith(build_alpha.OWNED_PREFIXES):
             raise RuntimeError("Unexpected overlay path")
         if sha256(source / relative) != expected:
             raise RuntimeError(f"Alpha source changed since compilation: {name}")
@@ -96,8 +96,14 @@ def package(args, identity, team, source):
     validate_manifest(manifest, source)
     if chromium.output("git", "rev-parse", "HEAD", cwd=source) != manifest["chromium_revision"]:
         raise RuntimeError("Engine checkout no longer matches the alpha build")
-    if not build_alpha.owned_patch_state(source, (ROOT / "browser/chromium/patches/0001-workspace-bridge.patch").read_bytes()):
+    patches = build_alpha.integration_patches()
+    if build_alpha.owned_patch_prefix(source, patches) != len(patches):
         raise RuntimeError("Compiled alpha patch is no longer applied to the checkout")
+    for name, expected in manifest.get("blocking", {}).get("source_sha256", {}).items():
+        if sha256(ROOT / name) != expected:
+            raise RuntimeError("Blocker source changed since compilation")
+    if sha256(build / "libwinmux_blocking.dylib") != manifest.get("blocking", {}).get("library_sha256"):
+        raise RuntimeError("Missing or changed blocker build artifact")
     # Import the generated upstream signing configuration for this exact build.
     packaging = build / "Chromium Packaging"
     sys.path.insert(0, str(packaging))
@@ -125,12 +131,18 @@ def package(args, identity, team, source):
         raise RuntimeError("Refusing to overwrite an existing package directory")
     output.mkdir(parents=True)
     report_path = output / "winmux-package-manifest.json"
-    report = {"scope": "private_development_alpha_transport_proof", "verified": False,
+    report = {"scope": "private_development_alpha_milestone_0", "verified": False,
               "notarized": False, "identity_sha1": identity, "team_identifier": team,
               "build": manifest, "created_utc": datetime.now(timezone.utc).isoformat()}
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     app = output / (APP_NAME + ".app")
     chromium.run("cp", "-cpR", str(build / "Chromium.app"), str(app))
+    blocker_library = app / "Contents/Frameworks/Chromium Framework.framework/Libraries/libwinmux_blocking.dylib"
+    chromium.run("codesign", "--force", "--sign", identity, "--identifier", APP_ID + ".blocking",
+                 "--timestamp=none", str(blocker_library))
+    verify_identity(blocker_library, APP_ID + ".blocking", team)
+    notices = app / "Contents/Resources/WinMuxBlocking"
+    shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
     native_build = ROOT / ".local/browser/native-build"
     chromium.run("swift", "build", "--package-path", str(native), "-c", "release",

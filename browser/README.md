@@ -2,7 +2,7 @@
 
 This directory implements the independent parts of **Milestone 0** of the
 [approved plan](../docs/browser/approved-plan.md). The optimized Chromium control
-and a signed alpha transport proof now build and launch. The Milestone 0 exit gate is open, and the native WinMux
+and a signed alpha with native blocking now build and launch. The Milestone 0 exit gate remains unmet, and the native WinMux
 model has not been migrated.
 
 Implemented and exercised:
@@ -23,8 +23,9 @@ The helper currently exposes only negotiation and a transport probe. It does
 not manage windows, advertise a fake inventory, or start the original WinMux
 runtime. The Chromium bridge and private alpha packaging compile against the
 full checkout. Real bundled-helper enrollment, authenticated exchange and restart
-have passed; network
-interception, renderer cosmetics and compatibility qualification remain pending.
+have passed. Network interception and initial renderer cosmetics now pass a
+local browser/control comparison. Required-extension and performance
+qualification remain pending.
 Neither the C ABI probe nor the helper probe is a browser substitute.
 
 ## Run the component proofs
@@ -78,7 +79,7 @@ The pinned depot_tools updater is disabled; GN/Ninja and compiler dependencies
 come through Chromium DEPS. Sandbox, site isolation and normal profile/extension
 behavior remain enabled. The control build is not branded or installed as the alpha.
 
-## Build and package the private alpha transport proof
+## Build and package the private alpha
 
 After the control build completes:
 
@@ -92,7 +93,9 @@ python3 browser/tools/package_alpha.py --root /path/to/apfs/winmux-engine \
 `build_alpha.py` archives the completed control with an APFS clone at
 `out/WinMuxControlBaseline`, then retains `out/WinMuxControl` as its working cache
 to preserve Siso's path-sensitive dependency state. It accepts only the pinned
-checkout, the owned patch, and known overlay files. Unknown edits are refused.
+checkout, a verified prefix of the owned patch series, and known overlay files.
+Unknown edits are refused. The pinned Rust blocker and hashed filter snapshots
+are built into a separate native library and bundled inside Chromium Framework.
 The manifest distinguishes the resulting alpha from the archived control.
 
 The packager requires a successful alpha manifest, an exact certificate SHA-1

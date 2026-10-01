@@ -6,7 +6,10 @@ publish = false
 license = "MIT"
 
 [lib]
-crate-type = ["staticlib", "rlib"]
+crate-type = ["staticlib", "rlib", "cdylib"]
+
+[features]
+chromium-bundled = []
 
 [dependencies]
 adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "css-validation", "full-regex-handling"] }

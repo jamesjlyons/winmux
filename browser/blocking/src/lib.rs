@@ -111,6 +111,21 @@ pub unsafe extern "C" fn wm_blocker_create(rules: WMStringView) -> *mut WMBlocke
     .unwrap_or(ptr::null_mut())
 }
 
+/// Construct the checksum-verified snapshot embedded by the Chromium build.
+/// The caller must run this on a background sequence. No sandbox file access
+/// or network fetch is needed to initialize the engine.
+#[cfg(feature = "chromium-bundled")]
+#[unsafe(no_mangle)]
+pub extern "C" fn wm_blocker_create_bundled() -> *mut WMBlocker {
+    let rules = include_str!(env!("WINMUX_BUNDLED_RULES_PATH"));
+    catch_unwind(AssertUnwindSafe(|| {
+        compile(rules).map(|engine| Box::into_raw(Box::new(engine)))
+    }))
+    .ok()
+    .flatten()
+    .unwrap_or(ptr::null_mut())
+}
+
 /// # Safety
 /// Release once, after all queries end; null is permitted.
 #[unsafe(no_mangle)]

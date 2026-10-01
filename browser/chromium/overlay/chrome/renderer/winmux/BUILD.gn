@@ -1,0 +1,13 @@
+source_set("cosmetics_agent") {
+  sources = [
+    "cosmetics_agent.cc",
+    "cosmetics_agent.h",
+  ]
+  deps = [
+    "//base",
+    "//components/winmux/blocking:mojom",
+    "//content/public/renderer",
+    "//mojo/public/cpp/bindings",
+    "//third_party/blink/public:blink",
+  ]
+}

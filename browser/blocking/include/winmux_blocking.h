@@ -23,6 +23,8 @@ typedef struct {
 
 // Build on a background sequence, retain the previous instance on failure.
 WMBlocker *wm_blocker_create(WMStringView rules);
+// Available in the chromium-bundled build; uses the embedded verified snapshot.
+WMBlocker *wm_blocker_create_bundled(void);
 // Queries may run concurrently; destruction requires all in-flight calls to end.
 void wm_blocker_free(WMBlocker *blocker);
 // source_url MUST come from trusted browser initiator context, never page input.

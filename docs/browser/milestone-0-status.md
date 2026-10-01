@@ -1,9 +1,47 @@
 # Milestone 0 implementation status
 
-**Milestone 0 is incomplete. Chromium and a signed transport-proof alpha now build
-and launch; full browser integration and compatibility qualification remain open.**
+**Milestone 0 is incomplete. Chromium and a signed alpha with authenticated helper communication and native
+request/cosmetic blocking now build and launch; compatibility and performance
+qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started, as required by the approved compatibility gate.
+
+## Native browser blocking proof — 2026-10-01
+
+- The signed `alpha-blocking-1` package passed all seven live-page checks:
+  normal requests/content work; direct ad requests, redirects and worker requests
+  are blocked; initial cosmetic matches and later nodes matching the same
+  selector are hidden. Server-side counts confirm no blocked target was fetched.
+- The identical fixture in the preserved upstream control fetched all three ad
+  targets and left both placeholders visible. Both runs used fresh, separate
+  profiles and mapped test domains to a loopback-only server. No ad-domain
+  traffic or synthetic product filter rules were used.
+- Request decisions run in Chromium's network service. Pinned EasyList and
+  EasyPrivacy are embedded in the native Rust library, verified before building,
+  and compiled on a background sequence before requests resume. Renderer
+  cosmetic queries use document-scoped Mojo, derive the URL in the browser,
+  evaluate rules off its UI thread, and apply declarative user-origin CSS.
+  Sandbox and site-isolation settings remain unchanged; network sandbox and
+  renderer seatbelt arguments were observed in the live processes.
+- The blocker ships as a separately signed library inside Chromium Framework.
+  Static Rust linkage exceeded Apple's compact-unwind personality limit; the
+  dynamic library links and runs in the browser and sandboxed child processes.
+  The entire package passed deep/strict signature verification and exact identity
+  checks. The actual browser also authenticated with the previously enrolled
+  `alpha-transport-3` helper; registration was not repeated for this package.
+- Thirteen Python tests, five Rust tests, Rust formatting and Clippy pass. The
+  build wrapper now accepts only a verified prefix of the owned patch series,
+  and packaging checks all patch, overlay, native-blocker and artifact hashes.
+- This completes the **small request/cosmetic integration proof**, not the full
+  blocking feature set. Newly introduced DOM tokens, profile/site switches,
+  replacements/rewrites, WebSocket interception and rule updates remain pending.
+  Required-extension login/functionality, 1Password Mac-app integration and
+  browser performance reports still block the Milestone 0 exit gate.
+
+[Signed blocker and upstream-control comparison evidence](evidence/2026-10-01-browser-blocking.json).
+Reproduce with `browser/tools/blocking_fixture.py`; its source documents the
+loopback mapping. The current verified app is
+`.local/browser/packages/alpha-blocking-1/WinMux Browser Alpha.app`.
 
 ## Chromium build and signed alpha — 2026-10-01
 
@@ -33,8 +71,8 @@ have not started, as required by the approved compatibility gate.
   repeated it after a clean restart without the enrollment flag. A same-team
   probe with the wrong signing identifier was rejected by the registered helper.
   The signed browser rendered a local fixture and accepted keyboard/button input.
-  Request blocking, renderer cosmetics, required extensions, and browser
-  performance qualification are still pending.
+  Request blocking and renderer cosmetics were verified in the later checkpoint
+  above; required extensions and browser performance qualification remain pending.
 - Thirteen Python tests pass, including protection of unrelated Chromium edits,
   resumable owned patches, exclusion of concurrent builds/packages, and rejection
   of failed/stale build provenance.

@@ -1,9 +1,17 @@
 source_set("workspace_bridge") {
   sources = [
+    "cosmetics_host.cc",
+    "cosmetics_host.h",
     "workspace_bridge.h",
     "workspace_bridge.mm",
   ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//components/winmux/blocking:engine",
+    "//components/winmux/blocking:mojom",
+    "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+  ]
   frameworks = [
     "Foundation.framework",
     "Security.framework",

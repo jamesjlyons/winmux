@@ -31,15 +31,27 @@ class AlphaSafetyTests(TestCase):
             git("init")
             source = root / "source.cc"
             source.write_text("before\n")
+            second = root / "second.cc"
+            second.write_text("second before\n")
             git("add", ".")
             git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture")
             source.write_text("owned change\n")
             patch = git("diff", "--binary", "--full-index", "HEAD")
+            first_patch = root / "first.patch"
+            first_patch.write_bytes(patch)
+            second.write_text("second owned change\n")
+            second_patch = root / "second.patch"
+            second_patch.write_bytes(git("diff", "--binary", "--full-index", "HEAD", "--", "second.cc"))
+            self.assertEqual(build_alpha.owned_patch_prefix(root, [first_patch, second_patch]), 2)
+            second.write_text("second before\n")
+            self.assertEqual(build_alpha.owned_patch_prefix(root, [first_patch, second_patch]), 1)
             git("config", "core.abbrev", "12")
             self.assertTrue(build_alpha.owned_patch_state(root, patch))
             source.write_text("unrelated work\n")
             with self.assertRaisesRegex(RuntimeError, "Unowned"):
                 build_alpha.owned_patch_state(root, patch)
+            with self.assertRaisesRegex(RuntimeError, "Unowned"):
+                build_alpha.owned_patch_prefix(root, [first_patch, second_patch])
             self.assertEqual(source.read_text(), "unrelated work\n")
             source.write_text("before\n")
             self.assertFalse(build_alpha.owned_patch_state(root, patch))
@@ -52,15 +64,15 @@ class AlphaSafetyTests(TestCase):
             source.parent.mkdir(parents=True)
             source.write_bytes(b"compiled alpha source")
             manifest = {
-                "configuration": "alpha-transport-proof", "build_succeeded": True,
+                "configuration": "alpha-milestone-0", "build_succeeded": True,
                 "chromium_revision": package_alpha.chromium.PINS["chromium"]["revision"],
                 "args_sha256": package_alpha.sha256(package_alpha.ROOT / "browser/chromium/args.gn"),
-                "patch_sha256": package_alpha.sha256(package_alpha.ROOT / "browser/chromium/patches/0001-workspace-bridge.patch"),
+                "patches_sha256": {p.name: package_alpha.sha256(p) for p in build_alpha.integration_patches()},
                 "overlay_sha256": {name: hashlib.sha256(source.read_bytes()).hexdigest()},
             }
             package_alpha.validate_manifest(manifest, root)
             for change in ({"build_succeeded": False}, {"configuration": "browser-only-control"},
-                           {"patch_sha256": "stale"}, {"overlay_sha256": {"../outside": "hash"}}):
+                           {"patches_sha256": {}}, {"overlay_sha256": {"../outside": "hash"}}):
                 invalid = {**copy.deepcopy(manifest), **change}
                 with self.subTest(change=change), self.assertRaises(RuntimeError):
                     package_alpha.validate_manifest(invalid, root)
