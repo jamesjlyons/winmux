@@ -92,7 +92,7 @@ def fetch(path, env):
         "src@" + PINS["chromium"]["revision"], cwd=checkout, env=env)
 
 
-def build(path, env):
+def build(path, env, jobs=None):
     source = path / "chromium/src"
     if output("git", "rev-parse", "HEAD", cwd=source) != PINS["chromium"]["revision"]:
         raise RuntimeError("Chromium revision differs from pins.json")
@@ -105,12 +105,21 @@ def build(path, env):
     args = (CONFIG / "args.gn").read_bytes()
     (build_dir / "args.gn").write_bytes(args)
     run(str(path / "depot_tools/gn"), "gen", str(build_dir), cwd=source, env=env)
-    run(str(path / "depot_tools/autoninja"), "-C", str(build_dir), "chrome", cwd=source, env=env)
+    command = [str(path / "depot_tools/autoninja"), "-C", str(build_dir)]
+    if jobs is not None:
+        command.extend(["-j", str(jobs)])
+    run(*command, "chrome", cwd=source, env=env)
     manifest = {
         "pins": PINS, "configuration": "browser-only-control", "qualification": "not_run",
         "args_sha256": hashlib.sha256(args).hexdigest(),
         "native_revision": output("git", "rev-parse", "HEAD", cwd=ROOT),
         "native_dirty": bool(output("git", "status", "--porcelain", cwd=ROOT)),
+        "build_jobs": jobs,
+        "hardware": {
+            "model": output("sysctl", "-n", "hw.model"),
+            "physical_memory_bytes": int(output("sysctl", "-n", "hw.memsize")),
+            "logical_cpus": int(output("sysctl", "-n", "hw.logicalcpu")),
+        },
         "os": output("sw_vers"), "xcode": output("xcodebuild", "-version"),
         "rust": output("rustc", "--version"), "swift": output("swift", "--version"),
         "cargo_lock_sha256": hashlib.sha256((ROOT / "browser/blocking/Cargo.lock").read_bytes()).hexdigest(),
@@ -122,7 +131,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["preflight", "fetch", "build-control"])
     parser.add_argument("--root", required=True, type=Path)
+    parser.add_argument("--jobs", type=int, help="Limit local build concurrency (build-control only)")
     options = parser.parse_args()
+    if options.jobs is not None and (options.jobs < 1 or options.command != "build-control"):
+        parser.error("--jobs requires build-control and a positive integer")
     path = options.root.expanduser().resolve()
     stage = "build" if options.command == "build-control" else "fetch"
     report = preflight(path, stage)
@@ -136,7 +148,7 @@ def main():
     if options.command == "fetch":
         fetch(path, env)
     else:
-        build(path, env)
+        build(path, env, options.jobs)
     return 0
 
 

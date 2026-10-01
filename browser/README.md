@@ -61,6 +61,10 @@ python3 browser/tools/chromium.py fetch --root /path/to/apfs/winmux-engine
 python3 browser/tools/chromium.py build-control --root /path/to/apfs/winmux-engine
 ```
 
+On machines with less memory, pass `--jobs 4` to `build-control` to bound local
+compiler concurrency. The chosen limit is recorded in the build manifest; it
+does not change the browser's optimized build settings or qualification targets.
+
 The fetch is intentionally separate from the preflight. Both mutations repeat
 their resource gate. Existing dirty or differently pinned checkouts are refused.
 The pinned depot_tools updater is disabled; GN/Ninja and compiler dependencies

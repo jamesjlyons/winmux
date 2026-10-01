@@ -1,9 +1,34 @@
-# Milestone 0 implementation status — 2026-09-19
+# Milestone 0 implementation status
 
 **Milestone 0 is incomplete. There is no WinMux Chromium alpha application yet.**
-The independent native components below are built and exercised; the full
-Chromium fetch/build is held at the storage prerequisite. Milestones 1–5 have
-not started, as required by the approved compatibility gate.
+The independent native components below are built and exercised. Milestones 1–5
+have not started, as required by the approved compatibility gate.
+
+## Resume on a second Mac — 2026-09-30
+
+- Recovered `9318ca3060e581bdd48136de1f6dc856feeaaeca` from the pushed
+  `codex/chromium-browser` branch and verified the full approved plan's checksum.
+- Active worktree: `/Users/james/.codex/worktrees/chromium-browser/winmux`.
+- Engine directory: `/Users/james/Documents/Codex/winmux/.local/browser-engine`.
+- APFS preflight passed with 364.32 GiB free; the earlier storage blocker is
+  resolved on this computer. Pinned Chromium source/dependency fetching started.
+- Hardware: `MacBookPro18,1`, arm64, 16 GiB RAM, 10 logical CPUs; macOS 27.0.1,
+  Xcode 27.0, Swift 6.4, and locally installed Rust 1.97.1.
+- All 19 existing automated tests passed here (10 Python, 4 Swift, 5 Rust).
+  The C++ blocker probe passed, the Objective-C++ bridge probe compiled, the
+  helper plist validated, and Rust formatting/Clippy checks passed.
+- This machine has no valid Apple code-signing identity. The signed XPC process
+  proof has not been repeated here. Signed alpha packaging and extension
+  qualification require that identity later.
+- The build command now accepts `--jobs 4` to bound local compiler concurrency
+  and records the limit and hardware in the completed build manifest. This Mac
+  is a separate test environment from the plan's 36 GiB M3 Pro; its component
+  results do not qualify browser performance on either machine.
+
+[Local component evidence](evidence/2026-09-30-local-components.json). Current
+download/compiler logs are under `.local/browser/` in the active worktree.
+
+The remaining sections preserve the original September 19 checkpoint.
 
 ## Checkout and environment
 
