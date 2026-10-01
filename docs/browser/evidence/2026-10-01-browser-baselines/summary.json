@@ -1,0 +1,191 @@
+{
+  "scope": "paired_speedometer_development_baseline",
+  "runs": [
+    {
+      "run": "control-1",
+      "score": 4.136276720061436,
+      "iteration_scores": [
+        3.7275112458471185,
+        4.196702826027273,
+        4.225194904268681,
+        4.066294388658398,
+        4.261961979482014,
+        4.140545152461484,
+        4.099551459395905,
+        4.210075302866583,
+        4.322600695548007,
+        4.112329246058897
+      ],
+      "completion_after_focused_iframe_cleanup": true,
+      "elapsed_seconds": 126.28829999999702,
+      "condition_problems": [],
+      "conditions_consistent": true,
+      "native_environment": {
+        "scope": "benchmark_environment_only",
+        "benchmark_qualified": false,
+        "milestone_0_qualified": false,
+        "valid_observation": true,
+        "conditions_consistent": true,
+        "observation_problems": [],
+        "condition_problems": [],
+        "unverified": [
+          "Full benchmark interval is covered by this recording",
+          "Correct tab/window is visible and receiving input",
+          "Equivalent builds, extensions, profiles and workloads",
+          "Background workload, display frame cadence and repeatability"
+        ],
+        "elapsed_seconds": 148.354626417,
+        "samples": 76
+      },
+      "viewport": {
+        "width": 1500,
+        "height": 863,
+        "device_pixel_ratio": 2
+      }
+    },
+    {
+      "run": "alpha-1",
+      "score": 4.173974336563906,
+      "iteration_scores": [
+        3.7561722397042905,
+        4.158211948629474,
+        4.212148887815663,
+        4.305553181406338,
+        4.188256558946724,
+        4.2631723508322255,
+        4.103251965642634,
+        4.209991226787067,
+        4.244981625435796,
+        4.2980033804388516
+      ],
+      "completion_after_focused_iframe_cleanup": true,
+      "elapsed_seconds": 125.107,
+      "condition_problems": [],
+      "conditions_consistent": true,
+      "native_environment": {
+        "scope": "benchmark_environment_only",
+        "benchmark_qualified": false,
+        "milestone_0_qualified": false,
+        "valid_observation": true,
+        "conditions_consistent": true,
+        "observation_problems": [],
+        "condition_problems": [],
+        "unverified": [
+          "Full benchmark interval is covered by this recording",
+          "Correct tab/window is visible and receiving input",
+          "Equivalent builds, extensions, profiles and workloads",
+          "Background workload, display frame cadence and repeatability"
+        ],
+        "elapsed_seconds": 150.341880834,
+        "samples": 77
+      },
+      "viewport": {
+        "width": 1500,
+        "height": 863,
+        "device_pixel_ratio": 2
+      }
+    },
+    {
+      "run": "alpha-2",
+      "score": 4.169537738126098,
+      "iteration_scores": [
+        3.7945675747960315,
+        4.227651234172213,
+        4.069525487218974,
+        4.190817029884271,
+        4.1999087974868194,
+        4.379599704504449,
+        4.29080395809868,
+        4.254312231822457,
+        3.998971735758683,
+        4.2892196275184
+      ],
+      "completion_after_focused_iframe_cleanup": true,
+      "elapsed_seconds": 127.1275,
+      "condition_problems": [],
+      "conditions_consistent": true,
+      "native_environment": {
+        "scope": "benchmark_environment_only",
+        "benchmark_qualified": false,
+        "milestone_0_qualified": false,
+        "valid_observation": true,
+        "conditions_consistent": true,
+        "observation_problems": [],
+        "condition_problems": [],
+        "unverified": [
+          "Full benchmark interval is covered by this recording",
+          "Correct tab/window is visible and receiving input",
+          "Equivalent builds, extensions, profiles and workloads",
+          "Background workload, display frame cadence and repeatability"
+        ],
+        "elapsed_seconds": 152.342722666,
+        "samples": 78
+      },
+      "viewport": {
+        "width": 1500,
+        "height": 863,
+        "device_pixel_ratio": 2
+      }
+    },
+    {
+      "run": "control-2",
+      "score": 3.9652701035299005,
+      "iteration_scores": [
+        3.454657553414768,
+        4.034744014612888,
+        3.8245890836601233,
+        3.818542609779332,
+        4.1255770290673945,
+        4.0571894574443235,
+        4.09181774471359,
+        4.060482813537453,
+        4.1424445000770165,
+        4.042656228992115
+      ],
+      "completion_after_focused_iframe_cleanup": true,
+      "elapsed_seconds": 126.593,
+      "condition_problems": [
+        "Display configuration changed",
+        "Display configuration unavailable",
+        "Target was not continuously observed as foreground"
+      ],
+      "conditions_consistent": false,
+      "native_environment": {
+        "scope": "benchmark_environment_only",
+        "benchmark_qualified": false,
+        "milestone_0_qualified": false,
+        "valid_observation": true,
+        "conditions_consistent": false,
+        "observation_problems": [],
+        "condition_problems": [
+          "Display configuration changed",
+          "Display configuration unavailable",
+          "Target was not continuously observed as foreground"
+        ],
+        "unverified": [
+          "Full benchmark interval is covered by this recording",
+          "Correct tab/window is visible and receiving input",
+          "Equivalent builds, extensions, profiles and workloads",
+          "Background workload, display frame cadence and repeatability"
+        ],
+        "elapsed_seconds": 150.253813417,
+        "samples": 79
+      },
+      "viewport": {
+        "width": 1500,
+        "height": 863,
+        "device_pixel_ratio": 2
+      }
+    }
+  ],
+  "observed_conditions_comparable": false,
+  "comparison": null,
+  "benchmark_qualified": false,
+  "milestone_0_qualified": false,
+  "limits": [
+    "Small development-machine sample, not a release workload or confidence-bound acceptance",
+    "Fresh profiles omit required extensions; extension compatibility is user-accepted separately",
+    "Desktop background applications remain running; accessibility used before each run",
+    "Does not measure startup, switching, memory, or blocker request latency"
+  ]
+}

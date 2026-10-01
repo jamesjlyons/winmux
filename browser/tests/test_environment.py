@@ -22,6 +22,16 @@ def fixture():
 
 
 class EnvironmentTests(TestCase):
+    def test_result_bounded_recording_requires_confirmed_completion(self):
+        records = fixture()
+        records[0].update(until_file="/tmp/test-result.json", requested_seconds=600)
+        records[-1]["termination"] = "result_created"
+        self.assertTrue(evaluate(records)["conditions_consistent"])
+        records[-1]["termination"] = "timeout"
+        self.assertFalse(evaluate(records)["valid_observation"])
+        records[0].pop("until_file")
+        self.assertFalse(evaluate(records)["valid_observation"])
+
     def test_consistent_environment_never_qualifies_benchmark(self):
         result = evaluate(fixture())
         self.assertTrue(result["conditions_consistent"])

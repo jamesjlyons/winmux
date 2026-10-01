@@ -51,7 +51,13 @@ def evaluate(records):
     if samples[0].get("reason") != "start" or samples[-1].get("reason") != "end":
         invalid.append("Missing start/end samples")
     elapsed = (samples[-1]["continuous_ns"] - samples[0]["continuous_ns"]) / 1e9
-    if elapsed < duration:
+    until_file = meta.get("until_file")
+    if until_file is not None:
+        if not isinstance(until_file, str) or not until_file or completion.get("termination") != "result_created":
+            invalid.append("Expected result did not end the observation")
+        if elapsed <= 0 or elapsed > duration + max(1, interval):
+            invalid.append("Invalid result-bounded observation window")
+    elif elapsed < duration:
         invalid.append("Incomplete observation window")
     if completion.get("target_identity_matches") is not True or any(
             s.get("target_identity_matches") is not True for s in samples):

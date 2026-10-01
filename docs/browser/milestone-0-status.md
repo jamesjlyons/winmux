@@ -1,14 +1,54 @@
 # Milestone 0 implementation status
 
 **Milestone 0 is incomplete. Chromium and a signed alpha with authenticated helper communication and native
-request/cosmetic blocking now build and launch; compatibility and performance
-qualification remain open.**
+request/cosmetic blocking now build and launch; browser baseline reports remain
+open. Extension compatibility is accepted by the user for this phase.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started. On October 1 the user explicitly accepted the extensions for
 this phase ("move on from the extension testing. they're good"). Stop extension
 testing and treat its remaining scenarios as deferred, not implementation
 blockers. Preserve the observations below without claiming unperformed tests
 passed; continue browser baselines and browser/workspace integration.
+
+## Initial paired browser baselines — 2026-10-01
+
+- A loopback runner now serves the pinned local Speedometer 3.1 assets and
+  exports the original completion callback's full metrics automatically. All
+  suites and ten iterations use upstream timing defaults. Native observation
+  ends when the result arrives; no accessibility inspection occurs during a run.
+- Four trials ran in control/alpha/alpha/control order, each with a fresh test
+  profile, the same launch flags and a 1500 × 863 page viewport. Package
+  signatures, Chromium revision, GN arguments and signing identity match the
+  intended control/alpha comparison. Sandbox and site isolation were preserved.
+- The first pair scored **control 4.1363; alpha 4.1740** (alpha +0.91%). The alpha
+  repeat scored **4.1695**. These three trials recorded consistent foreground,
+  display, AC power and nominal thermal conditions. The final control scored
+  3.9653 but is **excluded**: its display mode became unavailable and the browser
+  lost foreground focus. There is no accepted repeated-control comparison yet.
+- The benchmark removes its focused iframe before its completion callback;
+  all four raw exports record `hasFocus=false` at that boundary. The analyzer
+  distinguishes this known boundary from focus/visibility interruption events.
+  It retains the raw warning, and still rejects the native focus/display failure.
+- Fresh blank-tab snapshots after at least 30 seconds reported **445.81 MiB
+  alpha versus 422.72 MiB control**, a **23.09 MiB** difference, using Apple's
+  physical-footprint accounting for each browser and its descendants. This is
+  one snapshot per browser, excluding the separate helper and reparented crash
+  handlers; it is not unique-memory, peak-memory or full-workload qualification.
+- These are preliminary baselines on the 16 GiB development Mac, with other
+  desktop apps running and no user extensions in the measurement profiles.
+  They show no slowdown in the valid first pair, but do not establish the 5%
+  repeatability gate. Startup, switching, longer memory/CPU observations and
+  the representative mixed workload remain open. Extension testing stays deferred.
+- Thirty-five Python checks pass, including interval coverage, transient focus
+  interruptions, invalid scores and asset identity. Swift 6 compilation with
+  warnings as errors and both measured packages' deep/strict signature checks pass.
+
+[Baseline report and raw evidence](evidence/2026-10-01-browser-baselines.json).
+Reproduce with `speedometer_fixture.py`, `observe_environment.swift` and
+`summarize_speedometer.py` under `browser/tools`. The first fixture attempt was
+discarded after a directory-URL serving bug and display change; the corrected
+runner successfully served all suites. The remaining control repeat and UI
+timing work require available, stable display/foreground conditions.
 
 ## Restart checks and benchmark environment recorder — 2026-10-01
 
@@ -54,7 +94,7 @@ passed; continue browser baselines and browser/workspace integration.
 
 [Raw samples, package provenance and validation](evidence/2026-10-01-helper-resources.json).
 
-## Required extension functionality in progress — 2026-10-01
+## Required extension functionality accepted for this phase — 2026-10-01
 
 - The verified `alpha-blocking-1` package is also installed at
   `/Applications/WinMux Browser Alpha.app`. It passed deep/strict verification
@@ -136,8 +176,9 @@ without that argument opens its separate default alpha profile.
 - This completes the **small request/cosmetic integration proof**, not the full
   blocking feature set. Newly introduced DOM tokens, profile/site switches,
   replacements/rewrites, WebSocket interception and rule updates remain pending.
-  Required-extension login/functionality, 1Password Mac-app integration and
-  browser performance reports still block the Milestone 0 exit gate.
+  Browser performance reports remain open. The user subsequently accepted
+  extension compatibility for this phase and deferred the remaining scenarios,
+  including 1Password Mac-app integration.
 
 [Signed blocker and upstream-control comparison evidence](evidence/2026-10-01-browser-blocking.json).
 Reproduce with `browser/tools/blocking_fixture.py`; its source documents the
@@ -173,7 +214,8 @@ loopback mapping. The current verified app is
   probe with the wrong signing identifier was rejected by the registered helper.
   The signed browser rendered a local fixture and accepted keyboard/button input.
   Request blocking and renderer cosmetics were verified in the later checkpoint
-  above; required extensions and browser performance qualification remain pending.
+  above. Extension compatibility was subsequently accepted by the user for this
+  phase; browser performance reports remain pending.
 - Thirteen Python tests pass, including protection of unrelated Chromium edits,
   resumable owned patches, exclusion of concurrent builds/packages, and rejection
   of failed/stale build provenance.

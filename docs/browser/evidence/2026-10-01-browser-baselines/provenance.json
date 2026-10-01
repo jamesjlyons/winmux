@@ -1,0 +1,11 @@
+{
+  "scope": "local_speedometer_3_1_engine_baseline",
+  "assets": {
+    "files": 1143,
+    "tree_sha256": "05341d04fd357ae19c7fc2ac2ee3df515f2e096cc8172f2cb7426f681e2bc071"
+  },
+  "fixture_sha256": "3fbf140b97f07da468246f7116d9bb41a3c98a7a1f9b894a1471c72695d1141d",
+  "iteration_count": 10,
+  "benchmark_timing_modified": false,
+  "benchmark_qualified": false
+}

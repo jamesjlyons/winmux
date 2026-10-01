@@ -51,15 +51,20 @@ final class Recorder {
     let handle: FileHandle
     let interval: Double
     let seconds: Double
+    let untilFile: String?
     var timebase = mach_timebase_info_data_t()
     var observers: [(NotificationCenter, NSObjectProtocol)] = []
     var writeFailed = false
 
-    init(pid: Int32, expected: ProcessIdentity, output: String, interval: Double, seconds: Double) throws {
+    init(pid: Int32, expected: ProcessIdentity, output: String, interval: Double, seconds: Double, untilFile: String?) throws {
         self.pid = pid
         self.expected = expected
         self.interval = interval
         self.seconds = seconds
+        self.untilFile = untilFile
+        if let untilFile, FileManager.default.fileExists(atPath: untilFile) {
+            throw NSError(domain: "CompletionFileAlreadyExists", code: 1)
+        }
         guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom != 0 else {
             throw NSError(domain: "MachClock", code: 1)
         }
@@ -123,6 +128,7 @@ final class Recorder {
               "target_executable_sha256": try digest(URL(fileURLWithPath: expected.path)),
               "collector_executable_sha256": try digest(binary),
               "requested_seconds": seconds, "interval_seconds": interval,
+              "until_file": untilFile as Any? ?? NSNull(),
               "mach_timebase": ["numer": timebase.numer, "denom": timebase.denom],
               "os": ProcessInfo.processInfo.operatingSystemVersionString,
               "memory_bytes": ProcessInfo.processInfo.physicalMemory,
@@ -146,14 +152,16 @@ final class Recorder {
         }
         RunLoop.current.add(timer, forMode: .default)
         while !writeFailed && ns(mach_continuous_time()) < deadline {
+            if let untilFile, FileManager.default.fileExists(atPath: untilFile) { break }
             let now = ns(mach_continuous_time())
             let wait = Double(deadline - min(now, deadline)) / 1e9
-            RunLoop.current.run(until: Date(timeIntervalSinceNow: wait))
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: min(wait, interval)))
         }
         timer.invalidate()
         record("end")
         for (center, token) in observers { center.removeObserver(token) }
         emit(["type": "completion", "complete": !writeFailed,
+              "termination": untilFile.map { FileManager.default.fileExists(atPath: $0) ? "result_created" : "timeout" } ?? "duration",
               "target_identity_matches": identity(pid) == expected,
               "target_executable_sha256": try digest(URL(fileURLWithPath: expected.path))])
         try handle.close()
@@ -166,7 +174,7 @@ struct Main {
     @MainActor static func main() {
         do {
             let args = Array(CommandLine.arguments.dropFirst())
-            let allowed: Set<String> = ["--pid", "--executable", "--output", "--seconds", "--interval"]
+            let allowed: Set<String> = ["--pid", "--executable", "--output", "--seconds", "--interval", "--until-file"]
             guard args.count % 2 == 0 else { throw NSError(domain: "Arguments", code: 1) }
             var options: [String: String] = [:]
             for i in stride(from: 0, to: args.count, by: 2) {
@@ -180,7 +188,8 @@ struct Main {
                   interval <= min(10, seconds), let expected = identity(pid),
                   expected.path == URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
             else { throw NSError(domain: "ArgumentsOrTargetIdentity", code: 3) }
-            try Recorder(pid: pid, expected: expected, output: output, interval: interval, seconds: seconds).run()
+            try Recorder(pid: pid, expected: expected, output: output, interval: interval, seconds: seconds,
+                         untilFile: options["--until-file"]).run()
         } catch {
             FileHandle.standardError.write(Data("Environment observation failed: \(error)\nUsage: observe-environment --pid PID --executable PATH --output NEW.jsonl [--seconds 600 --interval 2]\n".utf8))
             exit(1)

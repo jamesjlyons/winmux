@@ -1,0 +1,295 @@
+{
+  "scope": "milestone_0_development_browser_baselines",
+  "milestone_0_complete": false,
+  "release_performance_qualified": false,
+  "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+  "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+  "packages": {
+    "control": {
+      "application": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app",
+      "deep_strict_verification_passed": true,
+      "browser_executable_sha256": "a52c39e14dc53c8903102d46b8ef33c6f5c28e7d32bd538b235b8744a23abe84",
+      "team": "F7QMMNZWXX",
+      "package_manifest_sha256": "0fe0f89ffddf9ce0d6fdf6f4108e1e0fe633dff488d3c3e185983ed70c3b022c"
+    },
+    "alpha": {
+      "application": "/Applications/WinMux Browser Alpha.app",
+      "deep_strict_verification_passed": true,
+      "browser_executable_sha256": "61b24ea8783f3ae86dd88445104b01e1e7346522d42422ba6d400dc1a4578d7e",
+      "team": "F7QMMNZWXX",
+      "package_manifest_sha256": "63801375c38198060068c76a3664e95375ca42acfa348873953c93ef95b2b4a0"
+    }
+  },
+  "common_launch_flags": [
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--enable-logging=stderr",
+    "--window-size=1500,950",
+    "about:blank"
+  ],
+  "fresh_separate_profile_each_run": true,
+  "extensions": "No user extensions in these test profiles; required extension compatibility is separately accepted by the user.",
+  "order": [
+    "control-1",
+    "alpha-1",
+    "alpha-2",
+    "control-2"
+  ],
+  "benchmark": "Pinned local Speedometer 3.1, all suites, 10 iterations, original timing defaults",
+  "source_assets": {
+    "scope": "local_speedometer_3_1_engine_baseline",
+    "assets": {
+      "files": 1143,
+      "tree_sha256": "05341d04fd357ae19c7fc2ac2ee3df515f2e096cc8172f2cb7426f681e2bc071"
+    },
+    "fixture_sha256": "3fbf140b97f07da468246f7116d9bb41a3c98a7a1f9b894a1471c72695d1141d",
+    "iteration_count": 10,
+    "benchmark_timing_modified": false,
+    "benchmark_qualified": false
+  },
+  "result_summary": {
+    "scope": "paired_speedometer_development_baseline",
+    "runs": [
+      {
+        "run": "control-1",
+        "score": 4.136276720061436,
+        "iteration_scores": [
+          3.7275112458471185,
+          4.196702826027273,
+          4.225194904268681,
+          4.066294388658398,
+          4.261961979482014,
+          4.140545152461484,
+          4.099551459395905,
+          4.210075302866583,
+          4.322600695548007,
+          4.112329246058897
+        ],
+        "completion_after_focused_iframe_cleanup": true,
+        "elapsed_seconds": 126.28829999999702,
+        "condition_problems": [],
+        "conditions_consistent": true,
+        "native_environment": {
+          "scope": "benchmark_environment_only",
+          "benchmark_qualified": false,
+          "milestone_0_qualified": false,
+          "valid_observation": true,
+          "conditions_consistent": true,
+          "observation_problems": [],
+          "condition_problems": [],
+          "unverified": [
+            "Full benchmark interval is covered by this recording",
+            "Correct tab/window is visible and receiving input",
+            "Equivalent builds, extensions, profiles and workloads",
+            "Background workload, display frame cadence and repeatability"
+          ],
+          "elapsed_seconds": 148.354626417,
+          "samples": 76
+        },
+        "viewport": {
+          "width": 1500,
+          "height": 863,
+          "device_pixel_ratio": 2
+        }
+      },
+      {
+        "run": "alpha-1",
+        "score": 4.173974336563906,
+        "iteration_scores": [
+          3.7561722397042905,
+          4.158211948629474,
+          4.212148887815663,
+          4.305553181406338,
+          4.188256558946724,
+          4.2631723508322255,
+          4.103251965642634,
+          4.209991226787067,
+          4.244981625435796,
+          4.2980033804388516
+        ],
+        "completion_after_focused_iframe_cleanup": true,
+        "elapsed_seconds": 125.107,
+        "condition_problems": [],
+        "conditions_consistent": true,
+        "native_environment": {
+          "scope": "benchmark_environment_only",
+          "benchmark_qualified": false,
+          "milestone_0_qualified": false,
+          "valid_observation": true,
+          "conditions_consistent": true,
+          "observation_problems": [],
+          "condition_problems": [],
+          "unverified": [
+            "Full benchmark interval is covered by this recording",
+            "Correct tab/window is visible and receiving input",
+            "Equivalent builds, extensions, profiles and workloads",
+            "Background workload, display frame cadence and repeatability"
+          ],
+          "elapsed_seconds": 150.341880834,
+          "samples": 77
+        },
+        "viewport": {
+          "width": 1500,
+          "height": 863,
+          "device_pixel_ratio": 2
+        }
+      },
+      {
+        "run": "alpha-2",
+        "score": 4.169537738126098,
+        "iteration_scores": [
+          3.7945675747960315,
+          4.227651234172213,
+          4.069525487218974,
+          4.190817029884271,
+          4.1999087974868194,
+          4.379599704504449,
+          4.29080395809868,
+          4.254312231822457,
+          3.998971735758683,
+          4.2892196275184
+        ],
+        "completion_after_focused_iframe_cleanup": true,
+        "elapsed_seconds": 127.1275,
+        "condition_problems": [],
+        "conditions_consistent": true,
+        "native_environment": {
+          "scope": "benchmark_environment_only",
+          "benchmark_qualified": false,
+          "milestone_0_qualified": false,
+          "valid_observation": true,
+          "conditions_consistent": true,
+          "observation_problems": [],
+          "condition_problems": [],
+          "unverified": [
+            "Full benchmark interval is covered by this recording",
+            "Correct tab/window is visible and receiving input",
+            "Equivalent builds, extensions, profiles and workloads",
+            "Background workload, display frame cadence and repeatability"
+          ],
+          "elapsed_seconds": 152.342722666,
+          "samples": 78
+        },
+        "viewport": {
+          "width": 1500,
+          "height": 863,
+          "device_pixel_ratio": 2
+        }
+      },
+      {
+        "run": "control-2",
+        "score": 3.9652701035299005,
+        "iteration_scores": [
+          3.454657553414768,
+          4.034744014612888,
+          3.8245890836601233,
+          3.818542609779332,
+          4.1255770290673945,
+          4.0571894574443235,
+          4.09181774471359,
+          4.060482813537453,
+          4.1424445000770165,
+          4.042656228992115
+        ],
+        "completion_after_focused_iframe_cleanup": true,
+        "elapsed_seconds": 126.593,
+        "condition_problems": [
+          "Display configuration changed",
+          "Display configuration unavailable",
+          "Target was not continuously observed as foreground"
+        ],
+        "conditions_consistent": false,
+        "native_environment": {
+          "scope": "benchmark_environment_only",
+          "benchmark_qualified": false,
+          "milestone_0_qualified": false,
+          "valid_observation": true,
+          "conditions_consistent": false,
+          "observation_problems": [],
+          "condition_problems": [
+            "Display configuration changed",
+            "Display configuration unavailable",
+            "Target was not continuously observed as foreground"
+          ],
+          "unverified": [
+            "Full benchmark interval is covered by this recording",
+            "Correct tab/window is visible and receiving input",
+            "Equivalent builds, extensions, profiles and workloads",
+            "Background workload, display frame cadence and repeatability"
+          ],
+          "elapsed_seconds": 150.253813417,
+          "samples": 79
+        },
+        "viewport": {
+          "width": 1500,
+          "height": 863,
+          "device_pixel_ratio": 2
+        }
+      }
+    ],
+    "observed_conditions_comparable": false,
+    "comparison": null,
+    "benchmark_qualified": false,
+    "milestone_0_qualified": false,
+    "limits": [
+      "Small development-machine sample, not a release workload or confidence-bound acceptance",
+      "Fresh profiles omit required extensions; extension compatibility is user-accepted separately",
+      "Desktop background applications remain running; accessibility used before each run",
+      "Does not measure startup, switching, memory, or blocker request latency"
+    ]
+  },
+  "first_pair": {
+    "control_score": 4.136276720061436,
+    "alpha_score": 4.173974336563906,
+    "alpha_score_change_percent": 0.9113900992076207,
+    "interpretation": "No slowdown observed in this pair. One control and two alpha trials had consistent recorded conditions; insufficient for repeatable 5% gate acceptance."
+  },
+  "excluded": [
+    "Initial fixture trial: unsupported directory asset route and display change; no score exported.",
+    "control-2: display mode became unavailable and the app lost foreground focus; excluded from comparison."
+  ],
+  "focus_boundary": "All runs had document.hasFocus=false only at the completion boundary. Pinned benchmark-runner.mjs removes its focused iframe before the completion callback. Raw observations and their initial conservative warning are preserved. The summary distinguishes this boundary from explicit blur/visibility events; native focus failures remain failures.",
+  "memory": {
+    "workload": "Fresh separate profiles; one about:blank tab after at least 30 seconds. Apple footprint snapshots of the root and descendants.",
+    "control_footprint_bytes": 443249792,
+    "alpha_footprint_bytes": 467465992,
+    "difference_bytes": 24216200,
+    "limits": [
+      "One snapshot per browser, not a peak or five-minute idle average.",
+      "Physical footprint accounting, not a unique-memory/PSS claim or raw RSS sum.",
+      "Excludes the separately enrolled helper and reparented Crashpad processes.",
+      "Does not qualify the 100-tab mixed workspace or the integration-overhead gate."
+    ],
+    "command": "footprint --noCategories --format bytes --json OUTPUT.json -p ROOT_PID -p DESCENDANT_PID ...; explicit PID lists are in the memory-context artifacts."
+  },
+  "validation": {
+    "python_tests_passed": 35,
+    "swift_6_warnings_as_errors_passed": true,
+    "sandbox_and_site_isolation_defaults_preserved": true
+  },
+  "next": [
+    "Resume repeat control only with available stable display/foreground conditions.",
+    "Collect startup and tab-switch traces before broad workspace migration.",
+    "Continue unified browser/native-window implementation; do not resume deferred extension tests."
+  ],
+  "raw_files": {
+    "control-1.json": "53d036ae9954e936f16b149665075bb4d21b72104c97594a393c0fc2a5228a00",
+    "control-1-environment.jsonl": "cd3df4dd00644a599c152bc502dab9e3a41f9cf4d84eb23358f23c983c84de4e",
+    "control-1-process.json": "201269a29f1a1eabfd526e8d7b4611a3d698c5923c20f6cf67ba5181276f9356",
+    "alpha-1.json": "05653d1d5f3ed21e6c641e9d79e104292f85d0abbb4d2f3b7b5a59f3caf19c1c",
+    "alpha-1-environment.jsonl": "9e90f9a32997afda160a00f87984b3bcd36cc6d9815ba463884eaedbdf73ece3",
+    "alpha-1-process.json": "ebec395cf8f70f85097194bc9015487ec07bc90654f20ea494224e5cd0f43d5c",
+    "alpha-2.json": "7e7b92ddc14967c70673ea781490b189e5ac8b6947356846d39102fbe9172a92",
+    "alpha-2-environment.jsonl": "3568a94c7276ed790bda7c35ae420f6a9686f7f03ddd1b347c0f0a9a446736a7",
+    "alpha-2-process.json": "2f6b259af4b45fb0c136ccdae2fee13d46bfeb1283eb383841baa36ec4af6ef5",
+    "control-2.json": "291e8440aa745c5eea2aef565c537c9b50cc1d1b987fb6758d3afeb87937a007",
+    "control-2-environment.jsonl": "f0065b2f1cd1e72a3646e59e3b1a05f8e034eb0c07e227ce40f34d34fa4bed8b",
+    "control-2-process.json": "590ab001068f07b40f16d13ec457edb5b45310773a41786ac1ad1ce74ce94182",
+    "alpha-2-memory.json": "52d7baaf973b3ac786fb49b8eeb52d6551d404acc792d4533b3ade7f424cceac",
+    "alpha-2-memory-context.json": "caebd25f1d3f0f0e3cae55fe861b92ac48ef27c502a632eed02c63e8e684aae9",
+    "control-2-memory.json": "4e6f745be99eb3d2aaaca8678e24e9a02521d72f43b44c978c04f50ebb254eb6",
+    "control-2-memory-context.json": "8e44f74c80d139ff33921817a80b0f97c23b2397c8a9dc00242a07aefd2dad4b",
+    "summary.json": "3a8b3efb69a0aaf7b85edbf783dcc4879c46254d0a44112aad52c059339bbf31",
+    "provenance.json": "a9a995ee65ad1ab04867864e7c6adfeb6b1d5904cbfeceb1b79deaacdb9df581"
+  }
+}
