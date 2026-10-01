@@ -6,6 +6,31 @@ qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started, as required by the approved compatibility gate.
 
+## Restart checks and benchmark environment recorder — 2026-10-01
+
+- After the user deferred further 1Password testing, the signed alpha quit
+  cleanly and reopened the same `alpha-compatibility` profile with
+  `--restore-last-session`. All seven test tabs returned. Readwise's saved-page
+  toolbar and one existing highlight returned; Cosmos's authenticated private
+  collection picker remained available without a login prompt. No new Cosmos
+  save was submitted in this restart check. The browser authenticated with the
+  existing helper again. This covers a clean restart, not crash/update recovery.
+- A standalone Swift recorder now streams process identity, app-foreground
+  observations, activation/sleep events, AC/Low Power Mode, thermal state and
+  display modes. It never reads AX/windows/browser content, activates an app or
+  changes system settings. Its checker flags missing data and interrupted or
+  inconsistent conditions; it never qualifies a benchmark or milestone.
+- Swift 6 compilation with warnings as errors passed. Twenty-eight Python
+  tests pass. A real five-second recording of an agent-owned `/bin/sleep`
+  process correctly failed the foreground condition, rejected the wrong
+  executable before creating output and refused to overwrite prior evidence.
+  This validates recorder plumbing, not browser performance. The app-foreground
+  observation still needs correlation with the full benchmark interval and
+  separate evidence for tab visibility, background workload and repeatability.
+
+[Restart evidence](evidence/2026-10-01-extension-restart.json) and
+[environment recorder proof](evidence/2026-10-01-environment-recorder.json).
+
 ## Preliminary helper resource observation — 2026-10-01
 
 - A read-only collector observed the already enrolled transport helper for
@@ -39,10 +64,11 @@ have not started, as required by the approved compatibility gate.
   1Password for Mac **8.12.38**. Its signature and notarized Gatekeeper assessment
   passed previously. The browser extension shows its unlocked account UI. Its
   supported Mac-app connection remains unverified: Add Browser was disabled at
-  the earlier check. The user has been asked to leave Settings → Browser open
-  for the next check. Do not repeat account sign-in requests or read vault
-  contents. Automatic approval review rejected a full native-app window read
-  because it could expose private entries; no credentials were extracted.
+  the earlier check. The user explicitly deferred further 1Password testing on
+  October 1 and asked to move on. Treat this as deferred acceptance, not a blocker
+  for continued implementation; do not repeat the pending setup request.
+  Automatic approval review had rejected a full native-app window read because
+  it could expose private entries; no credentials were extracted.
 - Readwise saved the public Chromium project page through its toolbar, created
   a highlight and retained it after a page reload. Cosmos saved that page and
   its public logo image to an existing private collection, including the native
@@ -306,8 +332,8 @@ files were changed, so the existing native application's suite was not rerun.
 | Signed top-level app and embedded helper | Private alpha packaged; full signature verification passed |
 | Authenticated helper communication | Signed browser and embedded helper exchange verified, including restart and wrong-client rejection |
 | Direct Chromium rendering | Control and signed alpha launch; performance not qualified |
-| Required extension installation, authentication, usage, profiles, updates, restart | All three signed in; Readwise page/highlight/reload and Cosmos page/image/private-collection actions passed; remaining scenarios pending |
-| 1Password Mac-app / Touch ID integration | Browser account unlocked; desktop sign-in reported; supported Add Browser verification pending |
+| Required extension installation, authentication, usage, profiles, updates, restart | All three signed in; Readwise page/highlight/reload and Cosmos page/image/private-collection actions passed; Readwise/Cosmos UI sessions survived a clean restart; second-profile/update scenarios pending |
+| 1Password Mac-app / Touch ID integration | Deferred by user on October 1; browser account unlocked, desktop sign-in reported, further acceptance unverified |
 | Network interception and rendered cosmetic proof | Signed browser and untouched control comparison passed |
 | Switching, startup, memory, energy and browser benchmark baseline | Preliminary helper-only CPU/footprint measured; matched browser reports pending |
 

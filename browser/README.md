@@ -149,6 +149,29 @@ from resident size. Changed process identity, sleep, counter regression and
 incomplete sampling invalidate the series. A valid observation still does not
 qualify Milestone 0 or represent a full browser/control comparison.
 
+## Record benchmark conditions without accessibility polling
+
+Build the standalone read-only recorder before a benchmark session:
+
+```sh
+xcrun swiftc -O -warnings-as-errors -parse-as-library -swift-version 6 \
+  browser/tools/observe_environment.swift -o .local/browser/observe-environment
+.local/browser/observe-environment --pid BROWSER_PID \
+  --executable '/path/to/Browser.app/Contents/MacOS/Chromium' \
+  --seconds 600 --interval 2 --output .local/browser/new-environment.jsonl
+python3 browser/tools/check_environment.py .local/browser/new-environment.jsonl
+```
+
+It never activates apps, sends input, reads windows/AX/browser content, or changes
+power settings. It checks the exact process path/start identity, observes app
+activation and sleep notifications, and periodically records power, thermal
+state and display modes. The output is created exclusively and streamed, so an
+interrupted recording remains incomplete. Unknown values and interruptions are
+flagged; a consistent environment record never qualifies a benchmark by itself.
+Correlate it with the entire benchmark interval and separate provenance/workload
+evidence. Application foreground is not proof of the selected tab's visibility,
+and display mode refresh is not a measurement of actual frame cadence.
+
 ## Qualification
 
 See [the current evidence and blockers](../docs/browser/milestone-0-status.md).
