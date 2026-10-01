@@ -1,0 +1,367 @@
+{
+  "scope": "single_upstream_control_startup_and_tab_presentation_baseline",
+  "milestone_0_qualified": false,
+  "input_ready_measured": false,
+  "alpha_comparison_complete": false,
+  "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+  "raw_trace_sha256": "fcf31c502a5aeedf5d95fe25c3e64c80d91154aa18b2165aab7ca7002fcea736",
+  "raw_trace_local_path": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/baselines/timing-1/control-trace.json",
+  "startup_temperature": "Lukewarm, as classified by Chromium trace",
+  "startup_spans": [
+    {
+      "name": "Startup.LoadTime.ProcessCreateToApplicationStart",
+      "start_us": 54211925500,
+      "end_us": 54212001408,
+      "duration_ms": 75.908,
+      "args": {}
+    },
+    {
+      "name": "Startup.LoadTime.ApplicationStartToChromeMain",
+      "start_us": 54212001408,
+      "end_us": 54212002868,
+      "duration_ms": 1.46,
+      "args": {}
+    },
+    {
+      "name": "Startup.GPU.LoadTime.ChromeMainToGpuInitialized",
+      "start_us": 54212354616,
+      "end_us": 54212460174,
+      "duration_ms": 105.558,
+      "args": {}
+    },
+    {
+      "name": "Startup.GPU.LoadTime.ApplicationStartToGpuInitialized",
+      "start_us": 54212354571,
+      "end_us": 54212460174,
+      "duration_ms": 105.603,
+      "args": {}
+    },
+    {
+      "name": "Startup.GPU.LoadTime.ProcessCreationToGpuInitialized",
+      "start_us": 54212315944,
+      "end_us": 54212460174,
+      "duration_ms": 144.23,
+      "args": {}
+    },
+    {
+      "name": "Startup.FirstWebContents.MainNavigationStart",
+      "start_us": 54212001408,
+      "end_us": 54212698103,
+      "duration_ms": 696.695,
+      "args": {}
+    },
+    {
+      "name": "Startup.BrowserWindowDisplay",
+      "start_us": 54212001408,
+      "end_us": 54212750995,
+      "duration_ms": 749.587,
+      "args": {}
+    },
+    {
+      "name": "Startup.BrowserMessageLoopStartTime",
+      "start_us": 54212001408,
+      "end_us": 54212752393,
+      "duration_ms": 750.985,
+      "args": {}
+    },
+    {
+      "name": "Startup.BrowserWindow.FirstPaint",
+      "start_us": 54212001408,
+      "end_us": 54212858481,
+      "duration_ms": 857.073,
+      "args": {}
+    },
+    {
+      "name": "Startup.FirstWebContents.MainNavigationFinished",
+      "start_us": 54212001408,
+      "end_us": 54212930295,
+      "duration_ms": 928.887,
+      "args": {}
+    },
+    {
+      "name": "Startup.FirstWebContents.LargestContentfulPaint",
+      "start_us": 54212001408,
+      "end_us": 54212932909,
+      "duration_ms": 931.501,
+      "args": {}
+    },
+    {
+      "name": "Startup.FirstWebContents.FirstContentfulPaint",
+      "start_us": 54212001408,
+      "end_us": 54212932909,
+      "duration_ms": 931.501,
+      "args": {}
+    },
+    {
+      "name": "Startup.FirstWebContents.NonEmptyPaint3",
+      "start_us": 54212001408,
+      "end_us": 54213008341,
+      "duration_ms": 1006.933,
+      "args": {}
+    },
+    {
+      "name": "Startup.BrowserMessageLoopFirstIdle",
+      "start_us": 54212001408,
+      "end_us": 54213059067,
+      "duration_ms": 1057.659,
+      "args": {}
+    }
+  ],
+  "tab_switches": [
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54250799679,
+      "end_us": 54250866666,
+      "duration_ms": 66.987,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54251264661,
+      "end_us": 54251316666,
+      "duration_ms": 52.005,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54251693251,
+      "end_us": 54251749988,
+      "duration_ms": 56.737,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54252090909,
+      "end_us": 54252149999,
+      "duration_ms": 59.09,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54252537506,
+      "end_us": 54252599999,
+      "duration_ms": 62.493,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54253004064,
+      "end_us": 54253066666,
+      "duration_ms": 62.602,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54253484622,
+      "end_us": 54253549999,
+      "duration_ms": 65.377,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54253954096,
+      "end_us": 54254016666,
+      "duration_ms": 62.57,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54254415622,
+      "end_us": 54254466666,
+      "duration_ms": 51.044,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54254879739,
+      "end_us": 54254933320,
+      "duration_ms": 53.581,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54255330979,
+      "end_us": 54255383333,
+      "duration_ms": 52.354,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54255803862,
+      "end_us": 54255866666,
+      "duration_ms": 62.804,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54256279930,
+      "end_us": 54256333333,
+      "duration_ms": 53.403,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54256748130,
+      "end_us": 54256800000,
+      "duration_ms": 51.87,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54257197721,
+      "end_us": 54257250000,
+      "duration_ms": 52.279,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    },
+    {
+      "name": "TabSwitching::Latency",
+      "start_us": 54257653946,
+      "end_us": 54257716666,
+      "duration_ms": 62.72,
+      "args": {
+        "tab_switch_measurement": {
+          "result": "RESULT_SUCCESS",
+          "tab_state": "STATE_WITH_SAVED_FRAMES"
+        }
+      }
+    }
+  ],
+  "saved_frame_presentations": {
+    "count": 16,
+    "min_ms": 51.044,
+    "median_ms": 57.9135,
+    "max_ms": 66.987,
+    "p95_nearest_rank_ms": 66.987
+  },
+  "native_series": {
+    "scope": "benchmark_environment_only",
+    "benchmark_qualified": false,
+    "milestone_0_qualified": false,
+    "valid_observation": true,
+    "conditions_consistent": false,
+    "observation_problems": [],
+    "condition_problems": [
+      "Target was not continuously observed as foreground"
+    ],
+    "unverified": [
+      "Full benchmark interval is covered by this recording",
+      "Correct tab/window is visible and receiving input",
+      "Equivalent builds, extensions, profiles and workloads",
+      "Background workload, display frame cadence and repeatability"
+    ],
+    "elapsed_seconds": 100.033295292,
+    "samples": 103
+  },
+  "switch_interval": {
+    "covered_by_native_samples": true,
+    "conditions_consistent": true,
+    "sample_count": 9,
+    "start_awake_ns": 54249975312833,
+    "end_awake_ns": 54257975108708,
+    "displays": [
+      {
+        "height_pixels": 2160,
+        "height_points": 1080,
+        "id": 16,
+        "mode_available": true,
+        "refresh_hz": 60,
+        "width_pixels": 3840,
+        "width_points": 1920,
+        "x": 0,
+        "y": 0
+      }
+    ]
+  },
+  "interpretation": [
+    "First paint is a Chromium startup marker, not usable/input-ready UI.",
+    "TabSwitching::Latency ends at Chromium successful presentation feedback; all 16 events reported saved frames and RESULT_SUCCESS.",
+    "The synthetic input echo was observed once before switching; input readiness was not timed per switch.",
+    "Action command round-trip times include automation/AX overhead and are not used as presentation latency.",
+    "AX was read between switches; this is an instrumented development baseline, not release acceptance.",
+    "The full native record flags expected pre-foreground startup time; the switching interval is bracketed and checked separately.",
+    "The existing compatibility browser remained running in the background. One launch/16 switches do not qualify p95/p99 goals or a cold/warm startup distribution."
+  ],
+  "raw_files": {
+    "B.html": "faf108ed9a17f95d9f350aec5564cc4595e4c22dacea034105b4374a19d6d7b3",
+    "control-actions.json": "28a013803e6bc575b07ba4aff314ed3ee83099412a08925b67a0f3890deee63c",
+    "selected-trace-events.json": "a0f3d4eb3be56626b0afa875839682c1e1e8b65d1ecec63eedb28b634dab7166",
+    "control-process.json": "51f0b7858e69ae215a40732f9462459111f02d41fc4ff2efb1cbad8a14ee4d93",
+    "control-environment.jsonl": "c3c82c76607702cc4dc22b202a313d3d340a167c5dd558ccb1f77bf2528f9b62",
+    "A.html": "1dc686855587e8d4893768dc7f6b7ac2ebf97ba69bd2726af839bd91cb5a210a"
+  }
+}

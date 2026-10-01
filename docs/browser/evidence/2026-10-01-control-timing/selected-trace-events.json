@@ -1,0 +1,773 @@
+[
+  {
+    "args": {},
+    "cat": "startup",
+    "name": "Startup.BrowserMainEntryPoint",
+    "ph": "I",
+    "pid": 34189,
+    "s": "t",
+    "tid": 983904,
+    "ts": 54212002868,
+    "tts": 480986
+  },
+  {
+    "args": {
+      "BrowserCount": 1
+    },
+    "cat": "startup",
+    "name": "Startup.StartupComplete",
+    "ph": "I",
+    "pid": 0,
+    "s": "g",
+    "tid": 0,
+    "ts": 54214855538
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x1"
+    },
+    "name": "Startup.LoadTime.ProcessCreateToApplicationStart",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54211925500
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x1"
+    },
+    "name": "Startup.LoadTime.ProcessCreateToApplicationStart",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x2"
+    },
+    "name": "Startup.BrowserMessageLoopStartTime",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x3"
+    },
+    "name": "Startup.BrowserWindowDisplay",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x4"
+    },
+    "name": "Startup.LoadTime.ApplicationStartToChromeMain",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x5"
+    },
+    "name": "Startup.BrowserWindow.FirstPaint",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x6"
+    },
+    "name": "Startup.FirstWebContents.MainNavigationStart",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x7"
+    },
+    "name": "Startup.FirstWebContents.MainNavigationFinished",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x8"
+    },
+    "name": "Startup.FirstWebContents.NonEmptyPaint3",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x9"
+    },
+    "name": "Startup.FirstWebContents.FirstContentfulPaint",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0xa"
+    },
+    "name": "Startup.BrowserMessageLoopFirstIdle",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0xb"
+    },
+    "name": "Startup.FirstWebContents.LargestContentfulPaint",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212001408
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x4"
+    },
+    "name": "Startup.LoadTime.ApplicationStartToChromeMain",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212002868
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x12"
+    },
+    "name": "Startup.GPU.LoadTime.ProcessCreationToGpuInitialized",
+    "ph": "b",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212315944
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x15"
+    },
+    "name": "Startup.GPU.LoadTime.ApplicationStartToGpuInitialized",
+    "ph": "b",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212354571
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x16"
+    },
+    "name": "Startup.GPU.LoadTime.ChromeMainToGpuInitialized",
+    "ph": "b",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212354616
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x16"
+    },
+    "name": "Startup.GPU.LoadTime.ChromeMainToGpuInitialized",
+    "ph": "e",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212460174
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x15"
+    },
+    "name": "Startup.GPU.LoadTime.ApplicationStartToGpuInitialized",
+    "ph": "e",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212460174
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x12"
+    },
+    "name": "Startup.GPU.LoadTime.ProcessCreationToGpuInitialized",
+    "ph": "e",
+    "pid": 34199,
+    "tid": 984009,
+    "ts": 54212460174
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x6"
+    },
+    "name": "Startup.FirstWebContents.MainNavigationStart",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212698103
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x3"
+    },
+    "name": "Startup.BrowserWindowDisplay",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212750995
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x2"
+    },
+    "name": "Startup.BrowserMessageLoopStartTime",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212752393
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x3e"
+    },
+    "name": "Startup.Temperature.Lukewarm",
+    "ph": "n",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212752560
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x5"
+    },
+    "name": "Startup.BrowserWindow.FirstPaint",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212858481
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x7"
+    },
+    "name": "Startup.FirstWebContents.MainNavigationFinished",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212930295
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0xb"
+    },
+    "name": "Startup.FirstWebContents.LargestContentfulPaint",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212932909
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x9"
+    },
+    "name": "Startup.FirstWebContents.FirstContentfulPaint",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54212932909
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0x8"
+    },
+    "name": "Startup.FirstWebContents.NonEmptyPaint3",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54213008341
+  },
+  {
+    "args": {},
+    "cat": "startup",
+    "id2": {
+      "local": "0xa"
+    },
+    "name": "Startup.BrowserMessageLoopFirstIdle",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54213059067
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54250799679
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54250866666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54251264661
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54251316666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54251693251
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54251749988
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54252090909
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54252149999
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54252537506
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54252599999
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54253004064
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54253066666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54253484622
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54253549999
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54253954096
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54254016666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54254415622
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54254466666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54254879739
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54254933320
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54255330979
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54255383333
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54255803862
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54255866666
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54256279930
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54256333333
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54256748130
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54256800000
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54257197721
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54257250000
+  },
+  {
+    "args": {
+      "tab_switch_measurement": {
+        "result": "RESULT_SUCCESS",
+        "tab_state": "STATE_WITH_SAVED_FRAMES"
+      }
+    },
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "b",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54257653946
+  },
+  {
+    "args": {},
+    "cat": "latency",
+    "id": "0xc5",
+    "name": "TabSwitching::Latency",
+    "ph": "e",
+    "pid": 34189,
+    "tid": 983904,
+    "ts": 54257716666
+  }
+]

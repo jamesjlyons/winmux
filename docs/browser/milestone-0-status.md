@@ -10,6 +10,58 @@ testing and treat its remaining scenarios as deferred, not implementation
 blockers. Preserve the observations below without claiming unperformed tests
 passed; continue browser baselines and browser/workspace integration.
 
+## Browser/helper connection recovery — 2026-10-01
+
+- The browser now reconnects after XPC interruption, invalidation, rejected
+  negotiation or timeout. Retries run on its serial background queue with
+  1, 2, 4, 8, 16 and capped 30-second backoff. Each attempt keeps the exact
+  Apple team/browser/helper signing checks, negotiates a fresh epoch and probes
+  the helper before reporting authentication. Generation checks discard stale
+  callbacks and prevent duplicate failures from scheduling duplicate retries.
+- The four-job optimized build and Personal Team packaging succeeded. The new
+  verified staging package is
+  `.local/browser/packages/alpha-recovery-1/WinMux Browser Alpha.app`.
+  It has **not** replaced the installed `alpha-blocking-1` browser or its open
+  compatibility session. Helper enrollment remains explicit, and the browser's
+  conventional tab strip remains available.
+- A separate signed, headless Chromium process authenticated, invalidated only
+  its own connection through an opt-in diagnostic, and authenticated again on
+  generation 2. It then stayed authenticated for **17.04 seconds**, beyond both
+  negotiation timers. The enrolled helper's process identity was unchanged;
+  only the test browser was stopped. No signed-in browser UI was inspected.
+- The C++ state-machine probe passes stale reply, duplicate error, old timer,
+  capped backoff and backoff-reset checks. All 35 existing Python checks pass.
+  This proves client-connection recovery in the actual signed browser; actual
+  helper crash/restart and prolonged service outage remain untested. It does
+  not qualify latency, UI behavior or native-window management.
+
+[Recovery result, source hashes and package provenance](evidence/2026-10-01-browser-recovery.json).
+Reproduce with `browser/tools/test_browser_recovery.py`; it requires a new
+profile/output directory and verifies the staged package and existing helper
+identity before running. Native workspace integration has not started.
+
+## Initial control startup and tab-presentation trace — 2026-10-01
+
+- A fresh synthetic profile in the signed upstream control produced Chromium's
+  own startup and tab-presentation trace events. Its single **Lukewarm** launch
+  reported browser first paint at **857.073 ms**, first contentful paint at
+  **931.501 ms** and nonempty paint at **1006.933 ms**. These markers do not
+  establish usable or input-ready completion.
+- Sixteen switches reported successful presentation of saved frames:
+  **51.044–66.987 ms**, median **57.914 ms**. The native recording brackets that
+  switching interval with continuous control foreground, AC power, nominal
+  thermal state and a stable 60 Hz external display. The full recording also
+  includes the expected pre-foreground startup period, which its checker flags.
+- AX was inspected between switches; a synthetic input echo was confirmed once
+  before switching, not timed per switch. The existing alpha remained running
+  in the background. These observations are a development baseline, not the
+  input-ready p95/p99 gate, a startup distribution or a matched alpha comparison.
+  The isolated control process has exited; existing profiles were preserved.
+
+[Trace events, synthetic fixture and environment evidence](evidence/2026-10-01-control-timing.json).
+The earlier Speedometer runs used the laptop's 120 Hz display, so future paired
+measurements must establish matching display conditions afresh.
+
 ## Initial paired browser baselines — 2026-10-01
 
 - A loopback runner now serves the pinned local Speedometer 3.1 assets and
@@ -376,12 +428,12 @@ files were changed, so the existing native application's suite was not rerun.
 | Reproducible optimized Chromium build | Complete on the second Mac; immutable control archive retained |
 | Separately built native helper | Control plane built; existing workspace runtime not integrated |
 | Signed top-level app and embedded helper | Private alpha packaged; full signature verification passed |
-| Authenticated helper communication | Signed browser and embedded helper exchange verified, including restart and wrong-client rejection |
+| Authenticated helper communication | Signed exchange, clean browser restart, wrong-client rejection and client-connection recovery verified; actual helper crash recovery remains open |
 | Direct Chromium rendering | Control and signed alpha launch; performance not qualified |
 | Required extension installation, authentication, usage, profiles, updates, restart | Accepted by user for this phase; recorded partial checks stand, remaining scenarios deferred |
 | 1Password Mac-app / Touch ID integration | Deferred by user; browser account unlocked and desktop sign-in reported; does not block implementation |
 | Network interception and rendered cosmetic proof | Signed browser and untouched control comparison passed |
-| Switching, startup, memory, energy and browser benchmark baseline | Preliminary helper-only CPU/footprint measured; matched browser reports pending |
+| Switching, startup, memory, energy and browser benchmark baseline | Preliminary helper resources, browser footprint, Speedometer pair and control presentation/startup trace recorded; repeated matched comparison and input-ready/longer resource reports pending |
 
 ## Historical storage blocker — resolved on the second Mac
 

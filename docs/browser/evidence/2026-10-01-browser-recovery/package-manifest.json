@@ -1,0 +1,131 @@
+{
+  "scope": "private_development_alpha_milestone_0",
+  "verified": true,
+  "notarized": false,
+  "identity_sha1": "140566AD0A3B967AB81062FD208B94F0E1DAAFEC",
+  "team_identifier": "F7QMMNZWXX",
+  "build": {
+    "source": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src",
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "configuration": "alpha-milestone-0",
+    "build_succeeded": true,
+    "patches_sha256": {
+      "0001-workspace-bridge.patch": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+      "0002-native-request-blocking.patch": "1bd40c5d024e0844a2363a4c925a0ba1f3aa42f7dd260bb1c3b8e2ea906e9486",
+      "0003-blocker-library-bundle.patch": "ad37f775ed9e6cec98e1acd55b86f48782bfbf6a19267eced209844af73ecb23",
+      "0004-document-cosmetics.patch": "2e184a437e0dbb0fa3028453df8e7d514ab17cd2fcb9c291b103723400bb28f4"
+    },
+    "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+    "overlay_sha256": {
+      "components/winmux/blocking/engine.h": "6c72d895f5ee8a4a56ff4ab47bd3d16ff69be631918fa07d2bfe9b0d57de7ad0",
+      "components/winmux/blocking/BUILD.gn": "2fd599b39a15bc0d17807cdd1cd7380a7190eda442b1d1a64e3cad9928d850bf",
+      "components/winmux/blocking/engine.cc": "a6994d20a3c2622f031cf4c32b9fe49662fcaedda720f9fb9d21b634f696c861",
+      "components/winmux/blocking/cosmetics.mojom": "2c3804c9bde0c37df1399b81be1bb651abfd3f37f2fc3ec11061776718466470",
+      "chrome/renderer/winmux/BUILD.gn": "52d74ee82a032c18995786cd9145f4b3e7bfc0360bf491829c9d42505453f2a0",
+      "chrome/renderer/winmux/cosmetics_agent.h": "0fd7a0413ceb2074863b4fce44a024733960314630eaa171354f06cb353d1563",
+      "chrome/renderer/winmux/cosmetics_agent.cc": "1048b701aac6eebb22e76c03f081af458e16d922c5c6bb755781a0523ac6baa0",
+      "chrome/browser/winmux/BUILD.gn": "cdaf2af0160f0470b38b1b8f78c947b4ead921ef266791ad0650ee14df7107d0",
+      "chrome/browser/winmux/cosmetics_host.h": "89a7745c4a2586e0fac04eeaed8d471f02a6582098da2ffbe499ab138bcabcb1",
+      "chrome/browser/winmux/cosmetics_host.cc": "0c3b9c1365ff2d4a9dee8b68c2267155a23f898feaf3109d90ad663523bbded9",
+      "chrome/browser/winmux/workspace_bridge_state.h": "aa73a5090b6624feb6cbcbc96bf9924917ee908bf6d2ac7c539a26f6a86d67d1",
+      "chrome/browser/winmux/workspace_bridge.mm": "344b6f98566eeb65d1191e43e2e74371a7bd44543e10cca3aaff973f5324cb2d",
+      "chrome/browser/winmux/workspace_bridge.h": "11bdfb54365a0ee4c393199be2be94ab310bf9798e658ff76031b7607a1c8ad7",
+      "services/network/winmux/url_filter.cc": "9d58a4ace2df58c4c7e33c486759a580b552f2d4550b6286ab1be1bda75cbd03",
+      "services/network/winmux/url_filter.h": "4fc2837fe746a26a0625d0d598088779d377d155217c21fa15ab44def2105f77",
+      "chrome/browser/winmux/WMBridgeProtocol.h": "09455ce7c52247b33eed07b2e2c33d2dfea69d498b9bf51866d7d1b55aa0661f",
+      "components/winmux/blocking/winmux_blocking.h": "691787c723c79c5858a7c6a69ea086868e6ed434e05a533fdc27cbaed19e2fd5"
+    },
+    "build_jobs": 4,
+    "build_directory": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControl",
+    "control_directory": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControlBaseline",
+    "blocking": {
+      "rust_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+      "lists": [
+        {
+          "name": "easylist",
+          "file": "easylist.txt.gz",
+          "url": "https://easylist.to/easylist/easylist.txt",
+          "sha256": "bbe8c20b23ff2d575e2b67b8c94dc986ffe596df227bcb1be7e7da0a2a7ef66a",
+          "version": "202609190406",
+          "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+        },
+        {
+          "name": "easyprivacy",
+          "file": "easyprivacy.txt.gz",
+          "url": "https://easylist.to/easylist/easyprivacy.txt",
+          "sha256": "3a20222981143f120063ff5b6f09a416b886a120fb73d995e93facbcb80d3491",
+          "version": "202609190406",
+          "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+        }
+      ],
+      "embedded_rules_sha256": "53a5893b4a439095669d2f23a5201de3f6e5a298ca46951b220fb8a8f024e4b1",
+      "library_sha256": "3dc10e74bfec75340f6bd342322cc301cb377333dd6138fc1a8532471b998fe7",
+      "source_sha256": {
+        "browser/blocking/Cargo.toml": "3072b8bf9d03745aa0356b80c0bd8084abd8d9ba903abbcc9f8cc6e230f2004e",
+        "browser/blocking/Cargo.lock": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45",
+        "browser/blocking/src/lib.rs": "5e6a078784b8300b0e84ba43a4adf76f078b192cdc32f120950434782de2943a",
+        "browser/blocking/include/winmux_blocking.h": "691787c723c79c5858a7c6a69ea086868e6ed434e05a533fdc27cbaed19e2fd5",
+        "browser/blocking/resources/manifest.json": "7e743fe86dbcbb52ae92fb59695c9023f0b45e9c51a5e33033ff5888e04250f4"
+      }
+    },
+    "native_revision": "c3e9a02189a80cc8782d5e5e1643a30859fe1b46",
+    "native_dirty": true,
+    "control_manifest": {
+      "pins": {
+        "schema_version": 1,
+        "recorded_utc": "2026-09-19",
+        "chromium": {
+          "repository": "https://chromium.googlesource.com/chromium/src.git",
+          "channel": "Stable",
+          "platform": "Mac",
+          "version": "153.0.8010.53",
+          "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+          "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+        },
+        "depot_tools": {
+          "repository": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+          "revision": "0306e4682b4ac35287c726fa35a983157a625902"
+        },
+        "native_base_revision": "ff1fdd70bb4769e925e7e84196a1e35423ccad65",
+        "alpha_bundle_id": "com.jameslyons.winmux.browser.alpha",
+        "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
+        "browser_data_directory": "WinMux Browser Alpha",
+        "initial_checkout_free_gib": 200,
+        "minimum_build_free_gib": 100,
+        "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+        "rust_version": "1.97.1",
+        "xcode_qualification_version": "27.0"
+      },
+      "configuration": "browser-only-control",
+      "qualification": "not_run",
+      "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+      "native_revision": "ef668277d437c89d77ca264a8ad68b95d274eade",
+      "native_dirty": false,
+      "build_jobs": 4,
+      "hardware": {
+        "model": "MacBookPro18,1",
+        "physical_memory_bytes": 17179869184,
+        "logical_cpus": 10
+      },
+      "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+      "xcode": "Xcode 27.0\nBuild version 27A266a",
+      "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+      "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+      "cargo_lock_sha256": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
+    },
+    "qualification": "not_run"
+  },
+  "created_utc": "2026-10-01T19:20:38.361706+00:00",
+  "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-recovery-1/WinMux Browser Alpha.app",
+  "helper_sha256": "f81de509a507dd90b9e4c5cbef81e82d66a50654df70fa4cc6dbb93041ac09c1",
+  "browser_executable_sha256": "bf4230418aae84e09b4357f8ec15010ceedf730ae0de1abb621559e5b4b6cd29",
+  "native_sources_sha256": {
+    "browser/native/Package.swift": "87a6179d9d32a0fdd5e48fabcf9ff43b18171fe8600301b8b3274604bcb308b1",
+    "browser/native/Sources/BridgeCore/BridgeSession.swift": "63ccb51fe4cfcc350b1cab88a821a42d59379402a9f5eff39566880df381331c",
+    "browser/native/Sources/BridgeCore/HelperRegistration.swift": "38542c0abfff7f3fae583a354aa0ef8be3359e7f6414dc0228ed5eae6c027f76",
+    "browser/native/Sources/BridgeCore/SigningIdentity.swift": "c8986566854d8c8ae5cf21807fada25564b3e6e864a87be3602dcff4eacfaf9c",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "046c2a0669fb2c7d939d1d9931b1534fee32903cca80f72d65ae6b2c8d2297fa",
+    "browser/native/Tests/BridgeCoreTests/BridgeSessionTests.swift": "28ce443e16cf44de3eb5b6e3cadc50bfdc76028fbe7a21ccad6c8b5ae6ceed8b"
+  },
+  "package_tool_sha256": "901cbbe3976ceb6c05005826043085b68c6d83504b4477e46a351722fb6b41b7"
+}

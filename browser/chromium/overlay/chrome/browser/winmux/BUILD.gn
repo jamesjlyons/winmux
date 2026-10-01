@@ -4,6 +4,7 @@ source_set("workspace_bridge") {
     "cosmetics_host.h",
     "workspace_bridge.h",
     "workspace_bridge.mm",
+    "workspace_bridge_state.h",
   ]
   deps = [
     "//base",
