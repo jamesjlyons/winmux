@@ -2,9 +2,28 @@ import Foundation
 
 /// Owner-independent organization. Leaves retain their complete profile/native
 /// identity; this tree never transfers WebContents or pretends to own AX windows.
-public indirect enum SurfaceTreeNode: Equatable, Sendable {
+public indirect enum SurfaceTreeNode: Equatable, Codable, Sendable {
     case surface(SurfaceID)
     case group(UUID, [SurfaceTreeNode])
+
+    enum CodingKeys: String, CodingKey { case surface, group, children }
+    public init(from decoder: Decoder) throws {
+        guard decoder.codingPath.count <= 96 else { throw SurfaceSnapshotError.invalidTree }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try c.decodeIfPresent(SurfaceID.self, forKey: .surface) {
+            guard !c.contains(.group), !c.contains(.children) else { throw SurfaceSnapshotError.invalidTree }
+            self = .surface(id)
+        } else {
+            self = .group(try c.decode(UUID.self, forKey: .group), try c.decode([Self].self, forKey: .children))
+        }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .surface(let id): try c.encode(id, forKey: .surface)
+        case .group(let id, let children): try c.encode(id, forKey: .group); try c.encode(children, forKey: .children)
+        }
+    }
 
     public var surfaces: [SurfaceID] {
         switch self {
@@ -14,11 +33,36 @@ public indirect enum SurfaceTreeNode: Equatable, Sendable {
     }
 }
 
-public struct SurfaceTree: Equatable, Sendable {
+public struct SurfaceTree: Equatable, Codable, Sendable {
     public private(set) var roots: [String: [SurfaceTreeNode]] = [:]
     public private(set) var layouts: [UUID: SurfaceContainerLayout] = [:]
     public private(set) var activeSurfaces: [UUID: SurfaceID] = [:]
     public init() {}
+
+    enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        roots = try c.decode([String: [SurfaceTreeNode]].self, forKey: .roots)
+        layouts = try c.decode([UUID: SurfaceContainerLayout].self, forKey: .layouts)
+        activeSurfaces = try c.decode([UUID: SurfaceID].self, forKey: .activeSurfaces)
+        guard roots.count <= 1024, roots.keys.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 4096 }) else { throw SurfaceSnapshotError.invalidTree }
+        var surfaces: Set<SurfaceID> = [], groups: Set<UUID> = []
+        func validate(_ nodes: [SurfaceTreeNode], depth: Int) throws {
+            guard depth <= 32 else { throw SurfaceSnapshotError.invalidTree }
+            for node in nodes {
+                switch node {
+                case .surface(let id):
+                    guard surfaces.insert(id).inserted, surfaces.count <= 10000 else { throw SurfaceSnapshotError.invalidTree }
+                case .group(let id, let children):
+                    guard groups.insert(id).inserted, groups.count <= 10000, children.count >= 2,
+                          activeSurfaces[id].map({ node.surfaces.contains($0) }) ?? true else { throw SurfaceSnapshotError.invalidTree }
+                    try validate(children, depth: depth + 1)
+                }
+            }
+        }
+        try validate(roots.values.flatMap { $0 }, depth: 0)
+        guard Set(layouts.keys).isSubset(of: groups), Set(activeSurfaces.keys).isSubset(of: groups) else { throw SurfaceSnapshotError.invalidTree }
+    }
 
     public mutating func select(_ id: SurfaceID) {
         func visit(_ node: SurfaceTreeNode) {
@@ -32,6 +76,20 @@ public struct SurfaceTree: Equatable, Sendable {
 
     public func workspace(of id: SurfaceID) -> String? {
         roots.first { $0.value.flatMap(\.surfaces).contains(id) }?.key
+    }
+
+    public mutating func importStack(_ ids: [SurfaceID], in workspace: String) {
+        guard ids.count > 1, Set(ids).count == ids.count, let nodes = roots[workspace],
+              ids.allSatisfy({ id in nodes.contains(.surface(id)) }),
+              let index = nodes.firstIndex(of: .surface(ids[0])) else { return }
+        let group = UUID()
+        roots[workspace] = nodes.enumerated().compactMap { offset, node in
+            if offset == index { return .group(group, ids.map(SurfaceTreeNode.surface)) }
+            if case .surface(let id) = node, ids.contains(id) { return nil }
+            return node
+        }
+        layouts[group] = .stack
+        activeSurfaces[group] = ids[0]
     }
 
     /// Reconcile owner membership without throwing away the user's mixed order.
@@ -64,6 +122,7 @@ public struct SurfaceTree: Equatable, Sendable {
         nodes = Self.filter(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
         guard Self.insert(.surface(id), before: target, into: &nodes) else { return false }
         roots[name] = nodes
+        pruneMetadata()
         return true
     }
 
@@ -76,6 +135,7 @@ public struct SurfaceTree: Equatable, Sendable {
         layouts[group] = layout
         activeSurfaces[group] = target
         roots[name] = nodes
+        pruneMetadata()
         return true
     }
 
@@ -103,13 +163,13 @@ public struct SurfaceTree: Equatable, Sendable {
     }
 
     private mutating func pruneMetadata() {
-        var groups: Set<UUID> = []
+        var groups: [UUID: Set<SurfaceID>] = [:]
         func visit(_ node: SurfaceTreeNode) {
-            if case .group(let id, let children) = node { groups.insert(id); children.forEach(visit) }
+            if case .group(let id, let children) = node { groups[id] = Set(node.surfaces); children.forEach(visit) }
         }
         roots.values.flatMap { $0 }.forEach(visit)
-        layouts = layouts.filter { groups.contains($0.key) }
-        activeSurfaces = activeSurfaces.filter { groups.contains($0.key) }
+        layouts = layouts.filter { groups[$0.key] != nil }
+        activeSurfaces = activeSurfaces.filter { groups[$0.key]?.contains($0.value) == true }
     }
 
     private static func filter(_ nodes: [SurfaceTreeNode], keeping ids: Set<SurfaceID>) -> [SurfaceTreeNode] {

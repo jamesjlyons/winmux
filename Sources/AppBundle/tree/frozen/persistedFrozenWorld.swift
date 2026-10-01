@@ -89,6 +89,9 @@ final class RestartSessionController {
         restoredWorkspaces = []
         cancelledWorkspaces = []
         restoreRestartMetadata(snapshot)
+        if BrowserNativeManagement.lease != nil, let surfaces = snapshot.surfaces {
+            BrowserWorkspaceController.shared.restorePlacementSnapshot(surfaces)
+        }
         lastRestore = "Waiting for window discovery"
     }
 

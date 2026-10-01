@@ -1,6 +1,7 @@
 import Common
 import CryptoKit
 import Foundation
+import WorkspaceCore
 
 struct RestartSessionFile: Sendable {
     let url: URL
@@ -39,6 +40,7 @@ struct RestartSessionFile: Sendable {
     }
 
     private func decode(_ data: Data, source: URL) throws -> RestartSessionSnapshot {
+        guard data.count <= 16 * 1024 * 1024 else { throw SurfaceSnapshotError.invalidTree }
         struct Header: Decodable { let version: Int }
         let decoder = JSONDecoder()
         let version = try decoder.decode(Header.self, from: data).version
@@ -52,16 +54,20 @@ struct RestartSessionFile: Sendable {
                 }
                 return RestartSessionSnapshot(version: 1, savedAt: modified, bootSession: currentBootSession(), world: legacy.world,
                                               windows: nil, projects: nil, focusedWindowId: nil, focusedWorkspace: nil)
-            case 2, 3:
+            case 2, 3, 4:
                 let snapshot = try decoder.decode(RestartSessionSnapshot.self, from: data)
-                guard snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
-                if version == 3 {
+                guard version == 4 || snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
+                if version >= 3 {
                     guard let windows = snapshot.windows else { throw RestartSessionFileError.invalidSurfaceIdentities }
                     let ids = windows.compactMap(\.surfaceID)
                     guard ids.count == windows.count, Set(ids).count == ids.count,
                           Set(windows.map(\.id)).count == windows.count,
                           ids.allSatisfy({ if case .nativeWindow = $0 { return true }; return false })
                     else { throw RestartSessionFileError.invalidSurfaceIdentities }
+                }
+                if version == 4 {
+                    guard let surfaces = snapshot.surfaces else { throw SurfaceSnapshotError.invalidTree }
+                    _ = try surfaces.validated()
                 }
                 return snapshot
             default: throw RestartSessionFileError.unsupportedVersion(version)

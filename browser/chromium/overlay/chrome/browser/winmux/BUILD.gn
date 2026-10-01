@@ -27,6 +27,7 @@ source_set("workspace_bridge") {
   deps = [
     ":tab_identity",
     "//base",
+    "//chrome/browser/lifetime",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",

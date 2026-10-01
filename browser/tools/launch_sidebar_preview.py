@@ -24,6 +24,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--native-process", type=int,
                         help="Explicitly activate isolated native management of ONLY this launch-bound fixture PID")
+    parser.add_argument("--resume-from", type=Path, help="Reuse only a previous isolated test profile/state to verify restart")
+    parser.add_argument("--allow-clean-exit", action="store_true", help="Treat a user-driven normal test-browser quit as completion")
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     manifest = json.loads((app.parent / "winmux-package-manifest.json").read_text())
@@ -42,28 +44,38 @@ def main():
         subprocess.run(["codesign", "--verify", "--deep", "--strict", "-R", "=" + requirement, str(path)], check=True)
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
+    resume = args.resume_from.resolve(strict=True) if args.resume_from else None
+    if resume:
+        previous = json.loads((resume / "result.json").read_text())
+        if (previous.get("scope") != "isolated_native_browser_sidebar" or args.native_process is None or
+            not previous.get("test_service_removed") or not (resume / "profile").is_dir() or
+            (resume / "native-state/winmux-browser-state-v1").read_text() != "isolated-browser-workspace\n"):
+            parser.error("Resume requires a completed isolated native test's profile and marked state")
+    state_root = resume or output
     service = browser_id + ".workspace.test." + str(uuid.uuid4())
     helper_arguments = [str(helper), service, str(output / "helper.json"), "--sidebar-preview"]
     if args.native_process is not None:
         if args.native_process <= 0:
             parser.error("Native fixture PID must be positive")
         helper_arguments = [str(helper), service, str(output / "helper.json"), "--manage-native",
-                            str(output / "native-state"), "--native-process", str(args.native_process)]
+                            str(state_root / "native-state"), "--native-process", str(args.native_process)]
     plist = output / "helper.plist"
     plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": helper_arguments, "MachServices": {service: True},
         "RunAtLoad": True, "ProcessType": "Interactive",
         "StandardOutPath": str(output / "helper.log"), "StandardErrorPath": str(output / "helper.log")}))
     for name, title in [("one", "WinMux Sidebar One"), ("two", "WinMux Sidebar Two")]:
         (output / (name + ".html")).write_text(f'<!doctype html><title>{title}</title><h1>{title}</h1><input aria-label="Test input">')
-    command = [str(executable), "--user-data-dir=" + str(output / "profile"), "--no-first-run",
+    command = [str(executable), "--user-data-dir=" + str(state_root / "profile"), "--no-first-run",
         "--no-default-browser-check", "--enable-logging=stderr", "--winmux-sidebar-preview",
-        "--winmux-test-service=" + service, "--winmux-bridge-report=" + str(output / "bridge.json"),
-        (output / "one.html").as_uri(), (output / "two.html").as_uri()]
+        "--winmux-test-service=" + service, "--winmux-bridge-report=" + str(output / "bridge.json")]
+    command += ["--restore-last-session"] if resume else [(output / "one.html").as_uri(), (output / "two.html").as_uri()]
     result = {"scope": "isolated_live_sidebar", "service": service, "app": str(app), "completed": False,
               "limits": ["No native manager activation; mixed layouts and native input readiness not qualified"]}
     if args.native_process is not None:
         result.update(scope="isolated_native_browser_sidebar", native_fixture_pid=args.native_process,
                       limits=["Native management restricted to the explicit fixture process; mixed layouts not qualified"])
+    if resume:
+        result["resumed_from"] = str(resume)
     process, bootstrapped = None, False
     with (output / "browser.log").open("x") as log:
         try:
@@ -80,9 +92,12 @@ def main():
             deadline = time.monotonic() + 900
             while time.monotonic() < deadline and not (output / "stop").exists():
                 if process.poll() is not None:
+                    if args.allow_clean_exit and process.returncode == 0:
+                        result["completed"] = True
+                        break
                     raise RuntimeError(f"Test browser exited: {process.returncode}")
                 time.sleep(.25)
-            result["completed"] = (output / "stop").exists()
+            result["completed"] = result["completed"] or (output / "stop").exists()
         finally:
             if process is not None:
                 if process.poll() is None:

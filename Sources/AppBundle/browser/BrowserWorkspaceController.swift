@@ -19,6 +19,44 @@ public final class BrowserWorkspaceController {
     private let previewState = BrowserSidebarPreviewState()
     private var refreshPending = false
     private var browserFocusDeadline: Date?
+    private var unresolvedNativeItems: Set<SurfaceID> = []
+    private var closedBrowserTabs: Set<SurfaceID> = []
+    private var restoredSelection: SurfaceID?
+    private var restoredPlacements = false
+
+    func capturePlacementSnapshot() -> SurfaceWorkspaceSnapshot? {
+        guard usesSurfaceTree else { return nil }
+        let selected = restoredSelection ?? focusCoordinator.target
+        return .init(tree: surfaceTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(surfaceTree.roots.keys),
+                     selected: selected.flatMap { surfaceTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs)
+    }
+
+    func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
+        guard (try? snapshot.validated()) != nil else { return }
+        usesSurfaceTree = true
+        surfaceTree = snapshot.tree
+        mixedLayoutWorkspaces = snapshot.layoutWorkspaces
+        closedBrowserTabs = snapshot.closedBrowserTabs
+        restoredSelection = snapshot.selected
+        restoredPlacements = true
+        placements = [:]
+        unresolvedNativeItems = []
+        for (workspace, nodes) in surfaceTree.roots {
+            _ = Workspace.get(byName: workspace)
+            for id in nodes.flatMap(\.surfaces) {
+                if case .browserTab = id { placements[id] = workspace }
+                else { unresolvedNativeItems.insert(id) }
+            }
+        }
+        // Inventory can arrive before native startup finishes reading its file.
+        // Preserve such live tabs even if this snapshot predates them.
+        for id in sessions.values.flatMap({ $0.inventory.tabs.keys }) where placements[id] == nil {
+            placements[id] = "Recovered"
+            closedBrowserTabs.remove(id)
+            _ = Workspace.get(byName: "Recovered")
+        }
+        scheduleRefresh()
+    }
 
     var ownsForegroundBrowser: Bool {
         guard let app = NSWorkspace.shared.frontmostApplication else { return false }
@@ -53,11 +91,20 @@ public final class BrowserWorkspaceController {
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
         for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
+            closedBrowserTabs.insert(id)
             placements.removeValue(forKey: id)
             surfaceTree.remove(id)
         }
-        let workspace = previewWindow == nil ? focus.workspace.name : "browser-alpha"
-        for id in session.inventory.tabs.keys where placements[id] == nil { placements[id] = workspace }
+        // A tab restored by Chromium (including explicit undo-close) is live.
+        // Stale placement never reopens it; recover it as a new placement.
+        let workspace = restoredPlacements && message.full ? "Recovered" : (previewWindow == nil ? focus.workspace.name : "browser-alpha")
+        for id in session.inventory.tabs.keys {
+            closedBrowserTabs.remove(id)
+            if placements[id] == nil {
+                placements[id] = workspace
+                if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspace) }
+            }
+        }
         scheduleRefresh()
     }
 
@@ -94,6 +141,7 @@ public final class BrowserWorkspaceController {
     /// All native logical selection paths (commands, gestures, mouse and sidebar)
     /// retire old browser work, including selecting the same native window again.
     func nativeSelectionChanged(_ id: SurfaceID?) {
+        if isWinMuxRuntimeReady { restoredSelection = nil }
         if let id { surfaceTree.select(id) }
         let leavingBrowser = hasBrowserSelection
         browserFocusDeadline = nil
@@ -127,6 +175,12 @@ public final class BrowserWorkspaceController {
         return matches.count == 1 ? matches[0] : nil
     }
 
+    func browserProcess(for id: SurfaceID) -> Int32? {
+        guard let owner = owner(of: id), let connection = sessions.first(where: { $0.value === owner })?.key,
+              let binding = processBindings[connection], excludesNativeDiscovery(processID: binding.pid) else { return nil }
+        return binding.pid
+    }
+
     func rows(in workspace: String) -> [WorkspaceSidebarItemViewModel] {
         sessions.values.flatMap { $0.inventory.tabs.values }
             .filter { placements[$0.surfaceID] == workspace && owner(of: $0.surfaceID) != nil }
@@ -139,10 +193,14 @@ public final class BrowserWorkspaceController {
 
     @discardableResult
     func select(_ id: SurfaceID) -> SurfaceActionOutcome {
+        restoredSelection = nil
         if isAvailable(id) { surfaceTree.select(id) }
         switch id {
             case .browserTab:
                 guard let session = owner(of: id) else { return .unavailable }
+                if let name = placements[id], let workspace = Workspace.existing(byName: name), workspace !== focus.workspace {
+                    _ = workspace.focusWorkspace()
+                }
                 let result = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestFocus()
                 if result == .issued {
                     browserFocusDeadline = Date().addingTimeInterval(1)
@@ -183,6 +241,8 @@ public final class BrowserWorkspaceController {
         guard usesSurfaceTree else { return native + rows(in: workspace) }
         var available: [SurfaceID: WorkspaceSidebarItemViewModel] = [:]
         var ordered: [SurfaceID] = []
+        let importNativeGroups = surfaceTree.roots[workspace] == nil
+        var nativeGroups: [[SurfaceID]] = []
         func collect(_ item: WorkspaceSidebarItemViewModel) {
             switch item.kind {
             case .window(let window):
@@ -193,16 +253,25 @@ public final class BrowserWorkspaceController {
                 ordered.append(tab.surfaceID)
                 available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
                     title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused)))
-            case .tabGroup(let group): group.tabs.forEach { collect(.init(kind: .window($0))) }
+            case .tabGroup(let group):
+                nativeGroups.append(group.tabs.map(\.surfaceID))
+                group.tabs.forEach { collect(.init(kind: .window($0))) }
             case .surface, .surfaceGroup: break
             }
         }
         (native + rows(in: workspace)).forEach(collect)
+        unresolvedNativeItems.subtract(available.keys)
         surfaceTree.reconcile(ordered, in: workspace,
-                              retaining: Set(placements.filter { $0.value == workspace }.map(\.key)))
+                              retaining: Set(placements.filter { $0.value == workspace }.map(\.key)).union(unresolvedNativeItems))
+        if importNativeGroups {
+            nativeGroups.forEach { surfaceTree.importStack($0, in: workspace) }
+            if let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID { surfaceTree.select(selected) }
+        }
         func project(_ node: SurfaceTreeNode) -> WorkspaceSidebarItemViewModel? {
             switch node {
-            case .surface(let id): return available[id]
+            case .surface(let id):
+                if let row = available[id] { return row }
+                return unresolvedNativeItems.contains(id) ? .init(kind: .surface(.init(surfaceID: id, title: "Waiting for owner", appName: "", isFocused: false))) : nil
             case .group(let id, let children):
                 let visible = children.compactMap(project)
                 return visible.isEmpty ? nil : .init(kind: .surfaceGroup(id, visible))
@@ -246,7 +315,8 @@ public final class BrowserWorkspaceController {
     }
 
     func containsBrowserItems(in workspace: String) -> Bool {
-        usesSurfaceTree && placements.values.contains(workspace)
+        usesSurfaceTree && (placements.values.contains(workspace) ||
+            (surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces).contains(where: unresolvedNativeItems.contains))
     }
 
     func moveWorkspaceContents(from source: String, to target: String) {
@@ -331,6 +401,10 @@ public final class BrowserWorkspaceController {
             if isWinMuxRuntimeReady {
                 await updateWorkspaceSidebarModel()
                 if !self.mixedLayoutWorkspaces.isEmpty { runWorkspaceSidebarSession {} }
+                if let selected = self.restoredSelection, self.isAvailable(selected) {
+                    _ = self.select(selected)
+                }
+                RestartSessionController.shared.checkpoint()
             }
         }
     }

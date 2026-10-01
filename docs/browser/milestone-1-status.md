@@ -332,3 +332,55 @@ performance and extension testing remain deferred by the user's direction.
 [Actual mixed-layout evidence](evidence/2026-10-01-mixed-layouts.json).
 Current final staging app: `.local/browser/packages/alpha-layout-3/WinMux Browser Alpha.app`.
 It has not replaced the installed application or its enrolled helper.
+
+## Shared restoration and mixed navigation — 2026-10-01
+
+- Alpha snapshots now use version 4 with the shared tree, stack/split styles,
+  selected item, enabled layout workspaces and confirmed browser-close tombstones.
+  They use the existing serialized writer, one-second checkpoint and orderly-quit
+  flush. Readers retain versions 1–3 and reject unknown versions, duplicate
+  references, excessive nesting and invalid selection/layout metadata. Workspace
+  snapshots contain typed references, without browser titles, URLs or host IDs.
+- Chromium retains authority over live tabs and session content. Missing saved
+  references cannot reopen a tab. Initial live tabs without placements enter
+  Recovered; subsequent new tabs use the current workspace. Browser quit no longer
+  reports its session teardown as individual tab closes. Native identity reuse
+  still requires the boot/process/window match. Version 4 can preserve browser
+  placements across a boot while unmatched native references remain placeholders.
+- Existing native sidebar tab groups are imported when shared organization first
+  initializes. Mixed DFS, tab-index, next/previous and workspace-direction focus
+  dispatch through owner adapters; numeric native IDs keep their meaning.
+  Cross-monitor directional boundary handling remains on the existing path.
+  Trackpad candidates capture shared selection/generation/tree state and reject
+  commits after the owner, workspace, group or selection changes. No screenshot
+  transition is introduced.
+- Live **alpha-persistence-1** created a mixed stack through the actual sidebar.
+  After its isolated browser/helper session ended, a new session restored the
+  exact tree, group UUID, two native IDs, two browser IDs, stack selection and
+  hidden browser host. Native fixture PID/launch identity stayed the same.
+  Through the isolated helper's command interface, `focus tab-next --wrap-around`
+  selected the browser and showed its host; `trigger-binding --mode main alt-k`
+  returned to the native window, with a native key-window event and hidden web host.
+- The physical-keyboard attempt is **not a pass**. The first UI session reached
+  its fifteen-minute timeout; a later Computer Use browser lookup started a
+  staged browser without the test-profile arguments. Further browser UI inspection
+  was stopped. That separate process was left untouched; the installed signed-in
+  browser and original helper stayed running. The successful restart/navigation
+  evidence comes from isolated profiles, owner reports and the scoped command API.
+  Physical trackpad delivery, physical drag and cross-workspace UI moves remain
+  unverified. Unit gesture checks are not hardware-delivery proof.
+- **737 native regression tests**, **13 final targeted integration tests**, **23
+  WorkspaceCore tests**, **5 bridge tests** and **35 Python checks** pass. The final
+  targeted checks include inventory arriving before restoration and restored-tab
+  workspace activation. The final package adds those startup-order corrections
+  and preserves imported native stack selection after the package-1 live proof.
+
+Final staging package: `.local/browser/packages/alpha-persistence-2/WinMux Browser Alpha.app`.
+It passes deep/strict signing and all 566 recorded native source hashes match.
+Its signed headless layout/action/recovery check also passes, exits 0 and removes
+its temporary service without changing the previously enrolled helper.
+[Restoration/navigation evidence](evidence/2026-10-01-shared-restoration.json).
+The installed app and helper have not been replaced. Remaining work includes
+physical mixed drag/drop, cross-workspace/display transitions, completing shared
+CLI/action coverage and a deliberate daily-driver activation path. Performance
+and extension testing remain deferred.

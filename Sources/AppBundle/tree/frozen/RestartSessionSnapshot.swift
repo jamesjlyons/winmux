@@ -44,13 +44,14 @@ struct RestartSessionSnapshot: Codable, Sendable {
     let projects: [RestartProject]?
     let focusedWindowId: UInt32?
     let focusedWorkspace: String?
+    var surfaces: SurfaceWorkspaceSnapshot? = nil
 
     /// Timestamps change on every capture; only persistent content should trigger a write.
     /// Compare values before encoding so an unchanged checkpoint allocates no JSON payload.
     func hasSameContent(as other: RestartSessionSnapshot) -> Bool {
         version == other.version && bootSession == other.bootSession && world == other.world &&
             windows == other.windows && projects == other.projects &&
-            focusedWindowId == other.focusedWindowId && focusedWorkspace == other.focusedWorkspace
+            focusedWindowId == other.focusedWindowId && focusedWorkspace == other.focusedWorkspace && surfaces == other.surfaces
     }
 
     @MainActor static func capture(now: Date = .now) -> RestartSessionSnapshot {
@@ -60,6 +61,7 @@ struct RestartSessionSnapshot: Codable, Sendable {
         let world = FrozenWorld(workspaces: workspaces.map(FrozenWorkspace.init), monitors: monitors.map(FrozenMonitor.init),
                                 windowIds: workspaces.flatMap(collectAllWindowIds).toSet())
         return RestartSessionSnapshot(
+            version: BrowserWorkspaceController.shared.usesSurfaceTree ? 4 : 3,
             savedAt: now, bootSession: currentBootSession(), world: world,
             windows: world.windowIds.sorted().compactMap { id in
                 guard let window = Window.get(byId: id) else { return nil }
@@ -73,7 +75,8 @@ struct RestartSessionSnapshot: Codable, Sendable {
                 RestartProject(id: project.id, name: project.name, order: project.order,
                                workspaceNames: project.workspaceOrder.compactMap { winMuxWorkspaceState.workspaceById[$0]?.name })
             },
-            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.name
+            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.name,
+            surfaces: BrowserWorkspaceController.shared.capturePlacementSnapshot()
         )
     }
 

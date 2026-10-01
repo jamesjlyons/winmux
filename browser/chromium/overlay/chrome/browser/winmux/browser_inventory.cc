@@ -19,6 +19,7 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -179,6 +180,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
   void Update(bool full) {
     pending_ = false;
+    // Browser quit closes WebContents as part of session shutdown. Those are
+    // not user tab-close tombstones: retain the last authoritative placement.
+    if (browser_shutdown::IsTryingToQuit() || browser_shutdown::HasShutdownStarted()) return;
     std::map<std::string, base::DictValue> next;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {

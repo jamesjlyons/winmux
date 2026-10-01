@@ -7,6 +7,9 @@ struct FocusCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
+        let explicit = args.windowId != nil || env.windowId != nil || args.workspaceName != nil || env.workspaceName != nil
+        if let result = BrowserWorkspaceController.shared.navigate(args, workspace: target.workspace,
+            from: explicit ? target.windowOrNil?.surfaceID : nil) { return result }
         // todo bug: floating windows break mru
         // A concrete window ID needs no spatial search or temporary floating-window bindings.
         let needsFloatingGeometry = switch args.target {

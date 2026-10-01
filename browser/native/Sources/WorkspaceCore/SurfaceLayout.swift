@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SurfaceContainerLayout: String, Sendable { case stack, horizontal, vertical }
+public enum SurfaceContainerLayout: String, Codable, Sendable { case stack, horizontal, vertical }
 
 public struct SurfaceFrame: Equatable, Codable, Sendable {
     public var x: Int, y: Int, width: Int, height: Int
