@@ -149,7 +149,7 @@ def main():
               "settle_seconds": args.settle_seconds,
               "limits": ["One process only; no browser tree or control comparison",
                          "No extension, startup, input, presentation or energy qualification",
-                         "Footprint is sampled, not the lifetime peak; hardware is the 16 GiB development Mac",
+                         "Footprint is sampled, not the lifetime peak; the measured hardware is recorded separately",
                          "Settling waits without injecting work; it does not prove workload inactivity"],
               "samples": []}
     # Exclusive creation preserves prior evidence even if invocation is repeated.

@@ -79,6 +79,23 @@ The pinned depot_tools updater is disabled; GN/Ninja and compiler dependencies
 come through Chromium DEPS. Sandbox, site isolation and normal profile/extension
 behavior remain enabled. The control build is not branded or installed as the alpha.
 
+After `build_alpha.py` has preserved the completed upstream output, create a
+separately signed control for comparisons without rebuilding that archive:
+
+```sh
+source .local/browser/signing.env
+python3 browser/tools/package_control.py --root /path/to/apfs/winmux-engine \
+  --output .local/browser/packages/new-control
+```
+
+This copies `out/WinMuxControlBaseline`, applies separate control identities,
+and uses the same generated Chromium signing policy and certificate as the
+alpha. It refuses stale pins/arguments, downstream artifacts, existing output
+directories and destinations inside the archive (including parent symlinks).
+The report retains before/after hashes of the original executable, framework
+and manifest. Use a separate control profile; signing and launch checks alone
+are not a performance comparison.
+
 ## Build and package the private alpha
 
 After the control build completes:

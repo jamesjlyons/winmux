@@ -1,0 +1,76 @@
+{
+  "recorded_utc": "2026-10-01T18:08:51.744294+00:00",
+  "scope": "milestone_0_partial_extension_functionality",
+  "milestone_0_complete": false,
+  "method": "Computer Use visual and accessibility observations of official extension UI",
+  "app": "/Applications/WinMux Browser Alpha.app",
+  "package": ".local/browser/packages/alpha-blocking-1/winmux-package-manifest.json",
+  "profile": ".local/browser/profiles/alpha-compatibility",
+  "implementation_commit": "ed88cc72",
+  "user_report": "Logged in to all required extensions; subsequently confirmed desktop 1Password sign-in",
+  "test_source_url": "https://www.chromium.org/chromium-projects/",
+  "blocking_enabled": true,
+  "sandbox_disabled": false,
+  "extensions": [
+    {
+      "id": "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
+      "name": "1Password",
+      "version": "8.12.38.34",
+      "observed": {
+        "signed_in_unlocked_browser_popup": true,
+        "normal_extension_actions_available": true
+      },
+      "desktop_connection": "Unverified. Add Browser was disabled before the desktop sign-in confirmation. User has been asked to leave native Settings Browser pane visible for supported registration; do not inspect vault contents.",
+      "credential_contents_extracted": false,
+      "pending": [
+        "Supported Mac-app connection",
+        "Touch ID and lock/unlock",
+        "Fill/save/update/generate credentials and passkeys",
+        "Browser restart"
+      ]
+    },
+    {
+      "id": "jjhefcfhmnkfeepcpnilbbkaadhngkbi",
+      "name": "Readwise Highlighter",
+      "version": "0.18.3",
+      "observed": {
+        "authenticated_toolbar_action": true,
+        "public_page_saved_to_reader": true,
+        "open_in_reader_available": true,
+        "highlight_created": true,
+        "highlight_count_changed_zero_to_one": true,
+        "highlight_persisted_after_page_reload": true,
+        "link_and_image_context_actions_present": true
+      },
+      "pending": [
+        "Shortcut actions",
+        "Authenticated-site capture",
+        "Pending saves across navigation",
+        "Browser restart"
+      ]
+    },
+    {
+      "id": "mgjneceglphcpbbfbhjplkpgfapebmdg",
+      "name": "Save to Cosmos",
+      "version": "6.15.3",
+      "observed": {
+        "authenticated_collection_picker": true,
+        "existing_private_collection_selected": true,
+        "public_page_save_confirmed_by_extension": true,
+        "collection_count_incremented_after_page_save": true,
+        "image_context_menu_action_available": true,
+        "public_image_save_confirmed_by_extension": true,
+        "public_profile_destination_selected": false
+      },
+      "pending": [
+        "Session persistence after browser restart"
+      ]
+    }
+  ],
+  "shared_pending": [
+    "Second-profile isolation",
+    "Extension update and background-worker restart",
+    "Matched browser performance reports"
+  ],
+  "privacy": "Account names, vault entries, private collection names/counts and saved-document identifiers are omitted. No passwords were extracted."
+}
