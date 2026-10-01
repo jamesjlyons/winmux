@@ -6,6 +6,31 @@ qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started, as required by the approved compatibility gate.
 
+## Required extensions installed; account validation pending — 2026-10-01
+
+- The verified `alpha-blocking-1` package is also installed at
+  `/Applications/WinMux Browser Alpha.app`. It passed deep/strict verification
+  after copying. Existing WinMux and its profiles were not replaced.
+- A separate `alpha-compatibility` profile has the official Chrome Web Store
+  extensions installed through their normal permission prompts. The Extensions
+  UI confirms all three are enabled: 1Password **8.12.38.34**, Readwise Highlighter
+  **0.18.3**, and Save to Cosmos **6.15.3**. Their onboarding/login UI renders.
+  Developer mode is off; no repackaged or sideloaded extension was used.
+- Installed 1Password for Mac **8.12.38** from the vendor's download. Its signature
+  and notarized Gatekeeper assessment pass. It is waiting for the user's account
+  sign-in. No vault has been accessed. The documented Add Browser flow for the
+  signed app remains pending, as do Readwise/Cosmos authentication and actions.
+- The user has been asked to sign in to 1Password. Readwise's login tab and the
+  Cosmos toolbar login are ready in the open alpha. Do not repeatedly request
+  account sign-in or treat successful installation as compatibility acceptance.
+- Full functional scenarios, the second profile, restart/update behavior and
+  matched browser performance reports remain required before exiting Milestone 0.
+
+[Extension installation evidence and exact versions](evidence/2026-10-01-extension-installation.json).
+The open browser uses `--user-data-dir` pointing to
+`.local/browser/profiles/alpha-compatibility` in this worktree; launching the app
+without that argument opens its separate default alpha profile.
+
 ## Native browser blocking proof — 2026-10-01
 
 - The signed `alpha-blocking-1` package passed all seven live-page checks:
