@@ -4,7 +4,11 @@
 request/cosmetic blocking now build and launch; compatibility and performance
 qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
-have not started, as required by the approved compatibility gate.
+have not started. On October 1 the user explicitly accepted the extensions for
+this phase ("move on from the extension testing. they're good"). Stop extension
+testing and treat its remaining scenarios as deferred, not implementation
+blockers. Preserve the observations below without claiming unperformed tests
+passed; continue browser baselines and browser/workspace integration.
 
 ## Restart checks and benchmark environment recorder — 2026-10-01
 
@@ -75,8 +79,8 @@ have not started, as required by the approved compatibility gate.
   image context-menu action. Both saves showed confirmation. Account details,
   private collection names and saved-document identifiers are excluded from
   committed evidence.
-- Full functional scenarios, the second profile, restart/update behavior and
-  matched browser performance reports remain required before exiting Milestone 0.
+- Further extension scenarios are deferred by the user's acceptance above.
+  Matched browser performance reports remain open.
 
 [Extension installation evidence and exact versions](evidence/2026-10-01-extension-installation.json).
 [Partial functional results](evidence/2026-10-01-extension-functionality.json).
@@ -332,8 +336,8 @@ files were changed, so the existing native application's suite was not rerun.
 | Signed top-level app and embedded helper | Private alpha packaged; full signature verification passed |
 | Authenticated helper communication | Signed browser and embedded helper exchange verified, including restart and wrong-client rejection |
 | Direct Chromium rendering | Control and signed alpha launch; performance not qualified |
-| Required extension installation, authentication, usage, profiles, updates, restart | All three signed in; Readwise page/highlight/reload and Cosmos page/image/private-collection actions passed; Readwise/Cosmos UI sessions survived a clean restart; second-profile/update scenarios pending |
-| 1Password Mac-app / Touch ID integration | Deferred by user on October 1; browser account unlocked, desktop sign-in reported, further acceptance unverified |
+| Required extension installation, authentication, usage, profiles, updates, restart | Accepted by user for this phase; recorded partial checks stand, remaining scenarios deferred |
+| 1Password Mac-app / Touch ID integration | Deferred by user; browser account unlocked and desktop sign-in reported; does not block implementation |
 | Network interception and rendered cosmetic proof | Signed browser and untouched control comparison passed |
 | Switching, startup, memory, energy and browser benchmark baseline | Preliminary helper-only CPU/footprint measured; matched browser reports pending |
 
