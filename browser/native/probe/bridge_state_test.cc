@@ -6,6 +6,7 @@
 int main() {
   winmux::WorkspaceBridgeState state;
   assert(!state.CanRetry(0));
+  assert(!state.IsConnected(0));
   assert(!state.Authenticate(0));
   assert(!state.Disconnect(0));
 
@@ -28,12 +29,16 @@ int main() {
 
   auto healthy = state.BeginAttempt();
   assert(state.Authenticate(healthy));
+  assert(state.IsConnected(healthy));
   assert(!state.IsConnecting(healthy));  // An old negotiation timer is inert.
   assert(!state.Authenticate(healthy));  // Duplicate acknowledgement is inert.
   assert(state.authenticated_connections() == 1);
   assert(state.Disconnect(healthy) == 1);  // Recovery resets backoff.
+  assert(!state.IsConnected(healthy));
   auto recovered = state.BeginAttempt();
   assert(state.Authenticate(recovered));
+  assert(state.IsConnected(recovered));
+  assert(!state.IsConnected(healthy));
   assert(state.authenticated_connections() == 2);
   assert(!state.Disconnect(healthy));
   std::cout << "Bridge generation, duplicate callback, timeout and backoff checks passed\n";

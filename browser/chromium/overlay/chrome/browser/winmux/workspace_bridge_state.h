@@ -21,6 +21,10 @@ class WorkspaceBridgeState {
     return generation == generation_ && phase_ == Phase::kConnecting;
   }
 
+  bool IsConnected(uint64_t generation) const {
+    return generation == generation_ && phase_ == Phase::kConnected;
+  }
+
   bool Authenticate(uint64_t generation) {
     if (!IsConnecting(generation))
       return false;

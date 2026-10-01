@@ -5,9 +5,20 @@ final class BridgeSessionTests: XCTestCase {
     func testHandshakeRequiredAndUnsupportedVersionRejected() {
         let session = BridgeSession()
         XCTAssertFalse(session.accept(epoch: "invented", sequence: 1))
-        XCTAssertNil(session.negotiate(version: 2))
+        XCTAssertNil(session.negotiate(version: 3))
         let epoch = session.negotiate(version: 1)!
         XCTAssertTrue(session.accept(epoch: epoch, sequence: 1))
+    }
+
+    func testVersionOneCannotPublishInventoryOrUpgradeAnExistingEpoch() {
+        let legacy = BridgeSession()
+        let epoch = legacy.negotiate(version: 1)!
+        XCTAssertFalse(legacy.accept(epoch: epoch, sequence: 1, minimumVersion: 2))
+        XCTAssertNil(legacy.negotiate(version: 2))
+        XCTAssertTrue(legacy.accept(epoch: epoch, sequence: 1))
+        let current = BridgeSession()
+        let currentEpoch = current.negotiate(version: 2)!
+        XCTAssertTrue(current.accept(epoch: currentEpoch, sequence: 1, minimumVersion: 2))
     }
 
     func testDuplicateStaleAndForeignMessagesRejected() {

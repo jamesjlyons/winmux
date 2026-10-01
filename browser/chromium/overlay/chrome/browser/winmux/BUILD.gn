@@ -12,6 +12,8 @@ source_set("tab_identity") {
 
 source_set("workspace_bridge") {
   sources = [
+    "browser_inventory.cc",
+    "browser_inventory.h",
     "cosmetics_host.cc",
     "cosmetics_host.h",
     "workspace_bridge.h",
@@ -19,11 +21,18 @@ source_set("workspace_bridge") {
     "workspace_bridge_state.h",
   ]
   deps = [
+    ":tab_identity",
     "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/tabs:tab_enums",
     "//components/winmux/blocking:engine",
     "//components/winmux/blocking:mojom",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
+    "//ui/base",
+    "//url",
   ]
   frameworks = [
     "Foundation.framework",

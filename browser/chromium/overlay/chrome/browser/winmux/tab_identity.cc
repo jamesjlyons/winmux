@@ -134,6 +134,14 @@ std::string PersistentTabID(content::WebContents* contents) {
   return identity ? identity->id() : std::string();
 }
 
+std::string PersistentSurfaceID(content::WebContents* contents) {
+  auto* identity = EnsureIdentity(contents);
+  if (!identity)
+    return {};
+  auto* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+  return "browser:" + ProfileID(profile) + ":" + identity->id();
+}
+
 void RestoreTabIdentity(content::WebContents* contents,
                         const std::map<std::string, std::string>& extra_data) {
   auto found = extra_data.find(kTabIdentityKey);

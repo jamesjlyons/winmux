@@ -52,15 +52,75 @@ Reproduce with `browser/tools/test_tab_identities.py --app <staged-app> --output
 <new-directory>`; it refuses an existing output directory and stops only its own
 test processes.
 
+## Authenticated inventory and owner actions — 2026-10-01
+
+- Protocol version 2 publishes a full browser inventory at connection/recovery,
+  then coalesced tab upserts/removals from Chromium's tab-strip events. It records
+  stable surface IDs, runtime host IDs, titles and selected-tab state in memory.
+  Popup, app, developer-tool and private windows are excluded from this initial
+  normal-tab inventory. There is no polling, page scripting or inventory file.
+- The helper validates message size, sequence, epoch, revisions, record bounds
+  and identity kinds before atomically reconciling its connection-scoped mirror.
+  Private/native records, duplicate IDs, conflicting updates and missing/out-of-
+  order deltas are rejected. A rejected inventory causes a fresh authenticated
+  connection and full inventory.
+- Browser-owned focus/close requests use exact surface identity, connection
+  epoch, inventory revision, UUID operation ID and monotonically increasing
+  focus generation. Newer queued focus requests supersede older ones. A bounded
+  operation journal handles retries without repeating a close, and rejects
+  reuse of an operation ID for a different request. Chromium performs operations
+  on its UI thread through normal tab/window APIs and before-unload handling.
+- `BrowserTabSurfaceAdapter` supports focus and close. Its UI-facing session
+  ignores stale inventory and late focus acknowledgements across reconnects,
+  keeps newer focus intent, and waits for an owner removal delta before removing
+  a tab. An `issued` response is **not** confirmed native focus or input readiness.
+- The Personal Team staging package is
+  `.local/browser/packages/alpha-inventory-2/WinMux Browser Alpha.app`.
+  In a real signed headless browser, a separately signed temporary helper
+  received one full inventory plus incremental updates, observed two tabs, issued a
+  focus and close, and observed one remaining tab. Repeated close was idempotent;
+  old focus, conflicting operation and foreign epoch requests were rejected.
+  After disconnect/reconnect, a fresh endpoint received exactly one tab in a
+  new full inventory and remained stable for **17.09 seconds**. The test browser
+  exited 0 and the temporary launchd service was removed.
+- A separate actual incognito run sent an empty inventory before and after
+  reconnection, issued no actions, remained stable for the same 17-second
+  observation and exited cleanly. No private tab records reached the helper.
+- The initial test caught a real shutdown failure: the inventory observer
+  retained the browser collection after Chromium destroyed it. An explicit
+  `PostMainMessageLoopRun` cleanup now cancels queued UI actions, disconnects the
+  transport and destroys observations before browser-process teardown. The fixed
+  package passed clean shutdown in both version 2 and legacy-helper tests.
+- The browser negotiates version 1 with the existing transport-only helper;
+  that actual signed fallback/reconnection test passed with the helper's process
+  identity unchanged. The installed alpha, original WinMux, signed-in profiles
+  and existing SMAppService enrollment remain untouched. Normal Chromium controls
+  stay available; the tab strip is not hidden before the shared UI is ready.
+- **721 native regression tests, 15 native bridge/core tests, 35 Python checks**
+  and the C++ connection-state probe pass. No benchmark or extension acceptance
+  work was resumed. Browser-visible focus, before-unload dialogs, mixed layouts
+  and live sidebar selection remain pending.
+
+[Actual browser/helper results, package provenance and checks](evidence/2026-10-01-browser-inventory.json).
+Reproduce with `browser/tools/test_browser_inventory.py` and a new output path.
+The test creates only a uniquely named temporary service with the same exact
+Apple team/helper signing requirement, stops its own headless browser, verifies
+the existing helper identity and removes the test service. It never enrolls over
+the live helper or reads signed-in browser UI.
+
 ## Next implementation work
 
-The browser does **not yet show its tabs in the WinMux sidebar**. This checkpoint
-establishes stable references and the native adapter, not the completed mixed UI.
+The browser does **not yet show its tabs in the WinMux sidebar**. Stable references,
+native/browser adapters and the authenticated inventory/action connection are
+implemented; the visible mixed UI remains next.
 
-1. Add browser inventory and owner-dispatched actions to the authenticated XPC
-   connection, with revisions, connection epochs and stale focus rejection.
-2. Add browser items to the shared sidebar and connect a browser adapter. Keep
-   Chromium authoritative for actual tab lifecycle and WinMux for placement.
+1. Connect the helper's validated inventory and `BrowserSurfaceSession` to the
+   existing native sidebar, then add browser item rows. Keep Chromium authoritative
+   for actual tab lifecycle and WinMux for placement. The helper is still a
+   transport process; it does not yet launch AppBundle or take native WM ownership.
+2. Add browser host registration/exclusion from ordinary AX discovery and a
+   focus generation shared across native and browser selections. Current focus
+   guards apply to browser requests; global mixed-item arbitration is not wired.
 3. Generalize the layout tree, drag/drop, groups and split hosts to accept both
    surface kinds. Add typed surface commands while keeping native numeric CLI
    compatibility. The native layout tree and drag APIs still use `Window` today.
