@@ -384,3 +384,47 @@ The installed app and helper have not been replaced. Remaining work includes
 physical mixed drag/drop, cross-workspace/display transitions, completing shared
 CLI/action coverage and a deliberate daily-driver activation path. Performance
 and extension testing remain deferred.
+
+## Shared actions and workspace movement — 2026-10-01
+
+- Added `surface list/focus/move/close` using typed native/profile-tab identities.
+  List emits reference/availability/selection JSON without page content or titles.
+  The branch CLI accepts an explicit `--socket` path for the isolated alpha helper;
+  its default standalone endpoint is unchanged. See [surface commands](surface-commands.md).
+- Existing Close and workspace/monitor/project move commands dispatch to the
+  selected browser owner. Explicit numeric native targets retain their meaning.
+  Native-only resize, structural move/split/stack/swap, fullscreen, minimize and
+  bulk close reject implicit browser selection, including a disconnected owner.
+  A subsequent native selection clears that disconnected target correctly.
+- Workspace moves enable shared host visibility on both sides, retain profile/tab
+  identity and retire a moved selection unless the follow flag is supplied.
+  Native moves update shared placement. Cross-workspace row drops now move the
+  owning item before applying sidebar order; this is covered by model tests.
+- Actual signed **alpha-actions-1** proved browser workspace move, hide, destination
+  focus and return; native move produced the fixture's matching key-window report.
+  Rejected legacy actions left both native identities, placements and frames intact.
+  Browser Close removed only its tab and persisted an authoritative tombstone;
+  typed native Close removed only its window. The branch CLI independently listed
+  and focused these synthetic items through the explicit alpha socket.
+- Actual signed **alpha-actions-2** restored the exact shared tree, layout-workspace
+  set, saved browser selection and close tombstones after helper-first shutdown.
+  Browser-first shutdown also preserved placements and closed items, but handed
+  selection to the remaining native window before the helper's final save.
+  All three isolated browsers exited 0. All temporary services and the fixture
+  were removed. The second helper was deliberately removed before its browser;
+  a separate launchd check confirms absence despite the launcher's redundant
+  cleanup reporting `test_service_removed: false`.
+- **748 native regression tests** pass, including **9 new surface-command tests**.
+  Final staging signature is deep/strict verified and all **568 native source
+  hashes** match. No Chromium source change or new engine compilation was needed.
+- Physical drag remains unverified: Computer Use `sky.drag` returned
+  `AXError.notImplemented`. Only one virtual display was exposed, so physical
+  cross-display moves are still pending. The four-item move scenario also exposed
+  Chromium's 500-point minimum host width; pane fit/overlap and minimum-size
+  negotiation need attention before daily-driver activation. Physical keyboard,
+  trackpad, fullscreen, popups and display changes remain unqualified. Performance
+  and further extension tests remain deferred at the user's direction.
+
+[Actual shared-action evidence](evidence/2026-10-01-surface-actions.json).
+Current final staging app: `.local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app`.
+It has not replaced the installed application or its enrolled helper.

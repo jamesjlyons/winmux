@@ -145,7 +145,8 @@ public final class BrowserWorkspaceController {
         if let id { surfaceTree.select(id) }
         let leavingBrowser = hasBrowserSelection
         browserFocusDeadline = nil
-        guard !sessions.isEmpty, let generation = focusCoordinator.select(id) else { return }
+        // Native selection must retire a disconnected browser target too.
+        guard let generation = focusCoordinator.select(id) else { return }
         if leavingBrowser, let id {
             // A command can select the same native logical leaf that was current
             // before entering the browser. Dispatch even when the native tree's
@@ -229,12 +230,14 @@ public final class BrowserWorkspaceController {
         }
     }
 
-    func close(_ id: SurfaceID) {
+    @discardableResult
+    func close(_ id: SurfaceID) -> SurfaceActionOutcome {
         if case .nativeWindow = id {
-            _ = NativeWindowSurfaceAdapter(surfaceID: id).requestClose()
+            return NativeWindowSurfaceAdapter(surfaceID: id).requestClose()
         } else if let session = owner(of: id) {
-            _ = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestClose()
+            return BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestClose()
         }
+        return .unavailable
     }
 
     func organizedRows(native: [WorkspaceSidebarItemViewModel], in workspace: String) -> [WorkspaceSidebarItemViewModel] {
@@ -286,6 +289,11 @@ public final class BrowserWorkspaceController {
         guard usesSurfaceTree, isAvailable(id) else { return }
         if let target {
             guard isAvailable(target) else { return }
+            if workspaceName(for: id) != workspaceName(for: target) {
+                guard let name = workspaceName(for: target), let destination = Workspace.existing(byName: name),
+                      moveSurfaceToWorkspace(id, destination, CmdIo(stdin: .emptyStdin),
+                          focusFollowsSurface: false, failIfNoop: false, controller: self) else { return }
+            }
             _ = surfaceTree.move(id, before: target)
         } else if let earlier { _ = surfaceTree.reorder(id, earlier: earlier) }
         else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
@@ -307,9 +315,32 @@ public final class BrowserWorkspaceController {
     }
 
     func moveBrowserSurface(_ id: SurfaceID, to workspace: String) {
-        guard usesSurfaceTree, owner(of: id) != nil else { return }
-        if let old = placements[id], mixedLayoutWorkspaces.contains(old) { mixedLayoutWorkspaces.insert(workspace) }
+        guard usesSurfaceTree, let session = owner(of: id), session.supportsLayout else { return }
+        // A workspace move needs owner visibility even without a prior split.
+        // Activate both sides so tabs sharing a browser host can separate safely.
+        if let old = placements[id] { mixedLayoutWorkspaces.insert(old) }
+        mixedLayoutWorkspaces.insert(workspace)
         placements[id] = workspace
+        _ = surfaceTree.moveToRoot(id, in: workspace)
+        scheduleRefresh()
+    }
+
+    func workspaceName(for id: SurfaceID) -> String? {
+        if case .browserTab = id { return placements[id] }
+        return Window.get(bySurfaceID: id)?.nodeWorkspace?.name ?? surfaceTree.workspace(of: id)
+    }
+
+    var knownSurfaces: Set<SurfaceID> {
+        Set(surfaceTree.roots.values.flatMap { $0.flatMap(\.surfaces) })
+            .union(placements.keys)
+            .union(Workspace.all.flatMap { $0.allLeafWindowsRecursive.map(\.surfaceID) })
+    }
+
+    func didMoveNativeSurface(_ id: SurfaceID, to workspace: String) {
+        guard usesSurfaceTree else { return }
+        if let old = surfaceTree.workspace(of: id), mixedLayoutWorkspaces.contains(old) {
+            mixedLayoutWorkspaces.insert(workspace)
+        }
         _ = surfaceTree.moveToRoot(id, in: workspace)
         scheduleRefresh()
     }

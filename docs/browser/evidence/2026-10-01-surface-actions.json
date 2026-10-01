@@ -1,0 +1,482 @@
+{
+  "date_utc": "2026-10-01T23:44:40.714127+00:00",
+  "base_commit": "ec01cb72",
+  "scope": "Typed surface commands, owner-safe legacy actions and cross-workspace movement",
+  "final_package": ".local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app",
+  "live_action_package": ".local/browser/packages/alpha-actions-1/WinMux Browser Alpha.app",
+  "package_manifest_sha256": "2f67b9dd3359c083395845a70988054b96c9d3d183db76087560e3273dc8fce7",
+  "native_source_hashes_matched": 568,
+  "deep_strict_signature_verified": true,
+  "helper_sha256": "890629bbedb37f8411c664e48be821a587770d4765dc80554039fd581737c1d5",
+  "browser_executable_sha256": "378e07f8c99e6616a629513d09b30abc9d931b7228161b2be79d482520e031c7",
+  "checks": {
+    "native_regression_tests": 748,
+    "failures": 0,
+    "new_surface_command_tests": 9,
+    "cli_build_succeeded": true,
+    "cli_explicit_socket_list_focus_passed": true,
+    "invalid_socket_and_workspace_rejected": true
+  },
+  "live_actions": {
+    "initial_native_windows": 2,
+    "initial_browser_tabs": 2,
+    "unsupported_resize_move_minimize_bulk_close_rejected": true,
+    "native_fixture_geometry_unchanged_by_rejected_actions": true,
+    "browser_move_without_follow": {
+      "surfaces": [
+        {
+          "available": true,
+          "selected": false,
+          "workspace": "Actions-destination",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:263d2981-00dc-4df6-addd-a3efe402d991"
+        },
+        {
+          "available": true,
+          "selected": false,
+          "workspace": "1",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9"
+        },
+        {
+          "available": true,
+          "selected": true,
+          "nativeWindowID": 4053,
+          "workspace": "1",
+          "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b"
+        },
+        {
+          "available": true,
+          "selected": false,
+          "nativeWindowID": 4051,
+          "workspace": "1",
+          "id": "native:d9821c4e-6125-43e0-95ed-074f3dd61569"
+        }
+      ],
+      "helper": {
+        "hosts": [
+          {
+            "host_id": "host:436953978",
+            "frame": {
+              "y": 30,
+              "width": 1680,
+              "height": 960,
+              "x": 240
+            },
+            "visible": false
+          },
+          {
+            "host_id": "host:436953981",
+            "frame": {
+              "height": 960,
+              "x": 1360,
+              "width": 560,
+              "y": 30
+            },
+            "visible": true
+          }
+        ],
+        "outcomes": {},
+        "revision": 6,
+        "scope": "isolated_authenticated_inventory_actions",
+        "tab_count": 2,
+        "full_messages": 1,
+        "delta_messages": 5
+      },
+      "fixture": {
+        "key_window": "WinMux Native Two",
+        "key_changes": 4,
+        "window_id": 4053,
+        "windows": [
+          {
+            "width": 560,
+            "x": 800,
+            "title": "WinMux Native One",
+            "height": 959,
+            "window_id": 4051,
+            "y": 30
+          },
+          {
+            "width": 560,
+            "height": 959,
+            "y": 30,
+            "title": "WinMux Native Two",
+            "window_id": 4053,
+            "x": 240
+          }
+        ]
+      }
+    },
+    "destination_focus": {
+      "surfaces": [
+        {
+          "available": true,
+          "selected": true,
+          "workspace": "Actions-destination",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:263d2981-00dc-4df6-addd-a3efe402d991"
+        },
+        {
+          "available": true,
+          "selected": false,
+          "workspace": "1",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9"
+        },
+        {
+          "available": true,
+          "selected": false,
+          "workspace": "1",
+          "nativeWindowID": 4053,
+          "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b"
+        },
+        {
+          "available": true,
+          "selected": false,
+          "workspace": "1",
+          "nativeWindowID": 4051,
+          "id": "native:d9821c4e-6125-43e0-95ed-074f3dd61569"
+        }
+      ],
+      "helper": {
+        "tab_count": 2,
+        "scope": "isolated_authenticated_inventory_actions",
+        "outcomes": {},
+        "full_messages": 1,
+        "hosts": [
+          {
+            "frame": {
+              "width": 1680,
+              "x": 240,
+              "y": 30,
+              "height": 960
+            },
+            "visible": true,
+            "host_id": "host:436953978"
+          },
+          {
+            "host_id": "host:436953981",
+            "visible": false,
+            "frame": {
+              "width": 560,
+              "height": 960,
+              "x": 1360,
+              "y": 30
+            }
+          }
+        ],
+        "delta_messages": 6,
+        "revision": 7
+      },
+      "fixture": {
+        "key_window": "",
+        "key_changes": 4,
+        "window_id": 0,
+        "windows": [
+          {
+            "width": 560,
+            "x": 1919,
+            "title": "WinMux Native One",
+            "height": 959,
+            "window_id": 4051,
+            "y": 958
+          },
+          {
+            "width": 560,
+            "height": 959,
+            "y": 958,
+            "title": "WinMux Native Two",
+            "window_id": 4053,
+            "x": 1919
+          }
+        ]
+      }
+    },
+    "return_with_follow": {
+      "surfaces": [
+        {
+          "selected": true,
+          "workspace": "1",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:263d2981-00dc-4df6-addd-a3efe402d991",
+          "available": true
+        },
+        {
+          "selected": false,
+          "workspace": "1",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+          "available": true
+        },
+        {
+          "selected": false,
+          "nativeWindowID": 4053,
+          "workspace": "1",
+          "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b",
+          "available": true
+        },
+        {
+          "selected": false,
+          "nativeWindowID": 4051,
+          "workspace": "1",
+          "id": "native:d9821c4e-6125-43e0-95ed-074f3dd61569",
+          "available": true
+        }
+      ],
+      "helper": {
+        "tab_count": 2,
+        "scope": "isolated_authenticated_inventory_actions",
+        "delta_messages": 7,
+        "full_messages": 1,
+        "revision": 8,
+        "outcomes": {},
+        "hosts": [
+          {
+            "visible": true,
+            "frame": {
+              "height": 960,
+              "y": 30,
+              "x": 1500,
+              "width": 500
+            },
+            "host_id": "host:436953978"
+          },
+          {
+            "host_id": "host:436953981",
+            "visible": true,
+            "frame": {
+              "x": 1080,
+              "y": 30,
+              "width": 500,
+              "height": 960
+            }
+          }
+        ]
+      },
+      "fixture": {
+        "key_window": "",
+        "key_changes": 4,
+        "window_id": 0,
+        "windows": [
+          {
+            "width": 420,
+            "x": 660,
+            "title": "WinMux Native One",
+            "height": 960,
+            "window_id": 4051,
+            "y": 30
+          },
+          {
+            "width": 420,
+            "height": 960,
+            "y": 30,
+            "title": "WinMux Native Two",
+            "window_id": 4053,
+            "x": 240
+          }
+        ]
+      }
+    },
+    "native_move_confirmed_by_fixture_key_window": true,
+    "browser_close_confirmed_by_inventory_and_tombstone": true,
+    "closed_browser_id_rejected": true,
+    "native_close_confirmed_by_discovery": true,
+    "remaining_surfaces": [
+      {
+        "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+        "available": true,
+        "workspace": "1",
+        "selected": false
+      },
+      {
+        "nativeWindowID": 4053,
+        "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b",
+        "available": true,
+        "workspace": "1",
+        "selected": true
+      }
+    ]
+  },
+  "restoration": {
+    "final_package": ".local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app",
+    "browser_first_shutdown": {
+      "references": [
+        {
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+          "selected": false,
+          "available": true,
+          "workspace": "1"
+        },
+        {
+          "nativeWindowID": 4053,
+          "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b",
+          "selected": true,
+          "available": true,
+          "workspace": "1"
+        }
+      ],
+      "tree_equal": true,
+      "layout_workspace_sets_equal": true,
+      "closed_tombstones_equal": true,
+      "selection_before_browser_quit": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+      "selection_after_restart": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b",
+      "limit": "Browser-first quit can hand focus to native before helper persists its final selection."
+    },
+    "helper_first_shutdown": {
+      "tree_equal": true,
+      "layout_sets_equal": true,
+      "closed_tombstones_equal": true,
+      "selection_equal": true,
+      "before": {
+        "closedBrowserTabs": [
+          "browser:5db907be-1a85-4c63-ab87-72af53fb020b:263d2981-00dc-4df6-addd-a3efe402d991"
+        ],
+        "layoutWorkspaces": [
+          "1",
+          "Native-destination",
+          "Actions-destination"
+        ],
+        "selected": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+        "tree": {
+          "activeSurfaces": [],
+          "layouts": [],
+          "roots": {
+            "1": [
+              {
+                "surface": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9"
+              },
+              {
+                "surface": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b"
+              }
+            ],
+            "Actions-destination": [],
+            "Native-destination": []
+          }
+        }
+      },
+      "after": {
+        "closedBrowserTabs": [
+          "browser:5db907be-1a85-4c63-ab87-72af53fb020b:263d2981-00dc-4df6-addd-a3efe402d991"
+        ],
+        "layoutWorkspaces": [
+          "Native-destination",
+          "1",
+          "Actions-destination"
+        ],
+        "selected": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+        "tree": {
+          "activeSurfaces": [],
+          "layouts": [],
+          "roots": {
+            "1": [
+              {
+                "surface": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9"
+              },
+              {
+                "surface": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b"
+              }
+            ],
+            "Actions-destination": [],
+            "Native-destination": []
+          }
+        }
+      },
+      "rows": [
+        {
+          "available": true,
+          "workspace": "1",
+          "id": "browser:5db907be-1a85-4c63-ab87-72af53fb020b:7ff20f48-dcdd-4dad-802c-912b0d804ee9",
+          "selected": true
+        },
+        {
+          "available": true,
+          "workspace": "1",
+          "id": "native:d0e3ed1e-8912-4223-a73a-7f78ecd5342b",
+          "selected": false,
+          "nativeWindowID": 4053
+        }
+      ]
+    },
+    "interpretation": "Browser-first shutdown handed focus to native before final helper persistence. Stopping the helper first preserved browser selection; the next launch restored the exact tree, layout-workspace set, selection and close tombstones."
+  },
+  "cleanup": {
+    "runs": [
+      {
+        "scope": "isolated_native_browser_sidebar",
+        "service": "com.jameslyons.winmux.browser.alpha.workspace.test.93146fb9-b811-4059-914d-674106a1883c",
+        "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-actions-1/WinMux Browser Alpha.app",
+        "completed": true,
+        "limits": [
+          "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+        ],
+        "native_fixture_pid": 66216,
+        "browser_pid": 66236,
+        "browser_exit_code": 0,
+        "test_service_removed": true
+      },
+      {
+        "scope": "isolated_native_browser_sidebar",
+        "service": "com.jameslyons.winmux.browser.alpha.workspace.test.3b93e8ff-2445-408a-a8c3-5f898e80fca2",
+        "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app",
+        "completed": true,
+        "limits": [
+          "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+        ],
+        "native_fixture_pid": 66216,
+        "resumed_from": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/actions-ui-1",
+        "browser_pid": 66989,
+        "browser_exit_code": 0,
+        "test_service_removed": false
+      },
+      {
+        "scope": "isolated_native_browser_sidebar",
+        "service": "com.jameslyons.winmux.browser.alpha.workspace.test.7d790f24-0014-4e07-afbe-9c6b76190efc",
+        "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app",
+        "completed": true,
+        "limits": [
+          "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+        ],
+        "native_fixture_pid": 66216,
+        "resumed_from": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/actions-ui-1",
+        "browser_pid": 67141,
+        "browser_exit_code": 0,
+        "test_service_removed": true
+      }
+    ],
+    "second_service_manually_removed_before_browser_quit": {
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.3b93e8ff-2445-408a-a8c3-5f898e80fca2",
+      "absent": true,
+      "return_code": 113
+    },
+    "fixture_pid": 66216,
+    "fixture_stopped": true,
+    "preserved_processes": [
+      {
+        "pid": 17212,
+        "started_local": "2026-10-01 09:03:28",
+        "role": "existing enrolled transport helper"
+      },
+      {
+        "pid": 33776,
+        "started_local": "2026-10-01 12:04:37",
+        "role": "installed signed-in compatibility browser"
+      },
+      {
+        "pid": 63284,
+        "started_local": "2026-10-01 16:07:27",
+        "role": "previously opened staged default-profile browser, untouched"
+      }
+    ]
+  },
+  "limits": [
+    "Physical drag via Computer Use sky.drag returned Accessibility error: AXError.notImplemented; no physical drag acceptance.",
+    "Single Screen Sharing Virtual Display was exposed. Monitor/project routing passed model tests; physical cross-display movement remains unverified.",
+    "Four-item workspace movement exposed 500-point minimum browser host widths. Pane fit, overlap and minimum-size negotiation remain unqualified and need attention before daily-driver activation.",
+    "Native-only resize/split/stack/swap/fullscreen/minimize commands reject implicit browser selection; corresponding shared sidebar organization remains available.",
+    "Owner acknowledgements, host visibility and key-window events do not establish input-ready latency. Performance and remaining extension tests are deferred.",
+    "No installed app, enrolled helper, user profile or original WinMux state was replaced."
+  ],
+  "raw_logs": [
+    ".local/browser/actions-native-regression-2.log",
+    ".local/browser/actions-cli-build.log",
+    ".local/browser/alpha-actions-package-1.log",
+    ".local/browser/alpha-actions-package-2.log",
+    ".local/browser/actions-ui-1/commands.jsonl",
+    ".local/browser/actions-ui-1/cli-proof.json",
+    ".local/browser/actions-ui-3/restoration-proof.json"
+  ]
+}

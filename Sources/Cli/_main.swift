@@ -5,7 +5,7 @@ import Network
 
 let usage =
     """
-    USAGE: \(CommandLine.arguments.first ?? "winmux") [-h|--help] [-v|--version] <subcommand> [<args>...]
+    USAGE: \(CommandLine.arguments.first ?? "winmux") [--socket <absolute-path>] [-h|--help] [-v|--version] <subcommand> [<args>...]
 
     SUBCOMMANDS:
     \(subcommandDescriptions.sortedBy { $0[0] }.toPaddingTable(columnSeparator: "   ").joined(separator: "\n"))
@@ -14,7 +14,15 @@ let usage =
 @main
 struct Main {
     static func main() async {
-        let args = CommandLine.arguments.slice(1...) ?? []
+        var args = CommandLine.arguments.slice(1...) ?? []
+        var endpoint = socketPath
+        if args.first == "--socket" {
+            guard args.count >= 3, args[1].hasPrefix("/"), args[1].utf8.count < 104 else {
+                exit(1, err: "--socket requires an absolute Unix socket path (under 104 bytes) followed by a command")
+            }
+            endpoint = args[1]
+            args = args.slice(2...) ?? []
+        }
 
         if args.isEmpty {
             exit(1, err: usage)
@@ -24,7 +32,7 @@ struct Main {
         }
 
         if args.first == "--version" || args.first == "-v" {
-            let connection = NWConnection(to: NWEndpoint.unix(path: socketPath), using: .tcp)
+            let connection = NWConnection(to: NWEndpoint.unix(path: endpoint), using: .tcp)
             let serverVersionAndHash: String?
             if await connection.startBlocking().error == nil {
                 let ans = await run(connection, [], stdin: "", windowId: nil, workspace: nil)
@@ -60,7 +68,7 @@ struct Main {
                 exit(1, err: e)
         }
 
-        let connection = NWConnection(to: NWEndpoint.unix(path: socketPath), using: .tcp)
+        let connection = NWConnection(to: NWEndpoint.unix(path: endpoint), using: .tcp)
 
         if let e = await connection.startBlocking().error {
             exit(1, err: "Can't connect to WinMux server. Is WinMux.app running?\n\(e.localizedDescription)")

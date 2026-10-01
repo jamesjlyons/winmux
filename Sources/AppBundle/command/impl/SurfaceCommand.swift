@@ -1,0 +1,86 @@
+import Common
+import Foundation
+import WorkspaceCore
+
+struct SurfaceCommand: Command {
+    let args: SurfaceCmdArgs
+    let shouldResetClosedWindowsCache = true
+
+    func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        let controller = BrowserWorkspaceController.shared
+        if args.operands[0] == "list" {
+            let rows = controller.knownSurfaces.sorted { $0.description < $1.description }.map { id in
+                SurfaceReference(id: id.description, workspace: controller.workspaceName(for: id),
+                    available: controller.isAvailable(id), selected: (controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID) == id,
+                    nativeWindowID: Window.get(bySurfaceID: id)?.windowId)
+            }
+            guard let data = try? JSONEncoder().encode(rows), let json = String(data: data, encoding: .utf8) else {
+                return io.err("Cannot encode surface references")
+            }
+            return io.out(json)
+        }
+        let raw = args.operands[1]
+        guard let id = raw == "selected" ? (controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID) : SurfaceID(string: raw) else {
+            return io.err("Expected a typed surface ID or an available selection")
+        }
+        guard controller.isAvailable(id) else { return io.err("Surface '\(id)' is unavailable") }
+        switch args.operands[0] {
+        case "focus": return reportSurfaceAction(controller.select(id), io)
+        case "close": return reportSurfaceAction(controller.close(id), io)
+        case "move":
+            guard let source = controller.workspaceName(for: id).flatMap(Workspace.existing(byName:)),
+                  let target = resolveMoveTargetWorkspace(named: args.operands[2], sourceWorkspace: source,
+                                                         sourceMonitor: source.workspaceMonitor) else {
+                return io.err("Cannot resolve destination workspace")
+            }
+            return moveSurfaceToWorkspace(id, target, io, focusFollowsSurface: args.focusFollowsSurface, failIfNoop: false)
+        default: return io.err("Unsupported surface action")
+        }
+    }
+}
+
+private struct SurfaceReference: Encodable {
+    let id: String
+    let workspace: String?
+    let available: Bool
+    let selected: Bool
+    let nativeWindowID: UInt32?
+}
+
+@MainActor
+func reportSurfaceAction(_ outcome: SurfaceActionOutcome, _ io: CmdIo) -> Bool {
+    switch outcome {
+    case .issued: true
+    case .unavailable: io.err("Surface owner is unavailable; no action was dispatched")
+    case .unsupported: io.err("The selected owner does not support this action")
+    }
+}
+
+@MainActor
+func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
+                            focusFollowsSurface: Bool, failIfNoop: Bool,
+                            controller: BrowserWorkspaceController = .shared) -> Bool {
+    guard controller.isAvailable(id), let sourceName = controller.workspaceName(for: id),
+          let source = Workspace.existing(byName: sourceName) else { return io.err("Surface owner is unavailable") }
+    if source === target { return failIfNoop ? io.err("Surface already belongs to destination workspace") : true }
+    switch id {
+    case .browserTab:
+        guard controller.usesSurfaceTree, controller.owner(of: id)?.supportsLayout == true else {
+            return io.err("Browser workspace moves require shared layouts and protocol 3")
+        }
+        controller.moveBrowserSurface(id, to: target.name)
+    case .nativeWindow:
+        guard let window = Window.get(bySurfaceID: id),
+              moveWindowToWorkspace(window, target, io, focusFollowsWindow: false, failIfNoop: failIfNoop) else { return false }
+    }
+    if focusFollowsSurface { return reportSurfaceAction(controller.select(id), io) }
+    // Do not reaffirm a tab on a now-hidden workspace after the layout reply.
+    // Keep focus on the source when its selected item has moved away.
+    if controller.usesSurfaceTree, controller.focusCoordinator.target == id {
+        let remaining = (controller.surfaceTree.roots[source.name] ?? []).flatMap(\.surfaces)
+            .first { $0 != id && controller.isAvailable($0) }
+        if let remaining { _ = controller.select(remaining) }
+        else { _ = source.focusWorkspace(); controller.nativeSelectionChanged(nil) }
+    }
+    return true
+}

@@ -786,7 +786,7 @@ func moveSurfaceToNewWorkspaceFromSidebar(_ id: SurfaceID, projectId: WorkspaceP
 private func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace) {
     switch id {
     case .browserTab:
-        BrowserWorkspaceController.shared.moveBrowserSurface(id, to: workspace.name)
+        _ = moveSurfaceToWorkspace(id, workspace, CmdIo(stdin: .emptyStdin), focusFollowsSurface: false, failIfNoop: false)
     case .nativeWindow:
         // Resolve the durable ID inside this session, never a previously captured
         // numeric window number which may now belong to a different application.
@@ -794,5 +794,6 @@ private func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace) {
         syncClosedWindowsCacheToCurrentWorld()
         suppressPostDragAxObserverEvents(for: [window.windowId])
         applySidebarWorkspaceMove(sourceNode: window, sourceWindow: window, targetWorkspace: workspace)
+        BrowserWorkspaceController.shared.didMoveNativeSurface(id, to: workspace.name)
     }
 }

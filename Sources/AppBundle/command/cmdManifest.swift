@@ -43,6 +43,7 @@ extension CmdArgs {
             case let args as StackWithCmdArgs: StackWithCommand(args: args)
             case is SubscribeCmdArgs: die("subscribe is handled separately")
             case let args as SummonWorkspaceCmdArgs: SummonWorkspaceCommand(args: args)
+            case let args as SurfaceCmdArgs: SurfaceCommand(args: args)
             case let args as SwapCmdArgs: SwapCommand(args: args)
             case let args as TriggerBindingCmdArgs: TriggerBindingCommand(args: args)
             case let args as VolumeCmdArgs: VolumeCommand(args: args)
