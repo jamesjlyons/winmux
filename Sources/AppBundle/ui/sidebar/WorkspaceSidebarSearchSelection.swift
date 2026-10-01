@@ -11,6 +11,8 @@ func workspaceSidebarSearchSelections(
     workspaces.flatMap { workspace in
         let itemSelections = workspace.items.flatMap { item -> [WorkspaceSidebarSearchSelection] in
             switch item.kind {
+                case .browserTab(let tab):
+                    return [.surface(tab.surfaceID)]
                 case .window(let window):
                     return [.surface(window.surfaceID)]
                 case .tabGroup(let group):

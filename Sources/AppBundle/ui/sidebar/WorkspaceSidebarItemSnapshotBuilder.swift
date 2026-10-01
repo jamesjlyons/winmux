@@ -15,5 +15,5 @@ func buildWorkspaceSidebarItems(
             currentFocus: currentFocus,
         ))))
     }
-    return items
+    return items + BrowserWorkspaceController.shared.rows(in: workspace.name)
 }

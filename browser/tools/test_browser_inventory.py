@@ -33,9 +33,9 @@ def main():
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     executable = app / "Contents/MacOS/Chromium"
-    helper = app / "Contents/Helpers/WinMuxWorkspaceHelper"
     manifest_path = app.parent / "winmux-package-manifest.json"
     manifest = json.loads(manifest_path.read_text())
+    helper = app / manifest.get("helper_relative_path", "Contents/Helpers/WinMuxWorkspaceHelper")
     team = manifest.get("team_identifier", "")
     if manifest.get("verified") is not True or not re.fullmatch(r"[A-Z0-9]{10}", team):
         parser.error("A verified staged alpha package is required")
@@ -65,7 +65,8 @@ def main():
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
     command += ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
-                "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch"}
+                "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
+                "native_focus_fence": "issued", "repeated_fence": "issued"}
     expected_count = 0 if args.private else 1
     if args.private:
         expected = {}

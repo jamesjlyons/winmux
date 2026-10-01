@@ -6,18 +6,21 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let title: String
     public let selected: Bool
     public let privateBrowsing: Bool
+    public let hostWindowID: UInt32?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil) {
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
         self.selected = selected
         self.privateBrowsing = privateBrowsing
+        self.hostWindowID = hostWindowID
     }
 
     enum CodingKeys: String, CodingKey {
         case surfaceID = "surface_id", hostID = "host_id", title, selected
         case privateBrowsing = "private"
+        case hostWindowID = "host_window_id"
     }
 }
 
@@ -62,6 +65,16 @@ public struct BrowserInventory: Sendable {
         }
         for tab in message.tabs { next[tab.surfaceID] = tab }
         guard next.count <= 10_000 else { return false }
+        var hosts: [String: UInt32] = [:]
+        var windows: [UInt32: String] = [:]
+        for tab in next.values {
+            if let window = tab.hostWindowID {
+                guard window > 0, hosts[tab.hostID] == nil || hosts[tab.hostID] == window,
+                      windows[window] == nil || windows[window] == tab.hostID else { return false }
+                hosts[tab.hostID] = window
+                windows[window] = tab.hostID
+            }
+        }
         tabs = next
         revision = message.revision
         return true

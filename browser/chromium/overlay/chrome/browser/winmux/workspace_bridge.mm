@@ -255,7 +255,7 @@ NSString* OwnTeam() {
     if (action.length > 16 || surface.length > 128 || operation.length > 40) {
       reply(@"invalid_request"); return;
     }
-    if ([action isEqualToString:@"focus"]) {
+    if ([action isEqualToString:@"focus"] || [action isEqualToString:@"cancel_focus"]) {
       if (!focusGeneration || focusGeneration < self->_latestFocus.load()) {
         reply(@"stale_focus"); return;
       }
@@ -331,7 +331,8 @@ void StartWorkspaceBridge() {
   bool isolated_test = false;
   auto service = command->GetSwitchValueASCII("winmux-test-service");
   const std::string prefix = base::SysNSStringToUTF8(kHelperID) + ".test.";
-  if (command->HasSwitch("headless") && bridge.reportPath.length &&
+  if ((command->HasSwitch("headless") || command->HasSwitch("winmux-sidebar-preview")) &&
+      command->HasSwitch("user-data-dir") && bridge.reportPath.length &&
       service.starts_with(prefix) &&
       base::Uuid::ParseCaseInsensitive(service.substr(prefix.size())).is_valid()) {
     bridge.serviceName = base::SysUTF8ToNSString(service);

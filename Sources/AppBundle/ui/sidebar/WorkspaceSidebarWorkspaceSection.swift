@@ -441,6 +441,25 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
+            case .browserTab(let tab):
+                Button { actions.send(.selectSurface(tab.surfaceID)) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "globe").frame(width: 16)
+                        Text(tab.title).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 8)
+                    .frame(height: rowHeight)
+                    .background(tab.isFocused ? Color.accentColor.opacity(0.18) : Color.clear)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Browser tab: \(tab.title)")
+                .help(tab.title)
+                .contextMenu {
+                    Button("Close Tab") { actions.send(.closeSurface(tab.surfaceID)) }
+                }
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
             case .tabGroup(let group):

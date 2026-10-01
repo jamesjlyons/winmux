@@ -71,6 +71,7 @@ enum WorkspaceSidebarAction: Equatable {
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
     case selectSurface(SurfaceID)
+    case closeSurface(SurfaceID)
     case selectProject(WorkspaceProjectId)
     case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject

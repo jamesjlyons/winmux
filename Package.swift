@@ -15,6 +15,7 @@ let package = Package(
         .executable(name: "winmux-window-capture", targets: ["WindowCapture"]),
         // Don't use this build for release, use xcode instead
         .executable(name: "WinMuxApp", targets: ["WinMuxApp"]),
+        .executable(name: "WinMuxWorkspaceHelper", targets: ["WorkspaceHelper"]),
         // We only need to expose this as a product for xcode
         .library(name: "AppBundle", targets: ["AppBundle"]),
         .library(name: "SparkleSupport", targets: ["SparkleSupport"]),
@@ -32,6 +33,9 @@ let package = Package(
     // Targets can depend on other targets in this package and products from dependencies.
     targets: [
         .target(name: "WorkspaceCore", path: "browser/native/Sources/WorkspaceCore"),
+        .target(name: "BridgeProtocol", path: "browser/native/Sources/BridgeProtocol", publicHeadersPath: "include"),
+        .target(name: "BridgeCore", dependencies: ["BridgeProtocol", "WorkspaceCore"], path: "browser/native/Sources/BridgeCore"),
+        .executableTarget(name: "WorkspaceHelper", dependencies: ["AppBundle", "BridgeCore", "BridgeProtocol", "WorkspaceCore"], path: "browser/native/Sources/WorkspaceHelper"),
         // Exposes the private _AXUIElementGetWindow function to swift
         .target(
             name: "PrivateApi",

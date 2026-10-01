@@ -144,17 +144,34 @@ def package(args, identity, team, source):
     notices = app / "Contents/Resources/WinMuxBlocking"
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
-    native_build = ROOT / ".local/browser/native-build"
-    chromium.run("swift", "build", "--package-path", str(native), "-c", "release",
-                 "--scratch-path", str(native_build))
-    helper = app / "Contents/Helpers/WinMuxWorkspaceHelper"
+    native_build = ROOT / ".local/browser/sidebar-native-build"
+    chromium.run("swift", "build", "--package-path", str(ROOT), "-c", "release",
+                 "--product", "WinMuxWorkspaceHelper", "--jobs", "4", "--scratch-path", str(native_build))
+    helper_app = app / "Contents/Helpers/WinMux Workspace.app"
+    helper_relative = "Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper"
+    helper = app / helper_relative
     helper.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(native_build / "release/WinMuxWorkspaceHelper", helper)
+    (helper_app / "Contents/Resources").mkdir()
+    (helper_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+        "CFBundleIdentifier": HELPER_ID, "CFBundleName": "WinMux Workspace",
+        "CFBundleDisplayName": "WinMux Workspace", "CFBundleExecutable": helper.name,
+        "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
+        "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
+    }))
+    for resource in (native_build / "release").glob("*.bundle"):
+        destination = helper_app / "Contents/Resources" / resource.name
+        shutil.copytree(resource, destination)
+        chromium.run("codesign", "--force", "--sign", identity,
+                     "--identifier", HELPER_ID + ".resources." + resource.stem,
+                     "--timestamp=none", str(destination))
     agents = app / "Contents/Library/LaunchAgents"
     agents.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(native / (HELPER_ID + ".plist"), agents)
+    agent = plistlib.loads((native / (HELPER_ID + ".plist")).read_bytes())
+    agent["BundleProgram"] = helper_relative
+    (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
-                 "--options", "runtime", "--timestamp=none", str(helper))
+                 "--options", "runtime", "--timestamp=none", str(helper_app))
     verify_identity(helper, HELPER_ID, team)
     for part in parts.get_parts(config).values():
         part_path = output / part.path
@@ -176,10 +193,12 @@ def package(args, identity, team, source):
     asyncio.run(parts.sign_chrome(paths, config, sign_framework=True))
     verify_identity(app, APP_ID, team)
     verify_identity(helper, HELPER_ID, team)
-    report.update(verified=True, app=str(app), helper_sha256=sha256(helper),
+    report.update(verified=True, app=str(app), helper_sha256=sha256(helper), helper_relative_path=helper_relative,
                   browser_executable_sha256=sha256(app / "Contents/MacOS/Chromium"),
                   native_sources_sha256={str(p.relative_to(ROOT)): sha256(p)
-                    for p in sorted(native.rglob("*.swift"))},
+                    for p in sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
+                                    | set((ROOT / "Sources/Common").rglob("*.swift")))},
+                  native_package_sha256=sha256(ROOT / "Package.swift"),
                   package_tool_sha256=sha256(Path(__file__)))
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"app": str(app), "verified": True, "notarized": False}, indent=2))

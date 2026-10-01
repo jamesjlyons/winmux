@@ -3,6 +3,20 @@ import WorkspaceCore
 import XCTest
 
 final class BrowserInventoryTests: XCTestCase {
+    func testHostWindowBindingMustBeConsistentWithinConnection() {
+        var inventory = BrowserInventory()
+        let a = SurfaceID.browserTab(profile: UUID(), tab: UUID()), b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let first = BrowserTabRecord(surfaceID: a, hostID: "host:1", title: "", selected: true, hostWindowID: 42)
+        XCTAssertTrue(inventory.apply(.init(revision: 1, full: true, tabs: [first])))
+        for invalid in [
+            BrowserTabRecord(surfaceID: b, hostID: "host:1", title: "", selected: false, hostWindowID: 43),
+            BrowserTabRecord(surfaceID: b, hostID: "host:2", title: "", selected: false, hostWindowID: 42),
+            BrowserTabRecord(surfaceID: b, hostID: "host:2", title: "", selected: false, hostWindowID: 0),
+        ] {
+            XCTAssertFalse(inventory.apply(.init(revision: 2, full: false, tabs: [invalid])))
+            XCTAssertEqual(inventory.tabs, [a: first])
+        }
+    }
     private func tab(id: SurfaceID = .browserTab(profile: UUID(), tab: UUID()), title: String = "Synthetic tab", privateBrowsing: Bool = false) -> BrowserTabRecord {
         BrowserTabRecord(surfaceID: id, hostID: "host:1", title: title, selected: true, privateBrowsing: privateBrowsing)
     }

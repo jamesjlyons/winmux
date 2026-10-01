@@ -22,6 +22,9 @@ final class MacWindow: Window {
     @MainActor
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow? {
+        // Quarantine all UI from an authenticated browser process, including
+        // popup/extension windows. Only bridge-owned normal hosts may be placed.
+        guard !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: macApp.pid) else { return nil }
         if let existing = allWindowsMap[windowId] {
             // No AX round-trip for known windows: this runs for every window on every refresh
             // barrier, and lastKnownActualRect stays correct without polling because moved /
@@ -39,6 +42,7 @@ final class MacWindow: Window {
         )
 
         // atomic synchronous section
+        guard !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: macApp.pid) else { return nil }
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         window.recordAuthoritativeActualRect(rect)

@@ -44,6 +44,7 @@ class ControlPackageTests(TestCase):
 
     def test_downstream_artifacts_are_refused(self):
         for relative in ("Contents/Helpers/WinMuxWorkspaceHelper",
+                         "Contents/Helpers/WinMux Workspace.app",
                          "Contents/Frameworks/Chromium Framework.framework/Libraries/libwinmux_blocking.dylib"):
             artifact = self.build / "Chromium.app" / relative
             artifact.parent.mkdir(parents=True, exist_ok=True)

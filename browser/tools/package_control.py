@@ -37,6 +37,7 @@ def validate_control(manifest, build):
         raise RuntimeError("Control build arguments have changed")
     app = build / "Chromium.app"
     if (app / "Contents/Helpers/WinMuxWorkspaceHelper").exists() or (
+            app / "Contents/Helpers/WinMux Workspace.app").exists() or (
             app / "Contents/Frameworks/Chromium Framework.framework/Libraries/libwinmux_blocking.dylib").exists():
         raise RuntimeError("Control contains downstream components")
 

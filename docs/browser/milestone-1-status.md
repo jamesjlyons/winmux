@@ -110,19 +110,78 @@ the live helper or reads signed-in browser UI.
 
 ## Next implementation work
 
-The browser does **not yet show its tabs in the WinMux sidebar**. Stable references,
-native/browser adapters and the authenticated inventory/action connection are
-implemented; the visible mixed UI remains next.
+The real sidebar now shows and operates Chromium tabs in the explicitly isolated
+preview described below. The installed browser/helper have not been upgraded,
+and a combined native-window manager is not yet activated.
 
-1. Connect the helper's validated inventory and `BrowserSurfaceSession` to the
-   existing native sidebar, then add browser item rows. Keep Chromium authoritative
-   for actual tab lifecycle and WinMux for placement. The helper is still a
-   transport process; it does not yet launch AppBundle or take native WM ownership.
-2. Add browser host registration/exclusion from ordinary AX discovery and a
-   focus generation shared across native and browser selections. Current focus
-   guards apply to browser requests; global mixed-item arbitration is not wired.
-3. Generalize the layout tree, drag/drop, groups and split hosts to accept both
+1. Add explicit native management activation with isolated configuration, socket
+   and session state, and an ownership check before running AppBundle's startup.
+   Normal helper launch remains transport-only; `--sidebar-preview` starts just
+   the sidebar in a uniquely named test service. It never starts AX management.
+   Reconcile any previously discovered host bindings before enabling native
+   layouts, and route keyboard/gesture selection through shared focus intent.
+2. Generalize the layout tree, drag/drop, groups and split hosts to accept both
    surface kinds. Add typed surface commands while keeping native numeric CLI
-   compatibility. The native layout tree and drag APIs still use `Window` today.
+   compatibility. Native trees/drag still use `Window`; browser rows currently
+   append to their assigned workspace, and placement is only in memory.
+3. Implement owner host geometry, visibility and tab transfer for mixed stacks
+   and splits, then persist shared placements without copying browser sessions.
 
 Do not restart benchmark or extension-testing loops before this integration.
+
+## Live sidebar integration — 2026-10-01
+
+- The helper can now link the actual AppBundle sidebar through a root-package
+  `WinMuxWorkspaceHelper` product. Validated endpoint snapshots reach a main-actor
+  `BrowserSurfaceSession`; connection teardown removes its rows and queued old
+  callbacks cannot recreate them. Duplicate live owners of the same durable ID
+  are rejected for selection rather than choosing an arbitrary connection.
+- Browser rows have typed IDs, browser-specific icons/labels, normal sidebar
+  search/keyboard selection and a Close Tab context action. They do not create
+  native `Window` objects or fake numeric window IDs. Only an authoritative
+  Chromium removal deletes a row; an issued close leaves it in place.
+- Sidebar selections share one generation clock across native windows and all
+  browser connections. Native selection dispatches immediately, fences older
+  browser focus work asynchronously, and reaffirms the still-current native
+  target after the fence. Stale replies cannot switch back to an earlier target.
+  Browser fences are revision-independent and idempotent. This is selection
+  arbitration, not verified native input readiness, and non-sidebar native
+  keyboard/gesture paths still need integration.
+- Normal browser records include their real macOS host window number. Inventory
+  validation rejects conflicting host/window bindings. The authenticated client
+  PID and process launch date quarantine its windows from ordinary AX discovery,
+  including unclassified popup/extension UI. Quarantine survives a transient XPC
+  disconnect. These native discovery checks have unit coverage; no second native
+  manager was started for the UI proof.
+- The helper is packaged as its own signed accessory application, with signed
+  SwiftPM resource bundles, inside the alpha. Its new relative executable path
+  is recorded in the manifest and LaunchAgent. The initial package caught an
+  unsigned MASShortcut resource bundle and was discarded; the corrected packages
+  pass deep/strict signing verification. Existing SMAppService enrollment is
+  still the previous transport helper.
+- Actual Computer Use testing of `alpha-sidebar-3` displayed the two fresh local
+  pages **WinMux Sidebar One/Two** in the production sidebar. Clicking Two changed
+  the browser inventory from revision 4 to 5. Close Tab removed Two from both
+  Chromium's inventory (revision 6, one tab) and the visible sidebar.
+- Restarting only that temporary helper produced authenticated generation 2 and
+  a full inventory at revision 7 containing exactly One. Its sidebar window
+  repopulated correctly. The browser subsequently exited 0 and the test service
+  was removed. No signed-in browser UI, extension or vault content was read.
+- Final staging package: `.local/browser/packages/alpha-sidebar-5/WinMux Browser
+  Alpha.app`. Package 4 passed the signed headless repeated-fence/action and
+  recovery test. Package 5 additionally corrects reaffirmation when several
+  browser connections complete their fences at different times, with a new
+  three-connection unit test. The visible UI proof above used package 3; these
+  distinct package proofs are recorded separately below.
+- **725 native regression tests**, **16 bridge/core tests**, **11 final targeted
+  sidebar/native tests** and **35 Python checks** pass. Native focus tests use
+  synthetic TestWindows; they do not establish live native/browser layout or
+  Accessibility permission acceptance. Performance and extension work remain
+  deferred as requested.
+
+[UI observations, package provenance and final checks](evidence/2026-10-01-live-sidebar.json).
+`browser/tools/launch_sidebar_preview.py --app <staged-app> --output <new-dir>`
+launches only fresh synthetic tabs and a uniquely named sidebar service. Use
+Computer Use for its UI; create `<new-dir>/stop` to cleanly remove the test session.
+It also stops automatically after fifteen minutes. This is a staging proof, not
+the daily-driver activation path.

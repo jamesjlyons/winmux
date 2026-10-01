@@ -2,6 +2,7 @@ import Foundation
 
 public enum BrowserSurfaceAction: String, Sendable {
     case focus, close
+    case cancelFocus = "cancel_focus"
 }
 
 public struct BrowserActionRequest: Equatable, Sendable {
@@ -34,16 +35,18 @@ public final class BrowserSurfaceSession {
     public private(set) var epoch: UUID?
     public private(set) var inventory = BrowserInventory()
     public private(set) var focusIntent: BrowserFocusIntent?
-    private var nextFocusGeneration: UInt64 = 0
+    public let focusCoordinator: SurfaceFocusCoordinator
     private let send: Transport
 
-    public init(send: @escaping Transport) { self.send = send }
+    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), send: @escaping Transport) {
+        self.focusCoordinator = focusCoordinator
+        self.send = send
+    }
 
     public func connect(epoch: UUID) {
         self.epoch = epoch
         inventory = BrowserInventory()
         focusIntent = nil
-        nextFocusGeneration = 0
     }
 
     public func disconnect(epoch: UUID) {
@@ -64,21 +67,37 @@ public final class BrowserSurfaceSession {
 
     fileprivate func request(_ action: BrowserSurfaceAction, surfaceID: SurfaceID) -> SurfaceActionOutcome {
         guard let epoch, inventory.tabs[surfaceID] != nil else { return .unavailable }
+        var generation: UInt64 = 0
         if action == .focus {
-            guard nextFocusGeneration < .max else { return .unavailable }
-            nextFocusGeneration += 1
+            guard let next = focusCoordinator.select(surfaceID) else { return .unavailable }
+            generation = next
         }
         let request = BrowserActionRequest(epoch: epoch, operation: UUID(), surfaceID: surfaceID, action: action,
-                                           revision: inventory.revision, generation: action == .focus ? nextFocusGeneration : 0)
+                                           revision: inventory.revision, generation: generation)
         if action == .focus { focusIntent = BrowserFocusIntent(request: request) }
         send(request) { [weak self] reply in
             guard let self, self.epoch == request.epoch,
+                  self.focusCoordinator.isCurrent(request.generation, target: request.surfaceID),
                   self.focusIntent?.request.operation == request.operation else { return }
             self.focusIntent?.reply = reply
         }
         // Close acknowledgements intentionally do not remove a row. Only the
         // browser's inventory delta can confirm the tab actually went away.
         return .issued
+    }
+
+    /// Send a fence through the browser UI queue. Native selection can happen
+    /// immediately; the caller may reaffirm it after the fence if still current.
+    public func supersedeFocus(generation: UInt64, target: SurfaceID,
+                               completion: @escaping @MainActor (BrowserActionReply) -> Void) {
+        focusIntent = nil
+        guard let epoch else { completion(.unavailable); return }
+        let request = BrowserActionRequest(epoch: epoch, operation: UUID(), surfaceID: target,
+                                          action: .cancelFocus, revision: inventory.revision, generation: generation)
+        send(request) { [weak self] reply in
+            guard self?.epoch == epoch else { return }
+            completion(reply)
+        }
     }
 }
 

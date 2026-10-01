@@ -14,6 +14,8 @@ source_set("workspace_bridge") {
   sources = [
     "browser_inventory.cc",
     "browser_inventory.h",
+    "host_window.h",
+    "host_window.mm",
     "cosmetics_host.cc",
     "cosmetics_host.h",
     "workspace_bridge.h",
@@ -32,9 +34,11 @@ source_set("workspace_bridge") {
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
     "//ui/base",
+    "//ui/gfx",
     "//url",
   ]
   frameworks = [
+    "AppKit.framework",
     "Foundation.framework",
     "Security.framework",
     "ServiceManagement.framework",

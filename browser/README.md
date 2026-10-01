@@ -138,7 +138,7 @@ existing report. It does not start apps, query accounts or inspect profiles.
 
 ```sh
 python3 browser/tools/measure_helper.py --pid HELPER_PID \
-  --executable '/path/to/WinMux Browser Alpha.app/Contents/Helpers/WinMuxWorkspaceHelper' \
+  --executable '/path/to/WinMux Browser Alpha.app/Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper' \
   --package-manifest /path/to/winmux-package-manifest.json \
   --output .local/browser/new-helper-observation.json
 ```

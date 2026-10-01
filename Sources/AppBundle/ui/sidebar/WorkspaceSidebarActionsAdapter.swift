@@ -63,6 +63,8 @@ func handleWorkspaceSidebarAction(
             focusWindowFromSidebar(windowId)
         case .selectSurface(let surfaceID):
             focusSurfaceFromSidebar(surfaceID)
+        case .closeSurface(let surfaceID):
+            BrowserWorkspaceController.shared.close(surfaceID)
         case .selectProject(let projectId):
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"

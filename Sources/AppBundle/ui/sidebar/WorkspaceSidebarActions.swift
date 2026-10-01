@@ -548,7 +548,7 @@ func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel)
 func focusSurfaceFromSidebar(_ surfaceID: SurfaceID) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
     runWorkspaceSidebarSession {
-        if NativeWindowSurfaceAdapter(surfaceID: surfaceID).requestFocus() == .unavailable,
+        if BrowserWorkspaceController.shared.select(surfaceID) == .unavailable,
            let name = workspaceSidebarFallbackWorkspaceName(forSurfaceID: surfaceID) {
             _ = Workspace.existing(byName: name)?.focusWorkspace()
         }
@@ -560,6 +560,8 @@ func workspaceSidebarFallbackWorkspaceName(forSurfaceID surfaceID: SurfaceID) ->
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
+                case .browserTab(let tab):
+                    if tab.surfaceID == surfaceID { return tab.workspaceName }
                 case .window(let window) where window.surfaceID == surfaceID:
                     return window.workspaceName
                 case .tabGroup(let group):
@@ -586,8 +588,8 @@ func focusWindowFromSidebar(_ windowId: UInt32) {
             }
             return
         }
-        _ = setFocus(to: liveFocus)
-        window.nativeFocus()
+        _ = liveFocus // The typed adapter revalidates the live owner at dispatch.
+        _ = BrowserWorkspaceController.shared.select(window.surfaceID)
     }
 }
 
@@ -596,6 +598,8 @@ func workspaceSidebarFallbackWorkspaceName(for windowId: UInt32) -> String? {
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
+                case .browserTab:
+                    continue
                 case .window(let window) where window.windowId == windowId:
                     return window.workspaceName
                 case .tabGroup(let group) where group.representativeWindowId == windowId:

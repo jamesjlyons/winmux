@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/winmux/tab_identity.h"
+#include "chrome/browser/winmux/host_window.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
@@ -64,12 +65,18 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return previous->second.first == request ? previous->second.second
                                               : "operation_conflict";
     }
-    if (request.action != "focus" && request.action != "close")
+    if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus")
       return "unsupported";
-    if (request.action == "focus") {
+    if (request.action == "focus" || request.action == "cancel_focus") {
       if (!request.generation || request.generation <= highest_focus_)
         return "stale_focus";
       highest_focus_ = request.generation;
+    }
+    // A fence deliberately needs neither a live tab nor a matching inventory
+    // revision: closing/reconciling a tab must not prevent retiring old focus.
+    if (request.action == "cancel_focus") {
+      Remember(request);
+      return "issued";
     }
     // Refresh invalidated bindings before dereferencing a removed/replaced tab.
     if (pending_)
@@ -88,12 +95,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (index < 0)
       return "unavailable";
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
-    operations_.emplace(request.operation, std::make_pair(request, "issued"));
-    operation_order_.push_back(request.operation);
-    if (operation_order_.size() > 128) {
-      operations_.erase(operation_order_.front());
-      operation_order_.pop_front();
-    }
+    Remember(request);
     if (request.action == "focus") {
       strip->ActivateTabAt(index);
       browser->GetWindow()->Show();
@@ -134,6 +136,14 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
  private:
+  void Remember(const BrowserSurfaceAction& request) {
+    operations_.emplace(request.operation, std::make_pair(request, "issued"));
+    operation_order_.push_back(request.operation);
+    if (operation_order_.size() > 128) {
+      operations_.erase(operation_order_.front());
+      operation_order_.pop_front();
+    }
+  }
   void Schedule() {
     // A coalesced metadata update must not leave a dangling action target.
     live_.clear();
@@ -161,6 +171,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
         base::DictValue record;
         record.Set("surface_id", id);
         record.Set("host_id", "host:" + base::NumberToString(browser->GetSessionID().id()));
+        uint32_t host_window = BrowserHostWindowID(browser->GetWindow());
+        if (host_window)
+          record.Set("host_window_id", static_cast<double>(host_window));
         record.Set("title", base::UTF16ToUTF8(contents->GetTitle().substr(0, 1024)));
         record.Set("selected", index == strip->active_index());
         record.Set("private", false);

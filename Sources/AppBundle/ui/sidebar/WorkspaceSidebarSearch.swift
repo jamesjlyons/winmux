@@ -62,6 +62,9 @@ private func workspaceSidebarSearchResultItem(
     terms: [String],
 ) -> WorkspaceSidebarItemViewModel? {
     switch item.kind {
+        case .browserTab(let tab):
+            return workspaceSidebarSearchTextMatches(
+                [tab.title, "WinMux Browser", workspace.displayName, workspace.name, projectName], terms: terms) ? item : nil
         case .window(let window):
             if workspaceSidebarSearchTextMatches(
                 [
