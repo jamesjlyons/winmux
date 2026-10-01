@@ -24,8 +24,8 @@
   "python_tests_passed": 10,
   "swift_tests_passed": 4,
   "rust_tests_passed": 5,
-  "signed_xpc_process_proof_rerun": false,
-  "signing_identities_available": 0,
+  "signed_xpc_process_proof_rerun": true,
+  "signing_identities_available": 2,
   "browser_integrated": false,
   "blocking": {
     "scope": "native_blocker_microbenchmark",
@@ -80,5 +80,7 @@
       "browser/blocking/Cargo.lock": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
     }
   },
-  "swift_log_sha256": "49b243be9f7a12083d29135868759f32c1faf56b6d7c6f515b8e809247a2ab08"
+  "swift_log_sha256": "49b243be9f7a12083d29135868759f32c1faf56b6d7c6f515b8e809247a2ab08",
+  "signing_evidence": "2026-09-30-native-bridge.json",
+  "signing_verified_utc": "2026-10-01T04:59:51.114356+00:00"
 }

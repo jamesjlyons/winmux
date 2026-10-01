@@ -1,0 +1,40 @@
+{
+  "scope": "signed_xpc_transport_only",
+  "presentation_measured": false,
+  "smappservice_packaging_verified": false,
+  "passed": [
+    "signed_client_and_helper_exchange",
+    "same_team_wrong_identifier_rejected",
+    "adhoc_client_fails_closed",
+    "healthy_client_after_rejected_client",
+    "client_rejects_wrong_helper_identifier"
+  ],
+  "recorded_utc": "2026-10-01T04:59:51.114356+00:00",
+  "source_sha256": {
+    "browser/native/Sources/BridgeCore/BridgeSession.swift": "63ccb51fe4cfcc350b1cab88a821a42d59379402a9f5eff39566880df381331c",
+    "browser/native/Sources/BridgeCore/HelperRegistration.swift": "38542c0abfff7f3fae583a354aa0ef8be3359e7f6414dc0228ed5eae6c027f76",
+    "browser/native/Sources/BridgeCore/SigningIdentity.swift": "c8986566854d8c8ae5cf21807fada25564b3e6e864a87be3602dcff4eacfaf9c",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "046c2a0669fb2c7d939d1d9931b1534fee32903cca80f72d65ae6b2c8d2297fa",
+    "browser/native/probe/bridge_probe.mm": "019604a40e64a222f08b591cca41ca9ebabf2cf192293b486ee6a8b38c0c6881",
+    "browser/native/Sources/BridgeProtocol/include/WMBridgeProtocol.h": "09455ce7c52247b33eed07b2e2c33d2dfea69d498b9bf51866d7d1b55aa0661f"
+  },
+  "environment": {
+    "model": "MacBookPro18,1",
+    "physical_memory_gib": 16,
+    "logical_cpus": 10,
+    "macos": "27.0.1",
+    "xcode": "27.0"
+  },
+  "signing": {
+    "team_type": "Personal Team",
+    "team_identifier": "F7QMMNZWXX",
+    "certificate_sha1": "140566AD0A3B967AB81062FD208B94F0E1DAAFEC",
+    "certificate_expires_utc": "2027-10-01T04:41:40Z",
+    "xcode_probe_build_succeeded": true,
+    "xcode_probe_signature_verified": true,
+    "xcode_probe_team_identifier_verified": true
+  },
+  "temporary_launchagent_removed": true,
+  "swift_tests_passed": 4,
+  "browser_integrated": false
+}

@@ -22,8 +22,12 @@ have not started, as required by the approved compatibility gate.
 - Xcode automatic signing created an Apple Development certificate for the
   selected Personal Team (`F7QMMNZWXX`). The public certificate's team and SHA-1
   fingerprint were verified, and the exact identity is saved in the ignored
-  `.local/browser/signing.env`. Signing is awaiting the macOS Keychain prompt;
-  the signed XPC process proof has not yet been repeated here.
+  `.local/browser/signing.env`. After Keychain authorization, the Xcode test app
+  built and its signature verified with the expected team. The signed native
+  XPC process proof passed all five cases, including the duplicate/stale-message
+  checks inside the authorized exchange, and all four Swift tests passed again.
+  The temporary LaunchAgent was removed. Browser integration and signed alpha
+  packaging remain pending.
 - The build command now accepts `--jobs 4` to bound local compiler concurrency
   and records the limit and hardware in the completed build manifest. This Mac
   is a separate test environment from the plan's 36 GiB M3 Pro; its component
@@ -38,8 +42,12 @@ have not started, as required by the approved compatibility gate.
   (`use_lld = false`); compilation resumed past the failing link. Later alpha
   comparisons must use the same linker setting.
 
-[Local component evidence](evidence/2026-09-30-local-components.json). Current
-download/compiler logs are under `.local/browser/` in the active worktree.
+[Local component evidence](evidence/2026-09-30-local-components.json) and
+[Personal Team signed XPC evidence](evidence/2026-09-30-native-bridge.json).
+Current download/compiler logs are under `.local/browser/` in the active worktree.
+To repeat the signed proof on this Mac, run
+`source .local/browser/signing.env` followed by
+`python3 browser/tools/test_native_bridge.py` from that worktree.
 
 The remaining sections preserve the original September 19 checkpoint.
 
