@@ -1,6 +1,8 @@
+import WorkspaceCore
+
 enum WorkspaceSidebarSearchSelection: Hashable {
     case workspace(String)
-    case window(UInt32)
+    case surface(SurfaceID)
 }
 
 func workspaceSidebarSearchSelections(
@@ -10,9 +12,9 @@ func workspaceSidebarSearchSelections(
         let itemSelections = workspace.items.flatMap { item -> [WorkspaceSidebarSearchSelection] in
             switch item.kind {
                 case .window(let window):
-                    return [.window(window.windowId)]
+                    return [.surface(window.surfaceID)]
                 case .tabGroup(let group):
-                    return (group.searchVisibleTabs ?? group.tabs).map { .window($0.windowId) }
+                    return (group.searchVisibleTabs ?? group.tabs).map { .surface($0.surfaceID) }
             }
         }
         return itemSelections.isEmpty ? [.workspace(workspace.name)] : itemSelections

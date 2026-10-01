@@ -1,4 +1,5 @@
 import CoreGraphics
+import WorkspaceCore
 
 struct WorkspaceSidebarSnapshot: Equatable {
     var workspaces: [WorkspaceSidebarWorkspaceViewModel]
@@ -69,6 +70,7 @@ enum WorkspaceSidebarAction: Equatable {
     case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
+    case selectSurface(SurfaceID)
     case selectProject(WorkspaceProjectId)
     case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject

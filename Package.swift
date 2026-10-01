@@ -31,6 +31,7 @@ let package = Package(
     // Targets are the basic building blocks of a package, defining a module or a test suite.
     // Targets can depend on other targets in this package and products from dependencies.
     targets: [
+        .target(name: "WorkspaceCore", path: "browser/native/Sources/WorkspaceCore"),
         // Exposes the private _AXUIElementGetWindow function to swift
         .target(
             name: "PrivateApi",
@@ -46,6 +47,7 @@ let package = Package(
         .target(
             name: "AppBundle",
             dependencies: [
+                .target(name: "WorkspaceCore"),
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "HotKey", package: "HotKey"),
                 .product(name: "ISSoundAdditions", package: "ISSoundAdditions"),
@@ -89,6 +91,7 @@ let package = Package(
         .testTarget(
             name: "AppBundleTests",
             dependencies: [
+                .target(name: "WorkspaceCore"),
                 .target(name: "AppBundle"),
             ],
             path: "Sources/AppBundleTests",

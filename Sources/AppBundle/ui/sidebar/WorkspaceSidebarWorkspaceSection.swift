@@ -548,7 +548,11 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
-            actions.send(.selectWindow(group.representativeWindowId))
+            if let representative = group.tabs.first(where: { $0.windowId == group.representativeWindowId }) {
+                actions.send(.selectSurface(representative.surfaceID))
+            } else {
+                actions.send(.selectWorkspace(group.workspaceName))
+            }
         } label: {
             WorkspaceSidebarWindowRow(
                 title: "\(group.windowCount) \(group.windowCount == 1 ? "window" : "windows")",
@@ -556,7 +560,9 @@ extension WorkspaceSidebarWorkspaceSection {
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredTabGroupId == group.representativeWindowId || selectedSearchTarget == .window(group.representativeWindowId),
+                isHovered: hoveredTabGroupId == group.representativeWindowId || group.tabs.contains {
+                    $0.windowId == group.representativeWindowId && selectedSearchTarget == .surface($0.surfaceID)
+                },
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
@@ -599,7 +605,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
-            actions.send(.selectWindow(window.windowId))
+            actions.send(.selectSurface(window.surfaceID))
         } label: {
             WorkspaceSidebarWindowRow(
                 title: window.title ?? window.appName,
@@ -607,7 +613,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 isFocused: window.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredWindowId == window.windowId || selectedSearchTarget == .window(window.windowId),
+                isHovered: hoveredWindowId == window.windowId || selectedSearchTarget == .surface(window.surfaceID),
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [window.appBundleId],
                 appBundlePaths: [window.appBundlePath],

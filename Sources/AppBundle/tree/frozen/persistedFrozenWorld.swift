@@ -113,6 +113,13 @@ final class RestartSessionController {
         let matched = snapshot.world.windowIds.filter { id in
             Window.get(byId: id).map { snapshot.matches(windowId: id, identity: RestartWindowIdentity($0.app), boot: currentBootSession()) } ?? false
         }
+        // Numeric IDs alone never restore the new workspace identity. The
+        // existing boot + process launch + window match above is mandatory.
+        for record in snapshot.windows ?? [] where matched.contains(record.id) {
+            if let surfaceID = record.surfaceID {
+                Window.get(byId: record.id)?.restoreSurfaceID(surfaceID)
+            }
+        }
         for workspace in snapshot.world.workspaces where !cancelledWorkspaces.contains(workspace.name) {
             let ids = Set(collectFrozenWindows(workspace).keys).intersection(matched)
             guard !restoredWorkspaces.contains(workspace.name) || !ids.isSubset(of: restoredIds) else { continue }

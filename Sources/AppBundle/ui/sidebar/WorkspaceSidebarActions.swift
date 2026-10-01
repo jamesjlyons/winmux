@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import SwiftUI
+import WorkspaceCore
 
 @MainActor
 func focusWorkspaceFromSidebar(_ workspaceName: String, targetMonitorScopeId: String? = nil) {
@@ -541,6 +542,36 @@ func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel)
         try deleteWorkspaceForSidebar(workspaceName: workspace.name)
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+func focusSurfaceFromSidebar(_ surfaceID: SurfaceID) {
+    WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
+    runWorkspaceSidebarSession {
+        if NativeWindowSurfaceAdapter(surfaceID: surfaceID).requestFocus() == .unavailable,
+           let name = workspaceSidebarFallbackWorkspaceName(forSurfaceID: surfaceID) {
+            _ = Workspace.existing(byName: name)?.focusWorkspace()
+        }
+    }
+}
+
+@MainActor
+func workspaceSidebarFallbackWorkspaceName(forSurfaceID surfaceID: SurfaceID) -> String? {
+    for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
+        for item in workspace.items {
+            switch item.kind {
+                case .window(let window) where window.surfaceID == surfaceID:
+                    return window.workspaceName
+                case .tabGroup(let group):
+                    if group.tabs.contains(where: { $0.surfaceID == surfaceID }) {
+                        return group.workspaceName
+                    }
+                case .window:
+                    continue
+            }
+        }
+    }
+    return nil
 }
 
 @MainActor

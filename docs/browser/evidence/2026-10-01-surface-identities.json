@@ -1,0 +1,160 @@
+{
+  "scope": "actual_signed_chromium_tab_identity_persistence",
+  "passed": true,
+  "package_manifest_sha256": "6202647229c29f4fd94676836532b099aef1abf27c3f454b2c218c63a261e35f",
+  "test_source_sha256": "f5ea036a376d8b429be8c74072f7ecaf46a9ab0cce2822e59ad4a8bbb1ee38ba",
+  "phases": [
+    {
+      "name": "create",
+      "command": [
+        "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-identities-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+        "--headless=new",
+        "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/profile-a",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--enable-logging=stderr",
+        "--winmux-tab-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/create.jsonl",
+        "about:blank#one"
+      ],
+      "exit_code": 0,
+      "records": [
+        {
+          "event": "created",
+          "private": false,
+          "surface_id": "browser:68712b31-9f8a-48b8-9ed5-24060291ef69:c88850f4-d66b-4ba8-b835-20847172e410"
+        }
+      ]
+    },
+    {
+      "name": "restore",
+      "command": [
+        "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-identities-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+        "--headless=new",
+        "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/profile-a",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--enable-logging=stderr",
+        "--winmux-tab-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/restore.jsonl",
+        "--restore-last-session"
+      ],
+      "exit_code": 0,
+      "records": [
+        {
+          "event": "restored",
+          "private": false,
+          "surface_id": "browser:68712b31-9f8a-48b8-9ed5-24060291ef69:c88850f4-d66b-4ba8-b835-20847172e410"
+        }
+      ]
+    },
+    {
+      "name": "separate-profile",
+      "command": [
+        "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-identities-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+        "--headless=new",
+        "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/profile-b",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--enable-logging=stderr",
+        "--winmux-tab-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/separate-profile.jsonl",
+        "about:blank"
+      ],
+      "exit_code": 0,
+      "records": [
+        {
+          "event": "created",
+          "private": false,
+          "surface_id": "browser:f13e02d3-61bf-4dd7-ab0c-22a8b03cdd12:a265d9e9-c432-4e08-9733-51cb30fce5c1"
+        }
+      ]
+    },
+    {
+      "name": "private",
+      "command": [
+        "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-identities-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+        "--headless=new",
+        "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/profile-private",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--enable-logging=stderr",
+        "--winmux-tab-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-2/private.jsonl",
+        "--incognito",
+        "about:blank"
+      ],
+      "exit_code": 0,
+      "records": []
+    }
+  ],
+  "limits": [
+    "Headless synthetic pages; no signed-in profiles or app UI inspected",
+    "Multiple tabs, renderer replacement, discard, tab duplication and crash restore remain untested",
+    "Identity persistence does not yet provide browser rows or mixed layouts"
+  ],
+  "recorded_utc": "2026-10-01T20:05:51.054248+00:00",
+  "package": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-identities-1/WinMux Browser Alpha.app",
+  "installed_browser_replaced": false,
+  "helper_enrollment_changed": false,
+  "build": {
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "depot_tools_revision": null,
+    "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+    "patches_sha256": {
+      "0001-workspace-bridge.patch": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+      "0002-native-request-blocking.patch": "1bd40c5d024e0844a2363a4c925a0ba1f3aa42f7dd260bb1c3b8e2ea906e9486",
+      "0003-blocker-library-bundle.patch": "ad37f775ed9e6cec98e1acd55b86f48782bfbf6a19267eced209844af73ecb23",
+      "0004-document-cosmetics.patch": "2e184a437e0dbb0fa3028453df8e7d514ab17cd2fcb9c291b103723400bb28f4",
+      "0005-persistent-tab-identities.patch": "196d8c23b170c5dcba43508c2be9a70cd645db906f25f0e7a18604a6b00d49c2"
+    },
+    "overlay_sha256": {
+      "components/winmux/blocking/engine.h": "6c72d895f5ee8a4a56ff4ab47bd3d16ff69be631918fa07d2bfe9b0d57de7ad0",
+      "components/winmux/blocking/BUILD.gn": "2fd599b39a15bc0d17807cdd1cd7380a7190eda442b1d1a64e3cad9928d850bf",
+      "components/winmux/blocking/engine.cc": "a6994d20a3c2622f031cf4c32b9fe49662fcaedda720f9fb9d21b634f696c861",
+      "components/winmux/blocking/cosmetics.mojom": "2c3804c9bde0c37df1399b81be1bb651abfd3f37f2fc3ec11061776718466470",
+      "chrome/renderer/winmux/BUILD.gn": "52d74ee82a032c18995786cd9145f4b3e7bfc0360bf491829c9d42505453f2a0",
+      "chrome/renderer/winmux/cosmetics_agent.h": "0fd7a0413ceb2074863b4fce44a024733960314630eaa171354f06cb353d1563",
+      "chrome/renderer/winmux/cosmetics_agent.cc": "1048b701aac6eebb22e76c03f081af458e16d922c5c6bb755781a0523ac6baa0",
+      "chrome/browser/winmux/BUILD.gn": "e0da7682114910ec0ac32b0d51334269978d377a766625e696642ca563dd796c",
+      "chrome/browser/winmux/cosmetics_host.h": "89a7745c4a2586e0fac04eeaed8d471f02a6582098da2ffbe499ab138bcabcb1",
+      "chrome/browser/winmux/cosmetics_host.cc": "0c3b9c1365ff2d4a9dee8b68c2267155a23f898feaf3109d90ad663523bbded9",
+      "chrome/browser/winmux/workspace_bridge_state.h": "aa73a5090b6624feb6cbcbc96bf9924917ee908bf6d2ac7c539a26f6a86d67d1",
+      "chrome/browser/winmux/workspace_bridge.mm": "344b6f98566eeb65d1191e43e2e74371a7bd44543e10cca3aaff973f5324cb2d",
+      "chrome/browser/winmux/tab_identity.cc": "72efe95d6f509e0fcf8ea841a9da5744b49c5ed9b3d015aaf97cf67d5eda24a7",
+      "chrome/browser/winmux/tab_identity.h": "b16bbeaa48d4cf7951d0b7957deefb0163d257ab12b2e380685a4aac465c8d20",
+      "chrome/browser/winmux/workspace_bridge.h": "11bdfb54365a0ee4c393199be2be94ab310bf9798e658ff76031b7607a1c8ad7",
+      "services/network/winmux/url_filter.cc": "9d58a4ace2df58c4c7e33c486759a580b552f2d4550b6286ab1be1bda75cbd03",
+      "services/network/winmux/url_filter.h": "4fc2837fe746a26a0625d0d598088779d377d155217c21fa15ab44def2105f77",
+      "chrome/browser/winmux/WMBridgeProtocol.h": "09455ce7c52247b33eed07b2e2c33d2dfea69d498b9bf51866d7d1b55aa0661f",
+      "components/winmux/blocking/winmux_blocking.h": "691787c723c79c5858a7c6a69ea086868e6ed434e05a533fdc27cbaed19e2fd5"
+    },
+    "build_succeeded": true
+  },
+  "signing": {
+    "team_identifier": "F7QMMNZWXX",
+    "verified": true,
+    "notarized": false
+  },
+  "native_validation": {
+    "full_regression_tests": 721,
+    "failures": 0,
+    "shared_identity_tests": 3,
+    "native_integration_tests": 6,
+    "scope": "Typed native sidebar selection and session version 2 to 3 migration; no live native WM was launched"
+  },
+  "prior_attempt": {
+    "output": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/tab-identities-1",
+    "error": "Headless mode rejects multiple command-line targets; no test browser started"
+  },
+  "source_sha256": {
+    "browser/native/Sources/WorkspaceCore/SurfaceID.swift": "c988ff3eb70d7d7e1b652649875d837582e6211adf002d929ffac5167d24b201",
+    "Sources/AppBundle/tree/NativeWindowSurfaceAdapter.swift": "955f3f73f16a2e8cfdfea8b4ecc469b79a6b7d6857711216f4e426d418090463",
+    "Sources/AppBundleTests/tree/NativeSurfaceIntegrationTest.swift": "842677b0bc72b661ddd943f360696e44f18718e21b804a502956fcb6d4b41931",
+    "browser/tools/test_tab_identities.py": "f5ea036a376d8b429be8c74072f7ecaf46a9ab0cce2822e59ad4a8bbb1ee38ba"
+  },
+  "logs": {
+    ".local/browser/tab-identities-2/result.json": "f2ede9f9b5fb245fddecdc7bdf568b516bb26e9005735cc08f6929af8cac3789",
+    ".local/browser/alpha-identities-build-2.log": "9c077f2b2b01ced1e5da4fc7d7680ed17c91c384542b84b8a49a67bba82fdcd6",
+    ".local/browser/alpha-identities-package.log": "a7bc5aadfef2cc37d19abe602ccbc3aed39b01cb70762dac7768119214d00e2a",
+    ".local/browser/surface-native-suite.log": "737c6afb5fb3e586f6a88bf4b83cce6c6192c4a98124a137898a50a3d7154b57",
+    ".local/browser/surface-core-tests.log": "bf52bfc4158b69c3c20e5d7393126c7407f0136922f6ce2389a5b972ac599ad1",
+    ".local/browser/surface-native-targeted-final.log": "ab4392581d3b769d40ec3f41fb2d58ab9b748e1623dc13cd49487e9d1fdc6dc4"
+  }
+}

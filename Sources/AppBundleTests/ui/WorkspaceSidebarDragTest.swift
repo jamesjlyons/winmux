@@ -22,6 +22,7 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
         appBundlePath: "/Applications/Xcode.app",
         title: "ReleaseNotes.swift",
         isFocused: false,
+        surfaceID: .nativeWindow(UUID()),
     )
     let terminal = WorkspaceSidebarWindowViewModel(
         windowId: 102,
@@ -31,6 +32,7 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
         appBundlePath: "/System/Applications/Utilities/Terminal.app",
         title: "server",
         isFocused: false,
+        surfaceID: .nativeWindow(UUID()),
     )
     let browserTab = WorkspaceSidebarWindowViewModel(
         windowId: 202,
@@ -40,6 +42,7 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
         appBundlePath: "/Applications/Safari.app",
         title: "WindowServer docs",
         isFocused: false,
+        surfaceID: .nativeWindow(UUID()),
     )
     let notesTab = WorkspaceSidebarWindowViewModel(
         windowId: 203,
@@ -49,6 +52,7 @@ private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceVi
         appBundlePath: "/System/Applications/Notes.app",
         title: "Ideas",
         isFocused: false,
+        surfaceID: .nativeWindow(UUID()),
     )
     let browserGroup = WorkspaceSidebarTabGroupViewModel(
         representativeWindowId: 201,
@@ -230,6 +234,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             appBundlePath: nil,
             title: "File.swift",
             isFocused: false,
+            surfaceID: .nativeWindow(UUID()),
         )
         let tab = WorkspaceSidebarWindowViewModel(
             windowId: 202,
@@ -239,6 +244,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             appBundlePath: nil,
             title: "Docs",
             isFocused: false,
+            surfaceID: .nativeWindow(UUID()),
         )
         let group = WorkspaceSidebarTabGroupViewModel(
             representativeWindowId: 201,
@@ -279,6 +285,9 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarFallbackWorkspaceName(for: 201), "research")
         XCTAssertEqual(workspaceSidebarFallbackWorkspaceName(for: 202), "research")
         XCTAssertNil(workspaceSidebarFallbackWorkspaceName(for: 999))
+        XCTAssertEqual(workspaceSidebarFallbackWorkspaceName(forSurfaceID: window.surfaceID), "coding")
+        XCTAssertEqual(workspaceSidebarFallbackWorkspaceName(forSurfaceID: tab.surfaceID), "research")
+        XCTAssertNil(workspaceSidebarFallbackWorkspaceName(forSurfaceID: .nativeWindow(UUID())))
     }
 
     func testWorkspaceSidebarSearchFiltersByWindowTitleAndAppName() {
@@ -290,7 +299,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             query: "release",
         )[workspaceProjectDefaultId] ?? []
         XCTAssertEqual(titleResults.map(\.name), ["coding"])
-        XCTAssertEqual(titleResults.first?.items.map(\.id), ["window:101"])
+        XCTAssertEqual(titleResults.first?.items.map(\.id), [workspaces[0].items[0].id])
 
         let appResults = workspaceSidebarFilteredWorkspacesByProject(
             [workspaceProjectDefaultId: workspaces],
@@ -305,7 +314,9 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         } else {
             XCTFail("Expected tab group search result")
         }
-        XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: appResults), [.window(202)])
+        XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: appResults).count, 1)
+        guard case .tabGroup(let matchingGroup) = appResults[0].items[0].kind else { return XCTFail("Expected group") }
+        XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: appResults), [.surface(matchingGroup.tabs.first { $0.windowId == 202 }!.surfaceID)])
     }
 
     func testWorkspaceSidebarSearchKeepsWholeWorkspaceForWorkspaceMatch() {
@@ -318,7 +329,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )[workspaceProjectDefaultId] ?? []
 
         XCTAssertEqual(results.map(\.name), ["coding"])
-        XCTAssertEqual(results.first?.items.map(\.id), ["window:101", "window:102"])
+        XCTAssertEqual(results.first?.items.map(\.id), workspaces[0].items.map(\.id))
     }
 
     func testWorkspaceSidebarInlineTextDeletesLastWord() {

@@ -1,14 +1,26 @@
 # Milestone 0 implementation status
 
-**Milestone 0 is incomplete. Chromium and a signed alpha with authenticated helper communication and native
-request/cosmetic blocking now build and launch; browser baseline reports remain
-open. Extension compatibility is accepted by the user for this phase.**
-The independent native components below are built and exercised. Milestones 1–5
-have not started. On October 1 the user explicitly accepted the extensions for
+**Performance qualification is deferred by the user. Chromium and a signed alpha
+with authenticated helper communication and native request/cosmetic blocking
+build and launch. Proceed directly to tab/native-window integration. Extension
+compatibility is accepted for this phase.**
+On October 1 the user asked to "move on to the winmux tab and window integration,
+we can optimize perfomance after that right?" This changes the implementation
+order: remaining baseline/qualification work no longer blocks Milestones 1–2.
+No unperformed performance checks are marked passed. A later `speedometer-3`
+control trial lost foreground and the batch stopped itself; its score is excluded,
+and its isolated browser/server processes exited. Do not restart benchmarks.
+
+Active implementation has moved to [tab and native-window integration](milestone-1-status.md).
+Typed native sidebar selection, versioned surface persistence, and actual
+Chromium tab/profile identity restoration are implemented and tested there.
+
+The independent native components below are built and exercised. On October 1
+the user explicitly accepted the extensions for
 this phase ("move on from the extension testing. they're good"). Stop extension
 testing and treat its remaining scenarios as deferred, not implementation
 blockers. Preserve the observations below without claiming unperformed tests
-passed; continue browser baselines and browser/workspace integration.
+passed; continue browser/workspace integration.
 
 ## Browser/helper connection recovery — 2026-10-01
 
@@ -38,7 +50,8 @@ passed; continue browser baselines and browser/workspace integration.
 [Recovery result, source hashes and package provenance](evidence/2026-10-01-browser-recovery.json).
 Reproduce with `browser/tools/test_browser_recovery.py`; it requires a new
 profile/output directory and verifies the staged package and existing helper
-identity before running. Native workspace integration has not started.
+identity before running. This recovery checkpoint predates the active
+[native surface integration](milestone-1-status.md).
 
 ## Initial control startup and tab-presentation trace — 2026-10-01
 

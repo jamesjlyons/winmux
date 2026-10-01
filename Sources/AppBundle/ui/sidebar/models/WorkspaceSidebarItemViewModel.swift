@@ -4,7 +4,7 @@ struct WorkspaceSidebarItemViewModel: Hashable, Identifiable {
     var id: String {
         switch kind {
             case .window(let window):
-                "window:\(window.windowId)"
+                window.surfaceID.description
             case .tabGroup(let group):
                 group.id
         }

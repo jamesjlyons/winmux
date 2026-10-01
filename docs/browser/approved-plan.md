@@ -1,5 +1,13 @@
 # WinMux Browser: a Chromium browser and native window manager
 
+> **October 1 implementation order update:** The user accepted extension
+> compatibility for this phase, then explicitly asked to move directly to WinMux
+> tab/native-window integration and optimize performance afterward. Proceed with
+> Milestones 1–2 without waiting for further Milestone 0 benchmarks. Keep the
+> performance requirements as later qualification work; do not claim their
+> acceptance thresholds have passed. Correctness, profile preservation,
+> sandboxing and authenticated process boundaries still apply.
+
 ## 1. Product direction and release requirements
 
 Build one macOS product where websites and native app windows share WinMux’s sidebar, Spaces, Groups, tab stacks, and split layouts.

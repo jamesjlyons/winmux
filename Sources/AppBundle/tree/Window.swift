@@ -1,7 +1,10 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 open class Window: TreeNode, Hashable {
+    private(set) var surfaceID: SurfaceID = .nativeWindow(UUID())
+    @MainActor private static var surfaceWindows: [SurfaceID: WeakSurfaceWindow] = [:]
     let windowId: UInt32
     let app: any AbstractApp
     var lastFloatingSize: CGSize?
@@ -73,6 +76,38 @@ open class Window: TreeNode, Hashable {
         self.app = app
         self.lastFloatingSize = lastFloatingSize
         super.init(parent: parent, adaptiveWeight: adaptiveWeight, index: index)
+        Window.surfaceWindows[surfaceID] = WeakSurfaceWindow(self)
+    }
+
+    @MainActor static func get(bySurfaceID id: SurfaceID) -> Window? {
+        guard let window = surfaceWindows[id]?.window, window.isBound,
+              get(byId: window.windowId) === window else {
+            surfaceWindows.removeValue(forKey: id)
+            return nil
+        }
+        return window
+    }
+
+    /// Called only after saved boot/process/window bindings have matched.
+    @MainActor @discardableResult
+    func restoreSurfaceID(_ id: SurfaceID) -> Bool {
+        guard case .nativeWindow = id else { return false }
+        guard let existing = Window.get(bySurfaceID: id) else {
+            unregisterSurface()
+            surfaceID = id
+            Window.surfaceWindows[id] = WeakSurfaceWindow(self)
+            return true
+        }
+        return existing === self
+    }
+
+    @MainActor func unregisterSurface() {
+        Window.surfaceWindows.removeValue(forKey: surfaceID)
+    }
+
+    @MainActor static func resetSurfaceRegistryForTests() {
+        precondition(isUnitTest)
+        surfaceWindows.removeAll()
     }
 
     @MainActor static func get(byId windowId: UInt32) -> Window? { // todo make non optional
@@ -99,6 +134,11 @@ open class Window: TreeNode, Hashable {
     func getCenter() async throws -> CGPoint? { try await getAxRect()?.center }
 
     func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) { die("Not implemented") }
+}
+
+private final class WeakSurfaceWindow {
+    weak var window: Window?
+    init(_ window: Window) { self.window = window }
 }
 
 enum LayoutReason: Codable, Equatable, Sendable {

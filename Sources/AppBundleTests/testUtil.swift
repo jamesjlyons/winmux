@@ -26,6 +26,7 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
+    Window.resetSurfaceRegistryForTests()
     config = defaultConfig
     setMonitorsForTests(nil)
     configUrl = defaultConfigUrl

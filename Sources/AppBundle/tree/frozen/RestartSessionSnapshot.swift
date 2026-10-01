@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import Foundation
+import WorkspaceCore
 
 struct RestartWindowIdentity: Codable, Equatable, Sendable {
     let pid: Int32
@@ -24,6 +25,7 @@ struct RestartWindow: Codable, Equatable, Sendable {
     let id: UInt32
     let identity: RestartWindowIdentity
     let floatingFrame: CGRect?
+    var surfaceID: SurfaceID? = nil
 }
 
 struct RestartProject: Codable, Equatable, Sendable {
@@ -34,7 +36,7 @@ struct RestartProject: Codable, Equatable, Sendable {
 }
 
 struct RestartSessionSnapshot: Codable, Sendable {
-    var version = 2
+    var version = 3
     let savedAt: Date
     let bootSession: String?
     let world: FrozenWorld
@@ -64,7 +66,8 @@ struct RestartSessionSnapshot: Codable, Sendable {
                 let frame: CGRect? = window.isFloating ? (window as? MacWindow)?.frameForSessionRestore ?? window.lastKnownActualRect.map {
                     CGRect(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height)
                 } : nil
-                return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame)
+                return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame,
+                                     surfaceID: window.surfaceID)
             },
             projects: winMuxWorkspaceState.projectsById.values.sorted { $0.order < $1.order }.map { project in
                 RestartProject(id: project.id, name: project.name, order: project.order,

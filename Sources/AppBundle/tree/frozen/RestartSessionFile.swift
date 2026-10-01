@@ -52,9 +52,17 @@ struct RestartSessionFile: Sendable {
                 }
                 return RestartSessionSnapshot(version: 1, savedAt: modified, bootSession: currentBootSession(), world: legacy.world,
                                               windows: nil, projects: nil, focusedWindowId: nil, focusedWorkspace: nil)
-            case 2:
+            case 2, 3:
                 let snapshot = try decoder.decode(RestartSessionSnapshot.self, from: data)
                 guard snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
+                if version == 3 {
+                    guard let windows = snapshot.windows else { throw RestartSessionFileError.invalidSurfaceIdentities }
+                    let ids = windows.compactMap(\.surfaceID)
+                    guard ids.count == windows.count, Set(ids).count == ids.count,
+                          Set(windows.map(\.id)).count == windows.count,
+                          ids.allSatisfy({ if case .nativeWindow = $0 { return true }; return false })
+                    else { throw RestartSessionFileError.invalidSurfaceIdentities }
+                }
                 return snapshot
             default: throw RestartSessionFileError.unsupportedVersion(version)
         }
@@ -64,11 +72,13 @@ struct RestartSessionFile: Sendable {
 enum RestartSessionFileError: LocalizedError {
     case unsupportedVersion(Int)
     case previousBoot
+    case invalidSurfaceIdentities
 
     var errorDescription: String? {
         switch self {
             case .unsupportedVersion(let version): "Session version \(version) requires a newer WinMux build."
             case .previousBoot: "The saved windows belong to a previous macOS session."
+            case .invalidSurfaceIdentities: "The saved session has missing or conflicting native surface identities."
         }
     }
 }

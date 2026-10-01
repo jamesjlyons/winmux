@@ -1,0 +1,139 @@
+--- a/chrome/browser/prefs/BUILD.gn
++++ b/chrome/browser/prefs/BUILD.gn
+@@ -58,6 +58,7 @@
+   ]
+ 
+   deps = [
++    "//chrome/browser/winmux:tab_identity",
+     ":prefs",
+     ":util",
+     "//chrome/browser:browser_process",
+--- a/chrome/browser/sessions/BUILD.gn
++++ b/chrome/browser/sessions/BUILD.gn
+@@ -77,6 +77,7 @@
+   ]
+ 
+   deps = [
++    "//chrome/browser/winmux:tab_identity",
+     "//chrome/browser/glic",
+     "//chrome/browser/lifetime",
+   ]
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -567,6 +567,7 @@
+   ]
+ 
+   deps = [
++    "//chrome/browser/winmux:tab_identity",
+     ":browser_element_identifiers",
+     ":browser_otr_state",
+     ":browser_ui_prefs",
+--- a/chrome/browser/prefs/browser_prefs.cc
++++ b/chrome/browser/prefs/browser_prefs.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/prefs/browser_prefs.h"
++#include "chrome/browser/winmux/tab_identity.h"
+ 
+ #include <array>
+ #include <optional>
+@@ -1753,6 +1754,7 @@
+ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
+                           const std::string& locale) {
+   TRACE_EVENT0("browser", "chrome::RegisterProfilePrefs");
++  winmux::RegisterWorkspaceProfilePrefs(registry);
+   // User prefs. Please keep this list alphabetized.
+   AccessibilityLabelsService::RegisterProfilePrefs(registry);
+   AccessibilityUIMessageHandler::RegisterProfilePrefs(registry);
+--- a/chrome/browser/ui/tabs/tab_features.cc
++++ b/chrome/browser/ui/tabs/tab_features.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/tabs/public/tab_features.h"
++#include "chrome/browser/winmux/tab_identity.h"
+ 
+ #include <memory>
+ 
+@@ -186,6 +187,7 @@
+ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
+   CHECK(!initialized_);
+   initialized_ = true;
++  winmux::PersistentTabID(tab.GetContents());
+ 
+   // In tests you may want to disable TabFeatures initialization.
+   // See tabs::TabModel::PreventFeatureInitializationForTesting
+--- a/chrome/browser/ui/browser_live_tab_context.cc
++++ b/chrome/browser/ui/browser_live_tab_context.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser_live_tab_context.h"
++#include "chrome/browser/winmux/tab_identity.h"
+ 
+ #include <memory>
+ #include <numeric>
+@@ -161,6 +162,9 @@
+ std::map<std::string, std::string> BrowserLiveTabContext::GetExtraDataForTab(
+     int index) const {
+   std::map<std::string, std::string> extra_data;
++  const auto id = winmux::PersistentTabID(tab_strip_model_->GetWebContentsAt(index));
++  if (!id.empty())
++    extra_data[winmux::kTabIdentityKey] = id;
+ 
+   glic::PopulateGlicExtraData(tab_strip_model_->GetTabAtIndex(index),
+                               &extra_data);
+--- a/chrome/browser/ui/browser_tabrestore.cc
++++ b/chrome/browser/ui/browser_tabrestore.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser_tabrestore.h"
++#include "chrome/browser/winmux/tab_identity.h"
+ 
+ #include <map>
+ #include <memory>
+@@ -86,6 +87,7 @@
+   apps::SetAppIdForWebContents(browser->GetProfile(), web_contents.get(),
+                                extension_app_id);
+ 
++  winmux::RestoreTabIdentity(web_contents.get(), extra_data);
+   glic::RestoreGlicStateFromExtraData(web_contents.get(), extra_data);
+   send_tab_to_self::SendTabToSelfActivationTracker::RestoreFromExtraData(
+       web_contents.get(), extra_data);
+--- a/chrome/browser/sessions/session_service_base.cc
++++ b/chrome/browser/sessions/session_service_base.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/sessions/session_service_base.h"
++#include "chrome/browser/winmux/tab_identity.h"
+ 
+ #include <stddef.h>
+ 
+@@ -276,6 +277,11 @@
+   }
+   SetTabWindow(session_tab_helper->window_id(),
+                session_tab_helper->session_id());
++  const auto persistent_id = winmux::PersistentTabID(contents);
++  if (!persistent_id.empty()) {
++    ScheduleCommand(sessions::CreateAddTabExtraDataCommand(
++        session_tab_helper->session_id(), winmux::kTabIdentityKey, persistent_id));
++  }
+   std::string app_id = apps::GetAppIdForWebContents(contents);
+   if (!app_id.empty()) {
+     SetTabExtensionAppID(session_tab_helper->window_id(),
+@@ -611,6 +617,12 @@
+   const SessionID session_id(session_tab_helper->session_id());
+   command_storage_manager()->AppendRebuildCommand(
+       sessions::CreateSetTabWindowCommand(window_id, session_id));
++  const auto persistent_id = winmux::PersistentTabID(tab);
++  if (!persistent_id.empty()) {
++    command_storage_manager()->AppendRebuildCommand(
++        sessions::CreateAddTabExtraDataCommand(
++            session_id, winmux::kTabIdentityKey, persistent_id));
++  }
+ 
+   const int current_index = tab->GetController().GetCurrentEntryIndex();
+   const int min_index =
