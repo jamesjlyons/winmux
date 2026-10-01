@@ -1,8 +1,47 @@
 # Milestone 0 implementation status
 
-**Milestone 0 is incomplete. There is no WinMux Chromium alpha application yet.**
+**Milestone 0 is incomplete. Chromium and a signed transport-proof alpha now build
+and launch; full browser integration and compatibility qualification remain open.**
 The independent native components below are built and exercised. Milestones 1–5
 have not started, as required by the approved compatibility gate.
+
+## Chromium build and signed alpha — 2026-10-01
+
+- The pinned optimized upstream build completed all 56,885 actions in
+  6 h 34 m 30.55 s of active build time. The manifest records four compiler jobs,
+  the pinned source/tools, Apple linker, and this Mac's hardware. The browser
+  launched with a separate `control-smoke` profile and rendered an HTTPS page.
+- The untouched control output is archived at
+  `/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControlBaseline`.
+  The original output path is now the alpha's working build cache. Siso records
+  output-directory paths, so cloning to a different working directory caused a
+  broad rebuild; that attempt was stopped. Keeping the existing cache reduced
+  the first successful alpha link/build to six actions and 34.31 seconds.
+- The downstream overlay connects the actual browser process to the native
+  helper through asynchronous, mutually authenticated XPC. It attempts helper
+  enrollment only with `--winmux-register-helper`, and only a correctly signed
+  alpha bundle can connect. The conventional tab strip remains available while
+  the helper is still a transport proof without a workspace organizer.
+- The alpha packager embeds the Swift helper and its SMAppService LaunchAgent,
+  applies separate alpha identifiers, and uses Chromium's generated per-process
+  signing options and entitlements. The package passed `codesign --deep --strict`
+  and exact Apple-anchor/team/identifier checks. Personal Team signing is for
+  local development; this package is not notarized.
+- The signed browser launched with a separate `alpha-transport-smoke` profile.
+  SMAppService enrolled and launched its packaged helper. The actual Chromium
+  process negotiated and exchanged the authenticated asynchronous probe, then
+  repeated it after a clean restart without the enrollment flag. A same-team
+  probe with the wrong signing identifier was rejected by the registered helper.
+  The signed browser rendered a local fixture and accepted keyboard/button input.
+  Request blocking, renderer cosmetics, required extensions, and browser
+  performance qualification are still pending.
+- Thirteen Python tests pass, including protection of unrelated Chromium edits,
+  resumable owned patches, exclusion of concurrent builds/packages, and rejection
+  of failed/stale build provenance.
+
+[Completed control-build and launch evidence](evidence/2026-10-01-chromium-control.json).
+[Signed browser/helper integration evidence](evidence/2026-10-01-alpha-transport.json).
+Build/package logs and private alpha artifacts are under `.local/browser/`.
 
 ## Resume on a second Mac — 2026-09-30
 
@@ -153,17 +192,17 @@ files were changed, so the existing native application's suite was not rerun.
 | Required deliverable | Current state |
 |---|---|
 | Isolated checkout | Complete |
-| Reproducible optimized Chromium build | Pinned configuration prepared; source/build not fetched |
+| Reproducible optimized Chromium build | Complete on the second Mac; immutable control archive retained |
 | Separately built native helper | Control plane built; existing workspace runtime not integrated |
-| Signed top-level app and embedded helper | Pending Chromium build and packaging |
-| Authenticated helper communication | Component proof passed; browser endpoint not integrated |
-| Direct Chromium rendering | Not built or measured |
+| Signed top-level app and embedded helper | Private alpha packaged; full signature verification passed |
+| Authenticated helper communication | Signed browser and embedded helper exchange verified, including restart and wrong-client rejection |
+| Direct Chromium rendering | Control and signed alpha launch; performance not qualified |
 | Required extension installation, authentication, usage, profiles, updates, restart | Not tested |
 | 1Password Mac-app / Touch ID integration | Not tested; user involvement needed once app is ready |
 | Network interception and rendered cosmetic proof | Native engine exercised; Chromium paths pending |
 | Switching, startup, memory, energy and browser benchmark baseline | Not measured |
 
-## Immediate blocker and continuation
+## Historical storage blocker — resolved on the second Mac
 
 [The final preflight](evidence/2026-09-19-preflight.json) found **113.21 GiB free**
 on APFS. The first observation was approximately 108 GiB; available space changed

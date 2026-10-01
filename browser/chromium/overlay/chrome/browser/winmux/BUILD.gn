@@ -1,0 +1,12 @@
+source_set("workspace_bridge") {
+  sources = [
+    "workspace_bridge.h",
+    "workspace_bridge.mm",
+  ]
+  deps = [ "//base" ]
+  frameworks = [
+    "Foundation.framework",
+    "Security.framework",
+    "ServiceManagement.framework",
+  ]
+}

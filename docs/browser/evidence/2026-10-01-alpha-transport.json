@@ -1,0 +1,115 @@
+{
+  "scope": "signed_chromium_and_packaged_helper_transport_proof",
+  "recorded_utc": "2026-10-01T16:09:02.563700+00:00",
+  "package": {
+    "scope": "private_development_alpha_transport_proof",
+    "verified": true,
+    "notarized": false,
+    "identity_sha1": "140566AD0A3B967AB81062FD208B94F0E1DAAFEC",
+    "team_identifier": "F7QMMNZWXX",
+    "build": {
+      "source": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src",
+      "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+      "configuration": "alpha-transport-proof",
+      "build_succeeded": true,
+      "patch_sha256": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+      "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+      "overlay_sha256": {
+        "chrome/browser/winmux/BUILD.gn": "c12805debeea4fa981b9f500a47cf7903c2b1252dc34b627be1ac7a42f52670f",
+        "chrome/browser/winmux/workspace_bridge.mm": "56319d4704cbfacd077154938019a3c93c530d8a4e69963f53db2eaa713dfa4a",
+        "chrome/browser/winmux/workspace_bridge.h": "11bdfb54365a0ee4c393199be2be94ab310bf9798e658ff76031b7607a1c8ad7",
+        "chrome/browser/winmux/WMBridgeProtocol.h": "09455ce7c52247b33eed07b2e2c33d2dfea69d498b9bf51866d7d1b55aa0661f"
+      },
+      "build_jobs": 4,
+      "build_directory": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControl",
+      "control_directory": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControlBaseline",
+      "native_revision": "ef668277d437c89d77ca264a8ad68b95d274eade",
+      "native_dirty": true,
+      "control_manifest": {
+        "pins": {
+          "schema_version": 1,
+          "recorded_utc": "2026-09-19",
+          "chromium": {
+            "repository": "https://chromium.googlesource.com/chromium/src.git",
+            "channel": "Stable",
+            "platform": "Mac",
+            "version": "153.0.8010.53",
+            "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+            "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+          },
+          "depot_tools": {
+            "repository": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+            "revision": "0306e4682b4ac35287c726fa35a983157a625902"
+          },
+          "native_base_revision": "ff1fdd70bb4769e925e7e84196a1e35423ccad65",
+          "alpha_bundle_id": "com.jameslyons.winmux.browser.alpha",
+          "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
+          "browser_data_directory": "WinMux Browser Alpha",
+          "initial_checkout_free_gib": 200,
+          "minimum_build_free_gib": 100,
+          "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+          "rust_version": "1.97.1",
+          "xcode_qualification_version": "27.0"
+        },
+        "configuration": "browser-only-control",
+        "qualification": "not_run",
+        "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+        "native_revision": "ef668277d437c89d77ca264a8ad68b95d274eade",
+        "native_dirty": false,
+        "build_jobs": 4,
+        "hardware": {
+          "model": "MacBookPro18,1",
+          "physical_memory_bytes": 17179869184,
+          "logical_cpus": 10
+        },
+        "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+        "xcode": "Xcode 27.0\nBuild version 27A266a",
+        "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+        "cargo_lock_sha256": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
+      },
+      "qualification": "not_run"
+    },
+    "created_utc": "2026-10-01T16:02:09.645798+00:00",
+    "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-transport-3/WinMux Browser Alpha.app",
+    "helper_sha256": "444ff9acf612a921eeeb0e2ba5140232c66bebf4f0e740054d4814fbfc966730",
+    "browser_executable_sha256": "534de6a4ed639cc54602be5782e436f77426f90ac1811920553f9f1c54020d30",
+    "native_sources_sha256": {
+      "browser/native/Package.swift": "87a6179d9d32a0fdd5e48fabcf9ff43b18171fe8600301b8b3274604bcb308b1",
+      "browser/native/Sources/BridgeCore/BridgeSession.swift": "63ccb51fe4cfcc350b1cab88a821a42d59379402a9f5eff39566880df381331c",
+      "browser/native/Sources/BridgeCore/HelperRegistration.swift": "38542c0abfff7f3fae583a354aa0ef8be3359e7f6414dc0228ed5eae6c027f76",
+      "browser/native/Sources/BridgeCore/SigningIdentity.swift": "c8986566854d8c8ae5cf21807fada25564b3e6e864a87be3602dcff4eacfaf9c",
+      "browser/native/Sources/WorkspaceHelper/main.swift": "046c2a0669fb2c7d939d1d9931b1534fee32903cca80f72d65ae6b2c8d2297fa",
+      "browser/native/Tests/BridgeCoreTests/BridgeSessionTests.swift": "28ce443e16cf44de3eb5b6e3cadc50bfdc76028fbe7a21ccad6c8b5ae6ceed8b"
+    },
+    "package_tool_sha256": "0198e1dcad64bec771cc027b8fc0263317c0cbff2ea6520de3ae9c969126b471"
+  },
+  "first_launch": {
+    "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+    "native_window_management_enabled": false,
+    "scope": "chromium_signed_xpc_transport_only",
+    "team_identifier": "F7QMMNZWXX",
+    "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+    "state": "authenticated",
+    "presentation_measured": false
+  },
+  "clean_restart_without_registration_flag": {
+    "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+    "native_window_management_enabled": false,
+    "scope": "chromium_signed_xpc_transport_only",
+    "team_identifier": "F7QMMNZWXX",
+    "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+    "state": "authenticated",
+    "presentation_measured": false
+  },
+  "same_team_wrong_identifier_client": "rejected_by_packaged_helper_xpc_4097",
+  "local_rendering_and_keyboard_button_input": "passed_using_computer_use",
+  "profile": "separate alpha-transport-smoke profile",
+  "limitations": [
+    "No native window management or unified tab organization yet",
+    "No Chromium blocker integration yet",
+    "Required extensions and browser performance not qualified",
+    "Development certificate; not notarized"
+  ],
+  "python_tests_passed": 13
+}

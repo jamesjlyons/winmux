@@ -1,8 +1,8 @@
 # WinMux Browser implementation
 
 This directory implements the independent parts of **Milestone 0** of the
-[approved plan](../docs/browser/approved-plan.md). The full Chromium application
-has not been built. The Milestone 0 exit gate is open, and the native WinMux
+[approved plan](../docs/browser/approved-plan.md). The optimized Chromium control
+and a signed alpha transport proof now build and launch. The Milestone 0 exit gate is open, and the native WinMux
 model has not been migrated.
 
 Implemented and exercised:
@@ -21,9 +21,11 @@ Implemented and exercised:
 
 The helper currently exposes only negotiation and a transport probe. It does
 not manage windows, advertise a fake inventory, or start the original WinMux
-runtime. The Chromium bridge, network interception, renderer cosmetics and
-browser packaging remain to be implemented and verified against the full
-checkout. Neither the C ABI probe nor the helper probe is a browser substitute.
+runtime. The Chromium bridge and private alpha packaging compile against the
+full checkout. Real bundled-helper enrollment, authenticated exchange and restart
+have passed; network
+interception, renderer cosmetics and compatibility qualification remain pending.
+Neither the C ABI probe nor the helper probe is a browser substitute.
 
 ## Run the component proofs
 
@@ -74,9 +76,32 @@ The fetch is intentionally separate from the preflight. Both mutations repeat
 their resource gate. Existing dirty or differently pinned checkouts are refused.
 The pinned depot_tools updater is disabled; GN/Ninja and compiler dependencies
 come through Chromium DEPS. Sandbox, site isolation and normal profile/extension
-behavior remain enabled. No alpha build command exists until the downstream
-integration can be compiled and exercised. The control build is not branded or
-installed as the alpha.
+behavior remain enabled. The control build is not branded or installed as the alpha.
+
+## Build and package the private alpha transport proof
+
+After the control build completes:
+
+```sh
+python3 browser/tools/build_alpha.py --root /path/to/apfs/winmux-engine --jobs 4
+source .local/browser/signing.env
+python3 browser/tools/package_alpha.py --root /path/to/apfs/winmux-engine \
+  --output .local/browser/packages/new-alpha
+```
+
+`build_alpha.py` archives the completed control with an APFS clone at
+`out/WinMuxControlBaseline`, then retains `out/WinMuxControl` as its working cache
+to preserve Siso's path-sensitive dependency state. It accepts only the pinned
+checkout, the owned patch, and known overlay files. Unknown edits are refused.
+The manifest distinguishes the resulting alpha from the archived control.
+
+The packager requires a successful alpha manifest, an exact certificate SHA-1
+in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
+an existing package directory and retains Chromium's nested signing policies.
+The resulting app is a private Apple Development build, not a notarized release.
+Use a separate test profile with `--user-data-dir`; enroll the packaged helper
+explicitly with `--winmux-register-helper`. An optional absolute
+`--winmux-bridge-report` path records transport status without browsing data.
 
 Native helper and eventual browser identities are respectively
 `com.jameslyons.winmux.browser.alpha.workspace` and
