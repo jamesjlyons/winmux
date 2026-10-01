@@ -4,6 +4,7 @@ import Common
 extension Workspace {
     @MainActor
     func layoutWorkspace() async throws {
+        if try await BrowserWorkspaceController.shared.applyNativeLayout(in: self) { return }
         if isEffectivelyEmpty { return }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         let context = LayoutContext(self)

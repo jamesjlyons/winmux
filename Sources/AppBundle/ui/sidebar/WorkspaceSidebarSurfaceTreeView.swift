@@ -39,6 +39,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 Button("Move Earlier") { actions.send(.reorderSurface(surface.surfaceID, earlier: true)) }
                 Button("Move Later") { actions.send(.reorderSurface(surface.surfaceID, earlier: false)) }
                 Button("Group with Selected Item") { actions.send(.groupSurfaceWithSelection(surface.surfaceID)) }
+                Button("Split Side by Side with Selected Item") { actions.send(.splitSurfaceWithSelection(surface.surfaceID, vertical: false)) }
+                Button("Split Above and Below Selected Item") { actions.send(.splitSurfaceWithSelection(surface.surfaceID, vertical: true)) }
                 Divider()
                 Button(isBrowser(surface.surfaceID) ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface.surfaceID)) }
             }

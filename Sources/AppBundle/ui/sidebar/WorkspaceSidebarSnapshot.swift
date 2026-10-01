@@ -76,6 +76,7 @@ enum WorkspaceSidebarAction: Equatable {
     case reorderSurface(SurfaceID, earlier: Bool)
     case moveSurfaceBefore(SurfaceID, SurfaceID)
     case groupSurfaceWithSelection(SurfaceID)
+    case splitSurfaceWithSelection(SurfaceID, vertical: Bool)
     case ungroupSurfaces(UUID)
     case moveSurface(SurfaceID, toWorkspace: String)
     case moveSurfaceToNewWorkspace(SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String)

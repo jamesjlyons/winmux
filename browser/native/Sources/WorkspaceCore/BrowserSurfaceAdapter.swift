@@ -14,8 +14,15 @@ public struct BrowserActionRequest: Equatable, Sendable {
     public let generation: UInt64
 }
 
+public struct BrowserLayoutRequest: Sendable {
+    public let epoch: UUID, operation: UUID
+    public let revision: UInt64, generation: UInt64
+    public let hosts: [BrowserHostPlacement]
+}
+
 public enum BrowserActionReply: String, Sendable {
     case issued, unavailable, unsupported
+    case staleLayout = "stale_layout"
     case staleEpoch = "stale_epoch", staleRevision = "stale_revision", staleFocus = "stale_focus"
     case operationConflict = "operation_conflict", invalidRequest = "invalid_request"
 }
@@ -36,17 +43,30 @@ public final class BrowserSurfaceSession {
     public private(set) var inventory = BrowserInventory()
     public private(set) var focusIntent: BrowserFocusIntent?
     public let focusCoordinator: SurfaceFocusCoordinator
+    public typealias LayoutTransport = @MainActor (BrowserLayoutRequest, @escaping @MainActor (BrowserActionReply) -> Void) -> Void
+    private let sendLayout: LayoutTransport?
+    public var supportsLayout = false
+    private var layoutGeneration: UInt64 = 0
+    private var desiredLayout: [BrowserHostPlacement]?
+    private var acknowledgedLayout: [BrowserHostPlacement]?
+    private var inFlightLayout: UUID?
+    private var layoutAttemptRevision: UInt64?
+    private var layoutCompletion: (@MainActor (BrowserActionReply) -> Void)?
     private let send: Transport
 
-    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), send: @escaping Transport) {
+    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, send: @escaping Transport) {
         self.focusCoordinator = focusCoordinator
         self.send = send
+        self.sendLayout = sendLayout
     }
 
     public func connect(epoch: UUID) {
         self.epoch = epoch
         inventory = BrowserInventory()
         focusIntent = nil
+        inFlightLayout = nil
+        acknowledgedLayout = nil
+        layoutAttemptRevision = nil
     }
 
     public func disconnect(epoch: UUID) {
@@ -54,6 +74,9 @@ public final class BrowserSurfaceSession {
         self.epoch = nil
         inventory = BrowserInventory()
         focusIntent = nil
+        inFlightLayout = nil
+        acknowledgedLayout = nil
+        layoutAttemptRevision = nil
     }
 
     @discardableResult
@@ -63,6 +86,33 @@ public final class BrowserSurfaceSession {
             self.focusIntent = nil
         }
         return true
+    }
+
+    public func requestLayout(_ hosts: [BrowserHostPlacement], completion: @escaping @MainActor (BrowserActionReply) -> Void) {
+        guard supportsLayout, sendLayout != nil else { completion(.unsupported); return }
+        if desiredLayout != hosts { layoutAttemptRevision = nil }
+        desiredLayout = hosts
+        layoutCompletion = completion
+        flushLayout()
+    }
+
+    private func flushLayout() {
+        guard let epoch, let sendLayout, let hosts = desiredLayout, inFlightLayout == nil,
+              hosts != acknowledgedLayout, layoutAttemptRevision != inventory.revision,
+              layoutGeneration < UInt64.max else { return }
+        layoutGeneration += 1
+        let request = BrowserLayoutRequest(epoch: epoch, operation: UUID(), revision: inventory.revision,
+                                           generation: layoutGeneration, hosts: hosts)
+        inFlightLayout = request.operation
+        layoutAttemptRevision = inventory.revision
+        let completion = layoutCompletion
+        sendLayout(request) { [weak self] reply in
+            guard let self, self.epoch == epoch, self.inFlightLayout == request.operation else { return }
+            self.inFlightLayout = nil
+            if reply == .issued { self.acknowledgedLayout = hosts }
+            if self.desiredLayout == hosts { completion?(reply) }
+            if self.desiredLayout != hosts { self.layoutAttemptRevision = nil; self.flushLayout() }
+        }
     }
 
     fileprivate func request(_ action: BrowserSurfaceAction, surfaceID: SurfaceID) -> SurfaceActionOutcome {

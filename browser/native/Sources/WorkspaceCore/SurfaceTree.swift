@@ -16,7 +16,19 @@ public indirect enum SurfaceTreeNode: Equatable, Sendable {
 
 public struct SurfaceTree: Equatable, Sendable {
     public private(set) var roots: [String: [SurfaceTreeNode]] = [:]
+    public private(set) var layouts: [UUID: SurfaceContainerLayout] = [:]
+    public private(set) var activeSurfaces: [UUID: SurfaceID] = [:]
     public init() {}
+
+    public mutating func select(_ id: SurfaceID) {
+        func visit(_ node: SurfaceTreeNode) {
+            if case .group(let group, let children) = node, node.surfaces.contains(id) {
+                activeSurfaces[group] = id
+                children.forEach(visit)
+            }
+        }
+        roots.values.flatMap { $0 }.forEach(visit)
+    }
 
     public func workspace(of id: SurfaceID) -> String? {
         roots.first { $0.value.flatMap(\.surfaces).contains(id) }?.key
@@ -31,12 +43,14 @@ public struct SurfaceTree: Equatable, Sendable {
             remove(id)
             roots[workspace, default: []].append(.surface(id))
         }
+        pruneMetadata()
     }
 
     public mutating func remove(_ id: SurfaceID) {
         for name in Array(roots.keys) {
             roots[name] = Self.filter(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
         }
+        pruneMetadata()
     }
 
     public mutating func mergeWorkspace(_ source: String, into target: String) {
@@ -53,11 +67,14 @@ public struct SurfaceTree: Equatable, Sendable {
         return true
     }
 
-    @discardableResult public mutating func group(_ id: SurfaceID, with target: SurfaceID) -> Bool {
+    @discardableResult public mutating func group(_ id: SurfaceID, with target: SurfaceID, layout: SurfaceContainerLayout = .stack) -> Bool {
         guard id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
         var nodes = roots[name] ?? []
         nodes = Self.filter(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
-        guard Self.replace(target, in: &nodes, with: .group(UUID(), [.surface(target), .surface(id)])) else { return false }
+        let group = UUID()
+        guard Self.replace(target, in: &nodes, with: .group(group, [.surface(target), .surface(id)])) else { return false }
+        layouts[group] = layout
+        activeSurfaces[group] = target
         roots[name] = nodes
         return true
     }
@@ -65,7 +82,7 @@ public struct SurfaceTree: Equatable, Sendable {
     @discardableResult public mutating func ungroup(_ group: UUID) -> Bool {
         for name in Array(roots.keys) {
             var nodes = roots[name] ?? []
-            if Self.ungroup(group, in: &nodes) { roots[name] = nodes; return true }
+            if Self.ungroup(group, in: &nodes) { roots[name] = nodes; pruneMetadata(); return true }
         }
         return false
     }
@@ -83,6 +100,16 @@ public struct SurfaceTree: Equatable, Sendable {
         guard Self.reorder(id, earlier: earlier, in: &nodes) else { return false }
         roots[name] = nodes
         return true
+    }
+
+    private mutating func pruneMetadata() {
+        var groups: Set<UUID> = []
+        func visit(_ node: SurfaceTreeNode) {
+            if case .group(let id, let children) = node { groups.insert(id); children.forEach(visit) }
+        }
+        roots.values.flatMap { $0 }.forEach(visit)
+        layouts = layouts.filter { groups.contains($0.key) }
+        activeSurfaces = activeSurfaces.filter { groups.contains($0.key) }
     }
 
     private static func filter(_ nodes: [SurfaceTreeNode], keeping ids: Set<SurfaceID>) -> [SurfaceTreeNode] {

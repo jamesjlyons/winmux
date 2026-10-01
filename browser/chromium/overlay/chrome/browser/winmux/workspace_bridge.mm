@@ -50,6 +50,7 @@ NSString* OwnTeam() {
   winmux::WorkspaceBridgeState _state;
   std::atomic<uint64_t> _activeGeneration;
   std::atomic<uint64_t> _latestFocus;
+  std::atomic<uint64_t> _latestLayout;
   std::atomic<bool> _stopped;
 }
 @property(nonatomic, strong) dispatch_queue_t queue;
@@ -104,7 +105,7 @@ NSString* OwnTeam() {
     @"connection_generation": @(_state.generation()),
     @"authenticated_connections": @(_state.authenticated_connections()),
     @"protocol_version": @(self.protocolVersion),
-    @"inventory_enabled": @(self.protocolVersion == 2),
+    @"inventory_enabled": @(self.protocolVersion >= 2),
   };
   NSError* error = nil;
   NSData* data = [NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted error:&error];
@@ -118,6 +119,7 @@ NSString* OwnTeam() {
   if (!delay)
     return;  // A stale callback or another error already scheduled this retry.
   _activeGeneration.store(0);
+  content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(&winmux::ReleaseBrowserLayout));
   self.epoch = nil;
   self.connection.invalidationHandler = nil;
   self.connection.interruptionHandler = nil;
@@ -171,7 +173,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:2 remote:remote generation:generation];
+  [self negotiate:3 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -182,8 +184,8 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested == 2 && version == 1 && !epoch.length) {
-        [self negotiate:1 remote:remote generation:generation];
+      if (requested > version && version >= 1 && version <= 3 && !epoch.length) {
+        [self negotiate:version remote:remote generation:generation];
         return;
       }
       if (version != requested || !epoch.length) {
@@ -202,8 +204,9 @@ NSString* OwnTeam() {
           self.protocolVersion = version;
           self.sequence = 1;
           self->_latestFocus.store(0);
+          self->_latestLayout.store(0);
           self->_activeGeneration.store(generation);
-          if (version == 2) {
+          if (version >= 2) {
             content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
                 &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch)));
           }
@@ -213,7 +216,7 @@ NSString* OwnTeam() {
             self.disconnectOnceForTesting = NO;
             // Invalidate only this opt-in headless test client's connection.
             // The enrolled helper and other browser clients remain untouched.
-            const int delay = [self.serviceName isEqualToString:kHelperID] ? 1 : 3;
+            const int delay = [self.serviceName isEqualToString:kHelperID] ? 1 : 10;
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), self.queue, ^{
               if (self->_state.generation() == generation)
                 [self.connection invalidate];
@@ -228,7 +231,7 @@ NSString* OwnTeam() {
 - (void)publish:(NSData*)data epoch:(NSString*)epoch {
   dispatch_async(self.queue, ^{
     const uint64_t generation = self->_state.generation();
-    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion != 2 ||
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 2 ||
         ![epoch isEqualToString:self.epoch]) return;
     id<WMWorkspaceBridge> remote = [self.connection remoteObjectProxyWithErrorHandler:^(NSError*) {
       dispatch_async(self.queue, ^{
@@ -250,7 +253,7 @@ NSString* OwnTeam() {
                reply:(void (^)(NSString*))reply {
   dispatch_async(self.queue, ^{
     const uint64_t generation = self->_state.generation();
-    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion != 2 ||
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 2 ||
         ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch"); return; }
     if (action.length > 16 || surface.length > 128 || operation.length > 40) {
       reply(@"invalid_request"); return;
@@ -272,6 +275,28 @@ NSString* OwnTeam() {
           }
           completion(base::SysUTF8ToNSString(winmux::PerformBrowserSurfaceAction(requestEpoch, std::move(request))));
         }, self, generation, base::SysNSStringToUTF8(epoch), std::move(request), [reply copy]));
+  });
+}
+
+- (void)applyLayout:(NSData*)layout epoch:(NSString*)epoch operation:(NSString*)operation
+           revision:(uint64_t)revision generation:(uint64_t)layoutGeneration reply:(void (^)(NSString*))reply {
+  dispatch_async(self.queue, ^{
+    const uint64_t generation = self->_state.generation();
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 3 ||
+        ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch"); return; }
+    if (layout.length > 262144 || operation.length > 40) { reply(@"invalid_request"); return; }
+    if (!layoutGeneration || layoutGeneration < self->_latestLayout.load()) { reply(@"stale_layout"); return; }
+    self->_latestLayout.store(layoutGeneration);
+    std::string json(static_cast<const char*>(layout.bytes), layout.length);
+    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+        [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string epoch,
+           std::string operation, uint64_t revision, uint64_t layoutGeneration, std::string json,
+           void (^completion)(NSString*)) {
+          if (bridge->_activeGeneration.load() != activeGeneration) { completion(@"stale_epoch"); return; }
+          if (layoutGeneration < bridge->_latestLayout.load()) { completion(@"stale_layout"); return; }
+          completion(base::SysUTF8ToNSString(winmux::PerformBrowserLayout(epoch, operation, revision, layoutGeneration, json)));
+        }, self, generation, base::SysNSStringToUTF8(epoch), base::SysNSStringToUTF8(operation), revision,
+        layoutGeneration, std::move(json), [reply copy]));
   });
 }
 

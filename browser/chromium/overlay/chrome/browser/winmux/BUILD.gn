@@ -14,6 +14,8 @@ source_set("workspace_bridge") {
   sources = [
     "browser_inventory.cc",
     "browser_inventory.h",
+    "host_layout.h",
+    "host_layout.cc",
     "host_window.h",
     "host_window.mm",
     "cosmetics_host.cc",
@@ -29,6 +31,7 @@ source_set("workspace_bridge") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_enums",
+    "//components/tabs:public",
     "//components/winmux/blocking:engine",
     "//components/winmux/blocking:mojom",
     "//content/public/browser",

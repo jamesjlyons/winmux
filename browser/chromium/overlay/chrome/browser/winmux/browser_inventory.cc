@@ -7,6 +7,8 @@
 
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
+#include "base/hash/sha1.h"
+#include "chrome/browser/winmux/host_layout.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -28,6 +30,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
+#include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
 namespace winmux {
@@ -50,6 +53,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     operations_.clear();
     operation_order_.clear();
     highest_focus_ = 0;
+    highest_layout_ = 0;
     Update(true);
   }
 
@@ -108,6 +112,25 @@ class BrowserInventory final : public BrowserCollectionObserver,
     return "issued";
   }
 
+  std::string Layout(const std::string& epoch, const std::string& operation,
+                     uint64_t revision, uint64_t generation, const std::string& json) {
+    if (epoch.empty() || epoch != epoch_) return "stale_epoch";
+    auto op = base::Uuid::ParseCaseInsensitive(operation);
+    if (!op.is_valid() || json.size() > 262144) return "invalid_request";
+    BrowserSurfaceAction request{"layout", base::SHA1HashString(json), op.AsLowercaseString(), revision, generation};
+    auto previous = operations_.find(request.operation);
+    if (previous != operations_.end())
+      return previous->second.first == request ? previous->second.second : "operation_conflict";
+    if (!generation || generation <= highest_layout_) return "stale_layout";
+    highest_layout_ = generation;
+    if (pending_) Update(false);
+    if (revision != static_cast<uint64_t>(revision_)) return "stale_revision";
+    auto outcome = ApplyHostLayout(json);
+    Remember(request, outcome);
+    Schedule();
+    return outcome;
+  }
+
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
         browser->GetProfile()->IsOffTheRecord())
@@ -136,8 +159,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
  private:
-  void Remember(const BrowserSurfaceAction& request) {
-    operations_.emplace(request.operation, std::make_pair(request, "issued"));
+  void Remember(const BrowserSurfaceAction& request, const std::string& outcome = "issued") {
+    operations_.emplace(request.operation, std::make_pair(request, outcome));
     operation_order_.push_back(request.operation);
     if (operation_order_.size() > 128) {
       operations_.erase(operation_order_.front());
@@ -174,6 +197,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
         uint32_t host_window = BrowserHostWindowID(browser->GetWindow());
         if (host_window)
           record.Set("host_window_id", static_cast<double>(host_window));
+        auto bounds = browser->GetWindow()->GetBounds();
+        base::DictValue frame;
+        frame.Set("x", bounds.x()); frame.Set("y", bounds.y());
+        frame.Set("width", bounds.width()); frame.Set("height", bounds.height());
+        record.Set("host_frame", std::move(frame));
+        record.Set("host_visible", browser->GetWindow()->IsVisible());
         record.Set("title", base::UTF16ToUTF8(contents->GetTitle().substr(0, 1024)));
         record.Set("selected", index == strip->active_index());
         record.Set("private", false);
@@ -213,6 +242,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   bool pending_ = false;
   int revision_ = 0;
   uint64_t highest_focus_ = 0;
+  uint64_t highest_layout_ = 0;
   std::string epoch_;
   std::map<std::string, base::DictValue> records_;
   std::map<std::string, raw_ptr<content::WebContents>> live_;
@@ -244,5 +274,14 @@ void BeginBrowserInventoryEpoch(std::string epoch) {
 std::string PerformBrowserSurfaceAction(const std::string& epoch, BrowserSurfaceAction request) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   return inventory ? inventory->Perform(epoch, std::move(request)) : "unavailable";
+}
+std::string PerformBrowserLayout(const std::string& epoch, const std::string& operation,
+                                 uint64_t revision, uint64_t generation, const std::string& json) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  return inventory ? inventory->Layout(epoch, operation, revision, generation, json) : "unavailable";
+}
+void ReleaseBrowserLayout() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  ReleaseHostLayout();
 }
 }  // namespace winmux

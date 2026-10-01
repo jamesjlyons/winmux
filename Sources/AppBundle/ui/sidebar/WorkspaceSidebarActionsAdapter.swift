@@ -71,6 +71,8 @@ func handleWorkspaceSidebarAction(
             BrowserWorkspaceController.shared.organize(id, before: target)
         case .groupSurfaceWithSelection(let id):
             BrowserWorkspaceController.shared.organize(id, groupWithSelection: true)
+        case .splitSurfaceWithSelection(let id, let vertical):
+            BrowserWorkspaceController.shared.organize(id, groupWithSelection: true, layout: vertical ? .vertical : .horizontal)
         case .ungroupSurfaces(let id):
             BrowserWorkspaceController.shared.ungroup(id)
         case .moveSurface(let id, let workspace):

@@ -8,7 +8,20 @@ import AppKit
     func windowDidBecomeKey(_ notification: Notification) {
         guard CommandLine.arguments.count == 2, let window = notification.object as? NSWindow else { return }
         keyChanges += 1
-        let report: [String: Any] = ["key_window": window.title, "key_changes": keyChanges, "window_id": window.windowNumber]
+        writeReport(window)
+    }
+    func windowDidMove(_ notification: Notification) { writeReport(NSApplication.shared.keyWindow) }
+    func windowDidResize(_ notification: Notification) { writeReport(NSApplication.shared.keyWindow) }
+    private func writeReport(_ key: NSWindow?) {
+        guard CommandLine.arguments.count == 2 else { return }
+        let screenHeight = NSScreen.screens.first?.frame.height ?? 0
+        let geometry: [[String: Any]] = windows.map { window in
+            ["title": window.title, "window_id": window.windowNumber,
+             "x": window.frame.minX, "y": screenHeight - window.frame.maxY,
+             "width": window.frame.width, "height": window.frame.height]
+        }
+        let report: [String: Any] = ["key_window": key?.title ?? "", "key_changes": keyChanges,
+                                    "window_id": key?.windowNumber ?? 0, "windows": geometry]
         if let data = try? JSONSerialization.data(withJSONObject: report) {
             try? data.write(to: URL(fileURLWithPath: CommandLine.arguments[1]), options: .atomic)
         }

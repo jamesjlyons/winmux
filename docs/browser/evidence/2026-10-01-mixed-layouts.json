@@ -1,0 +1,341 @@
+{
+  "date_utc": "2026-10-01T22:33:55.948194+00:00",
+  "scope": "Chromium-owned tab transfer, host geometry/visibility and actual mixed native/browser stacks and splits",
+  "base_commit": "701dce31",
+  "final_package": ".local/browser/packages/alpha-layout-3/WinMux Browser Alpha.app",
+  "ui_package": ".local/browser/packages/alpha-layout-2/WinMux Browser Alpha.app",
+  "package_manifest_sha256": "cfc00839c665025375547a180fbaf225a035cc5dc0689625718983f8442e1c22",
+  "helper_sha256": "3478ec582aebbaf36c59a51e7f5662c9f436bb8f410b7ee9375ee70902bf3fe7",
+  "browser_executable_sha256": "7bfe998ba865efd7dae1eb61d48b95cdc68deae1b8317d59f9dad850dae7ba99",
+  "deep_strict_signature_verified": true,
+  "native_source_hashes_matched": 563,
+  "protocol_version": 3,
+  "ui_verification": {
+    "method": "Computer Use through @oai/sky on exact staged app paths, synthetic pages and launch-bound fixture only",
+    "actions": [
+      "Closed synthetic Native Two and Sidebar Two to form a two-item layout",
+      "Typed winmux-layout-state into the synthetic browser page",
+      "Split native and browser side by side using the actual sidebar context menu",
+      "Grouped into a stack, selected native (browser hidden), then selected browser (native parked)",
+      "Split above/below through the actual sidebar context menu",
+      "Confirmed page input retained through both split directions and stack hide/show"
+    ],
+    "proofs": {
+      "split": {
+        "browser": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "hosts": [
+            {
+              "frame": {
+                "x": 1080,
+                "width": 840,
+                "y": 30,
+                "height": 960
+              },
+              "visible": true,
+              "host_id": "host:2060875738"
+            }
+          ],
+          "delta_messages": 5,
+          "revision": 6,
+          "outcomes": {},
+          "tab_count": 1,
+          "full_messages": 1
+        },
+        "native": {
+          "window_id": 3822,
+          "key_changes": 3,
+          "windows": [
+            {
+              "title": "WinMux Native One",
+              "x": 240,
+              "width": 840,
+              "window_id": 3822,
+              "y": 30,
+              "height": 959
+            }
+          ],
+          "key_window": "WinMux Native One"
+        }
+      },
+      "stack-native": {
+        "browser": {
+          "full_messages": 1,
+          "revision": 7,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 1,
+          "outcomes": {},
+          "delta_messages": 6,
+          "hosts": [
+            {
+              "frame": {
+                "x": 240,
+                "width": 1680,
+                "height": 960,
+                "y": 30
+              },
+              "host_id": "host:2060875738",
+              "visible": false
+            }
+          ]
+        },
+        "native": {
+          "window_id": 3822,
+          "key_changes": 3,
+          "windows": [
+            {
+              "width": 1680,
+              "height": 959,
+              "window_id": 3822,
+              "title": "WinMux Native One",
+              "x": 240,
+              "y": 30
+            }
+          ],
+          "key_window": "WinMux Native One"
+        }
+      },
+      "stack-browser": {
+        "browser": {
+          "full_messages": 1,
+          "outcomes": {},
+          "revision": 8,
+          "delta_messages": 7,
+          "tab_count": 1,
+          "scope": "isolated_authenticated_inventory_actions",
+          "hosts": [
+            {
+              "frame": {
+                "width": 1680,
+                "x": 240,
+                "height": 960,
+                "y": 30
+              },
+              "host_id": "host:2060875738",
+              "visible": true
+            }
+          ]
+        },
+        "native": {
+          "key_changes": 3,
+          "window_id": 0,
+          "windows": [
+            {
+              "x": 1919,
+              "width": 1680,
+              "window_id": 3822,
+              "height": 959,
+              "y": 958,
+              "title": "WinMux Native One"
+            }
+          ],
+          "key_window": ""
+        },
+        "page_input_retained": true
+      },
+      "vertical": {
+        "browser": {
+          "outcomes": {},
+          "full_messages": 1,
+          "hosts": [
+            {
+              "visible": true,
+              "host_id": "host:2060875738",
+              "frame": {
+                "height": 480,
+                "width": 1680,
+                "y": 510,
+                "x": 240
+              }
+            }
+          ],
+          "delta_messages": 9,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 1,
+          "revision": 10
+        },
+        "native_fixture": {
+          "key_changes": 4,
+          "window_id": 3822,
+          "windows": [
+            {
+              "x": 240,
+              "width": 1680,
+              "window_id": 3822,
+              "height": 480,
+              "y": 30,
+              "title": "WinMux Native One"
+            }
+          ],
+          "key_window": "WinMux Native One"
+        },
+        "scope": "actual_visible_vertical_mixed_split",
+        "package": "alpha-layout-2",
+        "page_input_retained": true,
+        "page_input_value": "winmux-layout-state"
+      }
+    },
+    "cleanup": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.034858e6-d313-42f4-834f-14c544ebf2d4",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-layout-2/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 58332,
+      "browser_pid": 58794,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "fixture_stopped": true,
+    "limits": [
+      "The launcher result is cleanup evidence, not a layout test verdict; manual owner reports above establish the specific layout observations.",
+      "Fixture reports retained a closed Native Two object; committed excerpts contain only the still-live Native One window.",
+      "Horizontal/native-stack snapshots had 959-point native height versus a 960-point browser host; final vertical frames were exactly 480 points each.",
+      "Page input retention and key-window events are not input-ready latency measurements.",
+      "UI proof used package 2. Package 3 changes only isolated-test disconnect timing and suppresses retired endpoint diagnostic writes."
+    ]
+  },
+  "signed_headless": {
+    "scope": "actual_signed_browser_authenticated_inventory_actions",
+    "passed": true,
+    "package_manifest_sha256": "cfc00839c665025375547a180fbaf225a035cc5dc0689625718983f8442e1c22",
+    "test_source_sha256": "7f2b9ee3db758f5e5d033c2fa5ce03a8e94ebea3809ea2a64fc74a60c1abde5d",
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.ed89fed7-0a5b-4589-88ef-4a676ba681bd",
+    "private_inventory_test": false,
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "actions": {
+      "delta_messages": 6,
+      "hosts": [
+        {
+          "frame": {
+            "y": 100,
+            "height": 600,
+            "width": 600,
+            "x": 100
+          },
+          "host_id": "host:1748879327",
+          "visible": true
+        }
+      ],
+      "outcomes": {
+        "layout_frames_match": "yes",
+        "repeated_fence": "issued",
+        "layout_split_host_count": "2",
+        "layout_hidden": "yes",
+        "layout_stale": "stale_layout",
+        "stale_focus": "stale_focus",
+        "close": "issued",
+        "layout_split": "issued",
+        "focus": "issued",
+        "layout_conflict": "operation_conflict",
+        "layout_repeat": "issued",
+        "native_focus_fence": "issued",
+        "layout_identity_retained": "yes",
+        "layout_merged_host_count": "1",
+        "foreign_epoch": "stale_epoch",
+        "layout_merge": "issued",
+        "repeated_close": "issued",
+        "operation_conflict": "operation_conflict"
+      },
+      "scope": "isolated_authenticated_inventory_actions",
+      "revision": 7,
+      "full_messages": 1,
+      "tab_count": 1
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 3,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "helper": {
+      "delta_messages": 0,
+      "hosts": [
+        {
+          "frame": {
+            "x": 100,
+            "y": 100,
+            "width": 600,
+            "height": 600
+          },
+          "host_id": "host:1748879327",
+          "visible": true
+        }
+      ],
+      "outcomes": {},
+      "scope": "isolated_authenticated_inventory_actions",
+      "revision": 8,
+      "full_messages": 1,
+      "tab_count": 1
+    },
+    "seconds_after_recovery": 17.055558,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  },
+  "failed_test_attempts": [
+    {
+      "output": ".local/browser/layout-headless-1/result.json",
+      "failure": "Test raced a conflict request against a later layout generation, so the earlier request was fenced stale. Fixed test to await the conflict reply before merging."
+    },
+    {
+      "output": ".local/browser/layout-headless-2/result.json",
+      "failure": "Three-second opt-in disconnection interrupted the expanded transfer/action test. All layout outcomes passed; reconnect test sequence was incomplete. Unique-service disconnection now waits ten seconds; retired endpoints cannot overwrite diagnostic reports."
+    }
+  ],
+  "checks": {
+    "native_regression": {
+      "passed": 734,
+      "log": ".local/browser/layout-native-regression.log",
+      "scope": "Before final disable/reaffirm refinements"
+    },
+    "final_targeted_native": {
+      "passed": 31,
+      "log": ".local/browser/layout-final-native-checks.log"
+    },
+    "workspace_core": {
+      "passed": 20,
+      "bridge_passed": 5,
+      "log": ".local/browser/layout-core-tests.log"
+    },
+    "python": {
+      "passed": 35,
+      "log": ".local/browser/layout-python.log"
+    },
+    "chromium_build_log": ".local/browser/alpha-layout-build-5.log",
+    "package_log": ".local/browser/alpha-layout-package-3.log"
+  },
+  "preserved": {
+    "installed_browser_pid": 33776,
+    "installed_browser_started_local": "2026-10-01 12:04:37",
+    "original_helper_pid": 17212,
+    "original_helper_started_local": "2026-10-01 09:03:28",
+    "installed_application_replaced": false,
+    "original_helper_reenrolled": false,
+    "signed_in_ui_inspected": false,
+    "user_windows_managed": false,
+    "temporary_test_services_removed": true,
+    "compiler_or_package_process_running_at_completion": false
+  },
+  "remaining": [
+    "Durable shared placements and group layout restoration",
+    "Mixed global keyboard/gesture traversal and import of legacy native tab-group membership",
+    "Physical drag and cross-workspace UI validation",
+    "Fullscreen layout unsupported; minimum-size, display-change, popup and large-workload cases unqualified",
+    "Hidden hosts currently materialize eagerly; resource policy and performance qualification deferred",
+    "Conventional Chromium tab controls remain available; no installed-app rollout in this step"
+  ]
+}

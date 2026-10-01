@@ -283,3 +283,52 @@ native-window proof.
 [Actual mixed-sidebar screenshot](evidence/2026-10-01-mixed-sidebar-tree.jpeg).
 Current staging app: `.local/browser/packages/alpha-tree-1/WinMux Browser Alpha.app`.
 It has not replaced the installed application or its enrolled helper.
+
+## Browser-owned hosts and actual mixed layouts — 2026-10-01
+
+- The shared tree now plans stacks and horizontal/vertical splits. The real
+  sidebar exposes both split directions; grouping becomes a stack after explicit
+  native activation with a layout-capable browser. Native placement resolves
+  typed IDs back to live windows. Chromium owns its host frames and visibility.
+- Authenticated protocol v3 adds bounded, asynchronous layout requests with
+  connection epochs, inventory revisions, generations and operation-id reuse
+  checks. Chromium validates tab identities, profile boundaries, selections and
+  frames before moving tabs. Transfers use existing TabModel objects, preserving
+  tab/profile identity and page state. Hosts are reused by container and profile;
+  different profiles are never merged. Fullscreen sources return unsupported.
+- Layout requests coalesce while one is in flight. Late replies from an older
+  epoch cannot change current state. Layout completion reaffirms only the current
+  selection. Disabling native management or losing the helper connection releases
+  browser hosts back to conventional controls. Normal enrollment stays transport-only.
+- Live Computer Use on **alpha-layout-2** proved a native/browser horizontal split:
+  native `(240,30,840,959)` and Chromium `(1080,30,840,960)`. A subsequent vertical
+  split placed native `(240,30,1680,480)` and Chromium `(240,510,1680,480)`.
+  Selecting the native stack item made Chromium report hidden; selecting the tab
+  restored Chromium and parked the native window using the existing native path.
+  Text entered into the synthetic browser page survived both split directions
+  and stack switching. This verifies those operations, not input-ready latency.
+- Final **alpha-layout-3** passed the actual signed headless test: two separate
+  hosts with exact requested bounds, merge back to one host, identity retention,
+  hidden-host reporting, repeated requests, stale/conflicting request rejection,
+  focus/close fences and reconnection. It remained authenticated for **17.06
+  seconds** after recovery, then exited 0. Two earlier harness attempts failed
+  because conflicting requests raced and the expanded sequence exceeded its
+  deliberate-disconnection delay; both are documented in the evidence. Package 3
+  changes only that test timing and retired-endpoint diagnostics from package 2.
+- **734 native regression tests**, **31 final targeted native tests**, **20
+  WorkspaceCore tests**, **5 bridge tests** and **35 Python checks** pass. The
+  final package passes deep/strict verification and all 563 recorded native source
+  hashes match. UI and headless test services were removed, the synthetic fixture
+  was stopped and both test browsers exited 0. Installed alpha PID 33776 and the
+  enrolled transport helper PID 17212 remained unchanged.
+
+The next work is durable shared placement restoration and mixed global
+keyboard/gesture traversal. Existing native tab-group membership is not yet
+imported. Physical dragging and cross-workspace UI moves, minimum window sizes,
+display changes, popups and large workloads remain unqualified. Hidden hosts are
+currently materialized eagerly. Normal Chromium controls remain available;
+performance and extension testing remain deferred by the user's direction.
+
+[Actual mixed-layout evidence](evidence/2026-10-01-mixed-layouts.json).
+Current final staging app: `.local/browser/packages/alpha-layout-3/WinMux Browser Alpha.app`.
+It has not replaced the installed application or its enrolled helper.

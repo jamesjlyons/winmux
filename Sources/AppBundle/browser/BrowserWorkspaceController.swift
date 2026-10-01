@@ -1,3 +1,4 @@
+import Common
 import AppKit
 import SwiftUI
 import WorkspaceCore
@@ -12,6 +13,7 @@ public final class BrowserWorkspaceController {
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
     private(set) var surfaceTree = SurfaceTree()
     var usesSurfaceTree = false
+    private var mixedLayoutWorkspaces: Set<String> = []
     private var placements: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
@@ -35,18 +37,19 @@ public final class BrowserWorkspaceController {
 
     func cancelPendingBrowserFocusHold() { browserFocusDeadline = nil }
 
-    public func connected(_ connection: UUID, processID: Int32, send: @escaping BrowserSurfaceSession.Transport) {
+    public func connected(_ connection: UUID, processID: Int32, sendLayout: BrowserSurfaceSession.LayoutTransport? = nil, send: @escaping BrowserSurfaceSession.Transport) {
         processBindings = processBindings.filter { _, binding in
             binding.pid != processID && NSRunningApplication(processIdentifier: binding.pid)?.isTerminated == false
         }
         processBindings[connection] = (processID, NSRunningApplication(processIdentifier: processID)?.launchDate)
-        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, send: send)
+        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, sendLayout: sendLayout, send: send)
         reconcileNativeHosts()
     }
 
-    public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID) {
+    public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID, protocolVersion: Int = 2) {
         guard let session = sessions[connection] else { return }
         if session.epoch == nil { session.connect(epoch: epoch) }
+        session.supportsLayout = protocolVersion >= 3
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
         for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
@@ -91,6 +94,7 @@ public final class BrowserWorkspaceController {
     /// All native logical selection paths (commands, gestures, mouse and sidebar)
     /// retire old browser work, including selecting the same native window again.
     func nativeSelectionChanged(_ id: SurfaceID?) {
+        if let id { surfaceTree.select(id) }
         let leavingBrowser = hasBrowserSelection
         browserFocusDeadline = nil
         guard !sessions.isEmpty, let generation = focusCoordinator.select(id) else { return }
@@ -135,6 +139,7 @@ public final class BrowserWorkspaceController {
 
     @discardableResult
     func select(_ id: SurfaceID) -> SurfaceActionOutcome {
+        if isAvailable(id) { surfaceTree.select(id) }
         switch id {
             case .browserTab:
                 guard let session = owner(of: id) else { return .unavailable }
@@ -206,16 +211,19 @@ public final class BrowserWorkspaceController {
         return (surfaceTree.roots[workspace] ?? []).compactMap(project)
     }
 
-    /// Organization never implies host movement or completed focus. Native owners
-    /// are revalidated at dispatch; browser profile identity is preserved.
-    func organize(_ id: SurfaceID, before target: SurfaceID? = nil, earlier: Bool? = nil, groupWithSelection: Bool = false) {
+    /// Shared organization dispatches owner layout only after capability checks.
+    /// Native owners are revalidated; browser profile identity is preserved.
+    func organize(_ id: SurfaceID, before target: SurfaceID? = nil, earlier: Bool? = nil, groupWithSelection: Bool = false, layout: SurfaceContainerLayout = .stack) {
         guard usesSurfaceTree, isAvailable(id) else { return }
         if let target {
             guard isAvailable(target) else { return }
             _ = surfaceTree.move(id, before: target)
         } else if let earlier { _ = surfaceTree.reorder(id, earlier: earlier) }
         else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
-            _ = surfaceTree.group(id, with: target)
+            if surfaceTree.group(id, with: target, layout: layout), let workspace = surfaceTree.workspace(of: id),
+               sessions.values.allSatisfy({ $0.supportsLayout }) {
+                mixedLayoutWorkspaces.insert(workspace)
+            }
         }
         scheduleRefresh()
     }
@@ -231,6 +239,7 @@ public final class BrowserWorkspaceController {
 
     func moveBrowserSurface(_ id: SurfaceID, to workspace: String) {
         guard usesSurfaceTree, owner(of: id) != nil else { return }
+        if let old = placements[id], mixedLayoutWorkspaces.contains(old) { mixedLayoutWorkspaces.insert(workspace) }
         placements[id] = workspace
         _ = surfaceTree.moveToRoot(id, in: workspace)
         scheduleRefresh()
@@ -243,8 +252,74 @@ public final class BrowserWorkspaceController {
     func moveWorkspaceContents(from source: String, to target: String) {
         guard source != target else { return }
         for (id, workspace) in placements where workspace == source { placements[id] = target }
+        if mixedLayoutWorkspaces.remove(source) != nil { mixedLayoutWorkspaces.insert(target) }
         surfaceTree.mergeWorkspace(source, into: target)
         scheduleRefresh()
+    }
+
+    private func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
+        let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+        return surfaceTree.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
+            y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
+            visible: workspace.isVisible)
+    }
+
+    func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {
+        guard TrayMenuModel.shared.isEnabled, mixedLayoutWorkspaces.contains(workspace.name) else { return false }
+        return plannedSurfaces(in: workspace).first { $0.surfaceID == id }?.visible == false
+    }
+
+    func applyNativeLayout(in workspace: Workspace) async throws -> Bool {
+        guard TrayMenuModel.shared.isEnabled, usesSurfaceTree, BrowserNativeManagement.lease != nil, mixedLayoutWorkspaces.contains(workspace.name) else { return false }
+        let placements = plannedSurfaces(in: workspace)
+        for placement in placements {
+            guard let window = Window.get(bySurfaceID: placement.surfaceID), window.nodeWorkspace === workspace else { continue }
+            if placement.visible {
+                let frame = placement.frame
+                let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
+                if window.lastAppliedLayoutPhysicalRect != rect {
+                    window.lastAppliedLayoutPhysicalRect = rect
+                    window.lastAppliedLayoutVirtualRect = rect
+                    window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
+                }
+            } else if let native = window as? MacWindow {
+                window.lastAppliedLayoutPhysicalRect = nil
+                window.lastAppliedLayoutVirtualRect = nil
+                try await native.hideInCorner(.bottomRightCorner)
+            }
+        }
+        return !placements.isEmpty
+    }
+
+    func publishBrowserLayouts() {
+        guard usesSurfaceTree, BrowserNativeManagement.lease != nil else { return }
+        let placements = TrayMenuModel.shared.isEnabled ? Workspace.all.filter { mixedLayoutWorkspaces.contains($0.name) }.flatMap(plannedSurfaces) : []
+        for session in sessions.values where session.supportsLayout {
+            let owned = placements.filter { owner(of: $0.surfaceID) === session }
+            let grouped = Dictionary(grouping: owned) { placement -> String in
+                guard case .browserTab(let profile, _) = placement.surfaceID else { return "" }
+                return "\(placement.containerID):\(profile)"
+            }
+            let hosts = grouped.keys.sorted().compactMap { key -> BrowserHostPlacement? in
+                guard let items = grouped[key], let first = items.first else { return nil }
+                let visible = items.first { $0.visible }
+                return BrowserHostPlacement(containerID: first.containerID, surfaces: items.map(\.surfaceID),
+                    selected: visible?.surfaceID, frame: first.frame, visible: visible != nil)
+            }
+            let target = focusCoordinator.target, generation = focusCoordinator.generation
+            session.requestLayout(hosts) { [weak self, weak session] reply in
+                guard reply == .issued, TrayMenuModel.shared.isEnabled, let self, let session, let target,
+                      self.focusCoordinator.isCurrent(generation, target: target) else { return }
+                if case .nativeWindow = target {
+                    _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
+                    return
+                }
+                guard self.owner(of: target) === session else { return }
+                // A transfer can replace the selected tab's former native host.
+                // Reaffirm only the still-current browser target after dispatch.
+                _ = BrowserTabSurfaceAdapter(surfaceID: target, session: session).requestFocus()
+            }
+        }
     }
 
     private func scheduleRefresh() {
@@ -253,7 +328,10 @@ public final class BrowserWorkspaceController {
         Task { @MainActor in
             self.refreshPending = false
             if self.previewWindow != nil { self.refreshPreview() }
-            if isWinMuxRuntimeReady { await updateWorkspaceSidebarModel() }
+            if isWinMuxRuntimeReady {
+                await updateWorkspaceSidebarModel()
+                if !self.mixedLayoutWorkspaces.isEmpty { runWorkspaceSidebarSession {} }
+            }
         }
     }
 

@@ -5,7 +5,7 @@ final class BridgeSessionTests: XCTestCase {
     func testHandshakeRequiredAndUnsupportedVersionRejected() {
         let session = BridgeSession()
         XCTAssertFalse(session.accept(epoch: "invented", sequence: 1))
-        XCTAssertNil(session.negotiate(version: 3))
+        XCTAssertNil(session.negotiate(version: 4))
         let epoch = session.negotiate(version: 1)!
         XCTAssertTrue(session.accept(epoch: epoch, sequence: 1))
     }

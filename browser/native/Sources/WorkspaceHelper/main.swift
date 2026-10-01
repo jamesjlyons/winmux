@@ -37,7 +37,10 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         if sidebarEnabled {
             let id = connectionID, pid = connection.processIdentifier
             DispatchQueue.main.async { [self] in
-                BrowserWorkspaceController.shared.connected(id, processID: pid) { [weak self] request, completion in
+                BrowserWorkspaceController.shared.connected(id, processID: pid, sendLayout: { [weak self] request, completion in
+                    guard let self else { completion(.unavailable); return }
+                    self.sendLayout(request, completion: completion)
+                }) { [weak self] request, completion in
                     guard let self else { completion(.unavailable); return }
                     self.send(request, completion: completion)
                 }
@@ -72,6 +75,19 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         }
     }
 
+    @MainActor private func sendLayout(_ request: BrowserLayoutRequest,
+                                      completion: @escaping @MainActor (BrowserActionReply) -> Void) {
+        guard session.version == 3, !lock.withLock({ closed }), let connection,
+              let data = try? JSONEncoder().encode(request.hosts), data.count <= 262144,
+              let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+                  DispatchQueue.main.async { completion(.unavailable) }
+              }) as? WMBrowserSurfaceOwner else { completion(.unavailable); return }
+        proxy.applyLayout(data, epoch: request.epoch.uuidString, operation: request.operation.uuidString,
+                          revision: request.revision, generation: request.generation) { outcome in
+            DispatchQueue.main.async { completion(BrowserActionReply(rawValue: outcome) ?? .invalidRequest) }
+        }
+    }
+
     func negotiateVersion(_ version: Int, reply: @escaping (Int, String?) -> Void) {
         let epoch = session.negotiate(version: version)
         reply(epoch == nil ? BridgeSession.version : version, epoch)
@@ -91,10 +107,10 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 #if canImport(AppBundle)
             if sidebarEnabled, let epochID = UUID(uuidString: epoch) {
                 let snapshot = BrowserInventoryMessage(revision: inventory.revision, full: true, tabs: Array(inventory.tabs.values))
-                let id = connectionID
+                let id = connectionID, version = session.version ?? 1
                 // Enqueue while holding the endpoint lock: invalidation cannot
                 // overtake a validated update and resurrect disconnected rows.
-                DispatchQueue.main.async { BrowserWorkspaceController.shared.received(snapshot, epoch: epochID, connection: id) }
+                DispatchQueue.main.async { BrowserWorkspaceController.shared.received(snapshot, epoch: epochID, connection: id, protocolVersion: version) }
             }
 #endif
             let startTest = testReport != nil && !sidebarEnabled && !testStarted && inventory.tabs.count == 2
@@ -105,7 +121,55 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         if testReport != nil {
             writeTestReport()
             if result.2 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.exerciseActions(epoch: epoch) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if self.session.version == 3 { self.exerciseLayout(epoch: epoch) }
+                    else { self.exerciseActions(epoch: epoch) }
+                }
+            }
+        }
+    }
+
+    private func exerciseLayout(epoch: String) {
+        guard let value = connection?.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner else { return }
+        let remote = BrowserOwnerProxy(value)
+        let snapshot = lock.withLock { inventory }
+        let ids = snapshot.tabs.keys.sorted { $0.description < $1.description }
+        guard ids.count == 2 else { return }
+        let first = UUID(), second = UUID()
+        let frame = SurfaceFrame(x: 100, y: 100, width: 600, height: 600)
+        let split = [BrowserHostPlacement(containerID: first, surfaces: [ids[0]], selected: ids[0], frame: frame, visible: true),
+                     BrowserHostPlacement(containerID: second, surfaces: [ids[1]], selected: ids[1],
+                         frame: .init(x: 700, y: 100, width: 600, height: 600), visible: true)]
+        guard let data = try? JSONEncoder().encode(split) else { return }
+        let operation = UUID().uuidString
+        remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { result in
+            self.noteTest("layout_split", result)
+            remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { repeated in
+                self.noteTest("layout_repeat", repeated)
+            }
+            remote.value.applyLayout(data, epoch: epoch, operation: UUID().uuidString, revision: snapshot.revision, generation: 1) { stale in
+                self.noteTest("layout_stale", stale)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let now = self.lock.withLock { self.inventory }
+                self.noteTest("layout_split_host_count", String(Set(now.tabs.values.map(\.hostID)).count))
+                self.noteTest("layout_identity_retained", Set(now.tabs.keys) == Set(ids) ? "yes" : "no")
+                self.noteTest("layout_frames_match", now.tabs[ids[0]]?.hostFrame == frame &&
+                    now.tabs[ids[1]]?.hostFrame == SurfaceFrame(x: 700, y: 100, width: 600, height: 600) ? "yes" : "no")
+                let merged = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: nil, frame: frame, visible: false)]
+                guard let mergedData = try? JSONEncoder().encode(merged) else { return }
+                remote.value.applyLayout(mergedData, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { conflict in
+                    self.noteTest("layout_conflict", conflict)
+                    remote.value.applyLayout(mergedData, epoch: epoch, operation: UUID().uuidString, revision: now.revision, generation: 2) { mergedResult in
+                        self.noteTest("layout_merge", mergedResult)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            let mergedState = self.lock.withLock { self.inventory }
+                            self.noteTest("layout_merged_host_count", String(Set(mergedState.tabs.values.map(\.hostID)).count))
+                            self.noteTest("layout_hidden", mergedState.tabs.values.allSatisfy { $0.hostVisible == false } ? "yes" : "no")
+                            self.exerciseActions(epoch: epoch)
+                        }
+                    }
+                }
             }
         }
     }
@@ -157,17 +221,26 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     }
 
     private func noteTest(_ action: String, _ outcome: String) {
-        lock.withLock { testOutcomes[action] = outcome }
+        guard lock.withLock({
+            if closed { return false }
+            testOutcomes[action] = outcome
+            return true
+        }) else { return }
         writeTestReport()
     }
 
     private func writeTestReport() {
         guard let testReport else { return }
         lock.withLock {
+            guard !closed else { return }
             // Counts and outcomes only: no titles, URLs, profile paths or vault data.
             let report: [String: Any] = ["scope": "isolated_authenticated_inventory_actions", "revision": inventory.revision,
                                        "tab_count": inventory.tabs.count, "outcomes": testOutcomes,
-                                       "full_messages": fullMessages, "delta_messages": deltaMessages]
+                                       "full_messages": fullMessages, "delta_messages": deltaMessages,
+                                       "hosts": inventory.tabs.values.map { tab in
+                                           ["host_id": tab.hostID, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
+                                            "frame": tab.hostFrame.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] as Any } ?? NSNull()]
+                                       }]
             if let data = try? JSONSerialization.data(withJSONObject: report, options: .prettyPrinted) {
                 try? data.write(to: testReport, options: .atomic)
             }

@@ -66,7 +66,11 @@ def main():
     command += ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
                 "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
-                "native_focus_fence": "issued", "repeated_fence": "issued"}
+                "native_focus_fence": "issued", "repeated_fence": "issued",
+                "layout_split": "issued", "layout_repeat": "issued", "layout_stale": "stale_layout",
+                "layout_split_host_count": "2", "layout_identity_retained": "yes", "layout_frames_match": "yes",
+                "layout_conflict": "operation_conflict", "layout_merge": "issued",
+                "layout_merged_host_count": "1", "layout_hidden": "yes"}
     expected_count = 0 if args.private else 1
     if args.private:
         expected = {}
@@ -96,7 +100,7 @@ def main():
                     if (bridge.get("authenticated_connections") == 1 and report.get("outcomes") == expected
                             and report.get("tab_count") == expected_count):
                         result["actions"] = report
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 2
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 3
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == {}):
                         if recovered_at is None:

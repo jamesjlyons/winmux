@@ -462,6 +462,7 @@ private func applyWorkspaceLayouts() async throws {
             }
             try await workspace.layoutWorkspace() // Unhide tiling windows from corner
         }
+        BrowserWorkspaceController.shared.publishBrowserLayouts()
         return
     }
     let monitors = monitors
@@ -502,6 +503,7 @@ private func applyWorkspaceLayouts() async throws {
         }
         try await workspace.layoutWorkspace()
     }
+    BrowserWorkspaceController.shared.publishBrowserLayouts()
     for workspace in Workspace.all where !workspace.isVisible {
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
         let shouldReassertHiddenWindows = refreshSessionEvent?.requiresHiddenWindowsReassertion == true
@@ -526,6 +528,8 @@ private func applyWorkspaceLayouts() async throws {
 
 @MainActor
 private func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window) -> Bool {
+    if let workspace = window.nodeWorkspace,
+       BrowserWorkspaceController.shared.isHiddenInMixedLayout(window.surfaceID, workspace: workspace) { return true }
     guard let tabGroup = window.nearestWindowTabGroup, tabGroup.usesWindowTabBehavior else { return false }
     return tabGroup.tabActiveWindow != window
 }

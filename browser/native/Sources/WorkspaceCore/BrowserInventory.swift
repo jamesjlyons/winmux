@@ -7,20 +7,24 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let selected: Bool
     public let privateBrowsing: Bool
     public let hostWindowID: UInt32?
+    public let hostFrame: SurfaceFrame?
+    public let hostVisible: Bool?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil) {
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
         self.selected = selected
         self.privateBrowsing = privateBrowsing
         self.hostWindowID = hostWindowID
+        self.hostFrame = hostFrame; self.hostVisible = hostVisible
     }
 
     enum CodingKeys: String, CodingKey {
         case surfaceID = "surface_id", hostID = "host_id", title, selected
         case privateBrowsing = "private"
         case hostWindowID = "host_window_id"
+        case hostFrame = "host_frame", hostVisible = "host_visible"
     }
 }
 
