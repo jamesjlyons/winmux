@@ -134,4 +134,36 @@ import XCTest
         XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).filter(\.visible).map(\.surfaceID), [tab])
         XCTAssertEqual(controller.surfaceTree, tree)
     }
+
+    func testNestedFitNavigationAndGestureRejectsChangedEffectiveStack() throws {
+        let controller = BrowserWorkspaceController(), tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let native = TestWindow.new(id: 51, parent: focus.workspace.rootTilingContainer)
+        let sibling = TestWindow.new(id: 52, parent: focus.workspace.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([native.surfaceID, tab, sibling.surfaceID], in: focus.workspace.name)
+        tree.group(sibling.surfaceID, with: native.surfaceID, layout: .stack)
+        tree.group(tab, with: native.surfaceID, layout: .horizontal)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [focus.workspace.name], selected: nil, closedBrowserTabs: []))
+        let connection = UUID(), epoch = UUID()
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: tab, hostID: "test", title: "", selected: true,
+            hostMinimumSize: .init(width: 100, height: 100))]), epoch: epoch, connection: connection, protocolVersion: 3)
+        XCTAssertEqual(controller.select(native.surfaceID), .issued)
+        XCTAssertEqual(controller.navigationStackItems(for: native.surfaceID, in: focus.workspace), [native.surfaceID, tab, sibling.surfaceID])
+        let oldGesture = try XCTUnwrap(MixedTrackpadTarget.capture(controller))
+        let width = Int(focus.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps.width)
+        controller.received(.init(revision: 2, full: false, tabs: [.init(surfaceID: tab, hostID: "test", title: "", selected: true,
+            hostMinimumSize: .init(width: width, height: 100))]), epoch: epoch, connection: connection, protocolVersion: 3)
+        XCTAssertEqual(controller.surfaceTree, oldGesture.tree, "Only the effective fit changed")
+        XCTAssertEqual(controller.navigationStackItems(for: native.surfaceID, in: focus.workspace), [native.surfaceID, tab])
+        XCTAssertFalse(oldGesture.commit(next: true, controller: controller), "A gesture must not adopt a different navigation group midway")
+        let newGesture = try XCTUnwrap(MixedTrackpadTarget.capture(controller))
+        XCTAssertTrue(newGesture.commit(next: true, controller: controller))
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        var next = FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(.tabNext))
+        next.rawBoundariesAction = .wrapAroundTheWorkspace
+        XCTAssertEqual(controller.navigate(next, workspace: focus.workspace), true)
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID, "Wrap stays inside the temporary inner stack")
+        XCTAssertEqual(controller.surfaceTree.roots, tree.roots)
+        XCTAssertEqual(controller.surfaceTree.layouts, tree.layouts)
+    }
 }

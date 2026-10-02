@@ -45,6 +45,41 @@ final class SurfaceLayoutTests: XCTestCase {
         XCTAssertEqual(expanded.map(\.frame.y), [0, 500])
     }
 
+    func testNestedTemporaryStackOverridesOuterSavedStackForNavigation() throws {
+        let sibling = SurfaceID.nativeWindow(UUID())
+        var tree = SurfaceTree(); tree.reconcile([native, web, sibling], in: "one")
+        tree.group(sibling, with: native, layout: .stack)
+        tree.group(web, with: native, layout: .horizontal)
+        let saved = tree
+        let sizes: [SurfaceID: SurfaceMinimumSize] = [native: .init(width: 600, height: 300), web: .init(width: 600, height: 300)]
+        let small = tree.placements(in: "one", frame: frame, minimumSizes: sizes, selectedSurface: native)
+        XCTAssertEqual(try XCTUnwrap(small.first { $0.surfaceID == native }).navigationStack, [native, web])
+        XCTAssertEqual(try XCTUnwrap(small.first { $0.surfaceID == web }).navigationStack, [native, web])
+        XCTAssertEqual(try XCTUnwrap(small.first { $0.surfaceID == sibling }).navigationStack, [native, web, sibling])
+        XCTAssertEqual(small.filter(\.visible).map(\.surfaceID), [native])
+        let large = tree.placements(in: "one", frame: .init(x: -1000, y: 50, width: 1400, height: 700), minimumSizes: sizes, selectedSurface: native)
+        XCTAssertEqual(try XCTUnwrap(large.first { $0.surfaceID == native }).navigationStack, [native, web, sibling])
+        XCTAssertEqual(large.filter(\.visible).map(\.surfaceID), [native, web])
+        XCTAssertEqual(tree, saved)
+    }
+
+    func testIndependentStacksDoNotIncludeOtherVisiblePanes() {
+        let a = SurfaceID.nativeWindow(UUID()), b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree(); tree.reconcile([native, web, a, b], in: "one")
+        tree.group(web, with: native); tree.group(b, with: a)
+        let plan = tree.placements(in: "one", frame: frame)
+        XCTAssertEqual(plan.map(\.navigationStack), [[native, web], [native, web], [a, b], [a, b]])
+        XCTAssertEqual(plan.filter(\.visible).map(\.surfaceID), [native, a])
+    }
+
+    func testRootFallbackIsNavigableButSingleLeafDoesNotInventAStack() {
+        var tree = SurfaceTree(); tree.reconcile([native, web], in: "one")
+        let sizes: [SurfaceID: SurfaceMinimumSize] = [native: .init(width: 600, height: 300), web: .init(width: 600, height: 300)]
+        XCTAssertEqual(tree.placements(in: "one", frame: frame, minimumSizes: sizes).map(\.navigationStack), [[native, web], [native, web]])
+        tree.remove(web)
+        XCTAssertEqual(tree.placements(in: "one", frame: frame, minimumSizes: sizes).map(\.navigationStack), [[]])
+    }
+
     func testAllocationsStayBoundedAcrossDifferentCapacities() {
         let ids = (0..<7).map { _ in SurfaceID.nativeWindow(UUID()) }
         var tree = SurfaceTree(); tree.reconcile(ids, in: "one")

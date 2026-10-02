@@ -574,3 +574,40 @@ Next prepare the explicit daily-driver activation path with reversible ownership
 handoff; this package has not replaced the installed app or its helper. Physical
 drag/display transitions, fullscreen/popups and the documented tiny-viewport and
 nested fallback cases remain open. Performance and extension work stay deferred.
+
+
+## Independent pages and nested stack navigation — 2026-10-01
+
+- The completed independent-page work is recorded in `24b59ae1`: one native
+  Chromium host per page, Swift browser controls, capability-gated fallback to
+  conventional Chromium controls, and persistent split resizing. Its verified
+  package is `alpha-page-windows-1`; see [page-window evidence](evidence/2026-10-01-native-page-windows.json).
+  The approved plan now records the user's newer architecture choice explicitly.
+- Integrated the separately tested nested-navigation fix after that build
+  completed. Layout placements identify the nearest effective stack, including
+  temporary minimum-size fallbacks. Next/previous selection follows that stack
+  without changing saved groups, layouts or geometry. A gesture captured before
+  the effective stack changes is rejected instead of navigating a different group.
+- **45 WorkspaceCore**, **10 BridgeCore** and **27 focused native tests** pass
+  against the integrated page-window/resize implementation. The focused tests
+  cover restoration, page presentation and shared commands. The earlier isolated
+  regression failed with baseline navigation restored and passed with this fix;
+  the full native suite was not rerun for this navigation-only change.
+- The new signed stage is
+  `.local/browser/packages/alpha-page-navigation-1/WinMux Browser Alpha.app`.
+  Deep/strict signing and all **581 native source hashes** match. Its isolated
+  headless engine check passes **all 46 outcomes**, remains authenticated for
+  **17.06 seconds** after reconnect, exits 0 and removes its temporary service.
+  The existing managed helper's process/executable identity remains unchanged.
+  No Chromium rebuild was needed for this helper-only correction.
+- During packaging the user independently switched the daily workspace to
+  `alpha-page-windows-1`. A first test attempt safely stopped at its stale-helper
+  preflight, before launching anything; the successful test used the newly
+  verified helper. The new navigation package has **not** been activated, and
+  existing apps, profiles, enrollment and workspace state were not replaced.
+
+[Nested-navigation evidence and integration checks](evidence/2026-10-01-nested-navigation.json).
+Physical key/trackpad/drag delivery, fullscreen/popups and display transitions
+remain unqualified. The smaller-than-one-owner viewport case also remains open.
+Continue user testing support and these concrete correctness cases without
+benchmarks, extension retesting or live native tests alongside the user's manager.

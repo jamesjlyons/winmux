@@ -1,5 +1,13 @@
 # WinMux Browser: a Chromium browser and native window manager
 
+> **October 1 page-window update:** The user subsequently requested each page
+> in its own Chromium-owned native window, with Swift navigation, address,
+> extension and page controls, and WinMux grouping/resizing. This supersedes the
+> browser-control and host-sharing choices in sections 2.2 and 2.4 below. Chromium
+> still owns WebContents, profiles, extension machinery and sandboxing. Conventional
+> Chromium controls remain available whenever a compatible native toolbar helper
+> is absent. See [native page windows](page-windows.md) for the implemented behavior.
+
 > **October 1 implementation order update:** The user accepted extension
 > compatibility for this phase, then explicitly asked to move directly to WinMux
 > tab/native-window integration and optimize performance afterward. Proceed with

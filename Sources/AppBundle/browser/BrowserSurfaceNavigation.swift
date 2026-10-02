@@ -4,11 +4,12 @@ import WorkspaceCore
 
 extension BrowserWorkspaceController {
     func navigationStackItems(for id: SurfaceID, in workspace: Workspace) -> [SurfaceID] {
-        if let items = surfaceTree.stackItems(containing: id) { return items.filter(isAvailable) }
-        // A split that cannot fit is temporarily presented as a stack without
-        // rewriting the saved tree. Keep it navigable through the same controls.
-        let plan = plannedSurfaces(in: workspace)
-        return plan.filter(\.visible).count == 1 ? plan.map(\.surfaceID).filter(isAvailable) : []
+        guard hasMixedLayout(in: workspace) else {
+            return surfaceTree.stackItems(containing: id)?.filter(isAvailable) ?? []
+        }
+        // Geometry and navigation share the same nearest effective container.
+        // Counting all visible leaves loses nested temporary stack boundaries.
+        return plannedSurfaces(in: workspace).first { $0.surfaceID == id }?.navigationStack.filter(isAvailable) ?? []
     }
     /// Numeric native IDs keep their existing meaning. Shared traversal is alpha-only.
     func navigate(_ args: FocusCmdArgs, workspace: Workspace, from explicit: SurfaceID? = nil) -> Bool? {
@@ -67,18 +68,22 @@ struct MixedTrackpadTarget {
     let tree: SurfaceTree
     let generation: UInt64
     let pid: Int32
+    let stackItems: [SurfaceID]
 
     @MainActor static func capture(_ controller: BrowserWorkspaceController = .shared) -> Self? {
         guard controller.usesSurfaceTree, let id = controller.focusCoordinator.target,
               let workspace = controller.surfaceTree.workspace(of: id), let live = Workspace.existing(byName: workspace), live.isVisible,
-              controller.navigationStackItems(for: id, in: live).count > 1,
               let pid = controller.navigationProcess(for: id) else { return nil }
-        return .init(surface: id, workspace: workspace, tree: controller.surfaceTree, generation: controller.focusCoordinator.generation, pid: pid)
+        let stackItems = controller.navigationStackItems(for: id, in: live)
+        guard stackItems.count > 1 else { return nil }
+        return .init(surface: id, workspace: workspace, tree: controller.surfaceTree,
+                     generation: controller.focusCoordinator.generation, pid: pid, stackItems: stackItems)
     }
 
     @MainActor func commit(next: Bool, controller: BrowserWorkspaceController = .shared) -> Bool {
         guard controller.surfaceTree == tree, controller.focusCoordinator.isCurrent(generation, target: surface),
-              controller.navigationProcess(for: surface) == pid, let workspace = Workspace.existing(byName: workspace), workspace.isVisible else { return false }
+              controller.navigationProcess(for: surface) == pid, let workspace = Workspace.existing(byName: workspace), workspace.isVisible,
+              controller.navigationStackItems(for: surface, in: workspace) == stackItems else { return false }
         var args = FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(next ? .tabNext : .tabPrev))
         args.rawBoundariesAction = .wrapAroundTheWorkspace
         return controller.navigate(args, workspace: workspace) == true

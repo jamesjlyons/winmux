@@ -423,6 +423,8 @@ public final class BrowserWorkspaceController {
         return result
     }
 
+    func hasMixedLayout(in workspace: Workspace) -> Bool { mixedLayoutWorkspaces.contains(workspace.name) }
+
     func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return surfaceTree.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),

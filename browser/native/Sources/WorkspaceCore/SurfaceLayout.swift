@@ -24,6 +24,9 @@ public struct SurfacePlacement: Equatable, Sendable {
     public let containerID: UUID
     public let frame: SurfaceFrame
     public let visible: Bool
+    /// Ordered leaves in the nearest effective stack at this viewport size.
+    /// Includes temporary fit fallbacks without changing the saved tree.
+    public let navigationStack: [SurfaceID]
 }
 
 public struct BrowserHostPlacement: Equatable, Codable, Sendable {
@@ -95,13 +98,14 @@ extension SurfaceTree {
             return result
         }
         func walk(_ nodes: [SurfaceTreeNode], frame: SurfaceFrame, visible: Bool,
-                  layout: SurfaceContainerLayout, container: UUID?) -> [SurfacePlacement] {
+                  layout: SurfaceContainerLayout, container: UUID?, inheritedStack: [SurfaceID]) -> [SurfacePlacement] {
             guard !nodes.isEmpty else { return [] }
             let sizes = nodes.map(minimum)
             let fits = layout == .horizontal
                 ? sizes.reduce(0, { $0 + $1.width }) <= frame.width && sizes.allSatisfy { $0.height <= frame.height }
                 : sizes.reduce(0, { $0 + $1.height }) <= frame.height && sizes.allSatisfy { $0.width <= frame.width }
             let effective = layout != .stack && !fits ? SurfaceContainerLayout.stack : layout
+            let navigationStack = effective == .stack && nodes.count > 1 ? nodes.flatMap(\.surfaces) : inheritedStack
             let active = selectedSurface.flatMap { id in nodes.contains { $0.surfaces.contains(id) } ? id : nil }
                 ?? container.flatMap { activeSurfaces[$0] }
             let selected = nodes.firstIndex { active.map($0.surfaces.contains) ?? false } ?? 0
@@ -124,12 +128,14 @@ extension SurfaceTree {
                 case .surface(let id):
                     let leaf: UUID
                     switch id { case .nativeWindow(let uuid): leaf = uuid; case .browserTab(_, let uuid): leaf = uuid }
-                    return [.init(surfaceID: id, containerID: layout == .stack ? (container ?? leaf) : leaf, frame: rect, visible: shown)]
+                    return [.init(surfaceID: id, containerID: layout == .stack ? (container ?? leaf) : leaf,
+                                  frame: rect, visible: shown, navigationStack: navigationStack)]
                 case .group(let id, let children):
-                    return walk(children, frame: rect, visible: shown, layout: layouts[id] ?? .stack, container: id)
+                    return walk(children, frame: rect, visible: shown, layout: layouts[id] ?? .stack,
+                                container: id, inheritedStack: navigationStack)
                 }
             }
         }
-        return walk(roots[workspace] ?? [], frame: frame, visible: visible, layout: .horizontal, container: nil)
+        return walk(roots[workspace] ?? [], frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: [])
     }
 }
