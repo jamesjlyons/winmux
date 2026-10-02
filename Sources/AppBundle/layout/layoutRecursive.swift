@@ -88,7 +88,7 @@ extension TreeNode {
     }
 }
 
-private func canReuseLastAppliedWindowFrame(previousPhysicalRect: Rect?, nextPhysicalRect: Rect) -> Bool {
+func canReuseLastAppliedWindowFrame(previousPhysicalRect: Rect?, nextPhysicalRect: Rect) -> Bool {
     guard reuseGeometryLayoutFrames || refreshSessionEvent?.canReuseLastAppliedWindowFrames == true else { return false }
     guard let previousPhysicalRect else { return false }
     return previousPhysicalRect.topLeftX == nextPhysicalRect.topLeftX &&

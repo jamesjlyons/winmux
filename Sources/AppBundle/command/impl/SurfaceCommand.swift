@@ -27,6 +27,27 @@ struct SurfaceCommand: Command {
         switch args.operands[0] {
         case "focus": return reportSurfaceAction(controller.select(id), io)
         case "close": return reportSurfaceAction(controller.close(id), io)
+        case "group":
+            let rawTarget = args.operands[2]
+            let target: SurfaceID?
+            if rawTarget == "next" || rawTarget == "prev" {
+                let members = controller.surfaceTree.workspace(of: id)
+                    .flatMap { controller.surfaceTree.roots[$0] }?.flatMap(\.surfaces) ?? []
+                let index = members.firstIndex(of: id).map { $0 + (rawTarget == "next" ? 1 : -1) }
+                target = index.flatMap { members.indices.contains($0) ? members[$0] : nil }
+            } else { target = SurfaceID(string: rawTarget) }
+            guard let target, controller.isAvailable(target), let style = SurfaceContainerLayout(rawValue: args.operands[3]) else {
+                return io.err("Group target is unavailable or outside the workspace order")
+            }
+            return reportOrganization(controller.editOrganization(of: id) { $0.group(id, with: target, layout: style) }, io)
+        case "layout":
+            guard let style = SurfaceContainerLayout(rawValue: args.operands[2]) else { return false }
+            return reportOrganization(controller.editOrganization(of: id) { $0.setLayout(containing: id, to: style) }, io)
+        case "ungroup":
+            guard let group = controller.surfaceTree.containingGroup(of: id) else { return io.err("Surface is not in a group") }
+            return reportOrganization(controller.editOrganization(of: id) { $0.ungroup(group) }, io)
+        case "reorder":
+            return reportOrganization(controller.editOrganization(of: id) { $0.reorder(id, earlier: args.operands[2] == "earlier") }, io)
         case "move":
             guard let source = controller.workspaceName(for: id).flatMap(Workspace.existing(byName:)),
                   let target = resolveMoveTargetWorkspace(named: args.operands[2], sourceWorkspace: source,
@@ -37,6 +58,11 @@ struct SurfaceCommand: Command {
         default: return io.err("Unsupported surface action")
         }
     }
+}
+
+@MainActor
+private func reportOrganization(_ applied: Bool, _ io: CmdIo) -> Bool {
+    applied || io.err("Cannot change shared organization: check owner availability, layout support and container boundaries")
 }
 
 private struct SurfaceReference: Encodable {

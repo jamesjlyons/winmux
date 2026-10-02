@@ -1,0 +1,967 @@
+{
+  "date": "2026-10-01",
+  "scope": "Shared structural commands and existing layout binding, verified against isolated native fixture and browser owners",
+  "implementation": [
+    "surface group supports typed target IDs and next/prev in shared sidebar order, without wrap or skipping unavailable owners.",
+    "surface layout changes the nearest group while retaining its UUID/order; a root leaf wraps workspace roots without flattening nested groups.",
+    "surface ungroup removes the nearest group; surface reorder moves one sibling position.",
+    "All structural command edits validate available owners, browser layout capability and snapshot depth/identity bounds before committing. Rejected edits do not mutate the shared tree.",
+    "The existing layout command and its config binding route implicit native/browser selections through the shared tree; explicit native IDs/environment targets keep native behavior.",
+    "Shared native frame writes clear cached requested frames when interrupted and use the established native startup/geometry reassertion rules."
+  ],
+  "package": {
+    "app": ".local/browser/packages/alpha-layout-commands-2/WinMux Browser Alpha.app",
+    "manifest_sha256": "a290e8526c42709d1d9c213806339720a0574bfe26a3635aa13ab37cc8e73622",
+    "verified": true,
+    "notarized": false,
+    "team_identifier": "F7QMMNZWXX",
+    "native_sources_matched": 568,
+    "helper_sha256": "641d23d234999faf94c015bc19815557f24f074ea71452ddbef3d282c18b8c50",
+    "browser_executable_sha256": "b13b29689bcee69a3b5209883341f527c2b09351bef8392309f4567a1bebbab7",
+    "chromium_rebuilt": false,
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230"
+  },
+  "checks": {
+    "native_regression_tests": 753,
+    "final_targeted_tests": 25,
+    "workspace_core_tests": 30,
+    "bridge_tests": 5,
+    "python_checks": 35,
+    "note": "Full native regression preceded the frame-cache correction. Final targeted tests include cancellation/reassertion regression, shared commands, placement restoration and existing AX fast paths."
+  },
+  "initial_live_failure": {
+    "package": "alpha-layout-commands-1",
+    "commands_passed": [
+      "stack-browser",
+      "stack-native",
+      "horizontal",
+      "binding-vertical",
+      "reordered",
+      "ungrouped",
+      "relative-group",
+      "before-helper-restart"
+    ],
+    "restart": "Tree and Chromium placement returned, but the native pane had wrong geometry after helper restart.",
+    "result": {
+      "scope": "isolated_native_browser_layout_commands",
+      "passed": false,
+      "error": "AssertionError('Condition timed out')"
+    },
+    "correction": "Invalidate interrupted shared AX writes and honor native startup/geometry refresh rules instead of unconditionally reusing cached requested bounds.",
+    "limits": "No cancellation trace was recorded for the failed live run; the cache fault was found in code, regression-tested and corrected before repeating the same live scenario."
+  },
+  "live": {
+    "proof": {
+      "scope": "isolated_native_browser_layout_commands",
+      "passed": true,
+      "group_id": "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+      "selected_browser": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+      "native_id": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d",
+      "workspace": "1",
+      "tree_restored": true,
+      "layout_workspaces_restored": true,
+      "selection_restored": true,
+      "cli_listed_four_surfaces": true,
+      "physical_keyboard_delivered": false,
+      "final_bridge": {
+        "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+        "connection_generation": 2,
+        "native_window_management_enabled": false,
+        "scope": "chromium_signed_xpc_transport_with_recovery",
+        "team_identifier": "F7QMMNZWXX",
+        "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+        "protocol_version": 3,
+        "authenticated_connections": 2,
+        "inventory_enabled": true,
+        "state": "authenticated",
+        "presentation_measured": false
+      }
+    },
+    "observations": {
+      "stack-browser": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "frame": {
+              "x": 240,
+              "width": 1680,
+              "y": 30,
+              "height": 960
+            },
+            "host_id": "host:418316405",
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "visible": true,
+            "frame": {
+              "width": 560,
+              "height": 960,
+              "y": 30,
+              "x": 1360
+            },
+            "host_id": "host:418316402",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "window_id": 4224,
+            "x": 1919,
+            "content_minimum_height": 350,
+            "width": 560,
+            "title": "WinMux Native One",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 958
+          },
+          {
+            "x": 1919,
+            "window_id": 4226,
+            "height": 959,
+            "content_minimum_height": 350,
+            "title": "WinMux Native Two",
+            "width": 840,
+            "y": 958,
+            "content_minimum_width": 400
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "stack"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "22660D3E-36CA-48DC-A472-67CC7B5FC909"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "stack-native": {
+        "selected": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d",
+        "browser_hosts": [
+          {
+            "visible": false,
+            "frame": {
+              "y": 30,
+              "x": 240,
+              "width": 840,
+              "height": 960
+            },
+            "host_id": "host:418316405",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "host_id": "host:418316402",
+            "frame": {
+              "width": 1680,
+              "y": 30,
+              "height": 960,
+              "x": 240
+            },
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "x": 1919,
+            "window_id": 4224,
+            "height": 959,
+            "content_minimum_height": 350,
+            "title": "WinMux Native One",
+            "width": 560,
+            "y": 958,
+            "content_minimum_width": 400
+          },
+          {
+            "window_id": 4226,
+            "x": 240,
+            "content_minimum_height": 350,
+            "width": 1680,
+            "title": "WinMux Native Two",
+            "height": 960,
+            "content_minimum_width": 400,
+            "y": 30
+          }
+        ],
+        "native_key_window_id": 4226,
+        "tree": {
+          "activeSurfaces": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+          ],
+          "layouts": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "stack"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "22660D3E-36CA-48DC-A472-67CC7B5FC909"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "horizontal": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "frame": {
+              "width": 840,
+              "height": 960,
+              "y": 30,
+              "x": 240
+            },
+            "visible": false,
+            "host_id": "host:418316405",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "host_id": "host:418316402",
+            "frame": {
+              "y": 30,
+              "x": 1080,
+              "width": 840,
+              "height": 960
+            },
+            "visible": true,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "window_id": 4224,
+            "x": 1919,
+            "content_minimum_height": 350,
+            "width": 560,
+            "title": "WinMux Native One",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 958
+          },
+          {
+            "x": 240,
+            "window_id": 4226,
+            "height": 960,
+            "content_minimum_height": 350,
+            "title": "WinMux Native Two",
+            "width": 840,
+            "y": 30,
+            "content_minimum_width": 400
+          }
+        ],
+        "native_key_window_id": 4226,
+        "tree": {
+          "activeSurfaces": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "horizontal"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "22660D3E-36CA-48DC-A472-67CC7B5FC909"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "binding-vertical": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "host_id": "host:418316405",
+            "frame": {
+              "height": 960,
+              "width": 840,
+              "x": 240,
+              "y": 30
+            },
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "frame": {
+              "y": 510,
+              "x": 240,
+              "width": 1680,
+              "height": 480
+            },
+            "visible": true,
+            "host_id": "host:418316402",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "x": 1919,
+            "window_id": 4224,
+            "height": 959,
+            "content_minimum_height": 350,
+            "title": "WinMux Native One",
+            "width": 560,
+            "y": 958,
+            "content_minimum_width": 400
+          },
+          {
+            "window_id": 4226,
+            "x": 240,
+            "content_minimum_height": 350,
+            "width": 1680,
+            "title": "WinMux Native Two",
+            "height": 480,
+            "content_minimum_width": 400,
+            "y": 30
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "vertical"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "22660D3E-36CA-48DC-A472-67CC7B5FC909"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "reordered": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "frame": {
+              "x": 240,
+              "y": 30,
+              "width": 840,
+              "height": 960
+            },
+            "visible": false,
+            "host_id": "host:418316405",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "host_id": "host:418316402",
+            "visible": true,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "frame": {
+              "height": 480,
+              "x": 240,
+              "width": 1680,
+              "y": 30
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "window_id": 4224,
+            "x": 1919,
+            "content_minimum_height": 350,
+            "width": 560,
+            "title": "WinMux Native One",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 958
+          },
+          {
+            "x": 240,
+            "window_id": 4226,
+            "height": 480,
+            "content_minimum_height": 350,
+            "title": "WinMux Native Two",
+            "width": 1680,
+            "y": 510,
+            "content_minimum_width": 400
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "22660D3E-36CA-48DC-A472-67CC7B5FC909",
+            "vertical"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  },
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  }
+                ],
+                "group": "22660D3E-36CA-48DC-A472-67CC7B5FC909"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "ungrouped": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "host_id": "host:418316405",
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "frame": {
+              "y": 30,
+              "width": 840,
+              "height": 960,
+              "x": 240
+            }
+          },
+          {
+            "frame": {
+              "width": 840,
+              "height": 960,
+              "y": 30,
+              "x": 240
+            },
+            "visible": true,
+            "host_id": "host:418316402",
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "x": 1919,
+            "window_id": 4224,
+            "height": 959,
+            "content_minimum_height": 350,
+            "title": "WinMux Native One",
+            "width": 560,
+            "y": 958,
+            "content_minimum_width": 400
+          },
+          {
+            "window_id": 4226,
+            "x": 1080,
+            "content_minimum_height": 350,
+            "width": 840,
+            "title": "WinMux Native Two",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 30
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [],
+          "layouts": [],
+          "roots": {
+            "1": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+              },
+              {
+                "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "relative-group": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "frame": {
+              "x": 240,
+              "y": 30,
+              "width": 840,
+              "height": 960
+            },
+            "visible": false,
+            "host_id": "host:418316405",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "host_id": "host:418316402",
+            "frame": {
+              "y": 30,
+              "width": 1680,
+              "height": 960,
+              "x": 240
+            },
+            "visible": true,
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "window_id": 4224,
+            "x": 1919,
+            "content_minimum_height": 350,
+            "width": 560,
+            "title": "WinMux Native One",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 958
+          },
+          {
+            "x": 1919,
+            "window_id": 4226,
+            "height": 959,
+            "content_minimum_height": 350,
+            "title": "WinMux Native Two",
+            "width": 840,
+            "y": 958,
+            "content_minimum_width": 400
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "stack"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "before-helper-restart": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "host_id": "host:418316405",
+            "frame": {
+              "height": 960,
+              "x": 240,
+              "width": 840,
+              "y": 30
+            },
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          },
+          {
+            "frame": {
+              "width": 1680,
+              "x": 240,
+              "y": 510,
+              "height": 480
+            },
+            "visible": true,
+            "host_id": "host:418316402",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "window_id": 4224,
+            "x": 1919,
+            "content_minimum_height": 350,
+            "width": 560,
+            "title": "WinMux Native One",
+            "height": 959,
+            "content_minimum_width": 400,
+            "y": 958
+          },
+          {
+            "x": 240,
+            "window_id": 4226,
+            "height": 480,
+            "content_minimum_height": 350,
+            "title": "WinMux Native Two",
+            "width": 1680,
+            "y": 30,
+            "content_minimum_width": 400
+          }
+        ],
+        "native_key_window_id": 0,
+        "tree": {
+          "activeSurfaces": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "vertical"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      },
+      "after-helper-restart": {
+        "selected": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe",
+        "browser_hosts": [
+          {
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "host_id": "host:418316402",
+            "visible": true,
+            "frame": {
+              "width": 1680,
+              "x": 240,
+              "height": 480,
+              "y": 510
+            }
+          },
+          {
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "host_id": "host:418316405",
+            "frame": {
+              "x": 240,
+              "height": 960,
+              "y": 30,
+              "width": 840
+            },
+            "visible": false
+          }
+        ],
+        "native_windows": [
+          {
+            "x": 1919,
+            "window_id": 4224,
+            "height": 392,
+            "content_minimum_height": 350,
+            "title": "WinMux Native One",
+            "width": 500,
+            "y": 958,
+            "content_minimum_width": 400
+          },
+          {
+            "window_id": 4226,
+            "x": 240,
+            "content_minimum_height": 350,
+            "width": 1680,
+            "title": "WinMux Native Two",
+            "height": 480,
+            "content_minimum_width": 400,
+            "y": 30
+          }
+        ],
+        "native_key_window_id": 4226,
+        "tree": {
+          "activeSurfaces": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+          ],
+          "layouts": [
+            "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B",
+            "vertical"
+          ],
+          "roots": {
+            "1": [
+              {
+                "children": [
+                  {
+                    "surface": "native:184fe3ea-8b40-4d0a-9a99-edcf7648914d"
+                  },
+                  {
+                    "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:64410fc8-f220-43ae-bd75-7ca7d190f1fe"
+                  }
+                ],
+                "group": "B50CEA44-C5FB-4D8A-8C97-0FCEE151FB0B"
+              }
+            ],
+            "Parked": [
+              {
+                "surface": "browser:fdd431d0-41d2-477a-9419-679ce9084ec9:d117dc65-5754-4157-96cc-8bed76692206"
+              },
+              {
+                "surface": "native:f298b8fd-ab9b-4a6b-9977-5bd1b335edf4"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "method": "Isolated product command socket, config trigger-binding, authenticated owner frame reports, and fixture own-window notifications. Only this test service was restarted.",
+    "fixture_pid": 71493,
+    "fixture_content_minimum_width": 400,
+    "input_binding": [
+      "trigger-binding",
+      "--mode",
+      "main",
+      "alt-space"
+    ],
+    "binding_value": "layout horizontal vertical",
+    "assertions": [
+      "Exact 840-point side-by-side native/browser panes.",
+      "Existing layout binding produced exact 480-point vertical panes.",
+      "Reordering placed browser above native; ungrouping restored root ordering.",
+      "Relative group command combined adjacent native/browser items and retained browser selection.",
+      "Cross-workspace and unknown typed group targets rejected without changing the tree.",
+      "Helper restart restored exact group UUID, tree, layout-workspace set, selection and pane frames.",
+      "Actual branch CLI --socket independently listed four synthetic surfaces."
+    ],
+    "script_sha256": "ddbe63d7fbd8fd7f621f61b3f59d770cce9c7a8219999c8a9f979f30134d3b04"
+  },
+  "final_headless": {
+    "passed": true,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true,
+    "seconds_after_recovery": 17.012781666,
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 3,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    }
+  },
+  "cleanup": {
+    "ui_runs": [
+      {
+        "scope": "isolated_native_browser_sidebar",
+        "service": "com.jameslyons.winmux.browser.alpha.workspace.test.c402cff6-5423-4a69-8a41-e21f7c0098a9",
+        "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-layout-commands-1/WinMux Browser Alpha.app",
+        "completed": true,
+        "limits": [
+          "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+        ],
+        "native_fixture_pid": 71493,
+        "browser_pid": 71618,
+        "browser_exit_code": 0,
+        "test_service_removed": true
+      },
+      {
+        "scope": "isolated_native_browser_sidebar",
+        "service": "com.jameslyons.winmux.browser.alpha.workspace.test.38f86b0e-53bb-4c6a-a316-8026893f6fdd",
+        "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-layout-commands-2/WinMux Browser Alpha.app",
+        "completed": true,
+        "limits": [
+          "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+        ],
+        "native_fixture_pid": 71493,
+        "browser_pid": 73047,
+        "browser_exit_code": 0,
+        "test_service_removed": true
+      }
+    ],
+    "fixture_stopped": true,
+    "preserved_pids": [
+      17212,
+      33776,
+      63284,
+      63344
+    ],
+    "preservation": "Installed app, old enrollment, pre-existing browser sessions and original WinMux state were not replaced."
+  },
+  "limits": [
+    "Binding command dispatch is verified; physical keyboard/trackpad delivery remains unqualified.",
+    "Native-only resize/move/split/stack-with/swap/fullscreen/minimize retain their browser-selection guard; equivalent shared group/layout/reorder commands are available.",
+    "Cross-monitor transitions, physical drag, fullscreen/popups, nested temporary-stack navigation and a viewport smaller than one owner minimum remain open.",
+    "This is a staged integration build, not daily-driver activation. Performance and extension tests remain deferred."
+  ],
+  "raw_logs": [
+    ".local/browser/alpha-layout-commands-package-2.log",
+    ".local/browser/shared-layout-native-regression-1.log",
+    ".local/browser/shared-layout-targeted-3.log",
+    ".local/browser/shared-layout-core-1.log",
+    ".local/browser/shared-layout-python.log",
+    ".local/browser/layout-commands-ui-2/commands.jsonl",
+    ".local/browser/layout-commands-ui-2/proof.json",
+    ".local/browser/layout-commands-headless-1/result.json"
+  ]
+}

@@ -78,6 +78,31 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         roots.first { $0.value.flatMap(\.surfaces).contains(id) }?.key
     }
 
+    public func containingGroup(of target: SurfaceID) -> UUID? {
+        func find(_ nodes: [SurfaceTreeNode]) -> UUID? {
+            for node in nodes {
+                if case .group(let id, let children) = node, node.surfaces.contains(target) {
+                    return find(children) ?? id
+                }
+            }
+            return nil
+        }
+        return find(roots.values.flatMap { $0 })
+    }
+
+    /// Change the nearest container, keeping its identity and member order.
+    /// Root leaves use one new explicit group so the layout persists normally.
+    @discardableResult public mutating func setLayout(containing target: SurfaceID, to layout: SurfaceContainerLayout) -> Bool {
+        guard let workspace = workspace(of: target) else { return false }
+        if let group = containingGroup(of: target) { layouts[group] = layout; return true }
+        guard let nodes = roots[workspace], nodes.count > 1 else { return false }
+        let group = UUID()
+        roots[workspace] = [.group(group, nodes)]
+        layouts[group] = layout
+        activeSurfaces[group] = target
+        return true
+    }
+
     public mutating func importStack(_ ids: [SurfaceID], in workspace: String) {
         guard ids.count > 1, Set(ids).count == ids.count, let nodes = roots[workspace],
               ids.allSatisfy({ id in nodes.contains(.surface(id)) }),

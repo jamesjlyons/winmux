@@ -71,4 +71,38 @@ final class SurfaceTreeTests: XCTestCase {
         XCTAssertTrue(tree.reorder(browser, earlier: true))
         XCTAssertEqual(tree.roots["one"]?.flatMap(\.surfaces), [browser, native, second])
     }
+
+    func testChangingLayoutPreservesNearestGroupIdentityAndRestores() throws {
+        var tree = SurfaceTree()
+        tree.reconcile([native, browser, second], in: "one")
+        XCTAssertTrue(tree.group(browser, with: native))
+        let group = try XCTUnwrap(tree.containingGroup(of: browser))
+        XCTAssertTrue(tree.setLayout(containing: browser, to: .vertical))
+        XCTAssertEqual(tree.containingGroup(of: native), group)
+        XCTAssertEqual(tree.layouts[group], .vertical)
+        XCTAssertEqual(tree.roots["one"]?.flatMap(\.surfaces), [native, browser, second])
+        let restored = try JSONDecoder().decode(SurfaceTree.self, from: JSONEncoder().encode(tree))
+        XCTAssertEqual(tree, restored)
+        let before = tree
+        XCTAssertFalse(tree.setLayout(containing: .nativeWindow(UUID()), to: .stack))
+        XCTAssertEqual(before, tree)
+    }
+
+    func testRootLayoutWrapsExistingNodesWithoutFlatteningNestedGroups() throws {
+        var tree = SurfaceTree()
+        tree.reconcile([native, browser, second], in: "one")
+        tree.group(browser, with: native)
+        let original = tree.roots["one"]
+        let inner = try XCTUnwrap(tree.containingGroup(of: browser))
+        XCTAssertTrue(tree.setLayout(containing: second, to: .vertical))
+        let outer = try XCTUnwrap(tree.containingGroup(of: second))
+        XCTAssertNotEqual(inner, outer)
+        XCTAssertEqual(tree.containingGroup(of: browser), inner)
+        XCTAssertEqual(tree.layouts[inner], .stack)
+        XCTAssertEqual(tree.layouts[outer], .vertical)
+        XCTAssertTrue(tree.ungroup(outer))
+        XCTAssertEqual(tree.roots["one"], original)
+        tree.remove(second); tree.remove(browser)
+        XCTAssertFalse(tree.setLayout(containing: native, to: .stack))
+    }
 }

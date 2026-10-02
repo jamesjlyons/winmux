@@ -8,6 +8,28 @@ import XCTest
     override func setUp() async throws { setUpWorkspacesForTests() }
     private func record(_ id: SurfaceID) -> BrowserTabRecord { .init(surfaceID: id, hostID: "test", title: "Synthetic", selected: true) }
 
+    func testInterruptedSharedFrameCannotPoisonTheLayoutCache() async throws {
+        let window = TestWindow.new(id: 51, parent: focus.workspace.rootTilingContainer)
+        let rect = Rect(topLeftX: 240, topLeftY: 30, width: 1680, height: 480)
+        do {
+            try await window.applySharedLayoutFrame(rect) { throw CancellationError() }
+            XCTFail("Expected frame application cancellation")
+        } catch is CancellationError { }
+        XCTAssertNil(window.lastAppliedLayoutPhysicalRect)
+        XCTAssertNil(window.lastAppliedLayoutVirtualRect)
+        try await window.applySharedLayoutFrame(rect) { }
+        XCTAssertEqual(window.lastAppliedLayoutPhysicalRect, rect)
+        $refreshSessionEvent.withValue(.startup) {
+            XCTAssertFalse(canReuseLastAppliedWindowFrame(previousPhysicalRect: rect, nextPhysicalRect: rect))
+        }
+        $refreshSessionEvent.withValue(.ax(kAXMovedNotification as String)) {
+            XCTAssertFalse(canReuseLastAppliedWindowFrame(previousPhysicalRect: rect, nextPhysicalRect: rect))
+        }
+        $refreshSessionEvent.withValue(.ax(kAXFocusedWindowChangedNotification as String)) {
+            XCTAssertTrue(canReuseLastAppliedWindowFrame(previousPhysicalRect: rect, nextPhysicalRect: rect))
+        }
+    }
+
     func testRestoredPlacementWaitsForOwnerAndConfirmedRemovalPersists() async throws {
         let controller = BrowserWorkspaceController(), tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         let native = TestWindow.new(id: 51, parent: focus.workspace.rootTilingContainer)

@@ -34,6 +34,11 @@ import XCTest
         return try await command.run(.defaultEnv, .emptyStdin)
     }
 
+    private func checkCommand(_ operands: [String], exit: Int32 = 0, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let result = try await run(operands)
+        XCTAssertEqual(result.exitCode, exit, operands.description + result.stderr.joined(), file: file, line: line)
+    }
+
     func testCloseRoutesToBrowserAndExplicitNativeStillWorks() async throws {
         let result = try await run(["close"])
         XCTAssertEqual(result.exitCode, 0)
@@ -115,10 +120,78 @@ import XCTest
     func testParserRejectsMissingOrExtraOperands() {
         for args in [["surface"], ["surface", "move", "selected"], ["surface", "list", "extra"],
                      ["surface", "focus", "selected", "--focus-follows-surface"], ["surface", "unknown"],
-                     ["surface", "move", "selected", "next"], ["surface", "move", "selected", "bad name"]] {
+                     ["surface", "move", "selected", "next"], ["surface", "move", "selected", "bad name"],
+                     ["surface", "group", "selected", "next"], ["surface", "group", "selected", "prev", "floating"],
+                     ["surface", "layout", "selected", "diagonal"], ["surface", "reorder", "selected", "first"],
+                     ["surface", "ungroup", "selected", "extra"]] {
             XCTAssertNil(parseCommand(args).cmdOrNil, args.description)
         }
         XCTAssertNotNil(parseCommand(["surface", "list"]).cmdOrNil)
+    }
+
+    func testSharedGroupLayoutReorderAndUngroupPreserveOwnersAndSelection() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), workspace = focus.workspace.name
+        let originalNativeParent = native.parent
+        try await checkCommand(["surface", "group", "selected", "prev", "stack"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .stack)
+        XCTAssertEqual(controller.surfaceTree.activeSurfaces[group], tab)
+        try await checkCommand(["surface", "reorder", "selected", "earlier"])
+        XCTAssertEqual(controller.surfaceTree.roots[workspace]?.flatMap(\.surfaces), [tab, native.surfaceID])
+        try await checkCommand(["surface", "layout", "selected", "vertical"])
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .vertical)
+        XCTAssertEqual(controller.surfaceTree.containingGroup(of: tab), group)
+        XCTAssertEqual(controller.capturePlacementSnapshot()?.layoutWorkspaces, [workspace])
+        let saved = try XCTUnwrap(controller.capturePlacementSnapshot())
+        XCTAssertEqual(try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self, from: JSONEncoder().encode(saved)).validated(), saved)
+        try await checkCommand(["surface", "ungroup", "selected"])
+        XCTAssertEqual(controller.surfaceTree.roots[workspace], [.surface(tab), .surface(native.surfaceID)])
+        XCTAssertTrue(native.parent === originalNativeParent)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertEqual(controller.owner(of: tab)?.inventory.tabs.count, 1)
+        XCTAssertFalse(requests.contains { $0.action == .close })
+    }
+
+    func testExistingLayoutShortcutUsesSharedTreeForBothOwnersAndExplicitNativeOverride() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71))
+        try await checkCommand(["layout", "horizontal", "vertical"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .vertical)
+        _ = native.focusWindow()
+        try await checkCommand(["layout", "horizontal", "vertical"])
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .horizontal)
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
+        let shared = controller.surfaceTree
+        try await checkCommand(["layout", "vertical", "--window-id", "71"])
+        XCTAssertEqual(controller.surfaceTree, shared)
+    }
+
+    func testInvalidGroupTargetsAndBoundariesAreAtomic() async throws {
+        let before = controller.capturePlacementSnapshot()
+        for args in [["surface", "group", "selected", "next", "stack"],
+                     ["surface", "group", "selected", tab.description, "horizontal"],
+                     ["surface", "group", "selected", SurfaceID.nativeWindow(UUID()).description, "stack"],
+                     ["surface", "ungroup", "selected"], ["surface", "reorder", "selected", "later"],
+                     ["layout", "horizontal", "floating"]] {
+            try await checkCommand(args, exit: 1)
+            XCTAssertEqual(controller.capturePlacementSnapshot(), before)
+        }
+        let other = TestWindow.new(id: 72, parent: Workspace.get(byName: "Other").rootTilingContainer)
+        try await checkCommand(["surface", "group", "selected", other.surfaceID.description, "stack"], exit: 1)
+        XCTAssertEqual(controller.capturePlacementSnapshot(), before)
+    }
+
+    func testDisconnectedOrOldProtocolOwnerPreventsPartialStructuralEdits() async throws {
+        controller.disconnected(connection)
+        _ = Window.get(byId: 71)?.focusWindow()
+        let before = controller.surfaceTree
+        try await checkCommand(["surface", "layout", "selected", "stack"], exit: 1)
+        XCTAssertEqual(controller.surfaceTree, before)
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: tab, hostID: "old", title: "", selected: false)]),
+            epoch: UUID(), connection: connection, protocolVersion: 2)
+        try await checkCommand(["surface", "group", "selected", tab.description, "horizontal"], exit: 1)
+        XCTAssertEqual(controller.surfaceTree, before)
     }
 
     func testCrossWorkspaceRowDropMovesOwnerBeforeReordering() async throws {

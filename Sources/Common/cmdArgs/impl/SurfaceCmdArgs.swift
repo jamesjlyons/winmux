@@ -7,8 +7,11 @@ public struct SurfaceCmdArgs: CmdArgs {
         kind: .surface, allowInConfig: true,
         help: """
         USAGE: surface list
-           OR: surface (focus|close) (<surface-id>|selected)
+           OR: surface (focus|close|ungroup) (<surface-id>|selected)
            OR: surface move (<surface-id>|selected) <workspace> [--focus-follows-surface]
+           OR: surface group (<surface-id>|selected) (<surface-id>|next|prev) (stack|horizontal|vertical)
+           OR: surface layout (<surface-id>|selected) (stack|horizontal|vertical)
+           OR: surface reorder (<surface-id>|selected) (earlier|later)
 
         List returns JSON references, availability and selection; no page contents.
         IDs are native:<uuid> or browser:<profile-uuid>:<tab-uuid>.
@@ -23,11 +26,14 @@ public struct SurfaceCmdArgs: CmdArgs {
 
 func parseSurfaceCmdArgs(_ args: StrArrSlice) -> ParsedCmd<SurfaceCmdArgs> {
     parseSpecificCmdArgs(SurfaceCmdArgs(rawArgs: args), args)
-        .filter("Expected surface list, surface (focus|close) <id|selected>, or surface move <id|selected> <workspace>") {
+        .filter("Invalid surface action or operands; see surface --help") {
             switch $0.operands.first {
             case "list": $0.operands.count == 1
-            case "focus", "close": $0.operands.count == 2
+            case "focus", "close", "ungroup": $0.operands.count == 2
             case "move": $0.operands.count == 3 && !$0.operands[2].isEmpty
+            case "group": $0.operands.count == 4 && ["stack", "horizontal", "vertical"].contains($0.operands[3])
+            case "layout": $0.operands.count == 3 && ["stack", "horizontal", "vertical"].contains($0.operands[2])
+            case "reorder": $0.operands.count == 3 && ["earlier", "later"].contains($0.operands[2])
             default: false
             }
         }

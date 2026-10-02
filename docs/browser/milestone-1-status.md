@@ -117,8 +117,9 @@ and native activation has now been verified against a launch-bound synthetic fix
 1. Shared identity, sidebar organization, owner-controlled mixed geometry,
    persistence, navigation and typed owner actions are implemented below. macOS
    approval is granted; no permission request is pending.
-2. Complete remaining mixed keyboard/layout actions and prepare deliberate
-   daily-driver activation with ownership transfer, isolated state and rollback.
+2. Prepare deliberate daily-driver activation with ownership transfer, isolated
+   state and rollback. Shared group/layout/ungroup/reorder commands and the
+   existing layout binding now work for both owners, as verified below.
    Existing native-only commands must never target an old native selection while
    a browser tab is selected.
 3. Validate physical keyboard/trackpad delivery, display transitions, fullscreen
@@ -474,3 +475,51 @@ the owner rejects that undersized visible request. Physical input, display
 transitions, fullscreen and popups remain open. Continue shared layout/action
 coverage and deliberate daily-driver activation preparation; performance and
 extension qualification remain deferred.
+
+## Shared structural commands and layout bindings — 2026-10-01
+
+- Added `surface group`, `surface layout`, `surface ungroup` and `surface reorder`.
+  Commands accept `selected` or a durable typed reference; grouping also accepts
+  the next/previous leaf in shared sidebar order. They preserve owner identity
+  and selection, reject unavailable/cross-workspace targets, and validate the
+  complete candidate tree before committing. See [command syntax and bindings](surface-commands.md).
+- Layout edits retain the containing group's UUID and child order. At a root
+  leaf, a layout command wraps the existing roots without flattening nested
+  groups. The existing `layout horizontal vertical` binding now uses this same
+  shared tree for both native and browser selection. Explicit native IDs and
+  environment targets retain their prior behavior. Floating/tiling conversion
+  and other native-only commands still reject implicit browser selection.
+- Signed **alpha-layout-commands-2** passed actual mixed command testing:
+  browser/native stack selection, exact **840-point horizontal panes**, exact
+  **480-point vertical panes** through `trigger-binding --mode main alt-space`,
+  reordering the browser above native, ungrouping and relative grouping. Invalid
+  cross-workspace and unknown typed targets left the tree unchanged. The built
+  branch CLI independently listed all four synthetic surfaces through `--socket`.
+- The first signed package exposed a native frame error after helper restart:
+  the tree and Chromium placement returned but the native frame was wrong. Shared
+  AX writes could retain a cached requested frame after interruption, and skipped
+  the normal startup/geometry reassertion rules. The corrected implementation
+  invalidates interrupted writes and uses those existing native rules. A unit
+  regression covers cancellation and refresh reuse; no cancellation trace was
+  recorded in the failed live run. Repeating the full live scenario then restored
+  the exact shared tree, group UUID, workspace set, selection **and both frames**.
+- **753 native regression tests**, **25 final targeted tests**, **30 WorkspaceCore
+  tests**, **5 bridge tests** and **35 Python checks** pass. The full native suite
+  ran before the final frame-cache correction; the targeted run covers that
+  correction, shared commands, restoration and native AX fast paths. Final
+  deep/strict signing passed and all **568 native source hashes** match. No
+  Chromium engine rebuild was required.
+- The final signed headless owner-layout/action/fence/recovery test passed with
+  a clean browser exit, temporary service removal and unchanged enrolled helper.
+  Both live sessions and the native fixture were also stopped. Existing signed-in
+  and default-profile browser sessions, installed app and original WinMux state
+  remain untouched. The configured binding's command path is verified; physical
+  keyboard/trackpad delivery is still unqualified.
+
+[Shared layout command evidence](evidence/2026-10-01-shared-layout-commands.json).
+Current verified staging app:
+`.local/browser/packages/alpha-layout-commands-2/WinMux Browser Alpha.app`.
+Next prepare the explicit daily-driver activation path with reversible ownership
+handoff; this package has not replaced the installed app or its helper. Physical
+drag/display transitions, fullscreen/popups and the documented tiny-viewport and
+nested fallback cases remain open. Performance and extension work stay deferred.

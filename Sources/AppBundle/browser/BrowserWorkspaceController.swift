@@ -308,6 +308,27 @@ public final class BrowserWorkspaceController {
 
     func ungroup(_ id: UUID) { _ = surfaceTree.ungroup(id); scheduleRefresh() }
 
+    /// Structural commands must never edit the old native tree behind a browser
+    /// selection. Validate the owners and candidate snapshot before committing.
+    func editOrganization(of id: SurfaceID, _ edit: (inout SurfaceTree) -> Bool) -> Bool {
+        guard usesSurfaceTree, isAvailable(id), let workspace = surfaceTree.workspace(of: id),
+              let nodes = surfaceTree.roots[workspace], nodes.flatMap(\.surfaces).allSatisfy({ member in
+                  guard isAvailable(member) else { return false }
+                  if case .browserTab = member { return owner(of: member)?.supportsLayout == true }
+                  return true
+              }) else { return false }
+        var candidate = surfaceTree
+        guard edit(&candidate) else { return false }
+        if let selected = focusCoordinator.target { candidate.select(selected) }
+        // The same depth/identity limits apply to new edits and restored trees.
+        guard let data = try? JSONEncoder().encode(candidate),
+              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
+        surfaceTree = candidate
+        mixedLayoutWorkspaces.insert(workspace)
+        scheduleRefresh()
+        return true
+    }
+
     func isAvailable(_ id: SurfaceID) -> Bool {
         switch id {
         case .nativeWindow: Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil
@@ -391,28 +412,32 @@ public final class BrowserWorkspaceController {
             if placement.visible {
                 let frame = placement.frame
                 let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
-                if window.lastAppliedLayoutPhysicalRect != rect {
-                    window.lastAppliedLayoutPhysicalRect = rect
-                    window.lastAppliedLayoutVirtualRect = rect
+                if !canReuseLastAppliedWindowFrame(previousPhysicalRect: window.lastAppliedLayoutPhysicalRect, nextPhysicalRect: rect) {
                     if let native = window as? MacWindow {
-                        // AX has no universal minimum-size attribute. Observe the
-                        // owner's result after its serialized frame write, never
-                        // infer a limit from a stale pre-write window size.
-                        try await native.setAxFrameBlocking(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
-                        if let actual = try await native.getAxRect(), window.lastAppliedLayoutPhysicalRect == rect,
-                           Window.get(bySurfaceID: placement.surfaceID) === window,
-                           actual.width.isFinite, actual.height.isFinite,
-                           (1...30000).contains(actual.width), (1...30000).contains(actual.height),
-                           actual.width > rect.width + 1 || actual.height > rect.height + 1 {
-                            let old = observedNativeMinimums[placement.surfaceID] ?? .init(width: 80, height: 80)
-                            let minimum = SurfaceMinimumSize(width: actual.width > rect.width + 1 ? Int(actual.width.rounded(.up)) : old.width,
-                                height: actual.height > rect.height + 1 ? Int(actual.height.rounded(.up)) : old.height)
-                            if minimum.isValid, minimum != old {
-                                observedNativeMinimums[placement.surfaceID] = minimum
-                                scheduleRefresh()
+                        try await window.applySharedLayoutFrame(rect) {
+                            // AX has no universal minimum-size attribute. Observe the
+                            // owner's result after its serialized frame write, never
+                            // infer a limit from a stale pre-write window size.
+                            try await native.setAxFrameBlocking(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
+                            if let actual = try await native.getAxRect(), window.lastAppliedLayoutPhysicalRect == rect,
+                               Window.get(bySurfaceID: placement.surfaceID) === window,
+                               actual.width.isFinite, actual.height.isFinite,
+                               (1...30000).contains(actual.width), (1...30000).contains(actual.height),
+                               actual.width > rect.width + 1 || actual.height > rect.height + 1 {
+                                let old = observedNativeMinimums[placement.surfaceID] ?? .init(width: 80, height: 80)
+                                let minimum = SurfaceMinimumSize(width: actual.width > rect.width + 1 ? Int(actual.width.rounded(.up)) : old.width,
+                                    height: actual.height > rect.height + 1 ? Int(actual.height.rounded(.up)) : old.height)
+                                if minimum.isValid, minimum != old {
+                                    observedNativeMinimums[placement.surfaceID] = minimum
+                                    scheduleRefresh()
+                                }
                             }
                         }
-                    } else { window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height)) }
+                    } else {
+                        window.lastAppliedLayoutPhysicalRect = rect
+                        window.lastAppliedLayoutVirtualRect = rect
+                        window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
+                    }
                 }
             } else if let native = window as? MacWindow {
                 window.lastAppliedLayoutPhysicalRect = nil
@@ -510,6 +535,23 @@ public final class BrowserWorkspaceController {
             monitorScopeId: workspaceSidebarDefaultScopeId, monitorName: "", isFocused: true, isVisible: true,
             items: organizedRows(native: [], in: "browser-alpha"))]
         previewState.snapshot = snapshot
+    }
+}
+
+extension Window {
+    /// AX frame application can be interrupted halfway through a startup or
+    /// command session. A requested frame must not remain cached as completed.
+    @MainActor func applySharedLayoutFrame(_ rect: Rect, apply: @MainActor () async throws -> Void) async throws {
+        lastAppliedLayoutPhysicalRect = rect
+        lastAppliedLayoutVirtualRect = rect
+        do { try await apply() }
+        catch {
+            if lastAppliedLayoutPhysicalRect == rect {
+                lastAppliedLayoutPhysicalRect = nil
+                lastAppliedLayoutVirtualRect = nil
+            }
+            throw error
+        }
     }
 }
 
