@@ -95,4 +95,21 @@ import XCTest
         XCTAssertEqual(controller.navigate(args, workspace: focus.workspace), true)
         XCTAssertEqual(controller.focusCoordinator.target, tab)
     }
+
+    func testTemporaryRootStackUsesMixedTabNavigationWithoutChangingSavedTree() {
+        let controller = BrowserWorkspaceController(), tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let native = TestWindow.new(id: 51, parent: focus.workspace.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([native.surfaceID, tab], in: focus.workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [focus.workspace.name], selected: nil, closedBrowserTabs: []))
+        let width = Int(focus.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps.width)
+        let connection = UUID()
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: tab, hostID: "test", title: "", selected: true,
+            hostMinimumSize: .init(width: width, height: 100))]), epoch: UUID(), connection: connection)
+        XCTAssertEqual(controller.select(native.surfaceID), .issued)
+        XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).filter(\.visible).map(\.surfaceID), [native.surfaceID])
+        XCTAssertEqual(controller.navigate(FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(.tabNext)), workspace: focus.workspace), true)
+        XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).filter(\.visible).map(\.surfaceID), [tab])
+        XCTAssertEqual(controller.surfaceTree, tree)
+    }
 }

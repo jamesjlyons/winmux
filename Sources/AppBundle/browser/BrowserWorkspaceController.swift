@@ -23,6 +23,7 @@ public final class BrowserWorkspaceController {
     private var closedBrowserTabs: Set<SurfaceID> = []
     private var restoredSelection: SurfaceID?
     private var restoredPlacements = false
+    private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
 
     func capturePlacementSnapshot() -> SurfaceWorkspaceSnapshot? {
         guard usesSurfaceTree else { return nil }
@@ -358,11 +359,23 @@ public final class BrowserWorkspaceController {
         scheduleRefresh()
     }
 
-    private func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
+    func minimumSizes(in workspace: Workspace) -> [SurfaceID: SurfaceMinimumSize] {
+        var result: [SurfaceID: SurfaceMinimumSize] = [:]
+        for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
+            if case .browserTab = id {
+                result[id] = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
+            } else {
+                result[id] = observedNativeMinimums[id] ?? .init(width: 80, height: 80)
+            }
+        }
+        return result
+    }
+
+    func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return surfaceTree.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
-            visible: workspace.isVisible)
+            visible: workspace.isVisible, minimumSizes: minimumSizes(in: workspace), selectedSurface: focusCoordinator.target)
     }
 
     func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {
@@ -381,7 +394,25 @@ public final class BrowserWorkspaceController {
                 if window.lastAppliedLayoutPhysicalRect != rect {
                     window.lastAppliedLayoutPhysicalRect = rect
                     window.lastAppliedLayoutVirtualRect = rect
-                    window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
+                    if let native = window as? MacWindow {
+                        // AX has no universal minimum-size attribute. Observe the
+                        // owner's result after its serialized frame write, never
+                        // infer a limit from a stale pre-write window size.
+                        try await native.setAxFrameBlocking(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
+                        if let actual = try await native.getAxRect(), window.lastAppliedLayoutPhysicalRect == rect,
+                           Window.get(bySurfaceID: placement.surfaceID) === window,
+                           actual.width.isFinite, actual.height.isFinite,
+                           (1...30000).contains(actual.width), (1...30000).contains(actual.height),
+                           actual.width > rect.width + 1 || actual.height > rect.height + 1 {
+                            let old = observedNativeMinimums[placement.surfaceID] ?? .init(width: 80, height: 80)
+                            let minimum = SurfaceMinimumSize(width: actual.width > rect.width + 1 ? Int(actual.width.rounded(.up)) : old.width,
+                                height: actual.height > rect.height + 1 ? Int(actual.height.rounded(.up)) : old.height)
+                            if minimum.isValid, minimum != old {
+                                observedNativeMinimums[placement.surfaceID] = minimum
+                                scheduleRefresh()
+                            }
+                        }
+                    } else { window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height)) }
                 }
             } else if let native = window as? MacWindow {
                 window.lastAppliedLayoutPhysicalRect = nil

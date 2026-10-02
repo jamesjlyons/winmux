@@ -3,6 +3,13 @@ import Common
 import WorkspaceCore
 
 extension BrowserWorkspaceController {
+    func navigationStackItems(for id: SurfaceID, in workspace: Workspace) -> [SurfaceID] {
+        if let items = surfaceTree.stackItems(containing: id) { return items.filter(isAvailable) }
+        // A split that cannot fit is temporarily presented as a stack without
+        // rewriting the saved tree. Keep it navigable through the same controls.
+        let plan = plannedSurfaces(in: workspace)
+        return plan.filter(\.visible).count == 1 ? plan.map(\.surfaceID).filter(isAvailable) : []
+    }
     /// Numeric native IDs keep their existing meaning. Shared traversal is alpha-only.
     func navigate(_ args: FocusCmdArgs, workspace: Workspace, from explicit: SurfaceID? = nil) -> Bool? {
         guard usesSurfaceTree, let nodes = surfaceTree.roots[workspace.name] else { return nil }
@@ -15,14 +22,14 @@ extension BrowserWorkspaceController {
         case .dfsIndex(let i): index = Int(i)
         case .dfsRelative(let direction): offset = direction == .dfsNext ? 1 : -1
         case .tabIndex(let i):
-            items = current.flatMap { surfaceTree.stackItems(containing: $0) }?.filter(isAvailable) ?? []
+            items = current.map { navigationStackItems(for: $0, in: workspace) } ?? []
             index = Int(i) - 1
         case .tabRelative(let direction):
-            items = current.flatMap { surfaceTree.stackItems(containing: $0) }?.filter(isAvailable) ?? []
+            items = current.map { navigationStackItems(for: $0, in: workspace) } ?? []
             offset = direction == .tabNext ? 1 : -1
         case .direction(let direction):
             guard args.boundaries == .workspace else { return nil }
-            let frames = surfaceTree.placements(in: workspace.name, frame: .init(x: 0, y: 0, width: 10000, height: 10000))
+            let frames = plannedSurfaces(in: workspace)
             guard let source = frames.first(where: { $0.surfaceID == current }) else { return false }
             func axis(_ p: SurfacePlacement) -> Int { direction.orientation == .h ? p.frame.x + p.frame.width / 2 : p.frame.y + p.frame.height / 2 }
             let others = frames.filter { $0.visible && $0.surfaceID != current && isAvailable($0.surfaceID) }
@@ -63,8 +70,8 @@ struct MixedTrackpadTarget {
 
     @MainActor static func capture(_ controller: BrowserWorkspaceController = .shared) -> Self? {
         guard controller.usesSurfaceTree, let id = controller.focusCoordinator.target,
-              let workspace = controller.surfaceTree.workspace(of: id), Workspace.existing(byName: workspace)?.isVisible == true,
-              let members = controller.surfaceTree.stackItems(containing: id), members.filter(controller.isAvailable).count > 1,
+              let workspace = controller.surfaceTree.workspace(of: id), let live = Workspace.existing(byName: workspace), live.isVisible,
+              controller.navigationStackItems(for: id, in: live).count > 1,
               let pid = controller.navigationProcess(for: id) else { return nil }
         return .init(surface: id, workspace: workspace, tree: controller.surfaceTree, generation: controller.focusCoordinator.generation, pid: pid)
     }

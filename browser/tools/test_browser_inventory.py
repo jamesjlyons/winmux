@@ -70,7 +70,8 @@ def main():
                 "layout_split": "issued", "layout_repeat": "issued", "layout_stale": "stale_layout",
                 "layout_split_host_count": "2", "layout_identity_retained": "yes", "layout_frames_match": "yes",
                 "layout_conflict": "operation_conflict", "layout_merge": "issued",
-                "layout_merged_host_count": "1", "layout_hidden": "yes"}
+                "layout_merged_host_count": "1", "layout_hidden": "yes",
+                "layout_minimum_rejected": "unsupported", "layout_minimum_no_mutation": "yes"}
     expected_count = 0 if args.private else 1
     if args.private:
         expected = {}

@@ -114,17 +114,18 @@ The real sidebar now shows and operates Chromium tabs in the explicitly isolated
 preview described below. The installed browser/helper have not been upgraded,
 and native activation has now been verified against a launch-bound synthetic fixture.
 
-1. macOS approval is granted and isolated native/browser switching passed. The
-   config/socket/session separation, ownership checks, host reconciliation and
-   shared native focus clock are implemented. No permission request remains.
-   Existing native keyboard/gesture traversal still enumerates native windows;
-   traversal across mixed stacks belongs to the generalized model below.
-2. Generalize the layout tree, drag/drop, groups and split hosts to accept both
-   surface kinds. The alpha sidebar now uses the shared recursive SurfaceTree
-   described below, with typed moves and mixed groups. Native geometry and global
-   traversal still use `Window`; shared organization is only in memory.
-3. Implement owner host geometry, visibility and tab transfer for mixed stacks
-   and splits, then persist shared placements without copying browser sessions.
+1. Shared identity, sidebar organization, owner-controlled mixed geometry,
+   persistence, navigation and typed owner actions are implemented below. macOS
+   approval is granted; no permission request is pending.
+2. Complete remaining mixed keyboard/layout actions and prepare deliberate
+   daily-driver activation with ownership transfer, isolated state and rollback.
+   Existing native-only commands must never target an old native selection while
+   a browser tab is selected.
+3. Validate physical keyboard/trackpad delivery, display transitions, fullscreen
+   and popups. Physical drag remains limited by the current Computer Use tool's
+   `AXError.notImplemented`; do not repeat the same failing gesture. Automatic
+   pane-fit behavior is now tested below, but a viewport smaller than one owner's
+   minimum still needs a defined fallback.
 
 Do not restart benchmark or extension-testing loops before this integration.
 
@@ -428,3 +429,48 @@ and extension testing remain deferred.
 [Actual shared-action evidence](evidence/2026-10-01-surface-actions.json).
 Current final staging app: `.local/browser/packages/alpha-actions-2/WinMux Browser Alpha.app`.
 It has not replaced the installed application or its enrolled helper.
+
+## Pane minimum sizes and temporary stacking — 2026-10-01
+
+- Chromium now publishes its real outer-window minimum through authenticated
+  inventory. Its owner adapter rejects undersized visible layout requests during
+  preflight, before changing tab ownership or host windows. Invalid minimum
+  dimensions are rejected atomically by the helper inventory validator.
+- Split allocation respects owner minima and distributes every integer point.
+  If the intended split cannot fit, its children temporarily act as a stack,
+  showing the selected item. Expanding the available area restores the split;
+  saved layout styles, group IDs and ordering are not rewritten.
+- Native limits are learned from the owning window's actual frame after a
+  serialized AX resize, with finite/range validation. This avoids inferring a
+  limit from an old frame. The first constrained native resize may overshoot
+  before the next reconciliation; learned limits are not persisted.
+- Actual signed **alpha-fit-1** reported Chromium's **500×375** minimum and learned
+  the synthetic native windows' enforced **400-point** minimum width. In a
+  **1920-point** viewport, two native panes measured **460 points each** and two
+  Chromium hosts **500 points each**, with no overlap or lost space. In a
+  **920-point** viewport only the selected pane was shown. Native selection hid
+  the web hosts, and `focus tab-next --wrap-around` returned to a browser pane.
+  Widening the viewport restored all four panes and the saved tree was identical
+  throughout. These were isolated config changes, not physical display changes.
+- **748 native regression tests**, **15 final targeted tests**, **28 WorkspaceCore
+  tests**, **5 bridge tests** and **35 Python checks** pass. The targeted run
+  includes a new root-fallback navigation test added after the full native run.
+  Directional focus now uses actual planned frames; more complex nested fallback
+  navigation and physical key/trackpad delivery remain to be qualified.
+- Final signed **alpha-fit-3** passed the real browser split/merge/hide/show,
+  minimum rejection, action/fence and recovery tests. The rejected minimum
+  request left inventory unchanged at reply. The browser exited 0, its temporary
+  service was removed and the original enrolled helper identity was unchanged.
+  The final package adds the isolated rejection probe and bounded native-size
+  validation after the package-1 live proof. Deep/strict signing passed and all
+  **568 native source hashes** match.
+
+[Pane-fit evidence](evidence/2026-10-01-pane-fit.json).
+Current final staging app: `.local/browser/packages/alpha-fit-3/WinMux Browser Alpha.app`.
+All temporary fit services and the fixture were stopped. The installed app,
+enrolled helper and both pre-existing browser sessions remain untouched.
+A viewport smaller than one owner's minimum still needs a user-visible fallback;
+the owner rejects that undersized visible request. Physical input, display
+transitions, fullscreen and popups remain open. Continue shared layout/action
+coverage and deliberate daily-driver activation preparation; performance and
+extension qualification remain deferred.

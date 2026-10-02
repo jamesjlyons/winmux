@@ -166,7 +166,21 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                             let mergedState = self.lock.withLock { self.inventory }
                             self.noteTest("layout_merged_host_count", String(Set(mergedState.tabs.values.map(\.hostID)).count))
                             self.noteTest("layout_hidden", mergedState.tabs.values.allSatisfy { $0.hostVisible == false } ? "yes" : "no")
-                            self.exerciseActions(epoch: epoch)
+                            guard let minimum = mergedState.tabs[ids[0]]?.hostMinimumSize, minimum.width > 1 else {
+                                self.noteTest("layout_minimum_rejected", "missing_owner_minimum")
+                                self.exerciseActions(epoch: epoch)
+                                return
+                            }
+                            let tooSmall = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: ids[0],
+                                frame: .init(x: 100, y: 100, width: minimum.width - 1, height: 600), visible: true)]
+                            guard let tooSmallData = try? JSONEncoder().encode(tooSmall) else { return }
+                            remote.value.applyLayout(tooSmallData, epoch: epoch, operation: UUID().uuidString,
+                                revision: mergedState.revision, generation: 3) { rejected in
+                                self.noteTest("layout_minimum_rejected", rejected)
+                                let unchanged = self.lock.withLock { self.inventory }
+                                self.noteTest("layout_minimum_no_mutation", unchanged.tabs == mergedState.tabs ? "yes" : "no")
+                                self.exerciseActions(epoch: epoch)
+                            }
                         }
                     }
                 }
@@ -239,6 +253,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                        "full_messages": fullMessages, "delta_messages": deltaMessages,
                                        "hosts": inventory.tabs.values.map { tab in
                                            ["host_id": tab.hostID, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
+                                            "minimum_size": tab.hostMinimumSize.map { ["width": $0.width, "height": $0.height] as Any } ?? NSNull(),
                                             "frame": tab.hostFrame.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] as Any } ?? NSNull()]
                                        }]
             if let data = try? JSONSerialization.data(withJSONObject: report, options: .prettyPrinted) {

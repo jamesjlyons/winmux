@@ -207,6 +207,11 @@ class BrowserInventory final : public BrowserCollectionObserver,
         frame.Set("width", bounds.width()); frame.Set("height", bounds.height());
         record.Set("host_frame", std::move(frame));
         record.Set("host_visible", browser->GetWindow()->IsVisible());
+        auto minimum = BrowserHostMinimumSize(browser->GetWindow());
+        base::DictValue minimum_size;
+        minimum_size.Set("width", minimum.width());
+        minimum_size.Set("height", minimum.height());
+        record.Set("host_minimum_size", std::move(minimum_size));
         record.Set("title", base::UTF16ToUTF8(contents->GetTitle().substr(0, 1024)));
         record.Set("selected", index == strip->active_index());
         record.Set("private", false);

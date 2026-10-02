@@ -9,8 +9,9 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostWindowID: UInt32?
     public let hostFrame: SurfaceFrame?
     public let hostVisible: Bool?
+    public let hostMinimumSize: SurfaceMinimumSize?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil) {
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
@@ -18,6 +19,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         self.privateBrowsing = privateBrowsing
         self.hostWindowID = hostWindowID
         self.hostFrame = hostFrame; self.hostVisible = hostVisible
+        self.hostMinimumSize = hostMinimumSize
     }
 
     enum CodingKeys: String, CodingKey {
@@ -25,6 +27,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case privateBrowsing = "private"
         case hostWindowID = "host_window_id"
         case hostFrame = "host_frame", hostVisible = "host_visible"
+        case hostMinimumSize = "host_minimum_size"
     }
 }
 
@@ -61,7 +64,7 @@ public struct BrowserInventory: Sendable {
               Set(message.removed).count == message.removed.count,
               Set(changed).isDisjoint(with: message.removed),
               (changed + message.removed).allSatisfy({ if case .browserTab = $0 { return true }; return false }),
-              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 })
+              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && ($0.hostMinimumSize?.isValid ?? true) })
         else { return false }
         var next = message.full ? [:] : tabs
         for id in message.removed {

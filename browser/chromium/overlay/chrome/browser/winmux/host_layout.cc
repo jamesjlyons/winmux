@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/winmux/tab_identity.h"
+#include "chrome/browser/winmux/host_window.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "content/public/browser/web_contents.h"
@@ -80,6 +81,9 @@ std::string ApplyHostLayout(const std::string& json) {
       if (p.profile && p.profile != profile) return "invalid_request";
       auto* source = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(found->second.get());
       if (!source || source->GetWindow()->IsFullscreen()) return "unsupported";
+      const auto minimum = BrowserHostMinimumSize(source->GetWindow());
+      if (p.visible && (p.bounds.width() < minimum.width() || p.bounds.height() < minimum.height()))
+        return "unsupported";
       p.profile = profile;
       p.tabs.push_back(found->second);
       selected_found |= tab.GetString() == p.selected;
