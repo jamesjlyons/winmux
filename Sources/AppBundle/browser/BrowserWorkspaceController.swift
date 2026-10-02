@@ -598,6 +598,21 @@ public final class BrowserWorkspaceController {
         scheduleRefresh()
     }
 
+    /// Native floating conversion changes membership immediately, while other
+    /// owners keep their durable IDs, organization and current selection.
+    func nativeTilingStateChanged(_ window: Window) {
+        guard usesSurfaceTree else { return }
+        unresolvedNativeItems.remove(window.surfaceID)
+        if participatesInSharedTiling(window), let workspace = window.nodeWorkspace {
+            let existing = (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces)
+            surfaceTree.reconcile(existing + [window.surfaceID], in: workspace.name)
+            if focusCoordinator.target == window.surfaceID { surfaceTree.select(window.surfaceID) }
+        } else {
+            surfaceTree.remove(window.surfaceID)
+        }
+        scheduleRefresh()
+    }
+
     func containsBrowserItems(in workspace: String) -> Bool {
         usesSurfaceTree && (placements.values.contains(workspace) ||
             (surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces).contains(where: unresolvedNativeItems.contains))

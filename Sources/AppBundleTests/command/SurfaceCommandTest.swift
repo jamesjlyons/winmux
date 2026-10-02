@@ -175,6 +175,76 @@ import XCTest
         XCTAssertEqual(controller.surfaceTree, shared)
     }
 
+    func testNativeFloatingTogglePreservesMixedBrowserOwnersAndSourceFocus() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), source = focus.workspace
+        let otherPage = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let browserRecords = [
+            BrowserTabRecord(surfaceID: tab, hostID: "synthetic", title: "Synthetic", selected: true,
+                             hostWindowID: 901, url: "https://example.com/first", hostManaged: true),
+            BrowserTabRecord(surfaceID: otherPage, hostID: "second", title: "Second", selected: true,
+                             hostWindowID: 902, url: "https://example.com/second", hostManaged: true),
+        ]
+        let epoch = try XCTUnwrap(controller.owner(of: tab)?.epoch)
+        controller.received(.init(revision: 2, full: true, tabs: browserRecords),
+                            epoch: epoch, connection: connection, protocolVersion: 4)
+        var tree = SurfaceTree()
+        tree.reconcile([native.surfaceID, tab, otherPage], in: source.name)
+        tree.importStack([native.surfaceID, tab, otherPage], in: source.name)
+        tree.select(tab)
+        let group = try XCTUnwrap(tree.containingGroup(of: tab))
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [source.name], selected: nil, closedBrowserTabs: []))
+        native.lastFloatingSize = .init(width: 480, height: 320)
+        try await checkCommand(["surface", "focus", native.surfaceID.description])
+        let browserMinimum = controller.minimumSizes(in: source)[tab]
+
+        try await checkCommand(["layout", "floating", "tiling"])
+        XCTAssertTrue(native.isFloating)
+        XCTAssertNil(controller.surfaceTree.workspace(of: native.surfaceID))
+        XCTAssertFalse(controller.plannedSurfaces(in: source).contains { $0.surfaceID == native.surfaceID })
+        XCTAssertEqual(controller.surfaceTree.group(group)?.surfaces, [tab, otherPage])
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .stack)
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
+        XCTAssertTrue(focus.windowOrNil === native)
+        XCTAssertTrue(focus.workspace === source)
+        XCTAssertEqual(native.lastFloatingSize, .init(width: 480, height: 320))
+
+        try await checkCommand(["layout", "floating", "tiling"])
+        XCTAssertTrue(native.parent is TilingContainer)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: native.surfaceID), source.name)
+        XCTAssertTrue(controller.plannedSurfaces(in: source).contains { $0.surfaceID == native.surfaceID && $0.visible })
+        XCTAssertEqual(controller.surfaceTree.group(group)?.surfaces, [tab, otherPage])
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .stack)
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
+        XCTAssertTrue(focus.windowOrNil === native)
+        XCTAssertTrue(focus.workspace === source)
+        XCTAssertEqual(controller.minimumSizes(in: source)[tab], browserMinimum, "Page chrome size remains part of browser layout")
+        for record in browserRecords {
+            XCTAssertEqual(controller.owner(of: record.surfaceID)?.inventory.tabs[record.surfaceID], record)
+            XCTAssertEqual(controller.workspaceName(for: record.surfaceID), source.name)
+        }
+        XCTAssertFalse(requests.contains { $0.action == .close || $0.action == .newTab })
+
+        try await checkCommand(["surface", "focus", tab.description])
+        let before = controller.capturePlacementSnapshot()
+        try await checkCommand(["layout", "floating"], exit: 1)
+        try await checkCommand(["layout", "tiling"], exit: 1)
+        XCTAssertEqual(controller.capturePlacementSnapshot(), before)
+        XCTAssertTrue(native.parent is TilingContainer)
+    }
+
+    func testExplicitNativeFloatingConversionKeepsBrowserSelection() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), source = focus.workspace
+        try await checkCommand(["layout", "floating", "--window-id", "71"])
+        XCTAssertTrue(native.isFloating)
+        XCTAssertNil(controller.surfaceTree.workspace(of: native.surfaceID))
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        try await checkCommand(["layout", "tiling", "--window-id", "71"])
+        XCTAssertTrue(native.parent is TilingContainer)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: native.surfaceID), source.name)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertEqual(controller.workspaceName(for: tab), source.name)
+    }
+
     func testInvalidGroupTargetsAndBoundariesAreAtomic() async throws {
         let before = controller.capturePlacementSnapshot()
         for args in [["surface", "group", "selected", "next", "stack"],

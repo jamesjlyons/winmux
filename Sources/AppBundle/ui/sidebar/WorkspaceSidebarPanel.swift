@@ -627,7 +627,7 @@ extension WorkspaceSidebarPanel {
         shouldLockWorkspaceSidebarExpansion(
             hasDropPreview: TrayMenuModel.shared.workspaceSidebarDropPreview != nil,
             hasPinnedDraggedWindow: hasPinnedDraggedWindow(),
-            isSidebarDragInProgress: getCurrentMouseManipulationKind() == .move && getCurrentMouseDragStartedInSidebar(),
+            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress(),
             hasActiveEditor: isMenuTrackingOrInGracePeriod() || shouldKeepSidebarOpenForInlineTextEditing(),
         ) || isMouseWindowDragInProgress()
     }

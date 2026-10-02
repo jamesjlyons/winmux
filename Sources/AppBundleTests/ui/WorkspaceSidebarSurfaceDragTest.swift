@@ -7,6 +7,26 @@ import XCTest
 final class WorkspaceSidebarSurfaceDragTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testPanelExpansionStaysLockedDuringSidebarGestureWithoutNativeDragOrDropPreview() {
+        let panel = WorkspaceSidebarPanel.shared
+        let previousPreview = TrayMenuModel.shared.workspaceSidebarDropPreview
+        TrayMenuModel.shared.workspaceSidebarDropPreview = nil
+        resetWorkspaceSidebarItemDrag()
+        defer {
+            resetWorkspaceSidebarItemDrag()
+            TrayMenuModel.shared.workspaceSidebarDropPreview = previousPreview
+        }
+        XCTAssertFalse(panel.shouldLockExpansionForSidebarDrag())
+        // The shared row gesture locks the panel before a typed callback finds
+        // an actionable destination; it never starts a native mouse session.
+        beginWorkspaceSidebarItemDrag()
+        XCTAssertEqual(getCurrentMouseManipulationKind(), .none)
+        XCTAssertNil(TrayMenuModel.shared.workspaceSidebarDropPreview)
+        XCTAssertTrue(panel.shouldLockExpansionForSidebarDrag())
+        endWorkspaceSidebarItemDrag()
+        XCTAssertFalse(panel.shouldLockExpansionForSidebarDrag())
+    }
+
     func testGroupPayloadKeepsItsUUIDAndRejectsInvalidNumericOwners() {
         let group = UUID()
         let payload = WorkspaceSidebarDragPayload.surfaceGroup(group)
