@@ -5,7 +5,7 @@ import WorkspaceCore
 /// AppKit screen coordinates; the layout owner reserves this space from the page.
 struct BrowserToolbarItem {
     let surfaceID: SurfaceID
-    let frame: CGRect
+    var frame: CGRect
     let url: String
     let canGoBack: Bool
     let canGoForward: Bool
@@ -13,6 +13,11 @@ struct BrowserToolbarItem {
     let isFocused: Bool
     var controlsEnabled = true
     var hostWindowID: UInt32? = nil
+    var pageFrame: CGRect? = nil
+    var bodyFrame: CGRect? = nil
+    var chromeColor: NSColor? = nil
+    /// Nil follows the system. Explicit chrome colors can choose readable controls.
+    var chromeAppearance: NSAppearance.Name? = nil
 }
 
 enum BrowserToolbarAction: Equatable {
@@ -25,8 +30,21 @@ enum BrowserToolbarAction: Equatable {
 @MainActor
 final class BrowserToolbarController {
     static let shared = BrowserToolbarController()
-    nonisolated static let height: CGFloat = 38
+    nonisolated static let height = CGFloat(BrowserPageChromeGeometry.headerHeight)
     private var panels: [SurfaceID: BrowserToolbarPanel] = [:]
+    private var plannedItems: [SurfaceID: BrowserToolbarItem] = [:]
+    private var displayedItems: [SurfaceID: BrowserToolbarItem] = [:]
+
+    /// Read at AX query time; the decorative page backing is never exposed here.
+    var accessibilityWindows: [NSWindow] {
+        panels.values.filter { $0.isVisible && $0.isAccessibilityElement() }
+            .sorted { $0.windowNumber < $1.windowNumber }
+    }
+
+    /// Current presentation, including a temporary move or observed host frame.
+    var presentationItems: [BrowserToolbarItem] {
+        displayedItems.values.sorted { $0.surfaceID.description < $1.surfaceID.description }
+    }
     private lazy var keyboard = BrowserToolbarKeyboard(
         canFocus: { [weak self] in
             guard let self, BrowserWorkspaceController.shared.ownsForegroundBrowser,
@@ -41,6 +59,9 @@ final class BrowserToolbarController {
             guard let self,
                   let id = self.editingSurfaceID ?? BrowserWorkspaceController.shared.focusCoordinator.target else { return }
             self.focusAddress(for: id)
+        },
+        onActivation: { [weak self] in
+            self?.panels.values.forEach { $0.invalidateHostStacking() }
         })
 
     /// Keep layout acknowledgements from taking focus away from native address
@@ -55,16 +76,48 @@ final class BrowserToolbarController {
 
     func update(items: [BrowserToolbarItem], onAction: @escaping (SurfaceID, BrowserToolbarAction) -> Void) {
         let visible = Set(items.map(\.surfaceID))
+        plannedItems = Dictionary(uniqueKeysWithValues: items.map { ($0.surfaceID, $0) })
         for id in Array(panels.keys) where !visible.contains(id) {
             panels.removeValue(forKey: id)?.dismiss()
+            displayedItems.removeValue(forKey: id)
         }
-        for item in items {
+        for plannedItem in items {
+            let item = BrowserWindowDragController.shared.presentationItem(plannedItem)
             let panel = panels[item.surfaceID] ?? BrowserToolbarPanel(surfaceID: item.surfaceID)
             panels[item.surfaceID] = panel
             panel.onAction = { action in onAction(item.surfaceID, action) }
+            panel.onDrag = { phase, point in
+                let drag = BrowserWindowDragController.shared
+                switch phase {
+                case .began: drag.beginHeaderDrag(surfaceID: item.surfaceID, at: point)
+                case .changed: drag.updateHeaderDrag(at: point)
+                case .ended: drag.finishHeaderDrag(at: point)
+                case .cancelled: drag.cancel()
+                }
+            }
+            displayedItems[item.surfaceID] = item
             panel.update(item)
         }
         if panels.isEmpty { keyboard.stop() } else { keyboard.refresh() }
+    }
+
+    /// The native host reports its actual body in global top-left coordinates.
+    /// Keep all three page pieces together without moving unrelated windows.
+    func applyDragFrame(for id: SurfaceID, bodyFrame: CGRect) {
+        guard let planned = plannedItems[id], let panel = panels[id] else { return }
+        let item = planned.replacingBodyFrame(bodyFrame, screenTop: NSScreen.screens.first?.frame.maxY ?? 0)
+        displayedItems[id] = item
+        panel.update(item)
+    }
+
+    func restorePlannedFrame(for id: SurfaceID) {
+        guard let item = plannedItems[id], let panel = panels[id] else { return }
+        displayedItems[id] = item
+        panel.update(item)
+    }
+
+    func restorePlannedFrames() {
+        for id in plannedItems.keys { restorePlannedFrame(for: id) }
     }
 
     @discardableResult
@@ -80,7 +133,35 @@ final class BrowserToolbarController {
 
     func hideAll() {
         keyboard.stop()
+        BrowserWindowDragController.shared.cancel()
         for panel in panels.values { panel.dismiss() }
         panels.removeAll()
+        plannedItems.removeAll()
+        displayedItems.removeAll()
+    }
+}
+
+
+extension BrowserToolbarItem {
+    /// Preserve the measured header/frame insets when the Chromium body moves or
+    /// changes size. Conversion also handles displays above or left of primary.
+    func replacingBodyFrame(_ globalFrame: CGRect, screenTop: CGFloat) -> BrowserToolbarItem {
+        guard let oldBody = bodyFrame, globalFrame.width > 0, globalFrame.height > 0,
+              [globalFrame.minX, globalFrame.minY, globalFrame.width, globalFrame.height].allSatisfy(\.isFinite)
+        else { return self }
+        let body = CGRect(x: globalFrame.minX, y: screenTop - globalFrame.maxY,
+                          width: globalFrame.width, height: globalFrame.height)
+        var item = self
+        item.frame = CGRect(x: body.minX + frame.minX - oldBody.minX,
+                            y: body.maxY + frame.minY - oldBody.maxY,
+                            width: body.width + frame.width - oldBody.width, height: frame.height)
+        if let pageFrame {
+            item.pageFrame = CGRect(x: body.minX + pageFrame.minX - oldBody.minX,
+                                    y: body.minY + pageFrame.minY - oldBody.minY,
+                                    width: body.width + pageFrame.width - oldBody.width,
+                                    height: body.height + pageFrame.height - oldBody.height)
+        }
+        item.bodyFrame = body
+        return item
     }
 }

@@ -6,7 +6,8 @@ import WorkspaceCore
 /// Each page keeps its own native host even when several pages share a WinMux
 /// stack. Group membership never transfers WebContents between native windows.
 @MainActor
-func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: Bool) -> [BrowserHostPlacement] {
+func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: Bool,
+                           bodyFrameOverrides: [SurfaceID: SurfaceFrame] = [:]) -> [BrowserHostPlacement] {
     if !hasNativeToolbar {
         // Protocol 3 peers still expose conventional Chromium controls. Preserve
         // their one-host-per-container wire contract until both sides support 4.
@@ -23,15 +24,11 @@ func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: B
     }
     return placements.sorted { $0.surfaceID.description < $1.surfaceID.description }.compactMap { placement in
         guard case .browserTab = placement.surfaceID else { return nil }
-        var frame = placement.frame
-        if hasNativeToolbar {
-            let height = Int(BrowserToolbarController.height)
-            guard frame.height > height else { return nil }
-            frame.y += height
-            frame.height -= height
-        }
+        guard let geometry = BrowserPageChromeGeometry(frame: placement.frame) else { return nil }
         return .init(containerID: placement.containerID, surfaces: [placement.surfaceID],
-                     selected: placement.visible ? placement.surfaceID : nil, frame: frame, visible: placement.visible, nativeControls: true)
+                     selected: placement.visible ? placement.surfaceID : nil,
+                     frame: bodyFrameOverrides[placement.surfaceID] ?? geometry.bodyFrame,
+                     visible: placement.visible, nativeControls: true)
     }
 }
 
@@ -65,14 +62,19 @@ extension BrowserWorkspaceController {
         let screenTop = NSScreen.screens.first?.frame.maxY ?? 0
         let items = placements.compactMap { placement -> BrowserToolbarItem? in
             guard placement.visible, let session = owner(of: placement.surfaceID), session.supportsBrowserControls,
-                  let record = session.inventory.tabs[placement.surfaceID], record.hostManaged else { return nil }
-            let frame = NSRect(x: CGFloat(placement.frame.x),
-                               y: screenTop - CGFloat(placement.frame.y) - BrowserToolbarController.height,
-                               width: CGFloat(placement.frame.width), height: BrowserToolbarController.height)
-            return BrowserToolbarItem(surfaceID: placement.surfaceID, frame: frame, url: record.url,
-                                      canGoBack: record.canGoBack, canGoForward: record.canGoForward,
+                  let record = session.inventory.tabs[placement.surfaceID], record.hostManaged,
+                  let hostWindowID = record.hostWindowID,
+                  let geometry = BrowserPageChromeGeometry(frame: placement.frame) else { return nil }
+            return BrowserToolbarItem(surfaceID: placement.surfaceID,
+                                      frame: BrowserPageChromeGeometry.appKitRect(geometry.headerFrame, screenTop: screenTop),
+                                      url: record.url, canGoBack: record.canGoBack, canGoForward: record.canGoForward,
                                       isLoading: record.isLoading, isFocused: focusCoordinator.target == placement.surfaceID,
-                                      hostWindowID: record.hostWindowID)
+                                      hostWindowID: hostWindowID,
+                                      pageFrame: BrowserPageChromeGeometry.appKitRect(geometry.pageFrame, screenTop: screenTop),
+                                      bodyFrame: BrowserPageChromeGeometry.appKitRect(geometry.bodyFrame, screenTop: screenTop),
+                                      chromeColor: config.workspaceSidebar.chromeStyle == .solid
+                                          ? config.workspaceSidebar.resolvedSolidChromeNSColor : ChromePalette.background,
+                                      chromeAppearance: config.workspaceSidebar.chromeAppearance)
         }
         BrowserToolbarController.shared.update(items: items) { [weak self] id, action in
             self?.performToolbarAction(action, for: id)
@@ -143,8 +145,15 @@ extension BrowserWorkspaceController {
         let frame = SurfaceFrame(x: Int(rect.topLeftX.rounded()), y: Int(rect.topLeftY.rounded()),
                                  width: Int(rect.width.rounded()), height: Int(rect.height.rounded()))
         let minima = minimumSizes(in: workspace)
-        return editOrganization(of: id) {
-            $0.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima)
+        var livePlan = liveLayoutTree(in: workspace)
+        guard livePlan.workspace(of: id) == workspace.name,
+              livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima) else { return false }
+        return editOrganization(of: id) { durable in
+            // Removing reservations only collapses containers; every remaining
+            // weight key still belongs to the saved tree. Preserve its complete
+            // membership and container metadata while updating visible weights.
+            durable.setWeights(livePlan.weights)
+            return true
         }
     }
 }

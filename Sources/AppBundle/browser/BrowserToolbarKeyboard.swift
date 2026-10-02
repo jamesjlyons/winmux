@@ -7,12 +7,14 @@ import HotKey
 final class BrowserToolbarKeyboard {
     private let canFocus: () -> Bool
     private let focus: () -> Void
+    private let onActivation: () -> Void
     private var activationObserver: NSObjectProtocol?
     private var shortcut: HotKey?
 
-    init(canFocus: @escaping () -> Bool, focus: @escaping () -> Void) {
+    init(canFocus: @escaping () -> Bool, focus: @escaping () -> Void, onActivation: @escaping () -> Void = {}) {
         self.canFocus = canFocus
         self.focus = focus
+        self.onActivation = onActivation
     }
 
     func refresh() {
@@ -20,7 +22,13 @@ final class BrowserToolbarKeyboard {
             activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
                 forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.updateShortcut() }
+                MainActor.assumeIsolated {
+                    // Raising a Chromium window can separate it from the helper's
+                    // adjacent chrome even when logical page selection stays put.
+                    // Defer host-relative reordering to the normal layout refresh.
+                    self?.onActivation()
+                    self?.updateShortcut()
+                }
             }
         }
         updateShortcut()

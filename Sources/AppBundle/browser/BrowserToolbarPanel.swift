@@ -4,7 +4,9 @@ import WorkspaceCore
 @MainActor
 final class BrowserToolbarPanel: NSPanelHud {
     let toolbarView = BrowserToolbarView()
+    private let pageChromePanel: BrowserPageChromePanel
     var onAction: ((BrowserToolbarAction) -> Void)?
+    var onDrag: ((BrowserToolbarDragPhase, CGPoint) -> Void)?
     private var currentURL = ""
     private var currentHostWindowID: UInt32?
     private var wasFocused = false
@@ -12,22 +14,42 @@ final class BrowserToolbarPanel: NSPanelHud {
     var isEditingAddress: Bool { isKeyWindow && toolbarView.address.currentEditor() != nil }
 
     init(surfaceID: SurfaceID) {
+        pageChromePanel = BrowserPageChromePanel(surfaceID: surfaceID)
         super.init()
         identifier = .init("winmux-browser-toolbar-" + surfaceID.description)
         title = "Web page controls"
+        // Borderless nonactivating panels need explicit window semantics so
+        // VoiceOver and AX clients can discover their interactive controls.
+        setAccessibilityElement(true)
+        setAccessibilityRole(.window)
+        setAccessibilitySubrole(.standardWindow)
+        setAccessibilityTitle(title)
+        setAccessibilityIdentifier("winmux.browser.controls." + surfaceID.description)
+        pageChromePanel.setAccessibilityElement(false)
         hasShadow = false
         isFloatingPanel = false
+        isMovable = false
         isExcludedFromWindowsMenu = true
         becomesKeyOnlyIfNeeded = true
         animationBehavior = .none
         applyWinMuxLayer(.windowChrome)
         contentView = toolbarView
+        setAccessibilityChildren([toolbarView])
+        toolbarView.setAccessibilityParent(self)
         toolbarView.autoresizingMask = [.width, .height]
         toolbarView.onAction = { [weak self] action in
             guard let self else { return }
             self.failurePopover?.close()
             self.endAddressEditing()
             self.onAction?(action)
+        }
+        toolbarView.onDrag = { [weak self] phase, point in
+            guard let self else { return }
+            if phase == .began {
+                self.failurePopover?.close()
+                self.endAddressEditing()
+            }
+            self.onDrag?(phase, point)
         }
         toolbarView.onCancelAddress = { [weak self] in
             guard let self else { return }
@@ -42,6 +64,10 @@ final class BrowserToolbarPanel: NSPanelHud {
 
     func update(_ item: BrowserToolbarItem) {
         currentURL = item.url
+        pageChromePanel.update(item)
+        if appearance?.name != item.chromeAppearance {
+            appearance = item.chromeAppearance.flatMap { NSAppearance(named: $0) }
+        }
         toolbarView.update(item, preserveAddress: isEditingAddress)
         if frame != item.frame { setWindowTabChromePanelFrame(item.frame, on: self) }
         // Updating a background page's loading state must not raise its chrome
@@ -52,6 +78,13 @@ final class BrowserToolbarPanel: NSPanelHud {
         }
         currentHostWindowID = item.hostWindowID
         wasFocused = item.isFocused
+    }
+
+    /// App activation may reorder the owner without changing the selected page.
+    /// Invalidate only cached stacking; do not change key state or editor focus.
+    func invalidateHostStacking() {
+        currentHostWindowID = nil
+        pageChromePanel.invalidateHostStacking()
     }
 
     @discardableResult
@@ -102,6 +135,8 @@ final class BrowserToolbarPanel: NSPanelHud {
     }
 
     func dismiss() {
+        toolbarView.cancelDrag()
+        pageChromePanel.dismiss()
         failurePopover?.close()
         endAddressEditing()
         orderOut(nil)

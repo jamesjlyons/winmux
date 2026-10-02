@@ -60,7 +60,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
         showsWeekday: false,
         showsStatusPills: false,
         chromeStyle: .liquidGlass,
-        solidChromeColor: .midnight,
+        solidChromeColor: .system,
         solidChromeCustomColor: "#191B20",
     )
 }

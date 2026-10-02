@@ -58,6 +58,7 @@ public final class BrowserSurfaceSession {
     private var layoutGeneration: UInt64 = 0
     private var desiredLayout: [BrowserHostPlacement]?
     private var acknowledgedLayout: [BrowserHostPlacement]?
+    private var layoutAcknowledgementToken = UUID()
     private var inFlightLayout: UUID?
     private var layoutAttemptRevision: UInt64?
     private var layoutCompletion: (@MainActor (BrowserActionReply) -> Void)?
@@ -100,6 +101,18 @@ public final class BrowserSurfaceSession {
         return true
     }
 
+    /// Native movement can invalidate a successfully dispatched frame without
+    /// changing the workspace plan. Require a fresh request from the caller;
+    /// neither invalidation nor a late reply should resend an obsolete plan.
+    /// Keep the in-flight operation until its reply so transport stays serialized.
+    public func invalidateLayoutAcknowledgement() {
+        layoutAcknowledgementToken = UUID()
+        acknowledgedLayout = nil
+        layoutAttemptRevision = nil
+        desiredLayout = nil
+        layoutCompletion = nil
+    }
+
     public func requestLayout(_ hosts: [BrowserHostPlacement], completion: @escaping @MainActor (BrowserActionReply) -> Void) {
         guard supportsLayout, sendLayout != nil else { completion(.unsupported); return }
         if desiredLayout != hosts { layoutAttemptRevision = nil }
@@ -118,12 +131,17 @@ public final class BrowserSurfaceSession {
         inFlightLayout = request.operation
         layoutAttemptRevision = inventory.revision
         let completion = layoutCompletion
+        let acknowledgementToken = layoutAcknowledgementToken
         sendLayout(request) { [weak self] reply in
             guard let self, self.epoch == epoch, self.inFlightLayout == request.operation else { return }
             self.inFlightLayout = nil
-            if reply == .issued { self.acknowledgedLayout = hosts }
-            if self.desiredLayout == hosts { completion?(reply) }
-            if self.desiredLayout != hosts { self.layoutAttemptRevision = nil; self.flushLayout() }
+            let acknowledgementIsCurrent = self.layoutAcknowledgementToken == acknowledgementToken
+            if acknowledgementIsCurrent && reply == .issued { self.acknowledgedLayout = hosts }
+            if acknowledgementIsCurrent && self.desiredLayout == hosts { completion?(reply) }
+            if !acknowledgementIsCurrent || self.desiredLayout != hosts {
+                self.layoutAttemptRevision = nil
+                self.flushLayout()
+            }
         }
     }
 

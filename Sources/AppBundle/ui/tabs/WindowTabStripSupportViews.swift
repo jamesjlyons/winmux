@@ -36,7 +36,7 @@ struct WindowTabGroupHandleView: View {
         VStack(spacing: 2.5) {
             ForEach(0..<2, id: \.self) { _ in
                 Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.22))
+                    .fill(Color.secondary.opacity(0.65))
                     .frame(width: 9, height: 1.5)
             }
         }

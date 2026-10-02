@@ -56,7 +56,10 @@ final class MacApp: AbstractApp {
     @MainActor
     @discardableResult
     static func getOrRegister(_ nsApp: NSRunningApplication) async throws -> MacApp? {
+        // Companion setup/control windows are WinMux UI, including a setup
+        // process launched separately from the active workspace manager.
         guard nsApp.bundleIdentifier != "com.jameslyons.winmux.browser.alpha",
+              nsApp.bundleIdentifier != "com.jameslyons.winmux.browser.alpha.workspace",
               BrowserNativeManagement.allowsDiscovery(nsApp),
               !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: nsApp.processIdentifier) else { return nil }
         // Don't perceive any of the lock screen windows as real windows

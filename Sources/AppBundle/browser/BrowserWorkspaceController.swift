@@ -52,7 +52,7 @@ public final class BrowserWorkspaceController {
             _ = Workspace.get(byName: workspace)
             for id in nodes.flatMap(\.surfaces) {
                 if case .browserTab = id { placements[id] = workspace }
-                else { unresolvedNativeItems.insert(id) }
+                else if Window.get(bySurfaceID: id) == nil { unresolvedNativeItems.insert(id) }
             }
         }
         // Inventory can arrive before native startup finishes reading its file.
@@ -193,7 +193,8 @@ public final class BrowserWorkspaceController {
             session.supersedeFocus(generation: generation, target: wireID) { [weak self] outcome in
                 guard outcome == .issued, let self, let target,
                       self.focusCoordinator.isCurrent(generation, target: target),
-                      BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
+                      BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+                      !BrowserWindowDragController.shared.isDragging else { return }
                 _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
             }
         }
@@ -239,7 +240,8 @@ public final class BrowserWorkspaceController {
                         other.supersedeFocus(generation: generation, target: id) { [weak self, weak session] outcome in
                             guard outcome == .issued, let self, let session,
                                   self.focusCoordinator.target == id, self.owner(of: id) === session,
-                                  BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
+                                  BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+                      !BrowserWindowDragController.shared.isDragging else { return }
                             // Another connection's fence may already have caused
                             // a reaffirmation (and advanced the dispatch clock).
                             // Each late fence still reaffirms the latest target.
@@ -341,13 +343,9 @@ public final class BrowserWorkspaceController {
     /// selection. Validate the owners and candidate snapshot before committing.
     func editOrganization(of id: SurfaceID, _ edit: (inout SurfaceTree) -> Bool) -> Bool {
         guard usesSurfaceTree, isAvailable(id), let workspace = surfaceTree.workspace(of: id),
-              let nodes = surfaceTree.roots[workspace], nodes.flatMap(\.surfaces).allSatisfy({ member in
-                  guard isAvailable(member) else { return false }
-                  if case .browserTab = member { return owner(of: member)?.supportsLayout == true }
-                  return true
-              }) else { return false }
+              let reservations = organizationReservations(in: [workspace]) else { return false }
         var candidate = surfaceTree
-        guard edit(&candidate) else { return false }
+        guard edit(&candidate), reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }) else { return false }
         if let selected = focusCoordinator.target { candidate.select(selected) }
         // The same depth/identity limits apply to new edits and restored trees.
         guard let data = try? JSONEncoder().encode(candidate),
@@ -356,6 +354,64 @@ public final class BrowserWorkspaceController {
         mixedLayoutWorkspaces.insert(workspace)
         scheduleRefresh()
         return true
+    }
+
+    /// Prepare the entire cross-workspace edit before changing owner membership.
+    /// This synchronous commit has no suspension between validation and binding.
+    func editOrganization(of id: SurfaceID, movingTo destination: Workspace,
+                          _ edit: (inout SurfaceTree) -> Bool) -> Bool {
+        guard usesSurfaceTree, isAvailable(id), let source = surfaceTree.workspace(of: id),
+              workspaceName(for: id) == source else { return false }
+        if source == destination.name { return editOrganization(of: id, edit) }
+        let affected = Set([source, destination.name])
+        guard let reservations = organizationReservations(in: affected) else { return false }
+        var candidate = surfaceTree
+        guard candidate.moveToRoot(id, in: destination.name), edit(&candidate),
+              reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }) else { return false }
+        if let selected = focusCoordinator.target { candidate.select(selected) }
+        guard let data = try? JSONEncoder().encode(candidate),
+              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
+        switch id {
+        case .browserTab: placements[id] = destination.name
+        case .nativeWindow:
+            guard let window = Window.get(bySurfaceID: id), window.toLiveFocusOrNil() != nil else { return false }
+            syncClosedWindowsCacheToCurrentWorld()
+            suppressPostDragAxObserverEvents(for: [window.windowId])
+            if window.isFloating { window.bind(to: destination, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST) }
+            else {
+                let binding = workspaceAppendBindingData(targetWorkspace: destination, index: INDEX_BIND_LAST)
+                window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
+            }
+        }
+        surfaceTree = candidate
+        mixedLayoutWorkspaces.formUnion(affected)
+        scheduleRefresh()
+        return true
+    }
+
+    /// A restored native identity may still be waiting for its real app. It is
+    /// a durable reservation, not an owner that can veto unrelated live edits.
+    /// Once a matching native binding has appeared, normal close/stale-owner
+    /// validation applies even if its row has not reached the sidebar yet.
+    private func retireResolvedNativeReservations() {
+        unresolvedNativeItems = unresolvedNativeItems.filter { Window.get(bySurfaceID: $0) == nil }
+    }
+
+    private func organizationReservations(in workspaces: Set<String>) -> [SurfaceID: String]? {
+        retireResolvedNativeReservations()
+        var reservations: [SurfaceID: String] = [:]
+        for name in workspaces {
+            guard let nodes = surfaceTree.roots[name] else { return nil }
+            for member in nodes.flatMap(\.surfaces) {
+                if case .nativeWindow = member, unresolvedNativeItems.contains(member) {
+                    reservations[member] = name
+                    continue
+                }
+                guard isAvailable(member), workspaceName(for: member) == name else { return nil }
+                if case .browserTab = member, owner(of: member)?.supportsLayout != true { return nil }
+            }
+        }
+        return reservations
     }
 
     func isAvailable(_ id: SurfaceID) -> Bool {
@@ -414,8 +470,12 @@ public final class BrowserWorkspaceController {
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             if case .browserTab = id {
                 let minimum = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
-                let toolbar = owner(of: id)?.supportsBrowserControls == true ? Int(BrowserToolbarController.height) : 0
-                result[id] = .init(width: max(320, minimum.width), height: min(30000, minimum.height + toolbar))
+                if owner(of: id)?.supportsBrowserControls == true {
+                    result[id] = .init(width: min(30000, max(160, minimum.width) + BrowserPageChromeGeometry.widthOverhead),
+                                       height: min(30000, minimum.height + BrowserPageChromeGeometry.heightOverhead))
+                } else {
+                    result[id] = minimum
+                }
             } else {
                 result[id] = observedNativeMinimums[id] ?? .init(width: 80, height: 80)
             }
@@ -425,9 +485,23 @@ public final class BrowserWorkspaceController {
 
     func hasMixedLayout(in workspace: Workspace) -> Bool { mixedLayoutWorkspaces.contains(workspace.name) }
 
+    /// Rendering and resizing must use the same tree of currently claimed panes.
+    /// The durable tree keeps reservations until their real native owner returns.
+    func liveLayoutTree(in workspace: Workspace) -> SurfaceTree {
+        retireResolvedNativeReservations()
+        var livePlan = surfaceTree
+        for id in unresolvedNativeItems where livePlan.workspace(of: id) == workspace.name {
+            // Keep the saved identity and group in surfaceTree. Only the live
+            // projection omits a window that has not reclaimed that identity.
+            livePlan.remove(id)
+        }
+        return livePlan
+    }
+
     func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
+        let livePlan = liveLayoutTree(in: workspace)
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        return surfaceTree.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
+        return livePlan.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
             visible: workspace.isVisible, minimumSizes: minimumSizes(in: workspace), selectedSurface: focusCoordinator.target)
     }
@@ -442,6 +516,7 @@ public final class BrowserWorkspaceController {
         let placements = plannedSurfaces(in: workspace)
         for placement in placements {
             guard let window = Window.get(bySurfaceID: placement.surfaceID), window.nodeWorkspace === workspace else { continue }
+            if BrowserWindowDragController.shared.isMovingNativeSurface(placement.surfaceID) { continue }
             if placement.visible {
                 let frame = placement.frame
                 let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
@@ -481,7 +556,7 @@ public final class BrowserWorkspaceController {
         return !placements.isEmpty
     }
 
-    func publishBrowserLayouts() {
+    func publishBrowserLayouts(force: Bool = false) {
         guard usesSurfaceTree, BrowserNativeManagement.lease != nil else {
             BrowserToolbarController.shared.hideAll()
             return
@@ -490,12 +565,15 @@ public final class BrowserWorkspaceController {
         updateBrowserToolbars(placements)
         for session in sessions.values where session.supportsLayout {
             let owned = placements.filter { owner(of: $0.surfaceID) === session }
-            let hosts = browserHostPlacements(owned, hasNativeToolbar: session.supportsBrowserControls)
+            let hosts = browserHostPlacements(owned, hasNativeToolbar: session.supportsBrowserControls,
+                                              bodyFrameOverrides: BrowserWindowDragController.shared.bodyFrameOverrides)
+            if force { session.invalidateLayoutAcknowledgement() }
             let target = focusCoordinator.target, generation = focusCoordinator.generation
             session.requestLayout(hosts) { [weak self, weak session] reply in
                 guard reply == .issued, TrayMenuModel.shared.isEnabled, let self, let session, let target,
                       self.focusCoordinator.isCurrent(generation, target: target),
-                      BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
+                      BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+                      !BrowserWindowDragController.shared.isDragging else { return }
                 if case .nativeWindow = target {
                     _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
                     return

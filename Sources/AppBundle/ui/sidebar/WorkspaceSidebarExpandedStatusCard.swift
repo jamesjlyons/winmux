@@ -10,7 +10,7 @@ struct WorkspaceSidebarExpandedStatusCard: View {
     @Environment(\.locale) private var locale
     @Environment(\.calendar) private var calendar
     private var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
-    private var clockSize: CGFloat { density == .minimal ? 25 : density == .narrow ? 32 : 42 }
+    private var clockSize: CGFloat { density == .minimal ? 23 : density == .narrow ? 28 : 34 }
     private var displaysSeconds: Bool { showsSeconds && sectionWidth >= 200 }
     private var displaysWeekday: Bool { showsWeekday && density != .minimal }
 
@@ -33,17 +33,17 @@ struct WorkspaceSidebarExpandedStatusCard: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(alignment: .top, spacing: 4) {
                 Text(date, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
-                    .font(.system(size: clockSize, weight: .bold, design: .rounded))
+                    .font(.system(size: clockSize, weight: .regular, design: .default))
                     .monospacedDigit()
                     .foregroundStyle(Color.primary.opacity(0.90))
                     .lineLimit(1)
                 if displaysSeconds {
                     Text(date, format: .dateTime.second(.twoDigits))
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.system(size: 12, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(Color.primary.opacity(0.34))
                         .lineLimit(1)
-                        .padding(.top, 9)
+                        .padding(.top, 7)
                 }
             }
             .layoutPriority(1)
@@ -62,21 +62,13 @@ struct WorkspaceSidebarExpandedStatusCard: View {
             height: density.isNarrow ? nil : workspaceSidebarExpandedClockCardHeight(showsDate: showsDate, showsWeekday: showsWeekday),
             alignment: .leading,
         )
-        .background(
-            RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                .fill(Color.primary.opacity(GlassToken.fillResting))
-                .overlay {
-                    RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(GlassToken.cardStroke), lineWidth: StrokeToken.hairline)
-                }
-        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(accessibilitySummary))
     }
 
     private func dateLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: density.isNarrow ? 11 : 15, weight: .semibold))
+            .font(.system(size: density.isNarrow ? 11 : 12, weight: .regular))
             .foregroundStyle(Color.primary.opacity(0.48))
             .lineLimit(1)
             .minimumScaleFactor(0.7)

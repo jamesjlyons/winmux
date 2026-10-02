@@ -60,7 +60,11 @@ enum GlobalObserver {
     }
 
     private static func onKeyDown(_ event: NSEvent) {
+        let isEscape = event.keyCode == 53
         runOnMainActor {
+            if isEscape, BrowserWindowDragController.shared.isDragging {
+                BrowserWindowDragController.shared.cancel()
+            }
             TrackpadNavigationController.shared.cancelNavigation()
             noteTapBindingKeyDown()
         }
@@ -75,13 +79,15 @@ enum GlobalObserver {
     }
 
     private static func onPointerActivity(_ event: NSEvent) {
-        let isLeftMouseDownEvent = event.type == .leftMouseDown
+        let eventType = event.type
+        let isLeftMouseDownEvent = eventType == .leftMouseDown
         let isMouseDownEvent = isLeftMouseDownEvent || event.type == .rightMouseDown || event.type == .otherMouseDown
         let timestamp = event.timestamp
         let screenPoint = NSEvent.mouseLocation
         let point = normalizeAppKitScreenPoint(screenPoint)
         runOnMainActor {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+            BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
             if isMouseDownEvent {
@@ -146,13 +152,13 @@ enum GlobalObserver {
             runOnMainActor {
                 MousePointerTracker.shared.note(point: point, timestamp: timestamp)
                 WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-                refreshPendingWindowDragIntentFromGlobalMouseDrag()
+                if !BrowserWindowDragController.shared.isDragging { refreshPendingWindowDragIntentFromGlobalMouseDrag() }
             }
         })
 
         let pointerActivityMask: NSEvent.EventTypeMask = [
             .mouseMoved,
-            .leftMouseDown, .rightMouseDown, .otherMouseDown,
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .otherMouseDown,
             .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
             .scrollWheel,
         ]

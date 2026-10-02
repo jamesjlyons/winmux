@@ -12,7 +12,7 @@ struct WindowTabItemView: View {
             appIcon(size: 14)
 
             Text(tab.title)
-                .font(.system(size: 12, weight: tab.isActive ? .semibold : .medium))
+                .font(.system(size: 12, weight: tab.isActive ? .medium : .regular))
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
@@ -21,24 +21,20 @@ struct WindowTabItemView: View {
         .frame(width: width, height: height, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(tab.isActive ? GlassToken.fillActive : GlassToken.fillFaint))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
-                .stroke(tabStrokeStyle, lineWidth: StrokeToken.control)
+                .fill(tabBackgroundStyle)
         }
         .opacity(isDragSource ? 0.55 : 1.0)
         .contentShape(Rectangle())
     }
 
     private var tabForegroundStyle: Color {
-        if tab.isActive { return Color.white.opacity(GlassToken.textPrimary) }
-        if isDragSource { return Color.white.opacity(GlassToken.textSecondary) }
-        return Color.white.opacity(isHovered ? GlassToken.textSecondary : GlassToken.textTertiary)
+        if tab.isActive || isHovered { return .primary }
+        return .secondary
     }
 
-    private var tabStrokeStyle: Color {
-        if tab.isActive { return Color.white.opacity(GlassToken.strokeActive) }
-        return Color.white.opacity(isHovered ? GlassToken.strokeHover : GlassToken.strokeResting)
+    private var tabBackgroundStyle: Color {
+        if tab.isActive { return Color.primary.opacity(0.10) }
+        if isHovered { return Color.primary.opacity(0.055) }
+        return .clear
     }
 }

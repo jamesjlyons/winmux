@@ -37,6 +37,8 @@ bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed) {
       @"zoom": @([native standardWindowButton:NSWindowZoomButton].hidden),
       @"title": @(native.titleVisibility),
       @"transparent": @(native.titlebarAppearsTransparent),
+      @"movable": @(native.movable),
+      @"movable_by_background": @(native.movableByWindowBackground),
     };
     objc_setAssociatedObject(native, &kSavedWindowPresentation, saved,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -45,6 +47,11 @@ bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed) {
     [native standardWindowButton:NSWindowZoomButton].hidden = YES;
     native.titleVisibility = NSWindowTitleHidden;
     native.titlebarAppearsTransparent = YES;
+    // The content window and Swift chrome form one managed surface. Letting
+    // AppKit drag the content alone separates it from its header and backing.
+    // Winmux owns surface movement through the authenticated layout channel.
+    native.movable = NO;
+    native.movableByWindowBackground = NO;
   } else {
     NSDictionary* saved = objc_getAssociatedObject(native, &kSavedWindowPresentation);
     if (saved) {
@@ -53,6 +60,8 @@ bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed) {
       [native standardWindowButton:NSWindowZoomButton].hidden = [saved[@"zoom"] boolValue];
       native.titleVisibility = static_cast<NSWindowTitleVisibility>([saved[@"title"] integerValue]);
       native.titlebarAppearsTransparent = [saved[@"transparent"] boolValue];
+      native.movable = [saved[@"movable"] boolValue];
+      native.movableByWindowBackground = [saved[@"movable_by_background"] boolValue];
       objc_setAssociatedObject(native, &kSavedWindowPresentation, nil,
                                OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }

@@ -22,11 +22,11 @@ extension WindowTabItemView {
     func fallbackIcon(size: CGFloat) -> some View {
         Text(tabIconText)
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(Color.white.opacity(tab.isActive ? 0.86 : 0.62))
+            .foregroundStyle(tab.isActive ? Color.primary : Color.secondary)
             .frame(width: size, height: size, alignment: .center)
             .background {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.white.opacity(tab.isActive ? 0.22 : 0.14))
+                    .fill(Color.primary.opacity(tab.isActive ? 0.10 : 0.06))
             }
             .accessibilityHidden(true)
     }

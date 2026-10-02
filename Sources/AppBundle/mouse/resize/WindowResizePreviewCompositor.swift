@@ -13,6 +13,8 @@ final class WindowResizePreviewCompositorView: NSView {
     private var iconCache: [WindowResizePreviewIcon: CGImage] = [:]
     private var materialViews: [UInt32: NSVisualEffectView] = [:]
     private var tintLayers: [UInt32: CALayer] = [:]
+    private var currentItems: [WindowResizePreviewItem] = []
+    private var currentPresentation: WindowResizePreviewPresentation = .detailed
 
     override var isFlipped: Bool { true }
 
@@ -32,6 +34,26 @@ final class WindowResizePreviewCompositorView: NSView {
     }
 
     func update(_ items: [WindowResizePreviewItem], presentation: WindowResizePreviewPresentation) {
+        currentItems = items
+        currentPresentation = presentation
+        let preferredAppearance = config.workspaceSidebar.chromeAppearance
+        if appearance?.name != preferredAppearance {
+            appearance = preferredAppearance.flatMap { NSAppearance(named: $0) }
+        }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            updateLayers(items, presentation: presentation)
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        guard !currentItems.isEmpty else { return }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            updateLayers(currentItems, presentation: currentPresentation)
+        }
+    }
+
+    private func updateLayers(_ items: [WindowResizePreviewItem], presentation: WindowResizePreviewPresentation) {
         let visibleIds = Set(items.map(\.id))
         var appearingLayers: [WindowResizePreviewItemLayer] = []
         CATransaction.begin()
@@ -71,6 +93,7 @@ final class WindowResizePreviewCompositorView: NSView {
     }
 
     func clear() {
+        currentItems.removeAll()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for itemLayer in itemLayers.values {
@@ -96,7 +119,7 @@ final class WindowResizePreviewCompositorView: NSView {
         let tintLayer = tintLayers[item.id] ?? makeTintLayer(for: item.id, in: materialView)
         let usesSolidTint = config.workspaceSidebar.chromeStyle == .solid
         tintLayer.frame = materialView.bounds
-        tintLayer.backgroundColor = NSColor(config.workspaceSidebar.resolvedSolidChromeColor)
+        tintLayer.backgroundColor = config.workspaceSidebar.resolvedSolidChromeNSColor
             .withAlphaComponent(0.42)
             .cgColor
         tintLayer.isHidden = !usesSolidTint

@@ -435,10 +435,11 @@ do {
         guard args.count == 2 || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
             throw WorkspaceActivationError.invalidRequest
         }
+        let application = BrowserWorkspaceApplication.shared
         let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil)
-        NSApplication.shared.setActivationPolicy(.regular)
-        NSApplication.shared.delegate = setup
-        withExtendedLifetime(setup) { NSApplication.shared.run() }
+        application.setActivationPolicy(.regular)
+        application.delegate = setup
+        withExtendedLifetime(setup) { application.run() }
         exit(0)
     }
 #endif
@@ -494,9 +495,12 @@ do {
 #if canImport(AppBundle)
     let appDelegate = WinMuxApplicationDelegate()
     if sidebarEnabled {
-        NSApplication.shared.setActivationPolicy(.accessory)
+        // Create the application subclass before any generic shared access so
+        // nonactivating browser controls remain discoverable through AXWindows.
+        let application = BrowserWorkspaceApplication.shared
+        application.setActivationPolicy(.accessory)
         if let nativeState {
-            NSApplication.shared.delegate = appDelegate
+            application.delegate = appDelegate
             let scopedPID = nativeProcessID
             let request = activation
             Task { @MainActor in

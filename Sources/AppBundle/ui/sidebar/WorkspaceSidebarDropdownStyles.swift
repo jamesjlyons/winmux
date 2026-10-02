@@ -3,12 +3,12 @@ import SwiftUI
 struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
     @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     let isActive: Bool
-    var activeFill: Color = Color.primary.opacity(0.12)
-    var activeStroke: Color = Color.primary.opacity(0.18)
-    var inactiveFill: Color = Color.primary.opacity(0.06)
-    var inactiveHoverFill: Color = Color.primary.opacity(0.10)
-    var inactiveStroke: Color = Color.primary.opacity(0.08)
-    var inactiveHoverStroke: Color = Color.primary.opacity(0.14)
+    var activeFill: Color = Color.primary.opacity(0.08)
+    var activeStroke: Color = Color.primary.opacity(0.11)
+    var inactiveFill: Color = .clear
+    var inactiveHoverFill: Color = Color.primary.opacity(0.05)
+    var inactiveStroke: Color = .clear
+    var inactiveHoverStroke: Color = .clear
     @State private var isHovered = false
 
     func body(content: Content) -> some View {

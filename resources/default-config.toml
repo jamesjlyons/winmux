@@ -67,8 +67,8 @@ on-mode-changed = []
     chrome-style = 'liquid-glass'
     # Give just the sidebar a flat, translucent macOS menu bar look.
     menu-bar-style = false
-    # Used when chrome-style = 'solid'. Choose from the Appearance palette, or use 'custom'.
-    solid-chrome-color = 'midnight'
+    # Follow macOS light/dark mode, choose a fixed Appearance color, or use 'custom'.
+    solid-chrome-color = 'system'
     # Used when solid-chrome-color = 'custom'.
     solid-chrome-custom-color = '#191B20'
 

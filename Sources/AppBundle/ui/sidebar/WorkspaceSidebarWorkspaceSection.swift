@@ -197,66 +197,19 @@ extension WorkspaceSidebarWorkspaceSection {
     var sectionBackground: some View {
         sectionShape
             .fill(sectionBackgroundFill)
-            .background { sectionGlassCard }
             .overlay {
                 if isActiveWorkspaceSelection && !layout.menuBarStyle {
                     sectionShape
-                        .strokeBorder(Color.primary.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
+                        .strokeBorder(Color.primary.opacity(isCompact ? 0.15 : 0.10), lineWidth: StrokeToken.control)
                 }
                 if isPinnedActiveWorkspace && !isSearchFiltering && !layout.menuBarStyle {
                     sectionShape
                         .strokeBorder(
-                            Color.primary.opacity(0.24),
+                            Color.primary.opacity(0.16),
                             style: StrokeStyle(lineWidth: 1, dash: [5, 4])
                         )
                 }
             }
-    }
-
-    /// The Apple-native container look for a workspace: a dimensional Liquid Glass card.
-    /// A bare `.glassEffect` over the already-glassy panel reads flat, so this adds the three
-    /// things that give real Liquid Glass its depth — a refractive edge, a specular top
-    /// highlight, and a lift shadow — and renders inside a `GlassEffectContainer` (only glass,
-    /// no foreground text, so it's safe) where the native lensing actually engages. The state
-    /// tint fills on top. No-op on older systems; the plain tint fill stands in.
-    @ViewBuilder
-    var sectionGlassCard: some View {
-        if layout.menuBarStyle {
-            // Selection and hover fills supply the hierarchy on the flat menu material.
-            Color.clear
-        } else if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
-            GlassEffectContainer {
-                ZStack {
-                    Color.clear.glassEffect(.regular, in: sectionShape)
-                    // Specular top sheen.
-                    sectionShape
-                        .fill(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: Color.white.opacity(0.16), location: 0),
-                                    .init(color: Color.white.opacity(0.04), location: 0.14),
-                                    .init(color: Color.clear, location: 0.5),
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom,
-                            )
-                        )
-                        .blendMode(.screen)
-                    // Refractive glass edge.
-                    Color.clear
-                        .glassEffect(.regular, in: sectionShape)
-                        .mask(sectionShape.stroke(lineWidth: 2))
-                    sectionShape.strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
-                }
-            }
-            .glassShadow(.resting)
-        } else if layout.chromeStyle == .solid {
-            sectionShape
-                .fill(layout.resolvedSolidChromeColor.opacity(0.38))
-                .overlay {
-                    sectionShape.strokeBorder(Color.white.opacity(0.12), lineWidth: StrokeToken.hairline)
-                }
-        }
     }
 
     var sectionBackgroundFill: Color {
@@ -269,10 +222,10 @@ extension WorkspaceSidebarWorkspaceSection {
         if isDropTarget {
             // A neutral lift works against both solid colors and Liquid Glass without
             // introducing the system accent color into themed chrome.
-            return Color.primary.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
+            return Color.primary.opacity(0.10)
         }
         if isSearchSelectedWorkspace {
-            return Color.primary.opacity(0.105)
+            return Color.primary.opacity(0.075)
         }
         if isSearchFiltering {
             return isHovered ? Color.primary.opacity(0.045) : Color.primary.opacity(0.015)
@@ -283,11 +236,11 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color(nsColor: .systemRed).opacity(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return Color.primary.opacity(isHovered ? 0.15 : 0.10)
+            return Color.primary.opacity(isHovered ? 0.09 : 0.06)
         }
         if isActiveOnTargetMonitor {
-            let compactOpacity: Double = workspace.isFocused ? 0.24 : 0.14
-            let expandedOpacity: Double = workspace.isFocused ? 0.12 : 0.07
+            let compactOpacity: Double = workspace.isFocused ? 0.13 : 0.075
+            let expandedOpacity: Double = workspace.isFocused ? 0.055 : 0.025
             return Color.primary.opacity(isCompact ? compactOpacity : expandedOpacity)
         }
         if isFromOtherDisplay {
@@ -296,7 +249,7 @@ extension WorkspaceSidebarWorkspaceSection {
         if isHovered {
             return Color.primary.opacity(0.045)
         }
-        return Color.primary.opacity(0.015)
+        return .clear
     }
 
     var isActiveWorkspaceSelection: Bool {

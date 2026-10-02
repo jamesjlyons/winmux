@@ -16,6 +16,7 @@ struct WindowTabStripView: View {
     @State var tabScrollContentMinX: CGFloat = 0
     @State var tabScrollContentMaxX: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         GeometryReader { proxy in
@@ -24,6 +25,7 @@ struct WindowTabStripView: View {
                 stripHeight: max(proxy.size.height, 0),
             )
         }
+        .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)
     }
 }
 

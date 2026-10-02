@@ -176,6 +176,113 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return true
     }
 
+    /// Append to the nearest existing stack, retaining its identity and other
+    /// tabs. A drop within that stack selects the dragged tab without nesting it.
+    @discardableResult public mutating func insertIntoStack(_ id: SurfaceID, with target: SurfaceID) -> Bool {
+        guard id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
+        guard let stack = nearestStack(containing: target, in: roots[name] ?? []) else {
+            guard group(id, with: target, layout: .stack) else { return false }
+            select(id)
+            return true
+        }
+        func removingSource(_ nodes: [SurfaceTreeNode]) -> [SurfaceTreeNode] {
+            nodes.flatMap { node -> [SurfaceTreeNode] in
+                switch node {
+                case .surface(let leaf): return leaf == id ? [] : [node]
+                case .group(let group, let children):
+                    let remaining = removingSource(children)
+                    return group == stack || remaining.count > 1 ? [.group(group, remaining)] : remaining
+                }
+            }
+        }
+        func append(to nodes: inout [SurfaceTreeNode]) -> Bool {
+            for index in nodes.indices {
+                guard case .group(let group, var children) = nodes[index] else { continue }
+                if group == stack {
+                    children.append(.surface(id)); nodes[index] = .group(group, children); return true
+                }
+                if append(to: &children) { nodes[index] = .group(group, children); return true }
+            }
+            return false
+        }
+        var nodes = removingSource(roots[name] ?? [])
+        guard append(to: &nodes) else { return false }
+        roots[name] = nodes
+        pruneMetadata()
+        select(id)
+        return true
+    }
+
+    /// Split beside the target's stack as a whole, rather than placing a split
+    /// inside one hidden tab. Moving a tab out collapses its old empty container.
+    @discardableResult public mutating func split(_ id: SurfaceID, beside target: SurfaceID,
+                                                  layout: SurfaceContainerLayout, before: Bool) -> Bool {
+        guard layout != .stack, id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
+        var nodes = Self.filter(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
+        let stack = nearestStack(containing: target, in: nodes)
+        let group = UUID()
+        var anchorKey: String?
+        func wrap(in nodes: inout [SurfaceTreeNode]) -> Bool {
+            for index in nodes.indices {
+                let node = nodes[index]
+                let isAnchor: Bool
+                switch node {
+                case .surface(let leaf): isAnchor = stack == nil && leaf == target
+                case .group(let existing, _): isAnchor = existing == stack
+                }
+                if isAnchor {
+                    anchorKey = node.weightKey
+                    nodes[index] = .group(group, before ? [.surface(id), node] : [node, .surface(id)])
+                    return true
+                }
+                if case .group(let existing, var children) = node, wrap(in: &children) {
+                    nodes[index] = .group(existing, children); return true
+                }
+            }
+            return false
+        }
+        guard wrap(in: &nodes), let anchorKey else { return false }
+        roots[name] = nodes
+        layouts[group] = layout
+        activeSurfaces[group] = id
+        // Preserve the outer allocation and divide the new pair evenly. Old
+        // per-leaf resize weights must not skew a newly created split.
+        weights["group:" + group.uuidString.lowercased()] = weights[anchorKey]
+        weights[anchorKey] = 1
+        weights[id.description] = 1
+        pruneMetadata()
+        select(id)
+        return true
+    }
+
+    /// Exchange leaf positions and their allocation weights without changing
+    /// surrounding containers or confusing profile-qualified browser IDs.
+    @discardableResult public mutating func swapLeaves(_ first: SurfaceID, _ second: SurfaceID) -> Bool {
+        guard first != second, let name = workspace(of: first), workspace(of: second) == name else { return false }
+        func swapped(_ id: SurfaceID) -> SurfaceID { id == first ? second : id == second ? first : id }
+        func visit(_ node: SurfaceTreeNode) -> SurfaceTreeNode {
+            switch node {
+            case .surface(let id): .surface(swapped(id))
+            case .group(let group, let children): .group(group, children.map(visit))
+            }
+        }
+        roots[name] = roots[name]?.map(visit)
+        for (group, active) in activeSurfaces { activeSurfaces[group] = swapped(active) }
+        let firstWeight = weights[first.description]
+        weights[first.description] = weights[second.description]
+        weights[second.description] = firstWeight
+        return true
+    }
+
+    private func nearestStack(containing target: SurfaceID, in nodes: [SurfaceTreeNode]) -> UUID? {
+        for node in nodes {
+            guard case .group(let group, let children) = node, node.surfaces.contains(target) else { continue }
+            if let nested = nearestStack(containing: target, in: children) { return nested }
+            if (layouts[group] ?? .stack) == .stack { return group }
+        }
+        return nil
+    }
+
     @discardableResult public mutating func ungroup(_ group: UUID) -> Bool {
         for name in Array(roots.keys) {
             var nodes = roots[name] ?? []
