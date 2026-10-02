@@ -53,4 +53,5 @@ state separately, then move the saved `native-state` directory back under `daily
 Start the prior package recorded in `archive.json`. Do not replace state while its
 workspace is running.
 
-[Native page controls](page-windows.md) · [Workspace activation](workspace-setup.md)
+[Native page controls](page-windows.md) · [Workspace activation](workspace-setup.md) ·
+[Integration validation and recovery record](fork-integration-validation.md)
