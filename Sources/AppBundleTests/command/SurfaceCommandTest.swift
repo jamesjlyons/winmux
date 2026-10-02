@@ -52,7 +52,7 @@ import XCTest
     }
 
     func testUnsupportedLegacyActionsNeverTargetPriorNativeWindow() async throws {
-        for command in [["resize", "width", "+40"], ["move", "left"], ["split", "horizontal"],
+        for command in [["move", "left"], ["split", "horizontal"],
                         ["macos-native-minimize"], ["close-all-windows-but-current"], ["close", "--quit-if-last-window"]] {
             let result = try await run(command)
             XCTAssertEqual(result.exitCode, 1, command.description)
@@ -115,6 +115,15 @@ import XCTest
         let result = try await run(["close"])
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertNil(Window.get(byId: 71))
+    }
+
+    func testResizeBrowserSelectionChangesSharedAllocation() async throws {
+        let before = controller.plannedSurfaces(in: focus.workspace).first { $0.surfaceID == tab }?.frame.width
+        let result = try await run(["resize", "width", "+40"])
+        XCTAssertEqual(result.exitCode, 0, result.stderr.joined())
+        let after = controller.plannedSurfaces(in: focus.workspace).first { $0.surfaceID == tab }?.frame.width
+        XCTAssertEqual(after, before.map { $0 + 40 })
+        XCTAssertNotNil(Window.get(byId: 71), "Resizing a browser page must not alter native membership")
     }
 
     func testParserRejectsMissingOrExtraOperands() {

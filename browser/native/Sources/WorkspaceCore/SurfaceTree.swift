@@ -37,14 +37,17 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     public private(set) var roots: [String: [SurfaceTreeNode]] = [:]
     public private(set) var layouts: [UUID: SurfaceContainerLayout] = [:]
     public private(set) var activeSurfaces: [UUID: SurfaceID] = [:]
+    public private(set) var weights: [String: Double] = [:]
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces }
+    enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces, weights }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         roots = try c.decode([String: [SurfaceTreeNode]].self, forKey: .roots)
         layouts = try c.decode([UUID: SurfaceContainerLayout].self, forKey: .layouts)
         activeSurfaces = try c.decode([UUID: SurfaceID].self, forKey: .activeSurfaces)
+        weights = try c.decodeIfPresent([String: Double].self, forKey: .weights) ?? [:]
+        guard weights.count <= 20000, weights.values.allSatisfy({ $0.isFinite && (1...30000).contains($0) }) else { throw SurfaceSnapshotError.invalidTree }
         guard roots.count <= 1024, roots.keys.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 4096 }) else { throw SurfaceSnapshotError.invalidTree }
         var surfaces: Set<SurfaceID> = [], groups: Set<UUID> = []
         func validate(_ nodes: [SurfaceTreeNode], depth: Int) throws {
@@ -61,7 +64,16 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
             }
         }
         try validate(roots.values.flatMap { $0 }, depth: 0)
+        let weightKeys = Set(roots.values.flatMap { $0 }.flatMap(\.allWeightKeys))
+        guard Set(weights.keys).isSubset(of: weightKeys) else { throw SurfaceSnapshotError.invalidTree }
         guard Set(layouts.keys).isSubset(of: groups), Set(activeSurfaces.keys).isSubset(of: groups) else { throw SurfaceSnapshotError.invalidTree }
+    }
+
+    public mutating func setWeights(_ values: [String: Double]) {
+        let keys = Set(roots.values.flatMap { $0 }.flatMap(\.allWeightKeys))
+        for (key, value) in values where keys.contains(key) && value.isFinite && (1...30000).contains(value) {
+            weights[key] = value
+        }
     }
 
     public mutating func select(_ id: SurfaceID) {
@@ -195,6 +207,8 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         roots.values.flatMap { $0 }.forEach(visit)
         layouts = layouts.filter { groups[$0.key] != nil }
         activeSurfaces = activeSurfaces.filter { groups[$0.key]?.contains($0.value) == true }
+        let keys = Set(roots.values.flatMap { $0 }.flatMap(\.allWeightKeys))
+        weights = weights.filter { keys.contains($0.key) }
     }
 
     private static func filter(_ nodes: [SurfaceTreeNode], keeping ids: Set<SurfaceID>) -> [SurfaceTreeNode] {
@@ -254,5 +268,21 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
             }
         }
         return false
+    }
+}
+
+
+extension SurfaceTreeNode {
+    var weightKey: String {
+        switch self {
+        case .surface(let id): id.description
+        case .group(let id, _): "group:" + id.uuidString.lowercased()
+        }
+    }
+    var allWeightKeys: [String] {
+        switch self {
+        case .surface: [weightKey]
+        case .group(_, let children): [weightKey] + children.flatMap(\.allWeightKeys)
+        }
     }
 }

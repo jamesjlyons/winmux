@@ -32,8 +32,20 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
     public let selected: SurfaceID?
     public let x: Int, y: Int, width: Int, height: Int
     public let visible: Bool
-    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible }
-    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool) {
+    public let nativeControls: Bool
+    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible, nativeControls = "native_controls" }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(containerID: try values.decode(UUID.self, forKey: .containerID),
+                  surfaces: try values.decode([SurfaceID].self, forKey: .surfaces),
+                  selected: try values.decodeIfPresent(SurfaceID.self, forKey: .selected),
+                  frame: .init(x: try values.decode(Int.self, forKey: .x), y: try values.decode(Int.self, forKey: .y),
+                               width: try values.decode(Int.self, forKey: .width), height: try values.decode(Int.self, forKey: .height)),
+                  visible: try values.decode(Bool.self, forKey: .visible),
+                  nativeControls: try values.decodeIfPresent(Bool.self, forKey: .nativeControls) ?? false)
+    }
+    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool, nativeControls: Bool = false) {
+        self.nativeControls = nativeControls
         self.containerID = containerID; self.surfaces = surfaces; self.selected = selected
         x = frame.x; y = frame.y; width = frame.width; height = frame.height; self.visible = visible
     }
@@ -54,13 +66,23 @@ extension SurfaceTree {
                              height: style == .vertical ? sizes.reduce(0) { $0 + $1.height } : sizes.map(\.height).max() ?? 1)
             }
         }
-        // Equal allocation with small panes pinned at their owner minimum. Keep
+        // Weighted allocation with small panes pinned at their owner minimum. Keep
         // every integer point and distribute the remaining space deterministically.
-        func lengths(_ minima: [Int], total: Int) -> [Int] {
+        func lengths(_ minima: [Int], weights: [Double], total: Int) -> [Int] {
             var result = Array(repeating: 0, count: minima.count)
             var pending = Array(minima.indices), remaining = total
             while !pending.isEmpty {
-                let shares = pending.indices.map { remaining * ($0 + 1) / pending.count - remaining * $0 / pending.count }
+                let sum = pending.reduce(0.0) { $0 + weights[$1] }
+                var cumulative = 0.0, allocated = 0
+                let shares = pending.map { index -> Int in
+                    cumulative += weights[index]
+                    // Floating-point multiplication/division can put the final
+                    // ratio a fraction below one; give the last pane the exact
+                    // remainder so no point disappears between layout passes.
+                    let edge = index == pending.last ? remaining : Int(Double(remaining) * cumulative / sum)
+                    defer { allocated = edge }
+                    return edge - allocated
+                }
                 let constrained = pending.indices.filter { shares[$0] < minima[pending[$0]] }
                 if constrained.isEmpty {
                     for offset in pending.indices { result[pending[offset]] = shares[offset] }
@@ -83,7 +105,12 @@ extension SurfaceTree {
             let active = selectedSurface.flatMap { id in nodes.contains { $0.surfaces.contains(id) } ? id : nil }
                 ?? container.flatMap { activeSurfaces[$0] }
             let selected = nodes.firstIndex { active.map($0.surfaces.contains) ?? false } ?? 0
-            let spans = effective == .stack ? [] : lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, total: effective == .horizontal ? frame.width : frame.height)
+            // New pages/groups inherit a typical sibling weight. Stored values
+            // are physical allocations from a resize, so defaulting a new leaf
+            // to 1 would collapse it to its minimum beside resized siblings.
+            let existingWeights = nodes.compactMap { weights[$0.weightKey] }
+            let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
+            let spans = effective == .stack ? [] : lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, weights: nodes.map { weights[$0.weightKey] ?? defaultWeight }, total: effective == .horizontal ? frame.width : frame.height)
             var offset = 0
             return nodes.enumerated().flatMap { index, node -> [SurfacePlacement] in
                 var rect = frame

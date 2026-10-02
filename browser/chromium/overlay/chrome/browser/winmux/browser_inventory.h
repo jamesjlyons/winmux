@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <optional>
 #include "base/functional/callback.h"
 
 namespace winmux {
@@ -12,6 +13,7 @@ struct BrowserSurfaceAction {
   std::string operation;
   uint64_t revision;
   uint64_t generation;
+  std::optional<std::string> url = std::nullopt;
   bool operator==(const BrowserSurfaceAction&) const = default;
 };
 

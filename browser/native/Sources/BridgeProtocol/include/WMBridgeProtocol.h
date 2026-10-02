@@ -3,8 +3,18 @@
 NS_ASSUME_NONNULL_BEGIN
 
 // All methods are asynchronous and available only after mutual code-signing
-// validation. Version 1 remains transport-only; version 2 adds tab ownership.
+// validation. Versions 2/3 add tab ownership/layout; version 4 adds navigation.
 @protocol WMBrowserSurfaceOwner
+// Version 4. URL is a separate nullable payload and participates in operation
+// identity, so retries cannot accidentally issue a different navigation.
+- (void)performBrowserAction:(NSString *)action
+                    surface:(NSString *)surface
+                        url:(NSString *_Nullable)url
+                      epoch:(NSString *)epoch
+                  operation:(NSString *)operation
+                   revision:(uint64_t)revision
+                 generation:(uint64_t)generation
+                      reply:(void (^)(NSString *outcome))reply;
 - (void)applyLayout:(NSData *)layout
               epoch:(NSString *)epoch
           operation:(NSString *)operation

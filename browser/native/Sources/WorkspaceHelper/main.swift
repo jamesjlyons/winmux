@@ -68,16 +68,26 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
               let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
                   DispatchQueue.main.async { completion(.unavailable) }
               }) as? WMBrowserSurfaceOwner else { completion(.unavailable); return }
-        proxy.performAction(request.action.rawValue, surface: request.surfaceID.description,
-                            epoch: request.epoch.uuidString, operation: request.operation.uuidString,
-                            revision: request.revision, generation: request.generation) { outcome in
+        let reply: @Sendable (String) -> Void = { outcome in
             DispatchQueue.main.async { completion(BrowserActionReply(rawValue: outcome) ?? .invalidRequest) }
+        }
+        if (session.version ?? 0) >= 4 {
+            proxy.performBrowserAction(request.action.rawValue, surface: request.surfaceID.description,
+                                       url: request.url, epoch: request.epoch.uuidString,
+                                       operation: request.operation.uuidString,
+                                       revision: request.revision, generation: request.generation, reply: reply)
+        } else if request.action == .focus || request.action == .close || request.action == .cancelFocus {
+            proxy.performAction(request.action.rawValue, surface: request.surfaceID.description,
+                                epoch: request.epoch.uuidString, operation: request.operation.uuidString,
+                                revision: request.revision, generation: request.generation, reply: reply)
+        } else {
+            completion(.unsupported)
         }
     }
 
     @MainActor private func sendLayout(_ request: BrowserLayoutRequest,
                                       completion: @escaping @MainActor (BrowserActionReply) -> Void) {
-        guard session.version == 3, !lock.withLock({ closed }), let connection,
+        guard (session.version ?? 0) >= 3, !lock.withLock({ closed }), let connection,
               let data = try? JSONEncoder().encode(request.hosts), data.count <= 262144,
               let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
                   DispatchQueue.main.async { completion(.unavailable) }
@@ -122,14 +132,66 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             writeTestReport()
             if result.2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    if self.session.version == 3 { self.exerciseLayout(epoch: epoch) }
+                    if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
                     else { self.exerciseActions(epoch: epoch) }
                 }
             }
         }
     }
 
-    private func exerciseLayout(epoch: String) {
+    @MainActor private func testLayout(_ hosts: [BrowserHostPlacement], remote: BrowserOwnerProxy,
+                                      epoch: String, revision: UInt64, generation: UInt64,
+                                      operation: String = UUID().uuidString,
+                                      omitNativeControls: Bool = false) async -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard var data = try? encoder.encode(hosts) else { return "invalid_fixture" }
+        if omitNativeControls {
+            guard var legacy = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return "invalid_fixture" }
+            for index in legacy.indices { legacy[index].removeValue(forKey: "native_controls") }
+            guard let encoded = try? JSONSerialization.data(withJSONObject: legacy) else { return "invalid_fixture" }
+            data = encoded
+        }
+        return await withCheckedContinuation { continuation in
+            remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: revision,
+                                     generation: generation) { continuation.resume(returning: $0) }
+        }
+    }
+
+    @MainActor private func testAction(_ action: String, surface: SurfaceID, remote: BrowserOwnerProxy,
+                                      epoch: String, url: String? = nil, revision: UInt64? = nil,
+                                      operation: String = UUID().uuidString) async -> String {
+        let currentRevision = revision ?? lock.withLock { inventory.revision }
+        let outcome: String = await withCheckedContinuation { continuation in
+            remote.value.performBrowserAction(action, surface: surface.description, url: url, epoch: epoch,
+                operation: operation, revision: currentRevision, generation: 0) {
+                    continuation.resume(returning: $0)
+                }
+        }
+        // Let the helper consume a just-published page-state update. Explicit
+        // revisions (including the stale-revision test) are never retried.
+        if outcome == "stale_revision", revision == nil,
+           let newer = await waitForTestInventory({ $0.revision > currentRevision }) {
+            return await testAction(action, surface: surface, remote: remote, epoch: epoch,
+                                    url: url, revision: newer.revision, operation: operation)
+        }
+        return outcome
+    }
+
+    /// Bounded waits use authoritative inventory, not a fixed navigation delay.
+    /// This is called only by the temporary-service synthetic browser fixture.
+    @MainActor private func waitForTestInventory(_ predicate: (BrowserInventory) -> Bool) async -> BrowserInventory? {
+        let deadline = DispatchTime.now().uptimeNanoseconds + 2_000_000_000
+        repeat {
+            let snapshot = lock.withLock { closed ? nil : inventory }
+            guard let snapshot else { return nil }
+            if predicate(snapshot) { return snapshot }
+            try? await Task.sleep(for: .milliseconds(25))
+        } while DispatchTime.now().uptimeNanoseconds < deadline
+        return nil
+    }
+
+    @MainActor private func exerciseLayout(epoch: String) async {
         guard let value = connection?.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner else { return }
         let remote = BrowserOwnerProxy(value)
         let snapshot = lock.withLock { inventory }
@@ -137,55 +199,141 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         guard ids.count == 2 else { return }
         let first = UUID(), second = UUID()
         let frame = SurfaceFrame(x: 100, y: 100, width: 600, height: 600)
-        let split = [BrowserHostPlacement(containerID: first, surfaces: [ids[0]], selected: ids[0], frame: frame, visible: true),
-                     BrowserHostPlacement(containerID: second, surfaces: [ids[1]], selected: ids[1],
-                         frame: .init(x: 700, y: 100, width: 600, height: 600), visible: true)]
-        guard let data = try? JSONEncoder().encode(split) else { return }
+        let secondFrame = SurfaceFrame(x: 700, y: 100, width: 600, height: 600)
+        let split = [BrowserHostPlacement(containerID: first, surfaces: [ids[0]], selected: ids[0], frame: frame, visible: true, nativeControls: true),
+                     BrowserHostPlacement(containerID: second, surfaces: [ids[1]], selected: ids[1], frame: secondFrame, visible: true, nativeControls: true)]
         let operation = UUID().uuidString
-        remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { result in
-            self.noteTest("layout_split", result)
-            remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { repeated in
-                self.noteTest("layout_repeat", repeated)
-            }
-            remote.value.applyLayout(data, epoch: epoch, operation: UUID().uuidString, revision: snapshot.revision, generation: 1) { stale in
-                self.noteTest("layout_stale", stale)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let now = self.lock.withLock { self.inventory }
-                self.noteTest("layout_split_host_count", String(Set(now.tabs.values.map(\.hostID)).count))
-                self.noteTest("layout_identity_retained", Set(now.tabs.keys) == Set(ids) ? "yes" : "no")
-                self.noteTest("layout_frames_match", now.tabs[ids[0]]?.hostFrame == frame &&
-                    now.tabs[ids[1]]?.hostFrame == SurfaceFrame(x: 700, y: 100, width: 600, height: 600) ? "yes" : "no")
-                let merged = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: nil, frame: frame, visible: false)]
-                guard let mergedData = try? JSONEncoder().encode(merged) else { return }
-                remote.value.applyLayout(mergedData, epoch: epoch, operation: operation, revision: snapshot.revision, generation: 1) { conflict in
-                    self.noteTest("layout_conflict", conflict)
-                    remote.value.applyLayout(mergedData, epoch: epoch, operation: UUID().uuidString, revision: now.revision, generation: 2) { mergedResult in
-                        self.noteTest("layout_merge", mergedResult)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            let mergedState = self.lock.withLock { self.inventory }
-                            self.noteTest("layout_merged_host_count", String(Set(mergedState.tabs.values.map(\.hostID)).count))
-                            self.noteTest("layout_hidden", mergedState.tabs.values.allSatisfy { $0.hostVisible == false } ? "yes" : "no")
-                            guard let minimum = mergedState.tabs[ids[0]]?.hostMinimumSize, minimum.width > 1 else {
-                                self.noteTest("layout_minimum_rejected", "missing_owner_minimum")
-                                self.exerciseActions(epoch: epoch)
-                                return
-                            }
-                            let tooSmall = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: ids[0],
-                                frame: .init(x: 100, y: 100, width: minimum.width - 1, height: 600), visible: true)]
-                            guard let tooSmallData = try? JSONEncoder().encode(tooSmall) else { return }
-                            remote.value.applyLayout(tooSmallData, epoch: epoch, operation: UUID().uuidString,
-                                revision: mergedState.revision, generation: 3) { rejected in
-                                self.noteTest("layout_minimum_rejected", rejected)
-                                let unchanged = self.lock.withLock { self.inventory }
-                                self.noteTest("layout_minimum_no_mutation", unchanged.tabs == mergedState.tabs ? "yes" : "no")
-                                self.exerciseActions(epoch: epoch)
-                            }
-                        }
-                    }
-                }
-            }
+        noteTest("layout_split", await testLayout(split, remote: remote, epoch: epoch,
+            revision: snapshot.revision, generation: 1, operation: operation))
+        noteTest("layout_repeat", await testLayout(split, remote: remote, epoch: epoch,
+            revision: snapshot.revision, generation: 1, operation: operation))
+        noteTest("layout_stale", await testLayout(split, remote: remote, epoch: epoch,
+            revision: snapshot.revision, generation: 1))
+        guard let splitState = await waitForTestInventory({ state in
+            state.tabs[ids[0]]?.hostFrame == frame && state.tabs[ids[1]]?.hostFrame == secondFrame &&
+            state.tabs.values.allSatisfy { $0.hostManaged }
+        }) else { noteTest("layout_split_state", "timed_out"); return }
+        let windows = Dictionary(uniqueKeysWithValues: splitState.tabs.values.compactMap { tab in
+            tab.hostWindowID.map { (tab.surfaceID, $0) }
+        })
+        noteTest("layout_split_host_count", String(Set(splitState.tabs.values.map(\.hostID)).count))
+        noteTest("layout_independent_native_windows", windows.count == 2 && Set(windows.values).count == 2 &&
+            windows.values.allSatisfy { $0 > 0 } ? "yes" : "no")
+        noteTest("layout_identity_retained", Set(splitState.tabs.keys) == Set(ids) ? "yes" : "no")
+        noteTest("layout_frames_match", "yes")
+        noteTest("layout_managed", "yes")
+
+        // A Winmux stack shares placement, never Chromium's host/tabstrip.
+        let grouped = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: ids[0], frame: frame, visible: true, nativeControls: true)]
+        noteTest("layout_conflict", await testLayout(grouped, remote: remote, epoch: epoch,
+            revision: snapshot.revision, generation: 1, operation: operation))
+        noteTest("layout_group", await testLayout(grouped, remote: remote, epoch: epoch,
+            revision: splitState.revision, generation: 2))
+        guard let groupedState = await waitForTestInventory({ state in
+            state.tabs[ids[0]]?.hostVisible == true && state.tabs[ids[1]]?.hostVisible == false &&
+            state.tabs.values.allSatisfy { $0.hostFrame == frame }
+        }) else { noteTest("layout_group_state", "timed_out"); return }
+        noteTest("layout_grouped_host_count", String(Set(groupedState.tabs.values.map(\.hostID)).count))
+        noteTest("layout_grouped_window_ids_retained", ids.allSatisfy {
+            groupedState.tabs[$0]?.hostWindowID == windows[$0]
+        } ? "yes" : "no")
+        noteTest("layout_selected_page_only", groupedState.tabs.values.filter { $0.hostVisible == true }.count == 1 ? "yes" : "no")
+
+        let hidden = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: nil, frame: frame, visible: false, nativeControls: true)]
+        noteTest("layout_hide", await testLayout(hidden, remote: remote, epoch: epoch,
+            revision: groupedState.revision, generation: 3))
+        guard let hiddenState = await waitForTestInventory({ $0.tabs.values.allSatisfy { $0.hostVisible == false } }) else {
+            noteTest("layout_hidden", "timed_out"); return
         }
+        noteTest("layout_hidden", "yes")
+        guard let minimum = hiddenState.tabs[ids[0]]?.hostMinimumSize, minimum.width > 1 else {
+            noteTest("layout_minimum_rejected", "missing_owner_minimum"); return
+        }
+        let tooSmall = [BrowserHostPlacement(containerID: first, surfaces: ids, selected: ids[0],
+            frame: .init(x: 100, y: 100, width: minimum.width - 1, height: 600), visible: true, nativeControls: true)]
+        noteTest("layout_minimum_rejected", await testLayout(tooSmall, remote: remote, epoch: epoch,
+            revision: hiddenState.revision, generation: 4))
+        noteTest("layout_minimum_no_mutation", lock.withLock { inventory.tabs == hiddenState.tabs } ? "yes" : "no")
+        // A protocol-3 helper never supplied native_controls. Its layout must
+        // restore Chromium controls even when it inherits previously managed hosts.
+        noteTest("layout_legacy_controls", await testLayout(split, remote: remote, epoch: epoch,
+            revision: hiddenState.revision, generation: 5, omitNativeControls: true))
+        guard let legacyState = await waitForTestInventory({ $0.tabs.count == 2 && $0.tabs.values.allSatisfy { !$0.hostManaged } }) else {
+            noteTest("layout_legacy_controls_restored", "timed_out"); return
+        }
+        noteTest("layout_legacy_controls_restored", "yes")
+        noteTest("layout_readopt", await testLayout(split, remote: remote, epoch: epoch,
+            revision: legacyState.revision, generation: 6))
+        guard let readopted = await waitForTestInventory({ $0.tabs.count == 2 && $0.tabs.values.allSatisfy { $0.hostManaged } }) else {
+            noteTest("layout_readopted_window_ids", "timed_out"); return
+        }
+        noteTest("layout_readopted_window_ids", ids.allSatisfy { readopted.tabs[$0]?.hostWindowID == windows[$0] } ? "yes" : "no")
+        if (session.version ?? 0) >= 4 {
+            guard await exerciseNavigation(epoch: epoch, remote: remote, ids: ids, windows: windows) else { return }
+        }
+        exerciseActions(epoch: epoch)
+    }
+
+    @MainActor private func exerciseNavigation(epoch: String, remote: BrowserOwnerProxy,
+                                              ids: [SurfaceID], windows: [SurfaceID: UInt32]) async -> Bool {
+        let id = ids[0], firstURL = "about:blank#winmux-navigation-a", secondURL = "about:blank#winmux-navigation-b"
+        let legacy = await withCheckedContinuation { continuation in
+            remote.value.performAction("reload", surface: id.description, epoch: epoch,
+                operation: UUID().uuidString, revision: 0, generation: 0) {
+                    continuation.resume(returning: $0)
+                }
+        }
+        noteTest("navigation_legacy_rejected", legacy)
+        noteTest("navigate_first", await testAction("navigate", surface: id, remote: remote, epoch: epoch, url: firstURL))
+        guard await waitForTestInventory({ $0.tabs[id]?.url == firstURL && $0.tabs[id]?.isLoading == false }) != nil else {
+            noteTest("navigate_first_state", "timed_out"); return false
+        }
+        let operation = UUID().uuidString, revision = lock.withLock { inventory.revision }
+        noteTest("navigate_second", await testAction("navigate", surface: id, remote: remote, epoch: epoch,
+            url: secondURL, revision: revision, operation: operation))
+        noteTest("navigate_repeat", await testAction("navigate", surface: id, remote: remote, epoch: epoch,
+            url: secondURL, revision: revision, operation: operation))
+        noteTest("navigate_payload_conflict", await testAction("navigate", surface: id, remote: remote, epoch: epoch,
+            url: firstURL, revision: revision, operation: operation))
+        guard await waitForTestInventory({ $0.tabs[id]?.url == secondURL && $0.tabs[id]?.canGoBack == true &&
+            $0.tabs[id]?.isLoading == false }) != nil else { noteTest("navigate_history_state", "timed_out"); return false }
+        noteTest("navigate_stale_revision", await testAction("reload", surface: id, remote: remote, epoch: epoch, revision: 0))
+        noteTest("navigate_invalid_url", await testAction("navigate", surface: id, remote: remote, epoch: epoch,
+            url: "javascript:void(0)"))
+        noteTest("back", await testAction("back", surface: id, remote: remote, epoch: epoch))
+        guard await waitForTestInventory({ $0.tabs[id]?.url == firstURL && $0.tabs[id]?.canGoForward == true }) != nil else {
+            noteTest("back_state", "timed_out"); return false
+        }
+        noteTest("back_state", "yes")
+        noteTest("forward", await testAction("forward", surface: id, remote: remote, epoch: epoch))
+        guard await waitForTestInventory({ $0.tabs[id]?.url == secondURL && $0.tabs[id]?.isLoading == false }) != nil else {
+            noteTest("forward_state", "timed_out"); return false
+        }
+        noteTest("forward_state", "yes")
+        noteTest("reload", await testAction("reload", surface: id, remote: remote, epoch: epoch))
+        // about:blank may finish synchronously; stop is still a valid dispatch.
+        _ = await waitForTestInventory { $0.tabs[id]?.isLoading == false }
+        noteTest("stop", await testAction("stop", surface: id, remote: remote, epoch: epoch))
+        noteTest("navigation_keeps_native_windows", lock.withLock { ids.allSatisfy {
+            inventory.tabs[$0]?.hostWindowID == windows[$0]
+        }} ? "yes" : "no")
+
+        let newURL = "about:blank#winmux-new-window"
+        noteTest("new_tab", await testAction("new_tab", surface: id, remote: remote, epoch: epoch, url: newURL))
+        guard let newState = await waitForTestInventory({ state in
+            state.tabs.count == 3 && Set(state.tabs.values.map(\.hostID)).count == 3 &&
+            state.tabs.values.contains { $0.url == newURL && !$0.isLoading }
+        }), let newPage = newState.tabs.values.first(where: { $0.url == newURL }) else {
+            noteTest("new_tab_state", "timed_out"); return false
+        }
+        let windowIDs = newState.tabs.values.compactMap(\.hostWindowID)
+        noteTest("new_tab_independent_native_window", windowIDs.count == 3 && Set(windowIDs).count == 3 &&
+            ids.allSatisfy { newState.tabs[$0]?.hostWindowID == windows[$0] } ? "yes" : "no")
+        noteTest("new_tab_close", await testAction("close", surface: newPage.surfaceID, remote: remote, epoch: epoch))
+        guard await waitForTestInventory({ Set($0.tabs.keys) == Set(ids) }) != nil else {
+            noteTest("new_tab_cleanup", "timed_out"); return false
+        }
+        return true
     }
 
     // Runs only in an explicitly named isolated test service. Production never
@@ -252,7 +400,8 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                        "tab_count": inventory.tabs.count, "outcomes": testOutcomes,
                                        "full_messages": fullMessages, "delta_messages": deltaMessages,
                                        "hosts": inventory.tabs.values.map { tab in
-                                           ["host_id": tab.hostID, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
+                                           ["host_id": tab.hostID, "native_window_id": tab.hostWindowID.map { $0 as Any } ?? NSNull(),
+                                            "managed": tab.hostManaged, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
                                             "minimum_size": tab.hostMinimumSize.map { ["width": $0.width, "height": $0.height] as Any } ?? NSNull(),
                                             "frame": tab.hostFrame.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] as Any } ?? NSNull()]
                                        }]

@@ -3,6 +3,8 @@
 #include <deque>
 #include <limits>
 #include <map>
+#include <memory>
+#include <set>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -24,18 +26,47 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/winmux/tab_identity.h"
 #include "chrome/browser/winmux/host_window.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/referrer.h"
+#include "content/public/browser/reload_type.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/base_window.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
 namespace winmux {
 namespace {
+// A same-document navigation can change URL/history without changing the tab's
+// title or loading flag, so observe contents as well as the tab strip.
+class TabNavigationObserver final : public content::WebContentsObserver {
+ public:
+  TabNavigationObserver(content::WebContents* contents, base::RepeatingClosure changed)
+      : content::WebContentsObserver(contents), changed_(std::move(changed)) {}
+  void DidStartNavigation(content::NavigationHandle* handle) override {
+    if (handle->IsInPrimaryMainFrame()) changed_.Run();
+  }
+  void DidFinishNavigation(content::NavigationHandle* handle) override {
+    if (handle->IsInPrimaryMainFrame()) changed_.Run();
+  }
+  void DidStartLoading() override { changed_.Run(); }
+  void DidStopLoading() override { changed_.Run(); }
+  void NavigationEntryCommitted(const content::LoadCommittedDetails&) override { changed_.Run(); }
+  void NavigationListPruned(const content::PrunedDetails&) override { changed_.Run(); }
+  void NavigationEntriesDeleted() override { changed_.Run(); }
+  void WebContentsDestroyed() override { changed_.Run(); }
+ private:
+  base::RepeatingClosure changed_;
+};
+
 class BrowserInventory final : public BrowserCollectionObserver,
                                public TabStripModelObserver {
  public:
@@ -70,8 +101,24 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return previous->second.first == request ? previous->second.second
                                               : "operation_conflict";
     }
-    if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus")
+    if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus" &&
+        request.action != "back" && request.action != "forward" && request.action != "reload" &&
+        request.action != "stop" && request.action != "navigate" && request.action != "new_tab" &&
+        request.action != "extensions" && request.action != "manage_extensions")
       return "unsupported";
+    if ((request.url && (request.url->size() > 16384 ||
+                         (request.action != "navigate" && request.action != "new_tab"))) ||
+        (request.action == "navigate" && (!request.url || request.url->empty())))
+      return "invalid_request";
+    GURL target;
+    if (request.url) {
+      target = GURL(*request.url);
+      // The address field opens documents, never javascript/data execution
+      // payloads. Chromium retains its normal policy and permission checks.
+      if (!target.is_valid() || !(target.SchemeIsHTTPOrHTTPS() || target.SchemeIsFile() ||
+          target.SchemeIs("about") || target.SchemeIs("chrome") || target.SchemeIs("chrome-extension")))
+        return "invalid_request";
+    }
     if (request.action == "focus" || request.action == "cancel_focus") {
       if (!request.generation || request.generation <= highest_focus_)
         return "stale_focus";
@@ -99,16 +146,46 @@ class BrowserInventory final : public BrowserCollectionObserver,
     int index = strip->GetIndexOfWebContents(contents);
     if (index < 0)
       return "unavailable";
+    auto& navigation = contents->GetController();
+    if ((request.action == "back" && !navigation.CanGoBack()) ||
+        (request.action == "forward" && !navigation.CanGoForward()))
+      return "unavailable";
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
     Remember(request);
     if (request.action == "focus") {
       strip->ActivateTabAt(index);
       browser->GetWindow()->Show();
       browser->GetWindow()->Activate();
-    } else {
+    } else if (request.action == "close") {
       strip->CloseWebContents(contents, TabCloseTypes::CLOSE_USER_GESTURE |
                                           TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+    } else if (request.action == "back") {
+      navigation.GoBack();
+    } else if (request.action == "forward") {
+      navigation.GoForward();
+    } else if (request.action == "reload") {
+      navigation.Reload(content::ReloadType::NORMAL, /*check_for_repost=*/true);
+    } else if (request.action == "stop") {
+      contents->Stop();
+    } else if (request.action == "navigate") {
+      navigation.LoadURL(target, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
+    } else if (request.action == "new_tab") {
+      browser->OpenGURL(request.url ? target : GURL("chrome://newtab/"),
+                        WindowOpenDisposition::NEW_FOREGROUND_TAB);
+    } else if (request.action == "extensions") {
+      strip->ActivateTabAt(index);
+      browser->GetWindow()->Show();
+      browser->GetWindow()->Activate();
+      auto* extensions = ExtensionsContainer::From(*browser);
+      if (extensions && extensions->HasAnyExtensions()) {
+        extensions->ToggleExtensionsMenu();
+      } else {
+        browser->OpenGURL(GURL("chrome://extensions/"), WindowOpenDisposition::NEW_FOREGROUND_TAB);
+      }
+    } else if (request.action == "manage_extensions") {
+      browser->OpenGURL(GURL("chrome://extensions/"), WindowOpenDisposition::NEW_FOREGROUND_TAB);
     }
+    Schedule();
     // This is dispatch acknowledgement, never presentation/input confirmation.
     return "issued";
   }
@@ -149,9 +226,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
           }, browser->GetWeakPtr()), base::Milliseconds(500));
     }
   }
-  void OnBrowserClosed(BrowserWindowInterface* browser) override {
-    Schedule();
-  }
+  void OnBrowserClosed(BrowserWindowInterface* browser) override { Schedule(); }
+  void OnBrowserActivated(BrowserWindowInterface* browser) override { Schedule(); }
+  void OnBrowserDeactivated(BrowserWindowInterface* browser) override { Schedule(); }
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                               const TabStripSelectionChange&) override { Schedule(); }
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Schedule(); }
@@ -184,6 +261,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     // not user tab-close tombstones: retain the last authoritative placement.
     if (browser_shutdown::IsTryingToQuit() || browser_shutdown::HasShutdownStarted()) return;
     std::map<std::string, base::DictValue> next;
+    std::set<std::string> observed;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
@@ -195,6 +273,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
         auto id = PersistentSurfaceID(contents);
         if (id.empty())
           continue;
+        observed.insert(id);
+        auto& observer = navigation_observers_[id];
+        if (!observer || observer->web_contents() != contents) {
+          observer = std::make_unique<TabNavigationObserver>(contents,
+              base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+        }
         base::DictValue record;
         record.Set("surface_id", id);
         record.Set("host_id", "host:" + base::NumberToString(browser->GetSessionID().id()));
@@ -214,12 +298,19 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("host_minimum_size", std::move(minimum_size));
         record.Set("title", base::UTF16ToUTF8(contents->GetTitle().substr(0, 1024)));
         record.Set("selected", index == strip->active_index());
+        record.Set("focused", index == strip->active_index() && browser->GetWindow()->IsActive());
+        record.Set("host_managed", IsBrowserHostManaged(browser));
+        record.Set("url", contents->GetVisibleURL().spec().substr(0, 16384));
+        record.Set("can_go_back", contents->GetController().CanGoBack());
+        record.Set("can_go_forward", contents->GetController().CanGoForward());
+        record.Set("is_loading", contents->IsLoading());
         record.Set("private", false);
         next.emplace(id, std::move(record));
         live_.emplace(id, contents);
       }
       return true;
     });
+    std::erase_if(navigation_observers_, [&](const auto& item) { return !observed.contains(item.first); });
     base::ListValue changed, removed;
     for (const auto& [id, record] : next) {
       auto previous = records_.find(id);
@@ -254,6 +345,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   uint64_t highest_layout_ = 0;
   std::string epoch_;
   std::map<std::string, base::DictValue> records_;
+  std::map<std::string, std::unique_ptr<TabNavigationObserver>> navigation_observers_;
   std::map<std::string, raw_ptr<content::WebContents>> live_;
   std::map<std::string, std::pair<BrowserSurfaceAction, std::string>> operations_;
   std::deque<std::string> operation_order_;

@@ -198,7 +198,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:3 remote:remote generation:generation];
+  [self negotiate:4 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -209,7 +209,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 3 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 4 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -276,11 +276,29 @@ NSString* OwnTeam() {
 - (void)performAction:(NSString*)action surface:(NSString*)surface epoch:(NSString*)epoch
            operation:(NSString*)operation revision:(uint64_t)revision generation:(uint64_t)focusGeneration
                reply:(void (^)(NSString*))reply {
+  if (![action isEqualToString:@"focus"] && ![action isEqualToString:@"close"] &&
+      ![action isEqualToString:@"cancel_focus"]) { reply(@"unsupported"); return; }
+  [self dispatchAction:action surface:surface url:nil epoch:epoch operation:operation
+              revision:revision generation:focusGeneration minimumVersion:2 reply:reply];
+}
+
+- (void)performBrowserAction:(NSString*)action surface:(NSString*)surface url:(NSString*)url
+                      epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
+                 generation:(uint64_t)focusGeneration reply:(void (^)(NSString*))reply {
+  [self dispatchAction:action surface:surface url:url epoch:epoch operation:operation
+              revision:revision generation:focusGeneration minimumVersion:4 reply:reply];
+}
+
+- (void)dispatchAction:(NSString*)action surface:(NSString*)surface url:(NSString*)url
+                 epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
+            generation:(uint64_t)focusGeneration minimumVersion:(NSInteger)minimumVersion
+                 reply:(void (^)(NSString*))reply {
   dispatch_async(self.queue, ^{
     const uint64_t generation = self->_state.generation();
-    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 2 ||
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < minimumVersion ||
         ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch"); return; }
-    if (action.length > 16 || surface.length > 128 || operation.length > 40) {
+    if (action.length > 32 || surface.length > 128 || operation.length > 40 ||
+        (url && [url lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 16384)) {
       reply(@"invalid_request"); return;
     }
     if ([action isEqualToString:@"focus"] || [action isEqualToString:@"cancel_focus"]) {
@@ -290,7 +308,8 @@ NSString* OwnTeam() {
       self->_latestFocus.store(focusGeneration);
     }
     winmux::BrowserSurfaceAction request{base::SysNSStringToUTF8(action), base::SysNSStringToUTF8(surface),
-        base::SysNSStringToUTF8(operation), revision, focusGeneration};
+        base::SysNSStringToUTF8(operation), revision, focusGeneration,
+        url ? std::make_optional(base::SysNSStringToUTF8(url)) : std::nullopt};
     content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string requestEpoch,
            winmux::BrowserSurfaceAction request, void (^completion)(NSString*)) {

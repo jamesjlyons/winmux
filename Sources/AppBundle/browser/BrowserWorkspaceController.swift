@@ -9,6 +9,12 @@ import WorkspaceCore
 public final class BrowserWorkspaceController {
     public static let shared = BrowserWorkspaceController()
     let focusCoordinator = SurfaceFocusCoordinator()
+    private let foregroundProcessID: @MainActor () -> Int32?
+
+    init(foregroundProcessID: @escaping @MainActor () -> Int32? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }) {
+        self.foregroundProcessID = foregroundProcessID
+    }
+
     private var sessions: [UUID: BrowserSurfaceSession] = [:]
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
     private(set) var surfaceTree = SurfaceTree()
@@ -89,6 +95,7 @@ public final class BrowserWorkspaceController {
         guard let session = sessions[connection] else { return }
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
+        session.supportsBrowserControls = protocolVersion >= 4
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
         for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
@@ -105,6 +112,22 @@ public final class BrowserWorkspaceController {
                 placements[id] = workspace
                 if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspace) }
             }
+        }
+        if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+           processBindings[connection]?.pid == foregroundProcessID(),
+           let focused = session.inventory.tabs.values.first(where: { $0.focused }),
+           focusCoordinator.target != focused.surfaceID {
+            // The browser reports native activation. Reflect clicks in the shared
+            // selection without issuing a second activation back to Chromium.
+            if let generation = focusCoordinator.select(focused.surfaceID) {
+                fenceBrowsers(generation: generation, target: focused.surfaceID)
+            }
+            surfaceTree.select(focused.surfaceID)
+        }
+        // Every browser page participates in the workspace layout immediately.
+        // A first page must not wait for an explicit split/group command.
+        if usesSurfaceTree && session.supportsBrowserControls {
+            mixedLayoutWorkspaces.formUnion(session.inventory.tabs.keys.compactMap { placements[$0] })
         }
         scheduleRefresh()
     }
@@ -124,6 +147,10 @@ public final class BrowserWorkspaceController {
 
     func adoptNativeWorkspace() {
         usesSurfaceTree = BrowserNativeManagement.lease != nil
+        if usesSurfaceTree {
+            mixedLayoutWorkspaces.formUnion(sessions.values.filter(\.supportsBrowserControls)
+                .flatMap { $0.inventory.tabs.keys }.compactMap { placements[$0] })
+        }
         for (id, workspace) in placements where Workspace.existing(byName: workspace) == nil {
             placements[id] = focus.workspace.name
         }
@@ -165,7 +192,8 @@ public final class BrowserWorkspaceController {
             guard let wireID = target ?? session.inventory.tabs.keys.first else { continue }
             session.supersedeFocus(generation: generation, target: wireID) { [weak self] outcome in
                 guard outcome == .issued, let self, let target,
-                      self.focusCoordinator.isCurrent(generation, target: target) else { return }
+                      self.focusCoordinator.isCurrent(generation, target: target),
+                      BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
                 _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
             }
         }
@@ -210,7 +238,8 @@ public final class BrowserWorkspaceController {
                     for other in sessions.values where other !== session {
                         other.supersedeFocus(generation: generation, target: id) { [weak self, weak session] outcome in
                             guard outcome == .issued, let self, let session,
-                                  self.focusCoordinator.target == id, self.owner(of: id) === session else { return }
+                                  self.focusCoordinator.target == id, self.owner(of: id) === session,
+                                  BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
                             // Another connection's fence may already have caused
                             // a reaffirmation (and advanced the dispatch clock).
                             // Each late fence still reaffirms the latest target.
@@ -384,7 +413,9 @@ public final class BrowserWorkspaceController {
         var result: [SurfaceID: SurfaceMinimumSize] = [:]
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             if case .browserTab = id {
-                result[id] = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
+                let minimum = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
+                let toolbar = owner(of: id)?.supportsBrowserControls == true ? Int(BrowserToolbarController.height) : 0
+                result[id] = .init(width: max(320, minimum.width), height: min(30000, minimum.height + toolbar))
             } else {
                 result[id] = observedNativeMinimums[id] ?? .init(width: 80, height: 80)
             }
@@ -449,24 +480,20 @@ public final class BrowserWorkspaceController {
     }
 
     func publishBrowserLayouts() {
-        guard usesSurfaceTree, BrowserNativeManagement.lease != nil else { return }
+        guard usesSurfaceTree, BrowserNativeManagement.lease != nil else {
+            BrowserToolbarController.shared.hideAll()
+            return
+        }
         let placements = TrayMenuModel.shared.isEnabled ? Workspace.all.filter { mixedLayoutWorkspaces.contains($0.name) }.flatMap(plannedSurfaces) : []
+        updateBrowserToolbars(placements)
         for session in sessions.values where session.supportsLayout {
             let owned = placements.filter { owner(of: $0.surfaceID) === session }
-            let grouped = Dictionary(grouping: owned) { placement -> String in
-                guard case .browserTab(let profile, _) = placement.surfaceID else { return "" }
-                return "\(placement.containerID):\(profile)"
-            }
-            let hosts = grouped.keys.sorted().compactMap { key -> BrowserHostPlacement? in
-                guard let items = grouped[key], let first = items.first else { return nil }
-                let visible = items.first { $0.visible }
-                return BrowserHostPlacement(containerID: first.containerID, surfaces: items.map(\.surfaceID),
-                    selected: visible?.surfaceID, frame: first.frame, visible: visible != nil)
-            }
+            let hosts = browserHostPlacements(owned, hasNativeToolbar: session.supportsBrowserControls)
             let target = focusCoordinator.target, generation = focusCoordinator.generation
             session.requestLayout(hosts) { [weak self, weak session] reply in
                 guard reply == .issued, TrayMenuModel.shared.isEnabled, let self, let session, let target,
-                      self.focusCoordinator.isCurrent(generation, target: target) else { return }
+                      self.focusCoordinator.isCurrent(generation, target: target),
+                      BrowserToolbarController.shared.focusedControlSurfaceID == nil else { return }
                 if case .nativeWindow = target {
                     _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
                     return

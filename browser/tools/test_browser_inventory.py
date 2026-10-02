@@ -2,7 +2,7 @@
 """Test signed browser inventory/actions through an isolated launchd service.
 
 The existing SMAppService enrollment and installed browser remain untouched.
-Only fresh headless test tabs are focused/closed. All artifacts stay in a new
+Only fresh headless test tabs are navigated, arranged, focused, and closed. All artifacts stay in a new
 directory; the test service is booted out and its own browser stopped on exit.
 """
 import argparse
@@ -69,13 +69,23 @@ def main():
                 "native_focus_fence": "issued", "repeated_fence": "issued",
                 "layout_split": "issued", "layout_repeat": "issued", "layout_stale": "stale_layout",
                 "layout_split_host_count": "2", "layout_identity_retained": "yes", "layout_frames_match": "yes",
-                "layout_conflict": "operation_conflict", "layout_merge": "issued",
-                "layout_merged_host_count": "1", "layout_hidden": "yes",
-                "layout_minimum_rejected": "unsupported", "layout_minimum_no_mutation": "yes"}
+                "layout_independent_native_windows": "yes", "layout_managed": "yes",
+                "layout_conflict": "operation_conflict", "layout_group": "issued",
+                "layout_grouped_host_count": "2", "layout_grouped_window_ids_retained": "yes",
+                "layout_selected_page_only": "yes", "layout_hide": "issued", "layout_hidden": "yes",
+                "layout_minimum_rejected": "unsupported", "layout_minimum_no_mutation": "yes",
+                "layout_legacy_controls": "issued", "layout_legacy_controls_restored": "yes",
+                "layout_readopt": "issued", "layout_readopted_window_ids": "yes",
+                "navigation_legacy_rejected": "unsupported", "navigate_first": "issued", "navigate_second": "issued",
+                "navigate_repeat": "issued", "navigate_payload_conflict": "operation_conflict",
+                "navigate_stale_revision": "stale_revision", "navigate_invalid_url": "invalid_request",
+                "back": "issued", "back_state": "yes", "forward": "issued", "forward_state": "yes",
+                "reload": "issued", "stop": "issued", "navigation_keeps_native_windows": "yes",
+                "new_tab": "issued", "new_tab_independent_native_window": "yes", "new_tab_close": "issued"}
     expected_count = 0 if args.private else 1
     if args.private:
         expected = {}
-    result = {"scope": "actual_signed_browser_authenticated_inventory_actions", "passed": False,
+    result = {"scope": "actual_signed_browser_protocol4_page_windows_navigation", "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private, "observations": [],
@@ -101,7 +111,7 @@ def main():
                     if (bridge.get("authenticated_connections") == 1 and report.get("outcomes") == expected
                             and report.get("tab_count") == expected_count):
                         result["actions"] = report
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 3
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 4
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == {}):
                         if recovered_at is None:
@@ -115,7 +125,12 @@ def main():
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
             if not result["passed"]:
-                result["error"] = "Expected inventory/action outcomes were not observed"
+                result["error"] = "Expected protocol4 page-window/navigation outcomes were not observed"
+                observed = previous.get("outcomes", {}) if previous else {}
+                result["missing_or_incorrect_outcomes"] = {
+                    key: {"expected": value, "actual": observed.get(key)}
+                    for key, value in expected.items() if observed.get(key) != value
+                }
         except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
             result["error"] = str(error)
         finally:

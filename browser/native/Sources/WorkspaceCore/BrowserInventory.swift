@@ -5,17 +5,29 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostID: String
     public let title: String
     public let selected: Bool
+    public let url: String
+    public let canGoBack: Bool
+    public let canGoForward: Bool
+    public let isLoading: Bool
+    public let hostManaged: Bool
+    public let focused: Bool
     public let privateBrowsing: Bool
     public let hostWindowID: UInt32?
     public let hostFrame: SurfaceFrame?
     public let hostVisible: Bool?
     public let hostMinimumSize: SurfaceMinimumSize?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, focused: Bool = false) {
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
         self.selected = selected
+        self.url = url
+        self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
+        self.isLoading = isLoading
+        self.hostManaged = hostManaged
+        self.focused = focused
         self.privateBrowsing = privateBrowsing
         self.hostWindowID = hostWindowID
         self.hostFrame = hostFrame; self.hostVisible = hostVisible
@@ -28,6 +40,27 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case hostWindowID = "host_window_id"
         case hostFrame = "host_frame", hostVisible = "host_visible"
         case hostMinimumSize = "host_minimum_size"
+        case url, canGoBack = "can_go_back", canGoForward = "can_go_forward"
+        case isLoading = "is_loading", hostManaged = "host_managed", focused
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(surfaceID: try values.decode(SurfaceID.self, forKey: .surfaceID),
+                  hostID: try values.decode(String.self, forKey: .hostID),
+                  title: try values.decode(String.self, forKey: .title),
+                  selected: try values.decode(Bool.self, forKey: .selected),
+                  privateBrowsing: try values.decode(Bool.self, forKey: .privateBrowsing),
+                  hostWindowID: try values.decodeIfPresent(UInt32.self, forKey: .hostWindowID),
+                  hostFrame: try values.decodeIfPresent(SurfaceFrame.self, forKey: .hostFrame),
+                  hostVisible: try values.decodeIfPresent(Bool.self, forKey: .hostVisible),
+                  hostMinimumSize: try values.decodeIfPresent(SurfaceMinimumSize.self, forKey: .hostMinimumSize),
+                  url: try values.decodeIfPresent(String.self, forKey: .url) ?? "",
+                  canGoBack: try values.decodeIfPresent(Bool.self, forKey: .canGoBack) ?? false,
+                  canGoForward: try values.decodeIfPresent(Bool.self, forKey: .canGoForward) ?? false,
+                  isLoading: try values.decodeIfPresent(Bool.self, forKey: .isLoading) ?? false,
+                  hostManaged: try values.decodeIfPresent(Bool.self, forKey: .hostManaged) ?? false,
+                  focused: try values.decodeIfPresent(Bool.self, forKey: .focused) ?? false)
     }
 }
 
@@ -64,7 +97,7 @@ public struct BrowserInventory: Sendable {
               Set(message.removed).count == message.removed.count,
               Set(changed).isDisjoint(with: message.removed),
               (changed + message.removed).allSatisfy({ if case .browserTab = $0 { return true }; return false }),
-              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && ($0.hostMinimumSize?.isValid ?? true) })
+              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && $0.url.utf8.count <= 16_384 && ($0.hostMinimumSize?.isValid ?? true) })
         else { return false }
         var next = message.full ? [:] : tabs
         for id in message.removed {

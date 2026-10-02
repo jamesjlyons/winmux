@@ -17,6 +17,28 @@ final class BrowserInventoryTests: XCTestCase {
             XCTAssertEqual(inventory.tabs, [a: first])
         }
     }
+    func testNavigationStateRoundTripsAndLegacyInventoryDefaults() throws {
+        let id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let record = BrowserTabRecord(surfaceID: id, hostID: "host:1", title: "Page", selected: true,
+                                      url: "https://example.test/path", canGoBack: true,
+                                      canGoForward: true, isLoading: true, hostManaged: true, focused: true)
+        let data = try JSONEncoder().encode(record)
+        XCTAssertEqual(try JSONDecoder().decode(BrowserTabRecord.self, from: data), record)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        for key in ["url", "can_go_back", "can_go_forward", "is_loading", "host_managed", "focused"] {
+            legacy.removeValue(forKey: key)
+        }
+        let decoded = try JSONDecoder().decode(BrowserTabRecord.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(decoded.url, "")
+        XCTAssertFalse(decoded.canGoBack || decoded.canGoForward || decoded.isLoading || decoded.hostManaged || decoded.focused)
+        var inventory = BrowserInventory()
+        XCTAssertTrue(inventory.apply(.init(revision: 1, full: true, tabs: [record])))
+        let oversized = BrowserTabRecord(surfaceID: id, hostID: "host:1", title: "Page", selected: true,
+                                         url: String(repeating: "x", count: 16_385))
+        XCTAssertFalse(inventory.apply(.init(revision: 2, full: false, tabs: [oversized])))
+        XCTAssertEqual(inventory.tabs[id], record)
+    }
+
     private func tab(id: SurfaceID = .browserTab(profile: UUID(), tab: UUID()), title: String = "Synthetic tab", privateBrowsing: Bool = false) -> BrowserTabRecord {
         BrowserTabRecord(surfaceID: id, hostID: "host:1", title: title, selected: true, privateBrowsing: privateBrowsing)
     }
