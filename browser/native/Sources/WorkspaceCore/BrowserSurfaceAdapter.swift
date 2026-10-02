@@ -141,6 +141,12 @@ public final class BrowserSurfaceSession {
             if !acknowledgementIsCurrent || self.desiredLayout != hosts {
                 self.layoutAttemptRevision = nil
                 self.flushLayout()
+            } else if reply == .staleRevision, self.inventory.revision > request.revision {
+                // New inventory can arrive while an unchanged plan is in flight.
+                // Its refresh cannot send until this reply releases the transport.
+                // Retry against that already observed revision without waiting for
+                // another event; the attempt guard permits only one per revision.
+                self.flushLayout()
             }
         }
     }

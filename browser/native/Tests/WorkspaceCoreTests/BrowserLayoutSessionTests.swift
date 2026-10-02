@@ -108,4 +108,56 @@ final class BrowserLayoutSessionTests: XCTestCase {
         fixture.session.requestLayout(hosts) { _ in }
         XCTAssertEqual(fixture.requests.count, 3)
     }
+
+    @MainActor func testInventoryAdvanceBeforeStaleReplyRetriesUnchangedPlan() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        fixture.session.requestLayout(hosts) { _ in }
+        let epoch = fixture.requests[0].epoch
+        XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        var result: BrowserActionReply?
+        fixture.session.requestLayout(hosts) { result = $0 }
+        XCTAssertEqual(fixture.requests.count, 1, "Inventory refresh must keep layout transport serialized")
+
+        fixture.replies[0](.staleRevision)
+
+        XCTAssertEqual(fixture.requests.count, 2, "New inventory already arrived; no later event should be needed")
+        guard fixture.requests.count == 2 else { return }
+        XCTAssertEqual(fixture.requests[1].hosts, hosts)
+        XCTAssertEqual(fixture.requests[1].revision, 2)
+        XCTAssertGreaterThan(fixture.requests[1].generation, fixture.requests[0].generation)
+        XCTAssertNotEqual(fixture.requests[1].operation, fixture.requests[0].operation)
+        fixture.replies[1](.issued)
+        XCTAssertEqual(result, .issued)
+        fixture.session.requestLayout(hosts) { _ in XCTFail("The retried plan should be acknowledged") }
+        XCTAssertEqual(fixture.requests.count, 2)
+    }
+
+    @MainActor func testStaleReplyWithoutNewInventoryWaitsForNextRevision() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        fixture.session.requestLayout(hosts) { _ in }
+        fixture.replies[0](.staleRevision)
+        fixture.session.requestLayout(hosts) { _ in }
+        XCTAssertEqual(fixture.requests.count, 1, "A stale reply must not form a same-revision retry loop")
+
+        let epoch = fixture.requests[0].epoch
+        XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        fixture.session.requestLayout(hosts) { _ in }
+        XCTAssertEqual(fixture.requests.count, 2)
+        XCTAssertEqual(fixture.requests[1].revision, 2)
+        fixture.replies[1](.staleRevision)
+        fixture.session.requestLayout(hosts) { _ in }
+        XCTAssertEqual(fixture.requests.count, 2)
+    }
+
+    @MainActor func testNewInventoryDoesNotRetryUnsupportedOrUnavailablePlan() {
+        for outcome: BrowserActionReply in [.unsupported, .unavailable] {
+            let fixture = Fixture(), hosts = fixture.hosts()
+            fixture.session.requestLayout(hosts) { _ in }
+            let epoch = fixture.requests[0].epoch
+            XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+            fixture.session.requestLayout(hosts) { _ in }
+            fixture.replies[0](outcome)
+            XCTAssertEqual(fixture.requests.count, 1, "Only an explicitly stale revision warrants an immediate retry")
+        }
+    }
 }

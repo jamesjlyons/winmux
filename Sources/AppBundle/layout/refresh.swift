@@ -277,7 +277,7 @@ func runLightSession<T>(
                 try checkCancellation()
                 // Queue native focus as soon as placement is ready. Chrome publication can
                 // suspend; input should reach the selected window while those models update.
-                if focusBefore != focusAfter {
+                if focusBefore != focusAfter && !BrowserWorkspaceController.shared.hasBrowserSelection {
                     focusAfter?.nativeFocus() // syncFocusToMacOs
                 }
                 await updateWorkspaceSidebarModel()

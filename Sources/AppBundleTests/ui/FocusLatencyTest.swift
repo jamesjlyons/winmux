@@ -2,6 +2,7 @@
 import AppKit
 import Combine
 import Common
+import WorkspaceCore
 import XCTest
 
 @MainActor
@@ -159,6 +160,44 @@ final class FocusLatencyTest: XCTestCase {
         } catch is CancellationError {}
         XCTAssertEqual(target.focusRequests, 0)
         XCTAssertEqual(target.frameWrites, 0)
+    }
+
+    func testBrowserSelectionKeepsLightSessionFromRefocusingNativeWorkspaceMRU() async throws {
+        let first = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        let target = FocusLatencyWindow(id: 2, parent: focus.workspace.rootTilingContainer)
+        XCTAssertTrue(first.focusWindow())
+        appForTests = TestApp.shared
+        TestApp.shared.focusedWindow = first
+        let controller = BrowserWorkspaceController.shared, connection = UUID()
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree(); tree.reconcile([first.surfaceID, target.surfaceID, page], in: focus.workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [
+            .init(surfaceID: page, hostID: "light-focus", title: "Browser", selected: true),
+        ]), epoch: UUID(), connection: connection, protocolVersion: 4)
+        defer {
+            controller.disconnected(connection)
+            controller.nativeSelectionChanged(nil)
+            controller.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+            controller.usesSurfaceTree = false
+        }
+        XCTAssertFalse(controller.hasBrowserSelection)
+        XCTAssertEqual(target.focusRequests, 0)
+        var requestsBeforeBrowserSelection = 0
+        try await runLightSession(.hotkeyBinding, .forceRun, shouldSchedulePostRefresh: false) {
+            XCTAssertTrue(target.focusWindow())
+            // The browser's acknowledged native-focus fence may reaffirm the
+            // explicit native selection before the command selects its page.
+            requestsBeforeBrowserSelection = target.focusRequests
+            XCTAssertEqual(controller.select(page), .issued)
+            controller.cancelPendingBrowserFocusHold()
+            XCTAssertFalse(controller.holdsPendingBrowserFocus)
+        }
+        XCTAssertTrue(focus.windowOrNil === target)
+        XCTAssertTrue(controller.hasBrowserSelection)
+        XCTAssertEqual(target.focusRequests, requestsBeforeBrowserSelection,
+                       "The selected browser must retain focus after the native workspace MRU changes")
     }
 
     func testExplicitFloatingTargetKeepsItsParentAndAvoidsGeometryReads() async throws {

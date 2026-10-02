@@ -28,6 +28,7 @@ public final class BrowserWorkspaceController {
     private var unresolvedNativeItems: Set<SurfaceID> = []
     private var closedBrowserTabs: Set<SurfaceID> = []
     private var restoredSelection: SurfaceID?
+    private var recentSelections: [SurfaceID] = []
     private var restoredPlacements = false
     private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
 
@@ -45,6 +46,7 @@ public final class BrowserWorkspaceController {
         mixedLayoutWorkspaces = snapshot.layoutWorkspaces
         closedBrowserTabs = snapshot.closedBrowserTabs
         restoredSelection = snapshot.selected
+        recentSelections = snapshot.selected.map { [$0] } ?? []
         restoredPlacements = true
         placements = [:]
         unresolvedNativeItems = []
@@ -96,6 +98,7 @@ public final class BrowserWorkspaceController {
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
         session.supportsBrowserControls = protocolVersion >= 4
+        let isInitialInventory = session.inventory.revision == 0
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
         for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
@@ -105,7 +108,10 @@ public final class BrowserWorkspaceController {
         }
         // A tab restored by Chromium (including explicit undo-close) is live.
         // Stale placement never reopens it; recover it as a new placement.
-        let workspace = restoredPlacements && message.full ? "Recovered" : (previewWindow == nil ? focus.workspace.name : "browser-alpha")
+        // Only the first snapshot can contain unknown pages from restoration.
+        // Later full snapshots also carry newly opened pages; place those in
+        // the active group just like a delta, while keeping existing placements.
+        let workspace = restoredPlacements && isInitialInventory && message.full ? "Recovered" : (previewWindow == nil ? focus.workspace.name : "browser-alpha")
         for id in session.inventory.tabs.keys {
             closedBrowserTabs.remove(id)
             if placements[id] == nil {
@@ -116,13 +122,19 @@ public final class BrowserWorkspaceController {
         if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused }),
+           let workspaceName = placements[focused.surfaceID],
+           let workspace = Workspace.existing(byName: workspaceName), workspace.isVisible,
            focusCoordinator.target != focused.surfaceID {
             // The browser reports native activation. Reflect clicks in the shared
             // selection without issuing a second activation back to Chromium.
+            if workspace !== focus.workspace {
+                _ = workspace.focusWorkspace(restoringSurfaceSelection: false)
+            }
             if let generation = focusCoordinator.select(focused.surfaceID) {
                 fenceBrowsers(generation: generation, target: focused.surfaceID)
             }
             surfaceTree.select(focused.surfaceID)
+            rememberSelection(focused.surfaceID)
         }
         // Every browser page participates in the workspace layout immediately.
         // A first page must not wait for an explicit split/group command.
@@ -170,7 +182,7 @@ public final class BrowserWorkspaceController {
     /// retire old browser work, including selecting the same native window again.
     func nativeSelectionChanged(_ id: SurfaceID?) {
         if isWinMuxRuntimeReady { restoredSelection = nil }
-        if let id { surfaceTree.select(id) }
+        if let id { surfaceTree.select(id); rememberSelection(id) }
         let leavingBrowser = hasBrowserSelection
         browserFocusDeadline = nil
         // Native selection must retire a disconnected browser target too.
@@ -183,6 +195,26 @@ public final class BrowserWorkspaceController {
         }
         fenceBrowsers(generation: generation, target: id)
         scheduleRefresh()
+    }
+
+    private func rememberSelection(_ id: SurfaceID) {
+        // Effective overflow stacks have no durable container identity. Keep
+        // their recent selection during this session so focusing another tile
+        // does not reset an unfocused tile to its first member.
+        recentSelections.removeAll { $0 == id }
+        recentSelections.insert(id, at: 0)
+        if recentSelections.count > 10_000 { recentSelections.removeLast() }
+    }
+
+    /// Group activation restores either owner's latest live selection. Preserve
+    /// the native fallback for groups without a recorded shared selection.
+    func preferredSurface(in workspace: Workspace) -> SurfaceID? {
+        guard usesSurfaceTree, restoredSelection == nil || isWinMuxRuntimeReady else { return nil }
+        let belongs: (SurfaceID) -> Bool = { self.workspaceName(for: $0) == workspace.name && self.isAvailable($0) }
+        if let recent = recentSelections.first(where: belongs) { return recent }
+        if let native = workspace.toLiveFocus().windowOrNil?.surfaceID { return native }
+        if let first = (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces).first(where: belongs) { return first }
+        return placements.keys.filter(belongs).sorted { $0.description < $1.description }.first
     }
 
     private func fenceBrowsers(generation: UInt64, target: SurfaceID?) {
@@ -230,16 +262,19 @@ public final class BrowserWorkspaceController {
             case .browserTab:
                 guard let session = owner(of: id) else { return .unavailable }
                 if let name = placements[id], let workspace = Workspace.existing(byName: name), workspace !== focus.workspace {
-                    _ = workspace.focusWorkspace()
+                    _ = workspace.focusWorkspace(restoringSurfaceSelection: false)
                 }
                 let result = BrowserTabSurfaceAdapter(surfaceID: id, session: session).requestFocus()
                 if result == .issued {
+                    rememberSelection(id)
                     browserFocusDeadline = Date().addingTimeInterval(1)
                     let generation = focusCoordinator.generation
                     for other in sessions.values where other !== session {
                         other.supersedeFocus(generation: generation, target: id) { [weak self, weak session] outcome in
                             guard outcome == .issued, let self, let session,
                                   self.focusCoordinator.target == id, self.owner(of: id) === session,
+                                  let name = self.workspaceName(for: id),
+                                  Workspace.existing(byName: name)?.isVisible == true,
                                   BrowserToolbarController.shared.focusedControlSurfaceID == nil,
                       !BrowserWindowDragController.shared.isDragging else { return }
                             // Another connection's fence may already have caused
@@ -256,6 +291,7 @@ public final class BrowserWorkspaceController {
                 guard Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil else { return .unavailable }
                 guard let generation = focusCoordinator.select(id) else { return .unavailable }
                 let result = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
+                if result == .issued { rememberSelection(id) }
                 fenceBrowsers(generation: generation, target: id)
                 scheduleRefresh()
                 return result
@@ -666,7 +702,7 @@ public final class BrowserWorkspaceController {
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return livePlan.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
-            visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace), selectedSurface: focusCoordinator.target)
+            visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace), selectedSurface: focusCoordinator.target, recentSelections: recentSelections)
     }
 
     func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {
@@ -742,6 +778,9 @@ public final class BrowserWorkspaceController {
             session.requestLayout(hosts) { [weak self, weak session] reply in
                 guard reply == .issued, TrayMenuModel.shared.isEnabled, let self, let session, let target,
                       self.focusCoordinator.isCurrent(generation, target: target),
+                      let workspaceName = self.workspaceName(for: target),
+                      let workspace = Workspace.existing(byName: workspaceName), workspace.isVisible,
+                      self.plannedSurfaces(in: workspace).contains(where: { $0.surfaceID == target && $0.visible }),
                       BrowserToolbarController.shared.focusedControlSurfaceID == nil,
                       !BrowserWindowDragController.shared.isDragging else { return }
                 if case .nativeWindow = target {

@@ -72,12 +72,115 @@ final class SurfaceLayoutTests: XCTestCase {
         XCTAssertEqual(plan.filter(\.visible).map(\.surfaceID), [native, a])
     }
 
-    func testRootFallbackIsNavigableButSingleLeafDoesNotInventAStack() {
+    func testRootUsesVerticalSpaceBeforeStackingAndSingleLeafDoesNotInventAStack() {
         var tree = SurfaceTree(); tree.reconcile([native, web], in: "one")
         let sizes: [SurfaceID: SurfaceMinimumSize] = [native: .init(width: 600, height: 300), web: .init(width: 600, height: 300)]
-        XCTAssertEqual(tree.placements(in: "one", frame: frame, minimumSizes: sizes).map(\.navigationStack), [[native, web], [native, web]])
+        let vertical = tree.placements(in: "one", frame: frame, minimumSizes: sizes)
+        XCTAssertEqual(vertical.map(\.frame.height), [350, 350])
+        XCTAssertEqual(vertical.map(\.frame.y), [50, 400])
+        XCTAssertTrue(vertical.allSatisfy(\.visible))
+        XCTAssertEqual(vertical.map(\.navigationStack), [[], []])
+        let cramped = SurfaceFrame(x: -1000, y: 50, width: 1001, height: 500)
+        XCTAssertEqual(tree.placements(in: "one", frame: cramped, minimumSizes: sizes).map(\.navigationStack), [[native, web], [native, web]])
         tree.remove(web)
         XCTAssertEqual(tree.placements(in: "one", frame: frame, minimumSizes: sizes).map(\.navigationStack), [[]])
+    }
+
+    func testIndependentMixedRootItemsTileInRowsWithoutChangingSavedOrganization() {
+        let ids = [native, web, .nativeWindow(UUID()), .browserTab(profile: UUID(), tab: UUID())]
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "one")
+        let saved = tree
+        let rect = SurfaceFrame(x: -1600, y: 40, width: 1600, height: 1000)
+        let sizes = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 500, height: 300)) })
+        let plan = tree.placements(in: "one", frame: rect, minimumSizes: sizes, selectedSurface: ids[3])
+        XCTAssertEqual(plan.map(\.surfaceID), ids)
+        XCTAssertTrue(plan.allSatisfy(\.visible))
+        XCTAssertEqual(plan.map(\.frame), [
+            .init(x: -1600, y: 40, width: 800, height: 500), .init(x: -800, y: 40, width: 800, height: 500),
+            .init(x: -1600, y: 540, width: 800, height: 500), .init(x: -800, y: 540, width: 800, height: 500)])
+        XCTAssertTrue(plan.allSatisfy { $0.navigationStack.isEmpty })
+        assertValidTiles(plan, within: rect, minimumSizes: sizes)
+        XCTAssertEqual(tree, saved)
+    }
+
+    func testRootOverflowRetainsSeveralTilesAndReachableSelectedStacks() {
+        let ids = (0..<12).map { index in index.isMultiple(of: 2)
+            ? SurfaceID.nativeWindow(UUID()) : .browserTab(profile: UUID(), tab: UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "one")
+        let saved = tree
+        let rect = SurfaceFrame(x: 50, y: -1000, width: 1600, height: 1000)
+        let sizes = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 500, height: 400)) })
+        for selected in ids {
+            let plan = tree.placements(in: "one", frame: rect, minimumSizes: sizes, selectedSurface: selected)
+            XCTAssertEqual(plan.count, ids.count)
+            XCTAssertEqual(plan.filter(\.visible).count, 6)
+            XCTAssertTrue(plan.first { $0.surfaceID == selected }!.visible)
+            XCTAssertEqual(plan.map(\.navigationStack), ids.indices.map { index in Array(ids[(index / 2 * 2)..<(index / 2 * 2 + 2)]) })
+            assertValidTiles(plan, within: rect, minimumSizes: sizes)
+        }
+        let large = SurfaceFrame(x: 50, y: -1000, width: 3000, height: 1600)
+        XCTAssertTrue(tree.placements(in: "one", frame: large, minimumSizes: sizes).allSatisfy(\.visible))
+        for removed in ids.suffix(8) { tree.remove(removed) }
+        XCTAssertTrue(tree.placements(in: "one", frame: rect, minimumSizes: sizes).allSatisfy(\.visible))
+        XCTAssertEqual(saved.layouts, [:], "Adaptive grids must not persist synthetic groups")
+    }
+
+    func testAdaptiveRootKeepsExplicitStacksAndSplitFallbacks() {
+        let other = SurfaceID.nativeWindow(UUID()), last = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree(); tree.reconcile([native, web, other, last], in: "one")
+        tree.group(web, with: native)
+        let sizes: [SurfaceID: SurfaceMinimumSize] = [native: .init(width: 600, height: 300), web: .init(width: 600, height: 300),
+            other: .init(width: 600, height: 300), last: .init(width: 600, height: 300)]
+        let saved = tree
+        let plan = tree.placements(in: "one", frame: .init(x: 0, y: 0, width: 1200, height: 900), minimumSizes: sizes, selectedSurface: web)
+        XCTAssertEqual(plan.filter(\.visible).map(\.surfaceID), [web, other, last])
+        XCTAssertEqual(plan.first { $0.surfaceID == native }?.navigationStack, [native, web])
+        XCTAssertEqual(plan.first { $0.surfaceID == web }?.navigationStack, [native, web])
+        XCTAssertEqual(tree, saved)
+    }
+
+    func testRootOverflowRetainsOtherCellsSelectionsAsFocusMoves() {
+        let ids = (0..<12).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "one")
+        let saved = tree
+        let rect = SurfaceFrame(x: 0, y: 0, width: 1600, height: 1000)
+        let sizes = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 500, height: 400)) })
+        var recent: [SurfaceID] = []
+        for selected in [ids[1], ids[3], ids[5]] {
+            recent.insert(selected, at: 0)
+            let plan = tree.placements(in: "one", frame: rect, minimumSizes: sizes,
+                                       selectedSurface: selected, recentSelections: recent)
+            for remembered in recent { XCTAssertTrue(plan.first { $0.surfaceID == remembered }!.visible) }
+            XCTAssertEqual(plan.filter(\.visible).count, 6)
+        }
+        XCTAssertEqual(tree, saved)
+    }
+
+    func testRememberedOverflowMemberDoesNotOverrideExplicitStackSelection() {
+        let ids = (0..<9).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "one")
+        tree.group(ids[1], with: ids[0]); tree.select(ids[1])
+        let saved = tree
+        let sizes = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 500, height: 400)) })
+        let plan = tree.placements(in: "one", frame: .init(x: 0, y: 0, width: 1100, height: 900),
+                                   minimumSizes: sizes, selectedSurface: ids.last, recentSelections: [ids[0]])
+        XCTAssertTrue(plan.first { $0.surfaceID == ids[1] }!.visible)
+        XCTAssertFalse(plan.first { $0.surfaceID == ids[0] }!.visible)
+        XCTAssertEqual(tree, saved)
+    }
+
+    func testLargeRootInventoryUsesBoundedDeterministicPlanning() {
+        let ids = (0..<512).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "one")
+        let sizes = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 500, height: 400)) })
+        let rect = SurfaceFrame(x: 0, y: 0, width: 1600, height: 1000)
+        let first = tree.placements(in: "one", frame: rect, minimumSizes: sizes, selectedSurface: ids.last)
+        XCTAssertEqual(first, tree.placements(in: "one", frame: rect, minimumSizes: sizes, selectedSurface: ids.last))
+        XCTAssertEqual(first.count, ids.count)
+        XCTAssertEqual(first.filter(\.visible).count, 6)
+        XCTAssertTrue(first.last!.visible)
+        XCTAssertEqual(Set(first.flatMap(\.navigationStack)), Set(ids))
+        assertValidTiles(first, within: rect, minimumSizes: sizes)
     }
 
     func testAllocationsStayBoundedAcrossDifferentCapacities() {
@@ -87,14 +190,34 @@ final class SurfaceLayoutTests: XCTestCase {
         for width in stride(from: 461, through: 2801, by: 39) {
             let plan = tree.placements(in: "one", frame: .init(x: -800, y: 10, width: width, height: 600), minimumSizes: minima, selectedSurface: ids[5])
             let shown = plan.filter(\.visible)
-            XCTAssertEqual(shown.reduce(0) { $0 + $1.frame.width }, width)
-            for placement in shown {
-                XCTAssertGreaterThanOrEqual(placement.frame.width, minima[placement.surfaceID]!.width)
-                XCTAssertGreaterThanOrEqual(placement.frame.x, -800)
-                XCTAssertLessThanOrEqual(placement.frame.x + placement.frame.width, -800 + width)
+            assertValidTiles(plan, within: .init(x: -800, y: 10, width: width, height: 600), minimumSizes: minima)
+            XCTAssertTrue(shown.contains { $0.surfaceID == ids[5] })
+            if width >= minima.values.reduce(0, { $0 + $1.width }) {
+                XCTAssertEqual(shown.reduce(0) { $0 + $1.frame.width }, width)
+                for index in shown.indices.dropFirst() {
+                    XCTAssertEqual(shown[index - 1].frame.x + shown[index - 1].frame.width, shown[index].frame.x)
+                }
             }
-            for index in shown.indices.dropFirst() {
-                XCTAssertEqual(shown[index - 1].frame.x + shown[index - 1].frame.width, shown[index].frame.x)
+        }
+    }
+
+    private func assertValidTiles(_ plan: [SurfacePlacement], within frame: SurfaceFrame,
+                                  minimumSizes: [SurfaceID: SurfaceMinimumSize], file: StaticString = #filePath, line: UInt = #line) {
+        let visible = plan.filter(\.visible)
+        for placement in visible {
+            let minimum = minimumSizes[placement.surfaceID]!
+            XCTAssertGreaterThanOrEqual(placement.frame.width, minimum.width, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(placement.frame.height, minimum.height, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(placement.frame.x, frame.x, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(placement.frame.y, frame.y, file: file, line: line)
+            XCTAssertLessThanOrEqual(placement.frame.x + placement.frame.width, frame.x + frame.width, file: file, line: line)
+            XCTAssertLessThanOrEqual(placement.frame.y + placement.frame.height, frame.y + frame.height, file: file, line: line)
+        }
+        for (index, first) in visible.enumerated() {
+            for second in visible.dropFirst(index + 1) {
+                let a = first.frame, b = second.frame
+                XCTAssertTrue(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y,
+                              "Visible tiles overlap", file: file, line: line)
             }
         }
     }

@@ -9,6 +9,28 @@ Every web page keeps its own Chromium window and profile identity. Stacks share
 space and select one visible window; splits show multiple windows at once.
 Grouping or moving a page does not move its WebContents into another host.
 
+## Automatic tiling
+
+Independent pages and tiled Mac windows share the active Group's layout. New
+pages opened after startup enter the active Group, including when Chromium sends
+a complete inventory instead of a delta. Unknown pages in the first restored
+inventory still go to Recovered; saved assignments stay intact.
+
+Selecting a Group restores its last available page or Mac window and gives it
+input focus. Groups containing only browser pages select a page immediately;
+empty Groups clear the old selection. Late focus reports and layout replies
+cannot bring a hidden page back over the active Group.
+
+When independent windows cannot fit in one horizontal row, WinMux uses rows and
+columns while respecting each owner's minimum size. If the display cannot fit
+every window, it retains multiple visible tiles and puts overflow in temporary
+stacks. Switching items selects the visible member of its stack. These temporary
+arrangements leave saved splits, stacks, and Group assignments intact and expand
+again as space becomes available. Explicit tab stacks keep their chosen layout.
+
+Browser layouts retry a stale request after a newer inventory arrives, so an
+inventory update during a window placement cannot leave automatic tiling idle.
+
 ## Sidebar actions
 
 Mixed rows use the same icons, spacing, hover/search feedback and activation rules
