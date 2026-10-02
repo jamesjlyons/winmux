@@ -53,6 +53,7 @@ final class MacWindow: Window {
         let didRestoreClosedWindowsCache = didRestorePersistedFrozenWorld ? false : try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {
             try await tryOnWindowDetected(window)
+            noteNewFloatingWindow(window)
         }
         return window
     }
@@ -266,8 +267,9 @@ final class MacWindow: Window {
         try await macApp.setAxFrameBlocking(windowId, topLeft, size)
     }
 
+    @MainActor
     override func getAxRect() async throws -> Rect? {
-        let observationToken = await nativeStateObservationToken()
+        let observationToken = nativeStateObservationToken()
         let rect = try await macApp.getAxRect(windowId)
         let windowId = self.windowId
         await MainActor.run {

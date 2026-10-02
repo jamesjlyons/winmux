@@ -8,13 +8,13 @@ final class WindowTabStripPanel: NSPanelHud {
     var currentContent: WindowTabGroupChromeContent?
     var currentPanelFrame: CGRect?
     var externallyIgnoresMouseEvents = false
-    var tabStripIsOccludedByFloatingWindow = false
 
     init(id: ObjectIdentifier) {
         super.init()
         identifier = NSUserInterfaceItemIdentifier(windowTabStripPanelPrefix + String(id.hashValue))
         hasShadow = false
         isFloatingPanel = false
+        acceptsMouseMovedEvents = true
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
         backgroundColor = .clear
@@ -38,7 +38,6 @@ final class WindowTabStripPanel: NSPanelHud {
         currentPanelFrame = displayStrip.frame
         debugFocusLog("WindowTabStripPanel.update id=\(String(describing: identifier?.rawValue)) frame=\(displayStrip.frame)")
         setWindowTabChromePanelFrame(displayStrip.frame, on: self)
-        tabStripIsOccludedByFloatingWindow = displayStrip.tabStripIsOccludedByFloatingWindow
         updateMousePolicy()
         applyWindowTabStripStackingPolicy(for: displayStrip, to: self)
     }

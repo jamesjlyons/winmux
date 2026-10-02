@@ -94,6 +94,7 @@ enum GlobalObserver {
                 TrackpadNavigationController.shared.cancelNavigation()
                 BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
             }
+            WindowTabStripPanelController.shared.updateMousePolicies(at: screenPoint)
             if isLeftMouseDownEvent {
                 Task { @MainActor in
                     await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
