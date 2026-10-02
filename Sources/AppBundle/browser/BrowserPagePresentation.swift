@@ -72,8 +72,9 @@ extension BrowserWorkspaceController {
                                       hostWindowID: hostWindowID,
                                       pageFrame: BrowserPageChromeGeometry.appKitRect(geometry.pageFrame, screenTop: screenTop),
                                       bodyFrame: BrowserPageChromeGeometry.appKitRect(geometry.bodyFrame, screenTop: screenTop),
-                                      chromeColor: config.workspaceSidebar.chromeStyle == .solid
-                                          ? config.workspaceSidebar.resolvedSolidChromeNSColor : ChromePalette.background,
+                                      chromeColor: config.workspaceSidebar.chromeStyle == .solid &&
+                                          config.workspaceSidebar.solidChromeColor != .system
+                                          ? config.workspaceSidebar.resolvedSolidChromeNSColor : nil,
                                       chromeAppearance: config.workspaceSidebar.chromeAppearance)
         }
         BrowserToolbarController.shared.update(items: items) { [weak self] id, action in

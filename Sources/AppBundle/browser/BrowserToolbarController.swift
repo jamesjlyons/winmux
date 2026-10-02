@@ -15,6 +15,7 @@ struct BrowserToolbarItem {
     var hostWindowID: UInt32? = nil
     var pageFrame: CGRect? = nil
     var bodyFrame: CGRect? = nil
+    /// Nil uses the native titlebar material; explicit solid colors stay opaque.
     var chromeColor: NSColor? = nil
     /// Nil follows the system. Explicit chrome colors can choose readable controls.
     var chromeAppearance: NSAppearance.Name? = nil

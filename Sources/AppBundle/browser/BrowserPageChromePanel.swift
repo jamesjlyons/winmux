@@ -17,8 +17,7 @@ final class BrowserPageChromePanel: NSPanelHud {
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
         ignoresMouseEvents = true
-        // Chromium's native content window already supplies a shadow. Adding a
-        // second panel shadow would make the two pieces look like stacked cards.
+        // Managed tiles share a quiet, flat frame without stacked window shadows.
         hasShadow = false
         applyWinMuxLayer(.windowChrome)
         contentView = chromeView
@@ -57,51 +56,29 @@ final class BrowserPageChromePanel: NSPanelHud {
 }
 
 /// A full backing fills the native page's rounded corners without guessing its
-/// OS-dependent radius. The opaque Chromium body covers the middle; the exposed
-/// edges and native controls share one material and one continuous outer stroke.
+/// OS-dependent radius. The Chromium body covers the middle; the exposed edges
+/// and native controls share the system material and a faint outer stroke.
 @MainActor
 final class BrowserPageChromeView: NSView {
-    private var color = mattePanelNSColor
-    private var focused = false
-    private var headerHeight = CGFloat(BrowserPageChromeGeometry.headerHeight)
+    private let background = BrowserChromeBackgroundView(headerOnly: false)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setAccessibilityElement(false)
+        addSubview(background)
     }
 
     convenience init() { self.init(frame: .zero) }
     required init?(coder: NSCoder) { nil }
 
     func update(_ item: BrowserToolbarItem) {
-        color = item.chromeColor ?? mattePanelNSColor
-        focused = item.isFocused
-        headerHeight = item.frame.height
-        needsDisplay = true
+        background.update(item)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
-                                   xRadius: BrowserPageChromeGeometry.cornerRadius,
-                                   yRadius: BrowserPageChromeGeometry.cornerRadius)
-        NSGraphicsContext.saveGraphicsState()
-        outline.addClip()
-        color.setFill()
-        bounds.fill()
-        let header = NSRect(x: 0, y: bounds.maxY - headerHeight, width: bounds.width, height: headerHeight)
-        NSColor.labelColor.withAlphaComponent(0.06).setFill()
-        NSRect(x: CGFloat(BrowserPageChromeGeometry.shellInset), y: header.minY,
-               width: max(0, bounds.width - CGFloat(BrowserPageChromeGeometry.shellInset * 2)), height: 0.5).fill()
-        NSGraphicsContext.restoreGraphicsState()
-        NSColor.labelColor.withAlphaComponent(focused ? 0.18 : 0.09).setStroke()
-        outline.lineWidth = 0.5
-        outline.stroke()
+    override func layout() {
+        super.layout()
+        background.frame = bounds
     }
 }

@@ -25,6 +25,13 @@ keyboard focus provide emphasis. Appearance settings retain explicit solid color
 presets and custom colors, with matching light or dark text for contrast. Choose
 **Follow macOS** (`solid-chrome-color = 'system'`) to return to automatic colors.
 
+The system browser frame uses AppKit's native titlebar material, blended within
+each helper window, with a faint half-point outline. Explicit solid color presets
+and custom colors remain opaque. Material activity follows page selection because
+the helper panels do not become the browser's key window. Managed Chromium windows
+omit the broad system shadow; releasing management restores each window's original
+shadow. Small stretchable material masks keep rounded corners stable during resize.
+
 Extensions opens Chromium's real extension menu when extensions are installed;
 otherwise it opens the extension manager. Chromium still owns extension APIs,
 permissions, menus and extension popups. Managed extension bubbles anchor to the

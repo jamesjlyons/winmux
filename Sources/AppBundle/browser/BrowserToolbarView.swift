@@ -1,7 +1,6 @@
 import AppKit
 
-/// The header paints its own material so another app cannot show through when
-/// macOS temporarily reorders the Chromium host and Winmux's helper windows.
+/// Native page controls over the same system material as the page frame.
 @MainActor
 final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidation {
     let address = BrowserToolbarAddressField(string: "")
@@ -9,8 +8,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     var onCancelAddress: (() -> Void)?
     var onDrag: ((BrowserToolbarDragPhase, CGPoint) -> Void)?
     private var dragGesture = BrowserToolbarDragGesture()
-    private var chromeColor = mattePanelNSColor
-    private var isFocused = false
+    private let chromeBackground = BrowserChromeBackgroundView(headerOnly: true)
     private let close = BrowserToolbarButton()
     private let back = BrowserToolbarButton()
     private let forward = BrowserToolbarButton()
@@ -30,6 +28,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         setAccessibilityRole(.toolbar)
         setAccessibilityLabel("Web page controls")
         setAccessibilityIdentifier("winmux.browser.toolbar")
+        addSubview(chromeBackground)
         configure(close, symbol: "xmark", label: "Close web window", action: #selector(closePage))
         close.isCloseControl = true
         configure(back, symbol: "chevron.left", label: "Back", action: #selector(goBack))
@@ -68,6 +67,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
     override func layout() {
         super.layout()
+        chromeBackground.frame = bounds
         // Keep navigation and address entry usable in narrow splits. Every hidden
         // action remains available through the window actions menu.
         back.isHidden = bounds.width < 250
@@ -123,35 +123,8 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
     override func cancelOperation(_ sender: Any?) { cancelDrag() }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
-        guard rect.width > 0, rect.height > 0 else { return }
-        let radius = min(BrowserPageChromeGeometry.cornerRadius, rect.width / 2, rect.height)
-        let shape = NSBezierPath()
-        shape.move(to: .init(x: rect.minX, y: bounds.minY))
-        shape.line(to: .init(x: rect.minX, y: rect.maxY - radius))
-        shape.appendArc(withCenter: .init(x: rect.minX + radius, y: rect.maxY - radius),
-                        radius: radius, startAngle: 180, endAngle: 90, clockwise: true)
-        shape.line(to: .init(x: rect.maxX - radius, y: rect.maxY))
-        shape.appendArc(withCenter: .init(x: rect.maxX - radius, y: rect.maxY - radius),
-                        radius: radius, startAngle: 90, endAngle: 0, clockwise: true)
-        shape.line(to: .init(x: rect.maxX, y: bounds.minY))
-        NSGraphicsContext.saveGraphicsState()
-        shape.addClip()
-        chromeColor.withAlphaComponent(1).setFill()
-        bounds.fill()
-        NSColor.labelColor.withAlphaComponent(0.06).setFill()
-        NSRect(x: CGFloat(BrowserPageChromeGeometry.shellInset), y: bounds.minY,
-               width: max(0, bounds.width - CGFloat(BrowserPageChromeGeometry.shellInset * 2)), height: 0.5).fill()
-        NSGraphicsContext.restoreGraphicsState()
-        NSColor.labelColor.withAlphaComponent(isFocused ? 0.18 : 0.09).setStroke()
-        shape.lineWidth = 0.5
-        shape.stroke()
-    }
-
     func update(_ item: BrowserToolbarItem, preserveAddress: Bool) {
-        chromeColor = item.chromeColor ?? mattePanelNSColor
-        isFocused = item.isFocused
+        chromeBackground.update(item)
         isLoading = item.isLoading
         controlsEnabled = item.controlsEnabled
         canGoBack = item.canGoBack
