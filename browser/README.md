@@ -1,5 +1,11 @@
 # WinMux Browser implementation
 
+For the current Spaces/Groups interface, shared moves, and a fresh layout with
+retained browser data, see [fork interface](../docs/browser/fork-interface.md).
+Native page controls are described in [page windows](../docs/browser/page-windows.md).
+
+The component history and build instructions follow.
+
 This directory implements the independent parts of **Milestone 0** of the
 [approved plan](../docs/browser/approved-plan.md). The optimized Chromium control
 and a signed alpha with native blocking now build and launch. The Milestone 0 exit gate remains unmet, and the native WinMux

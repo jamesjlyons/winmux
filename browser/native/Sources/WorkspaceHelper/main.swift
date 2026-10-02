@@ -507,6 +507,7 @@ do {
                 do {
                     try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
                         expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil)
+                    installHostedShortcutSettingsWindow()
                     if let request {
                         try WorkspaceActivationStore().writeStatus(.init(requestID: request.id, phase: "ready",
                             helperPID: getpid(), helperLaunch: processLaunchDate(getpid())))

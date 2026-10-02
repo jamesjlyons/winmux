@@ -40,13 +40,14 @@ struct BrowserNativeState: Sendable {
     config-version = 2
     start-at-login = false
     auto-reload-config = true
-    persistent-workspaces = ['Browser']
+    persistent-workspaces = []
     shortcuts-preset = 'none'
     automatically-unhide-macos-hidden-apps = false
     [workspace-sidebar]
     enabled = true
-    always-expanded = true
+    always-expanded = false
     chrome-style = 'solid'
+    solid-chrome-color = 'system'
     [mode.main.binding]
     """
 }

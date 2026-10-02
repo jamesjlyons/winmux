@@ -65,6 +65,11 @@ struct WorkspaceSidebarConfiguration: Equatable {
     )
 }
 
+enum WorkspaceSidebarSurfaceDragSubject: Hashable, Sendable {
+    case surface(SurfaceID)
+    case group(UUID)
+}
+
 enum WorkspaceSidebarAction: Equatable {
     case setBrowseMode(WorkspaceSidebarBrowseMode)
     case selectWorkspace(String)
@@ -80,6 +85,9 @@ enum WorkspaceSidebarAction: Equatable {
     case ungroupSurfaces(UUID)
     case moveSurface(SurfaceID, toWorkspace: String)
     case moveSurfaceToNewWorkspace(SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String)
+    case moveSurfaceGroup(UUID, toWorkspace: String)
+    case moveSurfaceGroupToNewWorkspace(UUID, projectId: WorkspaceProjectId, monitorScopeId: String)
+    case previewSurfaceDrop(WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind)
     case selectProject(WorkspaceProjectId)
     case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject
@@ -106,6 +114,8 @@ struct WorkspaceSidebarActions {
     var send: @MainActor (WorkspaceSidebarAction) -> Void
     var setDropTargets: @MainActor ([WorkspaceSidebarDropTargetFrame]) -> Void
     var hoverWorkspace: @MainActor (String, Bool) -> Void
+    var surfaceDragChanged: @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void
+    var surfaceDragEnded: @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void
     var windowDragChanged: @MainActor (UInt32, CGPoint) -> Void
     var windowDragEnded: @MainActor (UInt32, CGPoint) -> Void
     var tabGroupDragChanged: @MainActor (UInt32, CGPoint) -> Void
@@ -115,6 +125,8 @@ struct WorkspaceSidebarActions {
         send: @escaping @MainActor (WorkspaceSidebarAction) -> Void = { _ in },
         setDropTargets: @escaping @MainActor ([WorkspaceSidebarDropTargetFrame]) -> Void = { _ in },
         hoverWorkspace: @escaping @MainActor (String, Bool) -> Void = { _, _ in },
+        surfaceDragChanged: @escaping @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void = { _, _ in },
+        surfaceDragEnded: @escaping @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void = { _, _ in },
         windowDragChanged: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
         windowDragEnded: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
         tabGroupDragChanged: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
@@ -123,6 +135,8 @@ struct WorkspaceSidebarActions {
         self.send = send
         self.setDropTargets = setDropTargets
         self.hoverWorkspace = hoverWorkspace
+        self.surfaceDragChanged = surfaceDragChanged
+        self.surfaceDragEnded = surfaceDragEnded
         self.windowDragChanged = windowDragChanged
         self.windowDragEnded = windowDragEnded
         self.tabGroupDragChanged = tabGroupDragChanged

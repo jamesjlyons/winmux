@@ -20,6 +20,12 @@ func makeWorkspaceSidebarActionsAdapter(
                 isHovering: isHovering,
             ))
         },
+        surfaceDragChanged: { subject, pointer in
+            updateWorkspaceSidebarSurfaceDrag(subject, pointer: pointer)
+        },
+        surfaceDragEnded: { subject, pointer in
+            finishWorkspaceSidebarSurfaceDrag(subject, pointer: pointer)
+        },
         windowDragChanged: { windowId, pointer in
             updateSidebarWindowDrag(windowId, subject: .window, pointer: pointer)
         },
@@ -79,6 +85,12 @@ func handleWorkspaceSidebarAction(
             moveSurfaceFromSidebar(id, toWorkspace: workspace)
         case .moveSurfaceToNewWorkspace(let id, let project, let scope):
             moveSurfaceToNewWorkspaceFromSidebar(id, projectId: project, monitorScopeId: scope)
+        case .moveSurfaceGroup(let id, let workspace):
+            moveSurfaceGroupFromSidebar(id, toWorkspace: workspace)
+        case .moveSurfaceGroupToNewWorkspace(let id, let project, let scope):
+            moveSurfaceGroupToNewWorkspaceFromSidebar(id, projectId: project, monitorScopeId: scope)
+        case .previewSurfaceDrop(let subject, let target):
+            previewWorkspaceSidebarSurfaceDrop(subject, target: target)
         case .selectProject(let projectId):
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"

@@ -62,6 +62,7 @@ enum GlobalObserver {
     private static func onKeyDown(_ event: NSEvent) {
         let isEscape = event.keyCode == 53
         runOnMainActor {
+            if isEscape { cancelWorkspaceSidebarSurfaceDrag() }
             if isEscape, BrowserWindowDragController.shared.isDragging {
                 BrowserWindowDragController.shared.cancel()
             }
@@ -87,6 +88,7 @@ enum GlobalObserver {
         let point = normalizeAppKitScreenPoint(screenPoint)
         runOnMainActor {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+            noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
             BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)

@@ -6,7 +6,8 @@ struct WorkspaceSidebarDropPreviewTabItem: Hashable {
 }
 
 struct WorkspaceSidebarDropPreviewViewModel: Hashable {
-    let sourceWindowId: UInt32
+    let sourceWindowId: UInt32?
+    let sourceSubject: WorkspaceSidebarSurfaceDragSubject?
     let label: String
     let appName: String
     let appBundleIdentifier: String?
@@ -20,7 +21,8 @@ struct WorkspaceSidebarDropPreviewViewModel: Hashable {
     let tabItems: [WorkspaceSidebarDropPreviewTabItem]
 
     init(
-        sourceWindowId: UInt32,
+        sourceWindowId: UInt32? = nil,
+        sourceSubject: WorkspaceSidebarSurfaceDragSubject? = nil,
         label: String,
         appName: String,
         appBundleIdentifier: String? = nil,
@@ -34,6 +36,7 @@ struct WorkspaceSidebarDropPreviewViewModel: Hashable {
         tabItems: [WorkspaceSidebarDropPreviewTabItem] = []
     ) {
         self.sourceWindowId = sourceWindowId
+        self.sourceSubject = sourceSubject
         self.label = label
         self.appName = appName
         self.appBundleIdentifier = appBundleIdentifier

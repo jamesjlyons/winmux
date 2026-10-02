@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import SwiftUI
+import WorkspaceCore
 
 struct WorkspaceSidebarWorkspaceSection: View {
     let workspace: WorkspaceSidebarWorkspaceViewModel
@@ -174,6 +175,7 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         switch payload {
             case .surface(let id): actions.send(.moveSurface(id, toWorkspace: workspace.name))
+            case .surfaceGroup(let id): actions.send(.moveSurfaceGroup(id, toWorkspace: workspace.name))
             case .window(let windowId):
                 actions.send(.moveWindow(windowId, toWorkspace: workspace.name))
             case .tabGroup(let representativeWindowId):
@@ -185,7 +187,10 @@ extension WorkspaceSidebarWorkspaceSection {
 @MainActor
 private func workspaceSidebarPayload(_ payload: WorkspaceSidebarDragPayload, comesFromWorkspace workspaceName: String) -> Bool {
     switch payload {
-        case .surface: return false
+        case .surface(let id):
+            return BrowserWorkspaceController.shared.workspaceName(for: id) == workspaceName
+        case .surfaceGroup(let id):
+            return BrowserWorkspaceController.shared.workspaceName(forGroup: id) == workspaceName
         case .window(let windowId):
             return Window.get(byId: windowId)?.nodeWorkspace?.name == workspaceName
         case .tabGroup(let representativeWindowId):
@@ -397,31 +402,40 @@ extension WorkspaceSidebarWorkspaceSection {
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
             case .surface, .surfaceGroup:
-                WorkspaceSidebarSurfaceTreeView(item: item, actions: actions)
+                sharedSurfaceItemView(item)
             case .browserTab(let tab):
-                Button { actions.send(.selectSurface(tab.surfaceID)) } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "globe").frame(width: 16)
-                        Text(tab.title).lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 8)
-                    .frame(height: rowHeight)
-                    .background(tab.isFocused ? Color.accentColor.opacity(0.18) : Color.clear)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Browser tab: \(tab.title)")
-                .help(tab.title)
-                .contextMenu {
-                    Button("Close Tab") { actions.send(.closeSurface(tab.surfaceID)) }
-                }
+                sharedSurfaceItemView(.init(kind: .surface(.init(
+                    surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
+                    appBundleId: "com.jameslyons.winmux.browser.alpha"
+                ))))
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
             case .tabGroup(let group):
                 workspaceTabGroupView(group)
         }
+    }
+
+    func sharedSurfaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
+        WorkspaceSidebarSurfaceTreeView(
+            item: item, workspaceName: workspace.name, targetMonitorScopeId: targetMonitorScopeId,
+            selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
+            actions: actions, onActivate: activateSharedSurface,
+            unfilteredItems: TrayMenuModel.shared.workspaceSidebarWorkspaces.first(where: { $0.name == workspace.name })?.items ?? workspace.items
+        )
+    }
+
+    func activateSharedSurface(_ id: SurfaceID) {
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(
+                editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+              ) else { return }
+        if isInUseOnOtherDisplay {
+            activeInUseOverrideWorkspaceName = workspace.name
+            return
+        }
+        activeInUseOverrideWorkspaceName = nil
+        actions.send(.selectSurface(id))
     }
 
     @ViewBuilder

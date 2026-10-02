@@ -18,6 +18,10 @@ public func getShortcutSettingsWindow(model: ShortcutSettingsModel) -> some Scen
 
 @MainActor
 public func openShortcutSettingsWindow(_ openWindow: OpenWindowAction) {
+    if HostedShortcutSettingsWindow.shared.isInstalled {
+        requestShortcutSettingsWindow()
+        return
+    }
     ShortcutSettingsModel.shared.reload()
     if let existingWindow = shortcutSettingsWindow() {
         presentShortcutSettingsWindow(existingWindow)

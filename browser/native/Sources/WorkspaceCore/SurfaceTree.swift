@@ -90,6 +90,76 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         roots.first { $0.value.flatMap(\.surfaces).contains(id) }?.key
     }
 
+    public func group(_ target: UUID) -> SurfaceTreeNode? {
+        func find(_ nodes: [SurfaceTreeNode]) -> SurfaceTreeNode? {
+            for node in nodes {
+                guard case .group(let id, let children) = node else { continue }
+                if id == target { return node }
+                if let nested = find(children) { return nested }
+            }
+            return nil
+        }
+        return find(roots.values.flatMap { $0 })
+    }
+
+    public func workspace(ofGroup target: UUID) -> String? {
+        guard let member = group(target)?.surfaces.first else { return nil }
+        return workspace(of: member)
+    }
+
+    /// Transfer one complete subtree without pruning its identity or metadata
+    /// between removing it from the source and inserting it at the destination.
+    @discardableResult public mutating func moveGroupToRoot(_ target: UUID, in destination: String) -> Bool {
+        guard !destination.isEmpty, destination.utf8.count <= 4096,
+              let source = workspace(ofGroup: target), source != destination,
+              let subtree = group(target) else { return false }
+        func removing(_ nodes: [SurfaceTreeNode]) -> [SurfaceTreeNode] {
+            nodes.flatMap { node -> [SurfaceTreeNode] in
+                guard case .group(let id, let children) = node else { return [node] }
+                if id == target { return [] }
+                let remaining = removing(children)
+                return remaining.count > 1 ? [.group(id, remaining)] : remaining
+            }
+        }
+        var candidate = self
+        candidate.roots[source] = removing(roots[source] ?? [])
+        candidate.roots[destination, default: []].append(subtree)
+        candidate.pruneMetadata()
+        guard candidate.isValidOrganization else { return false }
+        self = candidate
+        return true
+    }
+
+    /// Initial native adoption retains nested splits and stacks. Existing mixed
+    /// organization is never overwritten by a later native sidebar refresh.
+    @discardableResult public mutating func importOrganization(
+        _ nodes: [SurfaceTreeNode], in workspace: String,
+        layouts importedLayouts: [UUID: SurfaceContainerLayout],
+        activeSurfaces importedActive: [UUID: SurfaceID], weights importedWeights: [String: Double]
+    ) -> Bool {
+        let ids = nodes.flatMap(\.surfaces)
+        guard !ids.isEmpty, Set(ids).count == ids.count, let existing = roots[workspace],
+              ids.allSatisfy({ existing.contains(.surface($0)) }) else { return false }
+        let imported = Set(ids)
+        var candidate = self
+        candidate.roots[workspace] = nodes + existing.filter {
+            if case .surface(let id) = $0 { return !imported.contains(id) }
+            return true
+        }
+        candidate.layouts.merge(importedLayouts) { _, imported in imported }
+        candidate.activeSurfaces.merge(importedActive) { _, imported in imported }
+        candidate.weights.merge(importedWeights) { _, imported in imported }
+        candidate.pruneMetadata()
+        guard candidate.isValidOrganization else { return false }
+        self = candidate
+        return true
+    }
+
+    private var isValidOrganization: Bool {
+        guard let data = try? JSONEncoder().encode(self) else { return false }
+        return (try? JSONDecoder().decode(Self.self, from: data)) != nil
+    }
+
     public func containingGroup(of target: SurfaceID) -> UUID? {
         func find(_ nodes: [SurfaceTreeNode]) -> UUID? {
             for node in nodes {

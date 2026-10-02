@@ -50,6 +50,19 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), config)
     }
 
+    func testFreshManagedDefaultsUseOriginalHierarchyAndCompactNeutralSidebar() throws {
+        let parsed = parseConfig(BrowserNativeState.initialConfiguration)
+        XCTAssertTrue(parsed.errors.isEmpty)
+        XCTAssertTrue(parsed.config.persistentWorkspaces.isEmpty)
+        XCTAssertTrue(parsed.config.workspaceSidebar.enabled)
+        XCTAssertFalse(parsed.config.workspaceSidebar.alwaysExpanded)
+        XCTAssertFalse(parsed.config.workspaceSidebar.autoHide)
+        XCTAssertEqual(parsed.config.workspaceSidebar.chromeStyle, .solid)
+        XCTAssertEqual(parsed.config.workspaceSidebar.solidChromeColor, .system)
+        XCTAssertTrue(parsed.config.workspaceSidebar.projectLabels.isEmpty)
+        XCTAssertTrue(parsed.config.workspaceSidebar.workspaceLabels.isEmpty)
+    }
+
     func testStandaloneOwnershipRecognizesNativeAppButAllowsTransportHelper() {
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: "com.zimengxiong.winmux", executable: nil))
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: nil, executable: "WinMuxApp"))

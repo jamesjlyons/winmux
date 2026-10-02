@@ -44,6 +44,10 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
         isTargeted = false
         isSettling = true
         clearPreviewAfterProviderCallbacksSettle()
+        if let subject = currentWorkspaceSidebarSurfaceDragSubject() {
+            finishWorkspaceSidebarSurfaceDrag(subject, pointer: currentWorkspaceSidebarDragPointer())
+            return true
+        }
         if isWorkspaceSidebarDragInProgress(
             kind: getCurrentMouseManipulationKind(),
             startedInSidebar: getCurrentMouseDragStartedInSidebar()
@@ -59,7 +63,10 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
 
     private func sendPreview(for payload: WorkspaceSidebarDragPayload) {
         switch payload {
-            case .surface: break
+            case .surface(let id):
+                actions.send(.previewSurfaceDrop(.surface(id), target: target))
+            case .surfaceGroup(let id):
+                actions.send(.previewSurfaceDrop(.group(id), target: target))
             case .window(let windowId):
                 actions.send(.previewWindowDrop(windowId, target: target))
             case .tabGroup(let representativeWindowId):

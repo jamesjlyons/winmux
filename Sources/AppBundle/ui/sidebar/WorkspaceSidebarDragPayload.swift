@@ -8,11 +8,13 @@ let workspaceSidebarDragPayloadType = UTType(exportedAs: "dev.winmux.sidebar-dra
 
 enum WorkspaceSidebarDragPayload: Equatable, Sendable {
     case surface(SurfaceID)
+    case surfaceGroup(UUID)
     case window(UInt32)
     case tabGroup(UInt32)
 
     var encodedValue: String {
         switch self {
+            case .surfaceGroup(let id): "surface-group:\(id.uuidString.lowercased())"
             case .surface(let id): "surface:\(id.description)"
             case .window(let windowId):
                 "\(workspaceSidebarWindowDragPrefix)\(windowId)"
@@ -22,7 +24,9 @@ enum WorkspaceSidebarDragPayload: Equatable, Sendable {
     }
 
     init?(encodedValue: String) {
-        if encodedValue.hasPrefix("surface:"), let id = SurfaceID(string: String(encodedValue.dropFirst(8))) {
+        if encodedValue.hasPrefix("surface-group:"), let id = UUID(uuidString: String(encodedValue.dropFirst(14))) {
+            self = .surfaceGroup(id)
+        } else if encodedValue.hasPrefix("surface:"), let id = SurfaceID(string: String(encodedValue.dropFirst(8))) {
             self = .surface(id)
         } else if encodedValue.hasPrefix(workspaceSidebarWindowDragPrefix),
            let rawValue = UInt32(encodedValue.dropFirst(workspaceSidebarWindowDragPrefix.count)) {
