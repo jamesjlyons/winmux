@@ -38,6 +38,18 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertTrue(lease.isRevoked)
     }
 
+    func testManagedDefaultsHaveSharedShortcutsAndDoNotReplaceExistingSettings() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let state = try BrowserNativeState(directory: root, workspaceShortcuts: true)
+        let config = try String(contentsOf: state.config, encoding: .utf8)
+        XCTAssertTrue(parseConfig(config).errors.isEmpty)
+        XCTAssertTrue(config.contains("alt-j = 'focus tab-next'"))
+        XCTAssertTrue(config.contains("alt-space = 'layout horizontal vertical'"))
+        _ = try BrowserNativeState(directory: root)
+        XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), config)
+    }
+
     func testStandaloneOwnershipRecognizesNativeAppButAllowsTransportHelper() {
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: "com.zimengxiong.winmux", executable: nil))
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: nil, executable: "WinMuxApp"))

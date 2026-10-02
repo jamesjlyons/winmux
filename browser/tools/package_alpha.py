@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import uuid
 from types import SimpleNamespace
 
 import chromium
@@ -154,11 +155,13 @@ def package(args, identity, team, source):
     shutil.copy2(native_build / "release/WinMuxWorkspaceHelper", helper)
     (helper_app / "Contents/Resources").mkdir()
     shutil.copy2(ROOT / "resources/default-config.toml", helper_app / "Contents/Resources/default-config.toml")
+    validation_service = HELPER_ID + ".test." + str(uuid.uuid4())
     (helper_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
         "CFBundleIdentifier": HELPER_ID, "CFBundleName": "WinMux Workspace",
         "CFBundleDisplayName": "WinMux Workspace", "CFBundleExecutable": helper.name,
         "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
         "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
+        "WinMuxValidationService": validation_service,
     }))
     for resource in (native_build / "release").glob("*.bundle"):
         destination = helper_app / "Contents/Resources" / resource.name
@@ -171,6 +174,21 @@ def package(args, identity, team, source):
     agent = plistlib.loads((native / (HELPER_ID + ".plist")).read_bytes())
     agent["BundleProgram"] = helper_relative
     (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
+    # Workspace Setup runs inside the embedded helper application. Its separate
+    # SMAppService agent does not replace the browser's transport-only enrollment.
+    managed_agents = helper_app / "Contents/Library/LaunchAgents"
+    managed_agents.mkdir(parents=True)
+    managed_id = HELPER_ID + ".managed"
+    (managed_agents / (managed_id + ".plist")).write_bytes(plistlib.dumps({
+        "Label": managed_id, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
+        "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace"],
+        "MachServices": {managed_id: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+    }))
+    (managed_agents / (validation_service + ".plist")).write_bytes(plistlib.dumps({
+        "Label": validation_service, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
+        "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace", validation_service],
+        "MachServices": {validation_service: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+    }))
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
                  "--options", "runtime", "--timestamp=none", str(helper_app))
     verify_identity(helper, HELPER_ID, team)

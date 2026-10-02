@@ -117,9 +117,11 @@ and native activation has now been verified against a launch-bound synthetic fix
 1. Shared identity, sidebar organization, owner-controlled mixed geometry,
    persistence, navigation and typed owner actions are implemented below. macOS
    approval is granted; no permission request is pending.
-2. Prepare deliberate daily-driver activation with ownership transfer, isolated
-   state and rollback. Shared group/layout/ungroup/reorder commands and the
-   existing layout binding now work for both owners, as verified below.
+2. The deliberate Start/Stop activation UI is now implemented and fixture-tested
+   below. Normal Workspace Setup is open for the user's explicit activation;
+   do not activate it, upgrade the installed browser or interrupt existing
+   sessions as part of further validation. Shared group/layout/ungroup/reorder
+   commands and the existing layout binding work for both owners.
    Existing native-only commands must never target an old native selection while
    a browser tab is selected.
 3. Validate physical keyboard/trackpad delivery, display transitions, fullscreen
@@ -129,6 +131,55 @@ and native activation has now been verified against a launch-bound synthetic fix
    minimum still needs a defined fallback.
 
 Do not restart benchmark or extension-testing loops before this integration.
+
+## Explicit Workspace Setup and rollback — 2026-10-01
+
+- The browser application menu now opens **Workspace Setup…** in a separate
+  frontend instance of its signed embedded helper. Opening the setup window
+  performs no enrollment or native-window management. Start Workspace checks
+  standalone ownership, writes a marked private activation request, and registers
+  a separate `SMAppService` agent. It opens the isolated browser profile only
+  after the native helper reports ready. Stop unregisters that service, waits
+  for helper shutdown, and leaves Chromium open with its normal controls.
+- Normal activation uses a separate `WinMux Browser Workspace Alpha` data root,
+  `daily/browser-profile`, native config/session and hashed command socket. The
+  prior transport-only enrollment, installed alpha and existing sessions are
+  untouched. Config defaults enable Option-J/K traversal and Option-Space layout
+  changes only for newly created settings. Existing custom settings are preserved.
+  See [Workspace Setup](workspace-setup.md) for activation, rollback and login
+  behavior. Registration remains active until Stop Workspace.
+- The flow has a process-scoped operation lock and exact package/service binding.
+  Validation uses a separate signed `.workspace.test.<UUID>` SM agent and fresh
+  profile. A complete fixture PID/start identity is mandatory. The initial live
+  attempt refused startup because Launch Services omitted the launch date for a
+  directly launched fixture. Kernel process-start identity fixes this without
+  weakening PID-reuse checks; a direct-process/exit regression test passes.
+- Signed **alpha-setup-3** passed actual Computer Use Start/Stop. The real SM agent
+  launched, authenticated the browser and exposed exactly two synthetic native
+  windows and one browser tab. Shared grouping and owner-specific focus passed.
+  Stop removed the service (launchd lookup 113), exited its helper, restored both
+  native windows to 500×392 outer frames onscreen, and kept Chromium running.
+  Its ordinary tab strip and browser controls were inspected afterward. The
+  browser's actual menu opened the normal setup frontend successfully.
+- All synthetic windows/browsers and test services were then stopped. Normal
+  Workspace Setup was left open, with management **stopped**, for the user who
+  asked whether the build is testable. The agent did not activate an unscoped
+  workspace. No user browser, extension or vault UI was inspected. The earlier
+  failed setup lookup briefly launched a transport-only staged helper, which was
+  verified and removed; it never managed windows or opened a browser profile.
+- The final staging package is
+  `.local/browser/packages/alpha-setup-3/WinMux Browser Alpha.app`. Deep/strict
+  signing passed, all **573 native source hashes** matched, and its signed
+  headless layout/action/fence/recovery regression passed. The recovered
+  connection stayed authenticated for **17.09 seconds**, browser exit was 0,
+  the test service was removed, and the old enrolled helper identity was unchanged.
+  **755 full native tests** passed before the kernel-identity correction, followed
+  by **5 final targeted native**, **31 WorkspaceCore**, **9 BridgeCore** and
+  **35 Python** checks. These do not qualify physical input latency, display
+  changes, fullscreen/popups or the complete daily workload.
+
+[Verified setup evidence](evidence/2026-10-01-workspace-setup.json) ·
+[User handoff window](evidence/2026-10-01-workspace-setup.jpg).
 
 ## Live sidebar integration — 2026-10-01
 

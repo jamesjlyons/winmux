@@ -280,6 +280,19 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
 }
 
 do {
+#if canImport(AppBundle)
+    if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
+        let args = CommandLine.arguments
+        guard args.count == 2 || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
+            throw WorkspaceActivationError.invalidRequest
+        }
+        let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil)
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.delegate = setup
+        withExtendedLifetime(setup) { NSApplication.shared.run() }
+        exit(0)
+    }
+#endif
     let team = try SigningIdentity.ownTeamID()
     guard let requirement = SigningIdentity.requirement(identifier: SigningIdentity.browserID, teamID: team) else {
         throw NSError(domain: "WinMuxBrowser.Signing", code: 2)
@@ -289,8 +302,27 @@ do {
     var sidebarEnabled = false
     var nativeState: URL?
     var nativeProcessID: Int32?
+    var activation: WorkspaceActivation?
     let arguments = CommandLine.arguments
-    if arguments.count > 1 {
+    if arguments.count >= 2 && arguments[1] == "--managed-workspace" {
+#if canImport(AppBundle)
+        let store = try WorkspaceActivationStore()
+        let validationService = Bundle.main.object(forInfoDictionaryKey: "WinMuxValidationService") as? String
+        guard (arguments.count == 2 || (arguments.count == 3 && arguments[2] == validationService)),
+              let request = try store.readRequest(), request.browserPath == (try containingBrowser()).path,
+              request.machService == (arguments.count == 3 ? arguments[2] : WorkspaceActivation.serviceName) else {
+            throw WorkspaceActivationError.differentPackage
+        }
+        try store.prepareDirectories(for: request)
+        activation = request
+        nativeState = request.nativeState(in: store.root)
+        nativeProcessID = request.nativeProcessID
+        service = request.machService
+        sidebarEnabled = true
+#else
+        throw WorkspaceActivationError.unavailable
+#endif
+    } else if arguments.count > 1 {
         let prefix = SigningIdentity.serviceName + ".test."
         let nativeMode = (arguments.count == 5 || arguments.count == 7) && arguments[3] == "--manage-native"
         guard (arguments.count == 3 || (arguments.count == 4 && arguments[3] == "--sidebar-preview") || nativeMode), arguments[1].hasPrefix(prefix),
@@ -317,11 +349,21 @@ do {
         if let nativeState {
             NSApplication.shared.delegate = appDelegate
             let scopedPID = nativeProcessID
+            let request = activation
             Task { @MainActor in
                 do {
-                    try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID)
+                    try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
+                        expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil)
+                    if let request {
+                        try WorkspaceActivationStore().writeStatus(.init(requestID: request.id, phase: "ready",
+                            helperPID: getpid(), helperLaunch: processLaunchDate(getpid())))
+                    }
                     FileHandle.standardError.write(Data("Native workspace ready (isolated state).\n".utf8))
                 } catch {
+                    if let request {
+                        try? WorkspaceActivationStore().writeStatus(.init(requestID: request.id, phase: "failed",
+                            helperPID: getpid(), helperLaunch: processLaunchDate(getpid()), detail: error.localizedDescription))
+                    }
                     FileHandle.standardError.write(Data("Native workspace refused: \(error.localizedDescription)\n".utf8))
                     NSApplication.shared.terminate(nil)
                 }

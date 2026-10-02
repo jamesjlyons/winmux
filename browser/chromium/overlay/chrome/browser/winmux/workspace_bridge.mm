@@ -4,6 +4,7 @@
 
 #include <atomic>
 
+#import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <ServiceManagement/ServiceManagement.h>
@@ -69,6 +70,8 @@ NSString* OwnTeam() {
 - (void)publish:(NSData*)data epoch:(NSString*)epoch;
 - (void)retryGeneration:(uint64_t)generation state:(NSString*)state detail:(NSString*)detail;
 - (void)report:(NSString*)state detail:(NSString*)detail;
+- (void)openWorkspaceSetup:(id)sender;
+- (void)installWorkspaceMenu;
 @end
 
 @implementation WMChromiumWorkspaceBridge
@@ -81,6 +84,28 @@ NSString* OwnTeam() {
 @synthesize epoch = _epoch;
 @synthesize protocolVersion = _protocolVersion;
 @synthesize sequence = _sequence;
+
+- (void)openWorkspaceSetup:(id)sender {
+  NSURL* helper = [NSBundle.mainBundle.bundleURL URLByAppendingPathComponent:
+      @"Contents/Helpers/WinMux Workspace.app"];
+  NSWorkspaceOpenConfiguration* configuration = [NSWorkspaceOpenConfiguration configuration];
+  configuration.createsNewApplicationInstance = YES;
+  configuration.arguments = @[@"--workspace-setup"];
+  [NSWorkspace.sharedWorkspace openApplicationAtURL:helper configuration:configuration
+      completionHandler:^(NSRunningApplication* app, NSError* error) {
+        if (error) NSLog(@"WinMux Workspace Setup failed: %@", error.localizedDescription);
+      }];
+}
+
+- (void)installWorkspaceMenu {
+  if (_stopped.load()) return;
+  NSMenu* menu = NSApp.mainMenu.itemArray.firstObject.submenu;
+  if (!menu || [menu itemWithTitle:@"Workspace Setup…"]) return;
+  NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:@"Workspace Setup…"
+      action:@selector(openWorkspaceSetup:) keyEquivalent:@""];
+  item.target = self;
+  [menu insertItem:item atIndex:MIN(2, menu.numberOfItems)];
+}
 
 - (instancetype)init {
   self = [super init];
@@ -353,6 +378,11 @@ void StartWorkspaceBridge() {
   const auto* command = base::CommandLine::ForCurrentProcess();
   bridge.reportPath = base::SysUTF8ToNSString(command->GetSwitchValueNative("winmux-bridge-report"));
   bridge.serviceName = kHelperID;
+  if (command->HasSwitch("winmux-managed-workspace") && command->HasSwitch("user-data-dir"))
+    bridge.serviceName = [kHelperID stringByAppendingString:@".managed"];
+  if (!command->HasSwitch("headless")) {
+    dispatch_async(dispatch_get_main_queue(), ^{ [bridge installWorkspaceMenu]; });
+  }
   bool isolated_test = false;
   auto service = command->GetSwitchValueASCII("winmux-test-service");
   const std::string prefix = base::SysNSStringToUTF8(kHelperID) + ".test.";

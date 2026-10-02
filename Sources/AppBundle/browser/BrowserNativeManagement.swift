@@ -2,6 +2,7 @@ import AppKit
 import Common
 import CryptoKit
 import Darwin
+import WorkspaceCore
 
 /// Alpha activation never imports the standalone app's configuration or session.
 struct BrowserNativeState: Sendable {
@@ -13,7 +14,7 @@ struct BrowserNativeState: Sendable {
         return "/tmp/winmux-browser-\(getuid())-\(hash).sock"
     }
 
-    init(directory: URL) throws {
+    init(directory: URL, workspaceShortcuts: Bool = false) throws {
         guard directory.isFileURL, directory.path.hasPrefix("/") else { throw NativeManagementError.invalidState }
         self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
         let fm = FileManager.default
@@ -30,7 +31,8 @@ struct BrowserNativeState: Sendable {
             guard file.resolvingSymlinksInPath().path == file.path else { throw NativeManagementError.invalidState }
         }
         if !fm.fileExists(atPath: config.path) {
-            try Data(Self.initialConfiguration.utf8).write(to: config, options: .withoutOverwriting)
+            let shortcuts = workspaceShortcuts ? "\nalt-j = 'focus tab-next'\nalt-k = 'focus tab-prev'\nalt-space = 'layout horizontal vertical'\n" : ""
+            try Data((Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
         }
     }
 
@@ -86,7 +88,7 @@ final class NativeManagementLease: @unchecked Sendable {
 @MainActor
 enum BrowserNativeManagement {
     static var lease: NativeManagementLease?
-    static var processScope: (pid: Int32, launch: Date?)?
+    static var processScope: (pid: Int32, launch: Date)?
     private static var ownershipObserver: NSObjectProtocol?
 
     static func isStandaloneManager(bundleID: String?, executable: String?) -> Bool {
@@ -103,7 +105,7 @@ enum BrowserNativeManagement {
 
     static func allowsDiscovery(_ app: NSRunningApplication) -> Bool {
         guard let scope = processScope else { return true }
-        return app.processIdentifier == scope.pid && app.launchDate == scope.launch && !app.isTerminated
+        return app.processIdentifier == scope.pid && processLaunchDate(scope.pid) == scope.launch && !app.isTerminated
     }
 
     static func observeOwnership() {
@@ -126,17 +128,22 @@ enum BrowserNativeManagement {
 /// Explicit only. Normal helper enrollment remains transport-only. An optional
 /// launch-bound PID scope permits live integration tests using only fixture windows.
 @MainActor
-public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: Int32? = nil) async throws {
+public func checkBrowserNativeOwnership() throws { try BrowserNativeManagement.checkOwnership() }
+
+@MainActor
+public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: Int32? = nil,
+                                         expectedProcessLaunch: Date? = nil, workspaceShortcuts: Bool = false) async throws {
     guard BrowserNativeManagement.lease == nil, !isWinMuxRuntimeReady else { throw NativeManagementError.anotherManager }
     try BrowserNativeManagement.checkOwnership()
     let lease = try NativeManagementLease()
     if let pid = nativeProcessID {
-        guard pid != myPid, let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated else {
+        guard pid != myPid, let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated,
+              let launch = processLaunchDate(pid), expectedProcessLaunch == nil || launch == expectedProcessLaunch else {
             throw NativeManagementError.invalidProcess
         }
-        BrowserNativeManagement.processScope = (pid, app.launchDate)
+        BrowserNativeManagement.processScope = (pid, launch)
     }
-    let state = try BrowserNativeState(directory: stateDirectory)
+    let state = try BrowserNativeState(directory: stateDirectory, workspaceShortcuts: workspaceShortcuts)
     configureBrowserNativeState(state, lease: lease)
     BrowserNativeManagement.lease = lease
     BrowserNativeManagement.observeOwnership()
