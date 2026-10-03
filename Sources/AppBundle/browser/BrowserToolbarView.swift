@@ -61,6 +61,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
             addSubview(view)
         }
         menu = makeWindowMenu()
+        moveGrip.menu = menu
     }
 
     required init?(coder: NSCoder) { nil }
@@ -73,8 +74,9 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         // action remains available through the window actions menu.
         back.isHidden = bounds.width < 280
         forward.isHidden = bounds.width < 380
-        reload.isHidden = bounds.width < 200
-        moveGrip.isHidden = bounds.width < 240
+        reload.isHidden = bounds.width < 224
+        more.isHidden = bounds.width < 200
+        moveGrip.isHidden = false
         let controlHeight: CGFloat = 22
         let y = (bounds.height - controlHeight) / 2
         var left: CGFloat = 10
@@ -89,13 +91,18 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         }
         left += 2
         var right = bounds.maxX - 5
-        for view in [moveGrip, more] where !view.isHidden {
-            let width: CGFloat = view === moveGrip ? 20 : 22
-            right -= width
-            view.frame = .init(x: right, y: y, width: width, height: controlHeight)
-            right -= 1
+        if !more.isHidden {
+            more.frame = .init(x: right - 22, y: y, width: 22, height: controlHeight)
+            right -= 24
         }
-        addressWell.frame = .init(x: left, y: y, width: max(0, right - left - 2), height: controlHeight)
+        // Reserve a full-height drag target beside the URL. Keep a compact grip
+        // in minimum-width panes and give spare space to dragging on wide pages.
+        let availableWidth = max(0, right - left)
+        let gripWidth = min(56, max(24, availableWidth - 52 - 4))
+        let addressWidth = min(540, max(0, availableWidth - gripWidth - 4))
+        addressWell.frame = .init(x: left, y: y, width: addressWidth, height: controlHeight)
+        let gripLeft = addressWell.frame.maxX + 4
+        moveGrip.frame = .init(x: gripLeft, y: 0, width: max(0, right - gripLeft), height: bounds.height)
         addressWell.needsLayout = true
     }
 
@@ -158,7 +165,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
     private func configure(_ button: NSButton, symbol: String, label: String, action: Selector) {
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        button.symbolConfiguration = .init(pointSize: 10, weight: .regular)
+        button.symbolConfiguration = .init(pointSize: 13, weight: .regular)
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
         button.isBordered = false

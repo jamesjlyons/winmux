@@ -195,6 +195,8 @@ final class BrowserToolbarMoveGrip: NSView {
     init() {
         super.init(frame: .zero)
         icon.image = NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: nil)
+        icon.symbolConfiguration = .init(pointSize: 13, weight: .regular)
+        icon.imageScaling = .scaleProportionallyDown
         icon.contentTintColor = .secondaryLabelColor
         icon.alphaValue = 0.45
         icon.translatesAutoresizingMaskIntoConstraints = false
@@ -203,8 +205,8 @@ final class BrowserToolbarMoveGrip: NSView {
         NSLayoutConstraint.activate([
             icon.centerXAnchor.constraint(equalTo: centerXAnchor),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 8),
-            icon.heightAnchor.constraint(equalToConstant: 10),
+            icon.widthAnchor.constraint(equalToConstant: 13),
+            icon.heightAnchor.constraint(equalToConstant: 13),
         ])
         toolTip = "Drag to move or organize web window"
         setAccessibilityElement(true)

@@ -11,8 +11,14 @@ native window ID. Native app windows can occupy the same workspace and groups.
 Each visible managed page has a continuous rounded frame and a 28-point native
 AppKit header. Four-point outer insets and a one-point frame separate neighboring
 pages. AppKit's standard red, yellow and green window controls sit at the leading
-edge, followed by compact navigation and a flat address/search field; a window-actions menu and a move grip sit at the trailing
-edge. Extensions, new-page and sizing actions are available in the menu. The
+edge, followed by compact navigation and a flat address/search field. A full-height
+move grip sits beside the address field, followed by the window-actions menu.
+Navigation, menu and drag icons use 13-point SF Symbols, sized alongside the
+native window buttons.
+The address field caps at 540 points so spare header space remains draggable.
+The grip reserves 56 points when space allows and stays at least 24 points wide
+in narrow panes. At the smallest widths, the actions button moves into the drag
+area's context menu. Extensions, new-page and sizing actions are available there. The
 address field gains a background on hover and a focus outline while editing.
 Red closes the page, yellow minimizes its native window to the Dock, and green
 enters fullscreen. Option-click green to zoom. Selecting a minimized page in the
