@@ -104,7 +104,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus" &&
         request.action != "back" && request.action != "forward" && request.action != "reload" &&
         request.action != "stop" && request.action != "navigate" && request.action != "new_tab" &&
-        request.action != "extensions" && request.action != "manage_extensions")
+        request.action != "extensions" && request.action != "manage_extensions" &&
+        request.action != "minimize" && request.action != "fullscreen" && request.action != "zoom")
       return "unsupported";
     if ((request.url && (request.url->size() > 16384 ||
                          (request.action != "navigate" && request.action != "new_tab"))) ||
@@ -150,15 +151,27 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if ((request.action == "back" && !navigation.CanGoBack()) ||
         (request.action == "forward" && !navigation.CanGoForward()))
       return "unavailable";
+    if (request.action == "minimize" || request.action == "fullscreen" || request.action == "zoom") {
+      if (!BrowserHostWindowID(browser->GetWindow())) return "unavailable";
+      if (request.action != "fullscreen" && IsBrowserHostFullscreen(browser)) return "unsupported";
+      if (request.action != "minimize" && IsBrowserHostMinimized(browser)) return "unavailable";
+    }
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
     Remember(request);
     if (request.action == "focus") {
       strip->ActivateTabAt(index);
+      if (IsBrowserHostMinimized(browser)) RestoreMinimizedBrowserHost(browser);
       browser->GetWindow()->Show();
       browser->GetWindow()->Activate();
     } else if (request.action == "close") {
       strip->CloseWebContents(contents, TabCloseTypes::CLOSE_USER_GESTURE |
                                           TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+    } else if (request.action == "minimize") {
+      if (!IsBrowserHostMinimized(browser)) MinimizeBrowserHost(browser);
+    } else if (request.action == "fullscreen") {
+      ToggleBrowserHostFullscreen(browser);
+    } else if (request.action == "zoom") {
+      ZoomBrowserHost(browser);
     } else if (request.action == "back") {
       navigation.GoBack();
     } else if (request.action == "forward") {
@@ -262,11 +275,19 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (browser_shutdown::IsTryingToQuit() || browser_shutdown::HasShutdownStarted()) return;
     std::map<std::string, base::DictValue> next;
     std::set<std::string> observed;
+    std::set<int> observed_hosts;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
           browser->GetProfile()->IsOffTheRecord() || browser->IsDeleteScheduled())
         return true;
+      const int host_id = browser->GetSessionID().id();
+      observed_hosts.insert(host_id);
+      auto& host_observer = host_observers_[host_id];
+      if (!host_observer) {
+        host_observer = ObserveBrowserHostWindow(browser,
+            base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+      }
       auto* strip = browser->GetTabStripModel();
       for (int index = 0; index < strip->count(); ++index) {
         auto* contents = strip->GetWebContentsAt(index);
@@ -291,6 +312,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
         frame.Set("width", bounds.width()); frame.Set("height", bounds.height());
         record.Set("host_frame", std::move(frame));
         record.Set("host_visible", browser->GetWindow()->IsVisible());
+        record.Set("host_minimized", IsBrowserHostMinimized(browser));
+        record.Set("host_fullscreen", IsBrowserHostFullscreen(browser));
+        record.Set("host_zoomed", IsBrowserHostZoomed(browser));
         auto minimum = BrowserHostMinimumSize(browser->GetWindow());
         base::DictValue minimum_size;
         minimum_size.Set("width", minimum.width());
@@ -311,6 +335,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return true;
     });
     std::erase_if(navigation_observers_, [&](const auto& item) { return !observed.contains(item.first); });
+    std::erase_if(host_observers_, [&](const auto& item) { return !observed_hosts.contains(item.first); });
     base::ListValue changed, removed;
     for (const auto& [id, record] : next) {
       auto previous = records_.find(id);
@@ -346,6 +371,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::string epoch_;
   std::map<std::string, base::DictValue> records_;
   std::map<std::string, std::unique_ptr<TabNavigationObserver>> navigation_observers_;
+  std::map<int, std::unique_ptr<BrowserHostWindowObserver>> host_observers_;
   std::map<std::string, raw_ptr<content::WebContents>> live_;
   std::map<std::string, std::pair<BrowserSurfaceAction, std::string>> operations_;
   std::deque<std::string> operation_order_;

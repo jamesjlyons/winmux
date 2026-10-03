@@ -111,7 +111,8 @@ void Release(ManagedHost& host) {
   host.observer.reset();
   if (host.browser && !host.browser->IsDeleteScheduled()) {
     SetBrowserHostManaged(host.browser.get(), false);
-    host.browser->GetWindow()->ShowInactive();
+    if (!IsBrowserHostSuspended(host.browser.get()))
+      host.browser->GetWindow()->ShowInactive();
   }
 }
 }
@@ -161,7 +162,11 @@ std::string ApplyHostLayout(const std::string& json) {
       auto found = live.find(tab.GetString());
       if (found == live.end() || !found->second) return "unavailable";
       auto* source = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(found->second.get());
-      if (!source || source->GetWindow()->IsFullscreen()) return "unsupported";
+      if (!source) return "unsupported";
+      auto existing = Hosts().find(tab.GetString());
+      const bool suspended_host = existing != Hosts().end() &&
+          existing->second.browser.get() == source && IsBrowserHostSuspended(source);
+      if (IsBrowserHostFullscreen(source) && !suspended_host) return "unsupported";
       Placement p;
       p.surface = tab.GetString();
       p.profile = Profile::FromBrowserContext(found->second->GetBrowserContext());
@@ -192,6 +197,13 @@ std::string ApplyHostLayout(const std::string& json) {
     auto existing = Hosts().find(p.surface);
     if (existing != Hosts().end()) {
       host = existing->second.browser;
+      // Native Dock minimize and fullscreen own the host's presentation. A
+      // workspace replan must neither restore nor resize it during that time.
+      if (host.get() == source && IsBrowserHostSuspended(source)) {
+        SetBrowserHostManaged(source, p.managed);
+        claimed.insert(source);
+        continue;
+      }
       // A layout can arrive before the posted insertion observer. Keep the
       // original page's window identity stable in that case as well.
       if (p.managed && host.get() == source && existing->second.observer &&
@@ -246,6 +258,14 @@ std::string ApplyHostLayout(const std::string& json) {
   }
   // A removed placement is released to conventional controls, never closed.
   for (auto it = Hosts().begin(); it != Hosts().end();) {
+    // Suspended pages remain members of the durable workspace tree, although
+    // Swift omits them from the live tile plan until Dock/fullscreen restoration.
+    if (!surfaces.contains(it->first) && it->second.browser &&
+        !it->second.browser->IsDeleteScheduled() &&
+        IsBrowserHostSuspended(it->second.browser.get())) {
+      ++it;
+      continue;
+    }
     if (!surfaces.contains(it->first) || !it->second.browser ||
         it->second.browser->IsDeleteScheduled()) {
       // A page can close while another is being inserted in the same native

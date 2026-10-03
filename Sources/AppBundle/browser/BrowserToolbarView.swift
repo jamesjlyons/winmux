@@ -9,11 +9,12 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     var onDrag: ((BrowserToolbarDragPhase, CGPoint) -> Void)?
     private var dragGesture = BrowserToolbarDragGesture()
     private let chromeBackground = BrowserChromeBackgroundView(headerOnly: true)
-    private let close = BrowserToolbarButton()
+    private let close = BrowserToolbarView.windowButton(.closeButton)
+    private let minimize = BrowserToolbarView.windowButton(.miniaturizeButton)
+    private let zoom = BrowserToolbarView.windowButton(.zoomButton)
     private let back = BrowserToolbarButton()
     private let forward = BrowserToolbarButton()
     private let reload = BrowserToolbarButton()
-    private let extensions = BrowserToolbarButton()
     private let more = BrowserToolbarButton()
     private let moveGrip = BrowserToolbarMoveGrip()
     private let addressWell = BrowserToolbarAddressWell()
@@ -29,18 +30,18 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         setAccessibilityLabel("Web page controls")
         setAccessibilityIdentifier("winmux.browser.toolbar")
         addSubview(chromeBackground)
-        configure(close, symbol: "xmark", label: "Close web window", action: #selector(closePage))
-        close.isCloseControl = true
+        configureWindowButton(close, label: "Close web window", identifier: "close", action: #selector(closePage))
+        configureWindowButton(minimize, label: "Minimize web window", identifier: "minimize", action: #selector(minimizePage))
+        configureWindowButton(zoom, label: "Enter Full Screen", identifier: "fullscreen", action: #selector(zoomPage))
         configure(back, symbol: "chevron.left", label: "Back", action: #selector(goBack))
         configure(forward, symbol: "chevron.right", label: "Forward", action: #selector(goForward))
         configure(reload, symbol: "arrow.clockwise", label: "Reload page", action: #selector(reloadOrStop))
-        configure(extensions, symbol: "puzzlepiece.extension", label: "Extensions", action: #selector(openExtensions))
         configure(more, symbol: "ellipsis", label: "Web window actions", action: #selector(showActions))
 
         address.placeholderString = "Search or enter address"
         address.setAccessibilityLabel("Page address")
         address.setAccessibilityIdentifier("winmux.browser.address")
-        address.font = .systemFont(ofSize: 12)
+        address.font = .systemFont(ofSize: 11)
         address.textColor = .secondaryLabelColor
         address.controlSize = .small
         address.isBezeled = false
@@ -56,7 +57,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
         moveGrip.onDrag = { [weak self] phase, point in self?.onDrag?(phase, point) }
         moveGrip.onClick = { [weak self] in self?.onAction?(.focusPage) }
-        for view in [close, back, forward, reload, addressWell, extensions, more, moveGrip] {
+        for view in [close, minimize, zoom, back, forward, reload, addressWell, more, moveGrip] {
             addSubview(view)
         }
         menu = makeWindowMenu()
@@ -70,26 +71,31 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         chromeBackground.frame = bounds
         // Keep navigation and address entry usable in narrow splits. Every hidden
         // action remains available through the window actions menu.
-        back.isHidden = bounds.width < 250
-        forward.isHidden = bounds.width < 360
-        extensions.isHidden = bounds.width < 290
-        let y = (bounds.height - 28) / 2
-        var left: CGFloat = 8
-        close.frame = .init(x: left, y: y, width: 20, height: 28)
-        left += 24
+        back.isHidden = bounds.width < 280
+        forward.isHidden = bounds.width < 380
+        reload.isHidden = bounds.width < 200
+        moveGrip.isHidden = bounds.width < 240
+        let controlHeight: CGFloat = 22
+        let y = (bounds.height - controlHeight) / 2
+        var left: CGFloat = 10
+        for button in [close, minimize, zoom] {
+            button.setFrameOrigin(.init(x: left, y: (bounds.height - button.frame.height) / 2))
+            left += button.frame.width + 6
+        }
+        left += 2
         for button in [back, forward, reload] where !button.isHidden {
-            button.frame = .init(x: left, y: y, width: 26, height: 28)
-            left += 27
+            button.frame = .init(x: left, y: y, width: 22, height: controlHeight)
+            left += 22
         }
-        left += 4
-        var right = bounds.maxX - 8
-        for view in [moveGrip, more, extensions] where !view.isHidden {
-            let width: CGFloat = view === moveGrip ? 16 : 26
+        left += 2
+        var right = bounds.maxX - 5
+        for view in [moveGrip, more] where !view.isHidden {
+            let width: CGFloat = view === moveGrip ? 20 : 22
             right -= width
-            view.frame = .init(x: right, y: y, width: width, height: 28)
-            right -= 3
+            view.frame = .init(x: right, y: y, width: width, height: controlHeight)
+            right -= 1
         }
-        addressWell.frame = .init(x: left, y: y - 1, width: max(0, right - left - 2), height: 30)
+        addressWell.frame = .init(x: left, y: y, width: max(0, right - left - 2), height: controlHeight)
         addressWell.needsLayout = true
     }
 
@@ -124,7 +130,14 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     override func cancelOperation(_ sender: Any?) { cancelDrag() }
 
     func update(_ item: BrowserToolbarItem, preserveAddress: Bool) {
+        // A managed page's backing already draws the entire frame, including
+        // the header. Drawing it again here doubles the material and corner
+        // outline, and puts a straight separator across the native page curve.
+        chromeBackground.isHidden = item.pageFrame != nil && item.hostWindowID != nil
         chromeBackground.update(item)
+        minimize.isEnabled = item.controlsEnabled
+        zoom.isEnabled = item.controlsEnabled
+        for button in [close, minimize, zoom] { button.needsDisplay = true }
         isLoading = item.isLoading
         controlsEnabled = item.controlsEnabled
         canGoBack = item.canGoBack
@@ -132,7 +145,6 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         back.isEnabled = item.controlsEnabled && item.canGoBack
         forward.isEnabled = item.controlsEnabled && item.canGoForward
         reload.isEnabled = item.controlsEnabled
-        extensions.isEnabled = item.controlsEnabled
         address.isEnabled = item.controlsEnabled
         addressWell.isEditing = preserveAddress
         if !preserveAddress { address.stringValue = item.url }
@@ -146,7 +158,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
     private func configure(_ button: NSButton, symbol: String, label: String, action: Selector) {
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        button.symbolConfiguration = .init(pointSize: 11, weight: .regular)
+        button.symbolConfiguration = .init(pointSize: 10, weight: .regular)
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
         button.isBordered = false
@@ -159,12 +171,28 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         button.action = action
     }
 
+    private static func windowButton(_ type: NSWindow.ButtonType) -> NSButton {
+        guard let button = NSWindow.standardWindowButton(type, for: [.titled, .closable, .miniaturizable, .resizable]) else {
+            preconditionFailure("AppKit did not provide a standard window control")
+        }
+        return button
+    }
+
+    private func configureWindowButton(_ button: NSButton, label: String, identifier: String, action: Selector) {
+        button.target = self
+        button.action = action
+        button.toolTip = label
+        button.setAccessibilityLabel(label)
+        button.setAccessibilityIdentifier("winmux.browser." + identifier)
+    }
+
     private func makeWindowMenu() -> NSMenu {
         let result = NSMenu(title: "Web window")
         for (title, action) in [
             ("Back", #selector(goBack)), ("Forward", #selector(goForward)),
             ("Reload page", #selector(reloadOrStop)), ("Extensions", #selector(openExtensions)),
             ("New web window", #selector(openNewTab)),
+            ("Minimize", #selector(minimizePage)), ("Enter Full Screen", #selector(zoomPage)),
             ("Make Wider", #selector(makeWider)), ("Make Narrower", #selector(makeNarrower)),
             ("Make Taller", #selector(makeTaller)), ("Make Shorter", #selector(makeShorter)),
             ("Close web window", #selector(closePage)),
@@ -189,7 +217,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         case #selector(reloadOrStop):
             menuItem.title = isLoading ? "Stop loading" : "Reload page"
             return controlsEnabled
-        case #selector(openExtensions), #selector(openNewTab): return controlsEnabled
+        case #selector(openExtensions), #selector(openNewTab), #selector(minimizePage), #selector(zoomPage): return controlsEnabled
         default: return true
         }
     }
@@ -200,6 +228,8 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     @objc private func openExtensions() { onAction?(.extensions) }
     @objc private func openNewTab() { onAction?(.newTab) }
     @objc private func closePage() { onAction?(.close) }
+    @objc private func minimizePage() { onAction?(.minimize) }
+    @objc private func zoomPage() { onAction?(NSApp.currentEvent?.modifierFlags.contains(.option) == true ? .zoom : .fullscreen) }
     @objc private func makeWider() { onAction?(.resizeWidth(40)) }
     @objc private func makeNarrower() { onAction?(.resizeWidth(-40)) }
     @objc private func makeTaller() { onAction?(.resizeHeight(40)) }
@@ -231,7 +261,6 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
 /// Native buttons retain page focus; the address well explicitly enters editing.
 private final class BrowserToolbarButton: NSButton {
-    var isCloseControl = false
     private var isHovered = false
     private var hoverTracking: NSTrackingArea?
     override var needsPanelToBecomeKey: Bool { false }
@@ -246,27 +275,11 @@ private final class BrowserToolbarButton: NSButton {
     override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
     override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
-        if isCloseControl {
-            if isHovered {
-                NSColor.systemRed.withAlphaComponent(0.1).setFill()
-                NSBezierPath(roundedRect: bounds.insetBy(dx: 0, dy: 3), xRadius: 5, yRadius: 5).fill()
-            }
-            (isHovered ? NSColor.systemRed : NSColor.secondaryLabelColor).setStroke()
-            let cross = NSBezierPath()
-            cross.lineWidth = 1
-            cross.lineCapStyle = .round
-            cross.move(to: NSPoint(x: bounds.midX - 2.5, y: bounds.midY - 2.5))
-            cross.line(to: NSPoint(x: bounds.midX + 2.5, y: bounds.midY + 2.5))
-            cross.move(to: NSPoint(x: bounds.midX - 2.5, y: bounds.midY + 2.5))
-            cross.line(to: NSPoint(x: bounds.midX + 2.5, y: bounds.midY - 2.5))
-            cross.stroke()
-        } else {
-            if isHovered && isEnabled {
-                NSColor.labelColor.withAlphaComponent(0.07).setFill()
-                NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
-            }
-            super.draw(dirtyRect)
+        if isHovered && isEnabled {
+            NSColor.labelColor.withAlphaComponent(0.07).setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 4, yRadius: 4).fill()
         }
+        super.draw(dirtyRect)
     }
 }
 
@@ -279,7 +292,7 @@ private final class BrowserToolbarAddressWell: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func layout() {
         super.layout()
-        field?.frame = .init(x: 10, y: (bounds.height - 17) / 2, width: max(0, bounds.width - 20), height: 17)
+        field?.frame = .init(x: 6, y: (bounds.height - 16) / 2, width: max(0, bounds.width - 12), height: 16)
     }
     override func mouseDown(with event: NSEvent) {
         guard let field, field.isEnabled else { return }
@@ -297,8 +310,9 @@ private final class BrowserToolbarAddressWell: NSView {
     override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
     override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
-        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.75, dy: 0.75), xRadius: 6, yRadius: 6)
-        let fill = isEditing ? NSColor.textBackgroundColor : NSColor.labelColor.withAlphaComponent(isHovered ? 0.055 : 0.025)
+        guard isEditing || isHovered else { return }
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.75, dy: 0.75), xRadius: 4, yRadius: 4)
+        let fill = isEditing ? NSColor.textBackgroundColor : NSColor.labelColor.withAlphaComponent(0.045)
         fill.setFill()
         shape.fill()
         if isEditing {

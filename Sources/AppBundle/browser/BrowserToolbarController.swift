@@ -22,7 +22,7 @@ struct BrowserToolbarItem {
 }
 
 enum BrowserToolbarAction: Equatable {
-    case back, forward, reload, stop, extensions, newTab, close, focusPage
+    case back, forward, reload, stop, extensions, newTab, close, minimize, fullscreen, zoom, focusPage
     case navigate(String)
     case resizeWidth(Int), resizeHeight(Int)
     case resize(width: Int, height: Int)

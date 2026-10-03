@@ -12,7 +12,8 @@ struct SurfaceCommand: Command {
             let rows = controller.knownSurfaces.sorted { $0.description < $1.description }.map { id in
                 SurfaceReference(id: id.description, workspace: controller.workspaceName(for: id),
                     available: controller.isAvailable(id), selected: (controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID) == id,
-                    nativeWindowID: Window.get(bySurfaceID: id)?.windowId)
+                    nativeWindowID: Window.get(bySurfaceID: id)?.windowId,
+                    browser: controller.owner(of: id).flatMap { BrowserSurfaceState(session: $0, id: id) })
             }
             guard let data = try? JSONEncoder().encode(rows), let json = String(data: data, encoding: .utf8) else {
                 return io.err("Cannot encode surface references")
@@ -71,6 +72,42 @@ private struct SurfaceReference: Encodable {
     let available: Bool
     let selected: Bool
     let nativeWindowID: UInt32?
+    let browser: BrowserSurfaceState?
+}
+
+/// Local control diagnostics omit page titles, URLs and profile paths.
+private struct BrowserSurfaceState: Encodable {
+    let hostWindowID: UInt32?
+    let managed: Bool
+    let minimized: Bool
+    let fullscreen: Bool
+    let zoomed: Bool
+    let frame: SurfaceFrame?
+    let minimum: SurfaceMinimumSize?
+    let inventoryRevision: UInt64
+    let layoutReply: String?
+    let layoutRevision: UInt64?
+    let layoutGeneration: UInt64?
+    let requestedFrame: SurfaceFrame?
+    let requestedVisible: Bool?
+
+    @MainActor init?(session: BrowserSurfaceSession, id: SurfaceID) {
+        guard let tab = session.inventory.tabs[id] else { return nil }
+        hostWindowID = tab.hostWindowID
+        managed = tab.hostManaged
+        minimized = tab.hostMinimized
+        fullscreen = tab.hostFullscreen
+        zoomed = tab.hostZoomed
+        frame = tab.hostFrame
+        minimum = tab.hostMinimumSize
+        inventoryRevision = session.inventory.revision
+        layoutReply = session.lastLayoutReply?.rawValue
+        layoutRevision = session.lastLayoutRequest?.revision
+        layoutGeneration = session.lastLayoutRequest?.generation
+        let host = session.lastLayoutRequest?.hosts.first { $0.surfaces.contains(id) }
+        requestedFrame = host.map { .init(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
+        requestedVisible = host?.visible
+    }
 }
 
 @MainActor

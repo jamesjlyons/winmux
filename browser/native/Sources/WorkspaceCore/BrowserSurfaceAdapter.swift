@@ -1,7 +1,7 @@
 import Foundation
 
 public enum BrowserSurfaceAction: String, Sendable {
-    case focus, close, back, forward, reload, stop, navigate, extensions
+    case focus, close, back, forward, reload, stop, navigate, extensions, minimize, fullscreen, zoom
     case newTab = "new_tab"
     case manageExtensions = "manage_extensions"
     case cancelFocus = "cancel_focus"
@@ -47,6 +47,8 @@ public final class BrowserSurfaceSession {
     public private(set) var focusIntent: BrowserFocusIntent?
     public let focusCoordinator: SurfaceFocusCoordinator
     public typealias LayoutTransport = @MainActor (BrowserLayoutRequest, @escaping @MainActor (BrowserActionReply) -> Void) -> Void
+    public private(set) var lastLayoutRequest: BrowserLayoutRequest?
+    public private(set) var lastLayoutReply: BrowserActionReply?
     private let sendLayout: LayoutTransport?
     public var supportsLayout = false
     public var supportsBrowserControls = false
@@ -77,6 +79,8 @@ public final class BrowserSurfaceSession {
         pendingActions.removeAll()
         inFlightLayout = nil
         acknowledgedLayout = nil
+        lastLayoutRequest = nil
+        lastLayoutReply = nil
         layoutAttemptRevision = nil
     }
 
@@ -88,6 +92,8 @@ public final class BrowserSurfaceSession {
         pendingActions.removeAll()
         inFlightLayout = nil
         acknowledgedLayout = nil
+        lastLayoutRequest = nil
+        lastLayoutReply = nil
         layoutAttemptRevision = nil
     }
 
@@ -129,12 +135,15 @@ public final class BrowserSurfaceSession {
         let request = BrowserLayoutRequest(epoch: epoch, operation: UUID(), revision: inventory.revision,
                                            generation: layoutGeneration, hosts: hosts)
         inFlightLayout = request.operation
+        lastLayoutRequest = request
+        lastLayoutReply = nil
         layoutAttemptRevision = inventory.revision
         let completion = layoutCompletion
         let acknowledgementToken = layoutAcknowledgementToken
         sendLayout(request) { [weak self] reply in
             guard let self, self.epoch == epoch, self.inFlightLayout == request.operation else { return }
             self.inFlightLayout = nil
+            self.lastLayoutReply = reply
             let acknowledgementIsCurrent = self.layoutAcknowledgementToken == acknowledgementToken
             if acknowledgementIsCurrent && reply == .issued { self.acknowledgedLayout = hosts }
             if acknowledgementIsCurrent && self.desiredLayout == hosts { completion?(reply) }

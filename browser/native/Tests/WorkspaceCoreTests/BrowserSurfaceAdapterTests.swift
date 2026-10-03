@@ -69,9 +69,12 @@ final class BrowserSurfaceAdapterTests: XCTestCase {
                                    canGoBack: true, canGoForward: true)
         XCTAssertTrue(session.reconcile(.init(revision: 5, full: true, tabs: [tab]), epoch: epoch))
         XCTAssertEqual(session.request(.reload, surfaceID: id), .unsupported)
+        for action: BrowserSurfaceAction in [.minimize, .fullscreen, .zoom] {
+            XCTAssertEqual(session.request(action, surfaceID: id), .unsupported)
+        }
         XCTAssertTrue(requests.isEmpty)
         session.supportsBrowserControls = true
-        for action: BrowserSurfaceAction in [.back, .forward, .reload, .stop, .extensions, .manageExtensions, .newTab] {
+        for action: BrowserSurfaceAction in [.back, .forward, .reload, .stop, .extensions, .manageExtensions, .newTab, .minimize, .fullscreen, .zoom] {
             XCTAssertEqual(session.request(action, surfaceID: id), .issued)
         }
         XCTAssertEqual(session.request(.navigate, surfaceID: id, url: "https://example.test/"), .issued)

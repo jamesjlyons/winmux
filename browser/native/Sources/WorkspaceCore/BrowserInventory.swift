@@ -10,6 +10,9 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let canGoForward: Bool
     public let isLoading: Bool
     public let hostManaged: Bool
+    public let hostMinimized: Bool
+    public let hostFullscreen: Bool
+    public let hostZoomed: Bool
     public let focused: Bool
     public let privateBrowsing: Bool
     public let hostWindowID: UInt32?
@@ -17,7 +20,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostVisible: Bool?
     public let hostMinimumSize: SurfaceMinimumSize?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, focused: Bool = false) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, hostMinimized: Bool = false, hostFullscreen: Bool = false, hostZoomed: Bool = false, focused: Bool = false) {
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
@@ -27,6 +30,9 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         self.canGoForward = canGoForward
         self.isLoading = isLoading
         self.hostManaged = hostManaged
+        self.hostMinimized = hostMinimized
+        self.hostFullscreen = hostFullscreen
+        self.hostZoomed = hostZoomed
         self.focused = focused
         self.privateBrowsing = privateBrowsing
         self.hostWindowID = hostWindowID
@@ -42,6 +48,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case hostMinimumSize = "host_minimum_size"
         case url, canGoBack = "can_go_back", canGoForward = "can_go_forward"
         case isLoading = "is_loading", hostManaged = "host_managed", focused
+        case hostMinimized = "host_minimized", hostFullscreen = "host_fullscreen", hostZoomed = "host_zoomed"
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,6 +67,9 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
                   canGoForward: try values.decodeIfPresent(Bool.self, forKey: .canGoForward) ?? false,
                   isLoading: try values.decodeIfPresent(Bool.self, forKey: .isLoading) ?? false,
                   hostManaged: try values.decodeIfPresent(Bool.self, forKey: .hostManaged) ?? false,
+                  hostMinimized: try values.decodeIfPresent(Bool.self, forKey: .hostMinimized) ?? false,
+                  hostFullscreen: try values.decodeIfPresent(Bool.self, forKey: .hostFullscreen) ?? false,
+                  hostZoomed: try values.decodeIfPresent(Bool.self, forKey: .hostZoomed) ?? false,
                   focused: try values.decodeIfPresent(Bool.self, forKey: .focused) ?? false)
     }
 }

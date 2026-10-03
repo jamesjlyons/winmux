@@ -62,8 +62,15 @@ final class BrowserToolbarPanel: NSPanelHud {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    // AppKit's standard window buttons ask for this drawing state. The browser
+    // owns key focus; its nonactivating header must reflect the page's focus
+    // without pretending to be the key window or taking address-entry focus.
+    @objc func hasKeyAppearance() -> Bool { wasFocused || isKeyWindow }
+
     func update(_ item: BrowserToolbarItem) {
         currentURL = item.url
+        let previouslyFocused = wasFocused
+        wasFocused = item.isFocused
         pageChromePanel.update(item)
         if appearance?.name != item.chromeAppearance {
             appearance = item.chromeAppearance.flatMap { NSAppearance(named: $0) }
@@ -72,12 +79,11 @@ final class BrowserToolbarPanel: NSPanelHud {
         if frame != item.frame { setWindowTabChromePanelFrame(item.frame, on: self) }
         // Updating a background page's loading state must not raise its chrome
         // over a different app. Reorder only when focus or its native host changes.
-        if !isVisible || item.hostWindowID != currentHostWindowID || (item.isFocused && !wasFocused) {
+        if !isVisible || item.hostWindowID != currentHostWindowID || (item.isFocused && !previouslyFocused) {
             if let host = item.hostWindowID { order(.above, relativeTo: Int(host)) }
             else { orderFrontRegardless() }
         }
         currentHostWindowID = item.hostWindowID
-        wasFocused = item.isFocused
     }
 
     /// App activation may reorder the owner without changing the selected page.

@@ -2,7 +2,8 @@
 """Test signed browser inventory/actions through an isolated launchd service.
 
 The existing SMAppService enrollment and installed browser remain untouched.
-Only fresh headless test tabs are navigated, arranged, focused, and closed. All artifacts stay in a new
+Only fresh isolated test tabs are navigated, arranged, focused, and closed.
+Native window controls use an explicitly requested visible fixture. All artifacts stay in a new
 directory; the test service is booted out and its own browser stopped on exit.
 """
 import argparse
@@ -29,7 +30,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--existing-helper-pid", type=int, required=True)
     parser.add_argument("--existing-helper-executable", type=Path, required=True)
-    parser.add_argument("--private", action="store_true", help="Verify private tabs never enter helper inventory")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--private", action="store_true", help="Verify private tabs never enter helper inventory")
+    modes.add_argument("--native-window-controls", action="store_true",
+                       help="Use visible isolated native windows to verify minimize, fullscreen, zoom and restoration")
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     executable = app / "Contents/MacOS/Chromium"
@@ -55,13 +59,17 @@ def main():
     helper_report = output / "helper.json"
     bridge_report = output / "bridge.json"
     plist = output / "test-helper.plist"
-    plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": [str(helper), service, str(helper_report)],
+    helper_arguments = [str(helper), service, str(helper_report)]
+    if args.native_window_controls:
+        helper_arguments.append("--window-controls")
+    plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": helper_arguments,
         "MachServices": {service: True}, "RunAtLoad": True,
         "StandardOutPath": str(output / "helper.log"), "StandardErrorPath": str(output / "helper.log")}))
-    command = [str(executable), "--headless=new", "--user-data-dir=" + str(output / "profile"),
+    command = [str(executable), "--user-data-dir=" + str(output / "profile"),
                "--no-first-run", "--no-default-browser-check", "--enable-logging=stderr",
-               "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service,
-               "--winmux-bridge-test-disconnect-once"]
+               "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service]
+    command += (["--winmux-sidebar-preview"] if args.native_window_controls else
+                ["--headless=new", "--winmux-bridge-test-disconnect-once"])
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
     command += ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
@@ -82,14 +90,33 @@ def main():
                 "back": "issued", "back_state": "yes", "forward": "issued", "forward_state": "yes",
                 "reload": "issued", "stop": "issued", "navigation_keeps_native_windows": "yes",
                 "new_tab": "issued", "new_tab_independent_native_window": "yes", "new_tab_close": "issued"}
+    if args.native_window_controls:
+        expected.update({
+                "native_minimize": "issued", "native_minimize_state": "yes",
+                "native_minimize_peer_layout": "issued", "native_minimize_survives_layout": "yes",
+                "native_minimize_keeps_window_ids": "yes", "native_restore_focus": "issued",
+                "native_restore_state": "yes", "native_restore_layout": "issued", "native_restore_frames": "yes",
+                "native_fullscreen_enter": "issued", "native_fullscreen_state": "yes",
+                "native_fullscreen_peer_layout": "issued", "native_fullscreen_survives_layout": "yes",
+                "native_fullscreen_keeps_window_ids": "yes", "native_fullscreen_exit": "issued",
+                "native_fullscreen_exit_state": "yes", "native_fullscreen_return_layout": "issued",
+                "native_fullscreen_returns_to_tiles": "yes", "native_window_actions_keep_surfaces": "yes",
+                "native_zoom_enter": "issued", "native_zoom_state": "yes", "native_zoom_peer_layout": "issued",
+                "native_zoom_survives_layout": "yes", "native_zoom_keeps_window_ids": "yes", "native_zoom_exit": "issued",
+                "native_zoom_exit_state": "yes", "native_zoom_return_layout": "issued", "native_zoom_returns_to_tiles": "yes",
+        })
     expected_count = 0 if args.private else 1
     if args.private:
         expected = {}
-    result = {"scope": "actual_signed_browser_protocol4_page_windows_navigation", "passed": False,
+    fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
+                           "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
+    result = {"scope": ("actual_signed_browser_protocol4_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol4_page_windows_navigation"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-        "command": command, "service": service, "private_inventory_test": args.private, "observations": [],
-        "limits": ["Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+        "command": command, "service": service, "private_inventory_test": args.private,
+        "native_window_controls_test": args.native_window_controls, "observations": [],
+        "limits": [fixture_description,
                    "No native window manager or shared sidebar is launched",
                    "Existing browser profiles, helper enrollment and signed-in UI are preserved"]}
     process, bootstrapped = None, False
@@ -98,7 +125,7 @@ def main():
             subprocess.run(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist)], check=True)
             bootstrapped = True
             process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-            start, previous, recovered_at = time.monotonic(), None, None
+            start, previous, recovered_at, completed_at = time.monotonic(), None, None, None
             while time.monotonic() - start < 45:
                 if process.poll() is not None:
                     raise RuntimeError(f"Test browser exited early: {process.returncode}")
@@ -108,9 +135,23 @@ def main():
                     if report != previous:
                         result["observations"].append({"elapsed_seconds": time.monotonic() - start, "helper": report})
                         previous = report
-                    if (bridge.get("authenticated_connections") == 1 and report.get("outcomes") == expected
-                            and report.get("tab_count") == expected_count):
+                    actions_complete = (bridge.get("authenticated_connections") == 1 and
+                                        report.get("outcomes") == expected and report.get("tab_count") == expected_count)
+                    if actions_complete:
                         result["actions"] = report
+                    if args.native_window_controls:
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 4
+                                and report.get("full_messages") == 1):
+                            if completed_at is None:
+                                completed_at = time.monotonic()
+                            if time.monotonic() - completed_at >= 2:
+                                result.update(bridge=bridge, helper=report, seconds_after_completion=time.monotonic()-completed_at)
+                                result["passed"] = report.get("delta_messages", 0) >= 2
+                                break
+                        elif completed_at is not None:
+                            raise RuntimeError("Completed native window controls did not remain stable")
+                        time.sleep(.1)
+                        continue
                     if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 4
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == {}):
@@ -125,7 +166,7 @@ def main():
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
             if not result["passed"]:
-                result["error"] = "Expected protocol4 page-window/navigation outcomes were not observed"
+                result["error"] = "Expected protocol4 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}

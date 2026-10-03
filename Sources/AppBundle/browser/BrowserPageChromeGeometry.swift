@@ -5,9 +5,9 @@ import WorkspaceCore
 /// allocation includes gutters, the native header and the thin frame around the
 /// Chromium content, so none of them float outside their page's layout bounds.
 struct BrowserPageChromeGeometry: Equatable {
-    static let gutter = 6
-    static let shellInset = 2
-    static let headerHeight = 44
+    static let gutter = 4
+    static let shellInset = 1
+    static let headerHeight = 28
     static let cornerRadius: CGFloat = 14
     static let widthOverhead = (gutter + shellInset) * 2
     static let heightOverhead = gutter * 2 + headerHeight + shellInset

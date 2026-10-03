@@ -8,25 +8,32 @@ native window ID. Native app windows can occupy the same workspace and groups.
 
 ## Controls
 
-Each visible managed page has a continuous rounded frame and a 44-point native
-AppKit header. Six-point outer insets separate neighboring pages. Close sits at
-the leading edge, followed by navigation and an inset address/search field;
-extensions, a window-actions menu and a move grip sit at the trailing
-edge. New-page and sizing actions are available in the menu. The address field
-highlights while editing. Narrow windows move secondary controls into that menu
-instead of squeezing the address field. The address field supports local development addresses. Cmd+L
+Each visible managed page has a continuous rounded frame and a 28-point native
+AppKit header. Four-point outer insets and a one-point frame separate neighboring
+pages. AppKit's standard red, yellow and green window controls sit at the leading
+edge, followed by compact navigation and a flat address/search field; a window-actions menu and a move grip sit at the trailing
+edge. Extensions, new-page and sizing actions are available in the menu. The
+address field gains a background on hover and a focus outline while editing.
+Red closes the page, yellow minimizes its native window to the Dock, and green
+enters fullscreen. Option-click green to zoom. Selecting a minimized page in the
+sidebar restores it. Minimize, fullscreen and zoom preserve its group and stack;
+normal tiling resumes when the page returns. Fullscreen and zoom use Chromium’s
+conventional native controls until the page returns to its tiled position. Narrow windows move secondary controls into
+that menu instead of squeezing the address field. The address field supports local development addresses. Cmd+L
 focuses it while the managed browser is foreground; a configured WinMux binding
 takes precedence. Escape restores the current URL and returns focus to the page.
 
 Browser headers, WinMux window controls and the sidebar follow macOS light/dark
 appearance by default, including changes while the workspace is running. The
-shared neutral surface uses a hairline border and monochrome controls; hover and
-keyboard focus provide emphasis. Appearance settings retain explicit solid color
+shared neutral surface uses a hairline border and monochrome navigation controls.
+The traffic lights use AppKit's native colors for the focused page and inactive
+appearance for other pages; hover and keyboard focus provide emphasis. Appearance settings retain explicit solid color
 presets and custom colors, with matching light or dark text for contrast. Choose
 **Follow macOS** (`solid-chrome-color = 'system'`) to return to automatic colors.
 
 The system browser frame uses AppKit's native titlebar material, blended within
-each helper window, with a faint half-point outline. Explicit solid color presets
+the page backing, with one faint half-point outline. The header
+uses that same backing without a duplicate material, border or corner separator. Explicit solid color presets
 and custom colors remain opaque. Material activity follows page selection because
 the helper panels do not become the browser's key window. Managed Chromium windows
 omit the broad system shadow; releasing management restores each window's original
@@ -57,7 +64,10 @@ page is acknowledged only when the engine inventory confirms its removal.
 
 Protocol 4 adds typed navigation actions and an optional URL payload alongside
 legacy focus/close operations. Inventory carries navigation/loading state,
-managed-host status, native window identity and focus. Epoch and revision checks
+managed-host status, native window identity and focus. Native minimize, fullscreen
+and workspace zoom state suspend the live tile plan while preserving durable
+page membership. AppKit lifecycle notifications update this state independently
+of navigation. Epoch and revision checks
 reject stale requests; a navigation request rejected before dispatch may retry
 once against newer inventory. Dispatch acknowledgement is distinct from page
 load or input readiness.
@@ -84,13 +94,27 @@ The [2026-10-01 evidence](evidence/2026-10-01-native-page-windows.json) records
 the successful signed engine build, 761 app tests, 52 native package tests,
 35 packaging checks, and all 46 engine outcomes with stable reconnection.
 
+The [2026-10-02 traffic-light evidence](evidence/2026-10-02-native-window-controls.json)
+records 855 app tests, 84 native package tests, 39 tooling checks, and a verified
+signed package. An isolated visible browser passed 74 engine outcomes, including
+Dock minimize/restoration, fullscreen, native zoom and retained page/window
+identity through peer layout changes. Headless navigation and bridge recovery
+passed all 46 outcomes separately. Native clicks on the production header
+dispatch close, minimize and fullscreen without changing the helper window.
+The final local restart retained the saved profile and adopted all seven restored
+pages, with one browser and one workspace helper running. A startup regression
+checks that restored conventional hosts receive at least a 160×120-point managed
+body before Chromium validates the complete layout. Local `surface list` output
+reports observed host state and the last layout request/reply for diagnosis.
+
 Unit coverage checks page/host separation, stack visibility, address
 normalization, protocol negotiation, navigation state, stale-request handling,
 resize minimums, fractional-pixel conservation and resize persistence. An
 isolated signed headless harness exercises the real engine's host identities,
 layout, navigation, actions and reconnection. Passing these checks does not
-qualify physical input, extension compatibility, display transitions, fullscreen,
-or long-running daily use.
+qualify extension compatibility, multi-display transitions or long-running daily
+use. The traffic-light evidence adds native control dispatch and isolated window
+transitions; broader Space and daily browsing behavior remain outside this scope.
 
 Build the pinned engine with `browser/tools/build_alpha.py` and create a fresh
 signed package with `browser/tools/package_alpha.py`, as described in

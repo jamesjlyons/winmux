@@ -63,6 +63,7 @@ extension BrowserWorkspaceController {
         let items = placements.compactMap { placement -> BrowserToolbarItem? in
             guard placement.visible, let session = owner(of: placement.surfaceID), session.supportsBrowserControls,
                   let record = session.inventory.tabs[placement.surfaceID], record.hostManaged,
+                  !record.hostMinimized, !record.hostFullscreen, !record.hostZoomed,
                   let hostWindowID = record.hostWindowID,
                   let geometry = BrowserPageChromeGeometry(frame: placement.frame) else { return nil }
             return BrowserToolbarItem(surfaceID: placement.surfaceID,
@@ -95,6 +96,9 @@ extension BrowserWorkspaceController {
         case .stop: request = .stop
         case .extensions: request = .extensions
         case .newTab: request = .newTab
+        case .minimize: request = .minimize
+        case .fullscreen: request = .fullscreen
+        case .zoom: request = .zoom
         case .resize(let width, let height):
             guard let name = workspaceName(for: id), let workspace = Workspace.existing(byName: name) else { return }
             var resized = false
@@ -122,7 +126,15 @@ extension BrowserWorkspaceController {
         }
         // Buttons and address submission target their own page, including a
         // visible page that was not the previously focused workspace surface.
-        _ = select(id)
+        if request == .minimize {
+            // Minimizing a passive pane must not activate it first. Retire any
+            // outstanding focus intent that could restore this window later.
+            if focusCoordinator.target == id { nativeSelectionChanged(nil) }
+            cancelPendingBrowserFocusHold()
+        } else {
+            _ = select(id)
+        }
+        if request == .fullscreen || request == .zoom { cancelPendingBrowserFocusHold() }
         if request == .newTab || request == .extensions || request == .manageExtensions {
             // These commands can create and activate a different page. Do not
             // let the source page's short focus hold override that new window.

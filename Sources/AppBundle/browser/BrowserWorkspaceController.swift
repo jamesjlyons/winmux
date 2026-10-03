@@ -101,6 +101,11 @@ public final class BrowserWorkspaceController {
         let isInitialInventory = session.inventory.revision == 0
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
+        if let target = focusCoordinator.target, session.inventory.tabs[target]?.hostMinimized == true {
+            // A native titlebar or Dock action can minimize outside our toolbar.
+            // Stale layout/focus replies must not reactivate that page.
+            nativeSelectionChanged(nil)
+        }
         for id in oldIDs.subtracting(session.inventory.tabs.keys) where owner(of: id) == nil {
             closedBrowserTabs.insert(id)
             placements.removeValue(forKey: id)
@@ -121,7 +126,7 @@ public final class BrowserWorkspaceController {
         }
         if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
-           let focused = session.inventory.tabs.values.first(where: { $0.focused }),
+           let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
            let workspaceName = placements[focused.surfaceID],
            let workspace = Workspace.existing(byName: workspaceName), workspace.isVisible,
            focusCoordinator.target != focused.surfaceID {
@@ -210,7 +215,13 @@ public final class BrowserWorkspaceController {
     /// the native fallback for groups without a recorded shared selection.
     func preferredSurface(in workspace: Workspace) -> SurfaceID? {
         guard usesSurfaceTree, restoredSelection == nil || isWinMuxRuntimeReady else { return nil }
-        let belongs: (SurfaceID) -> Bool = { self.workspaceName(for: $0) == workspace.name && self.isAvailable($0) }
+        let belongs: (SurfaceID) -> Bool = { id in
+            guard self.workspaceName(for: id) == workspace.name, self.isAvailable(id) else { return false }
+            let browser = self.owner(of: id)?.inventory.tabs[id]
+            // Automatic group activation picks a live tile. Restoring a Dock,
+            // fullscreen or zoomed page remains an explicit sidebar selection.
+            return browser?.hostMinimized != true && browser?.hostFullscreen != true && browser?.hostZoomed != true
+        }
         if let recent = recentSelections.first(where: belongs) { return recent }
         if let native = workspace.toLiveFocus().windowOrNil?.surfaceID { return native }
         if let first = (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces).first(where: belongs) { return first }
@@ -669,7 +680,7 @@ public final class BrowserWorkspaceController {
                 let minimum = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
                 if owner(of: id)?.supportsBrowserControls == true {
                     result[id] = .init(width: min(30000, max(160, minimum.width) + BrowserPageChromeGeometry.widthOverhead),
-                                       height: min(30000, minimum.height + BrowserPageChromeGeometry.heightOverhead))
+                                       height: min(30000, max(120, minimum.height) + BrowserPageChromeGeometry.heightOverhead))
                 } else {
                     result[id] = minimum
                 }
@@ -690,7 +701,9 @@ public final class BrowserWorkspaceController {
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             // Keep temporary native absence in the saved tree, but never place
             // floating, minimized, fullscreen or unresolved windows as tiles.
-            if unresolvedNativeItems.contains(id) || Window.get(bySurfaceID: id).map({ !participatesInSharedTiling($0) }) == true {
+            let browser = owner(of: id)?.inventory.tabs[id]
+            if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true ||
+                unresolvedNativeItems.contains(id) || Window.get(bySurfaceID: id).map({ !participatesInSharedTiling($0) }) == true {
                 livePlan.remove(id)
             }
         }

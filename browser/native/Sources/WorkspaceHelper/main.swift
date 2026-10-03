@@ -26,12 +26,14 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     private let testReport: URL?
     let connectionID = UUID()
     private let sidebarEnabled: Bool
+    private let windowControlsEnabled: Bool
     private var closed = false
 
-    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool) {
+    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
         self.connection = connection
         self.testReport = testReport
         self.sidebarEnabled = sidebarEnabled
+        self.windowControlsEnabled = windowControlsEnabled
         super.init()
 #if canImport(AppBundle)
         if sidebarEnabled {
@@ -160,11 +162,11 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     @MainActor private func testAction(_ action: String, surface: SurfaceID, remote: BrowserOwnerProxy,
                                       epoch: String, url: String? = nil, revision: UInt64? = nil,
-                                      operation: String = UUID().uuidString) async -> String {
+                                      operation: String = UUID().uuidString, generation: UInt64 = 0) async -> String {
         let currentRevision = revision ?? lock.withLock { inventory.revision }
         let outcome: String = await withCheckedContinuation { continuation in
             remote.value.performBrowserAction(action, surface: surface.description, url: url, epoch: epoch,
-                operation: operation, revision: currentRevision, generation: 0) {
+                operation: operation, revision: currentRevision, generation: generation) {
                     continuation.resume(returning: $0)
                 }
         }
@@ -173,15 +175,15 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         if outcome == "stale_revision", revision == nil,
            let newer = await waitForTestInventory({ $0.revision > currentRevision }) {
             return await testAction(action, surface: surface, remote: remote, epoch: epoch,
-                                    url: url, revision: newer.revision, operation: operation)
+                                    url: url, revision: newer.revision, operation: operation, generation: generation)
         }
         return outcome
     }
 
     /// Bounded waits use authoritative inventory, not a fixed navigation delay.
     /// This is called only by the temporary-service synthetic browser fixture.
-    @MainActor private func waitForTestInventory(_ predicate: (BrowserInventory) -> Bool) async -> BrowserInventory? {
-        let deadline = DispatchTime.now().uptimeNanoseconds + 2_000_000_000
+    @MainActor private func waitForTestInventory(_ predicate: (BrowserInventory) -> Bool, timeoutMilliseconds: UInt64 = 2000) async -> BrowserInventory? {
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutMilliseconds * 1_000_000
         repeat {
             let snapshot = lock.withLock { closed ? nil : inventory }
             guard let snapshot else { return nil }
@@ -269,9 +271,110 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         }
         noteTest("layout_readopted_window_ids", ids.allSatisfy { readopted.tabs[$0]?.hostWindowID == windows[$0] } ? "yes" : "no")
         if (session.version ?? 0) >= 4 {
+            if windowControlsEnabled {
+                guard await exerciseNativeWindowControls(epoch: epoch, remote: remote, ids: ids, windows: windows,
+                    split: split, peerContainer: second) else { return }
+            }
             guard await exerciseNavigation(epoch: epoch, remote: remote, ids: ids, windows: windows) else { return }
         }
         exerciseActions(epoch: epoch)
+    }
+
+    @MainActor private func exerciseNativeWindowControls(epoch: String, remote: BrowserOwnerProxy,
+                                                        ids: [SurfaceID], windows: [SurfaceID: UInt32],
+                                                        split: [BrowserHostPlacement], peerContainer: UUID) async -> Bool {
+        let id = ids[0], peer = ids[1]
+        let peerFrame = SurfaceFrame(x: 300, y: 150, width: 700, height: 600)
+        let peerOnly = [BrowserHostPlacement(containerID: peerContainer, surfaces: [peer], selected: peer,
+            frame: peerFrame, visible: true, nativeControls: true)]
+        noteTest("native_minimize", await testAction("minimize", surface: id, remote: remote, epoch: epoch))
+        guard let minimized = await waitForTestInventory({ $0.tabs[id]?.hostMinimized == true }) else {
+            noteTest("native_minimize_state", "timed_out"); return false
+        }
+        noteTest("native_minimize_state", "yes")
+        noteTest("native_minimize_peer_layout", await testLayout(peerOnly, remote: remote, epoch: epoch,
+            revision: minimized.revision, generation: 7))
+        guard let duringMinimize = await waitForTestInventory({ state in
+            state.tabs[id]?.hostMinimized == true && state.tabs[peer]?.hostFrame == peerFrame &&
+                state.tabs.values.allSatisfy { $0.hostManaged }
+        }) else { noteTest("native_minimize_survives_layout", "timed_out"); return false }
+        noteTest("native_minimize_survives_layout", "yes")
+        noteTest("native_minimize_keeps_window_ids", ids.allSatisfy {
+            duringMinimize.tabs[$0]?.hostWindowID == windows[$0]
+        } ? "yes" : "no")
+        // This is the same authenticated focus action dispatched by sidebar
+        // selection, and must explicitly restore the real native Dock window.
+        noteTest("native_restore_focus", await testAction("focus", surface: id, remote: remote,
+            epoch: epoch, generation: 1))
+        guard let restored = await waitForTestInventory({
+            $0.tabs[id]?.hostMinimized == false && $0.tabs[id]?.focused == true
+        }) else { noteTest("native_restore_state", "timed_out"); return false }
+        noteTest("native_restore_state", "yes")
+        noteTest("native_restore_layout", await testLayout(split, remote: remote, epoch: epoch,
+            revision: restored.revision, generation: 8))
+        guard await waitForTestInventory({ state in
+            split.allSatisfy { state.tabs[$0.surfaces[0]]?.hostFrame == SurfaceFrame(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
+        }) != nil else { noteTest("native_restore_frames", "timed_out"); return false }
+        noteTest("native_restore_frames", "yes")
+
+        noteTest("native_fullscreen_enter", await testAction("fullscreen", surface: id, remote: remote, epoch: epoch))
+        guard let fullscreen = await waitForTestInventory({ $0.tabs[id]?.hostFullscreen == true }, timeoutMilliseconds: 5000) else {
+            noteTest("native_fullscreen_state", "timed_out"); return false
+        }
+        noteTest("native_fullscreen_state", "yes")
+        noteTest("native_fullscreen_peer_layout", await testLayout(peerOnly, remote: remote, epoch: epoch,
+            revision: fullscreen.revision, generation: 9))
+        guard let duringFullscreen = await waitForTestInventory({ state in
+            state.tabs[id]?.hostFullscreen == true && state.tabs[peer]?.hostFrame == peerFrame &&
+                state.tabs.values.allSatisfy { $0.hostManaged }
+        }) else { noteTest("native_fullscreen_survives_layout", "timed_out"); return false }
+        noteTest("native_fullscreen_survives_layout", "yes")
+        noteTest("native_fullscreen_keeps_window_ids", ids.allSatisfy {
+            duringFullscreen.tabs[$0]?.hostWindowID == windows[$0]
+        } ? "yes" : "no")
+        noteTest("native_fullscreen_exit", await testAction("fullscreen", surface: id, remote: remote, epoch: epoch))
+        guard let normal = await waitForTestInventory({ state in
+            state.tabs[id]?.hostFullscreen == false && state.tabs.values.allSatisfy { $0.hostManaged }
+        }, timeoutMilliseconds: 5000) else { noteTest("native_fullscreen_exit_state", "timed_out"); return false }
+        noteTest("native_fullscreen_exit_state", "yes")
+        noteTest("native_fullscreen_return_layout", await testLayout(split, remote: remote, epoch: epoch,
+            revision: normal.revision, generation: 10))
+        guard let tiled = await waitForTestInventory({ state in
+            split.allSatisfy { state.tabs[$0.surfaces[0]]?.hostFrame == SurfaceFrame(x: $0.x, y: $0.y, width: $0.width, height: $0.height) } &&
+                state.tabs.values.allSatisfy { $0.hostManaged && !$0.hostMinimized && !$0.hostFullscreen }
+        }) else { noteTest("native_fullscreen_returns_to_tiles", "timed_out"); return false }
+        noteTest("native_fullscreen_returns_to_tiles", "yes")
+        noteTest("native_window_actions_keep_surfaces", Set(tiled.tabs.keys) == Set(ids) && ids.allSatisfy {
+            tiled.tabs[$0]?.hostWindowID == windows[$0]
+        } ? "yes" : "no")
+        noteTest("native_zoom_enter", await testAction("zoom", surface: id, remote: remote, epoch: epoch))
+        guard let zoomed = await waitForTestInventory({ $0.tabs[id]?.hostZoomed == true }) else {
+            noteTest("native_zoom_state", "timed_out"); return false
+        }
+        noteTest("native_zoom_state", "yes")
+        noteTest("native_zoom_peer_layout", await testLayout(peerOnly, remote: remote, epoch: epoch,
+            revision: zoomed.revision, generation: 11))
+        guard let duringZoom = await waitForTestInventory({ state in
+            state.tabs[id]?.hostZoomed == true && state.tabs[peer]?.hostFrame == peerFrame &&
+                state.tabs.values.allSatisfy { $0.hostManaged }
+        }) else { noteTest("native_zoom_survives_layout", "timed_out"); return false }
+        noteTest("native_zoom_survives_layout", "yes")
+        noteTest("native_zoom_keeps_window_ids", ids.allSatisfy {
+            duringZoom.tabs[$0]?.hostWindowID == windows[$0]
+        } ? "yes" : "no")
+        noteTest("native_zoom_exit", await testAction("zoom", surface: id, remote: remote, epoch: epoch))
+        guard let unzoomed = await waitForTestInventory({ state in
+            state.tabs[id]?.hostZoomed == false && state.tabs.values.allSatisfy { $0.hostManaged }
+        }) else { noteTest("native_zoom_exit_state", "timed_out"); return false }
+        noteTest("native_zoom_exit_state", "yes")
+        noteTest("native_zoom_return_layout", await testLayout(split, remote: remote, epoch: epoch,
+            revision: unzoomed.revision, generation: 12))
+        guard await waitForTestInventory({ state in
+            split.allSatisfy { state.tabs[$0.surfaces[0]]?.hostFrame == SurfaceFrame(x: $0.x, y: $0.y, width: $0.width, height: $0.height) } &&
+                state.tabs.values.allSatisfy { $0.hostManaged && !$0.hostMinimized && !$0.hostFullscreen && !$0.hostZoomed }
+        }) != nil else { noteTest("native_zoom_returns_to_tiles", "timed_out"); return false }
+        noteTest("native_zoom_returns_to_tiles", "yes")
+        return true
     }
 
     @MainActor private func exerciseNavigation(epoch: String, remote: BrowserOwnerProxy,
@@ -402,6 +505,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                        "hosts": inventory.tabs.values.map { tab in
                                            ["host_id": tab.hostID, "native_window_id": tab.hostWindowID.map { $0 as Any } ?? NSNull(),
                                             "managed": tab.hostManaged, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
+                                            "minimized": tab.hostMinimized, "fullscreen": tab.hostFullscreen, "zoomed": tab.hostZoomed,
                                             "minimum_size": tab.hostMinimumSize.map { ["width": $0.width, "height": $0.height] as Any } ?? NSNull(),
                                             "frame": tab.hostFrame.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] as Any } ?? NSNull()]
                                        }]
@@ -415,11 +519,16 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     let testReport: URL?
     let sidebarEnabled: Bool
-    init(testReport: URL?, sidebarEnabled: Bool) { self.testReport = testReport; self.sidebarEnabled = sidebarEnabled }
+    let windowControlsEnabled: Bool
+    init(testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
+        self.testReport = testReport
+        self.sidebarEnabled = sidebarEnabled
+        self.windowControlsEnabled = windowControlsEnabled
+    }
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         connection.exportedInterface = NSXPCInterface(with: WMWorkspaceBridge.self)
         connection.remoteObjectInterface = NSXPCInterface(with: WMBrowserSurfaceOwner.self)
-        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled)
+        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
         connection.exportedObject = endpoint
         connection.invalidationHandler = { [weak endpoint] in endpoint?.invalidate() }
         connection.interruptionHandler = { [weak endpoint] in endpoint?.invalidate() }
@@ -450,6 +559,7 @@ do {
     var service = SigningIdentity.serviceName
     var testReport: URL?
     var sidebarEnabled = false
+    var windowControlsEnabled = false
     var nativeState: URL?
     var nativeProcessID: Int32?
     var activation: WorkspaceActivation?
@@ -475,12 +585,14 @@ do {
     } else if arguments.count > 1 {
         let prefix = SigningIdentity.serviceName + ".test."
         let nativeMode = (arguments.count == 5 || arguments.count == 7) && arguments[3] == "--manage-native"
-        guard (arguments.count == 3 || (arguments.count == 4 && arguments[3] == "--sidebar-preview") || nativeMode), arguments[1].hasPrefix(prefix),
+        let windowControlsMode = arguments.count == 4 && arguments[3] == "--window-controls"
+        guard (arguments.count == 3 || (arguments.count == 4 && arguments[3] == "--sidebar-preview") || nativeMode || windowControlsMode), arguments[1].hasPrefix(prefix),
               UUID(uuidString: String(arguments[1].dropFirst(prefix.count))) != nil,
               arguments[2].hasPrefix("/") else { throw NSError(domain: "WinMuxBrowser.TestService", code: 1) }
         service = arguments[1]
         testReport = URL(fileURLWithPath: arguments[2])
-        sidebarEnabled = arguments.count >= 4
+        sidebarEnabled = arguments.count >= 4 && !windowControlsMode
+        windowControlsEnabled = windowControlsMode
         if nativeMode {
             guard arguments[4].hasPrefix("/") else { throw NSError(domain: "WinMuxBrowser.NativeState", code: 1) }
             nativeState = URL(fileURLWithPath: arguments[4])
@@ -529,7 +641,7 @@ do {
 #else
     guard !sidebarEnabled else { throw NSError(domain: "WinMuxBrowser.SidebarUnavailable", code: 1) }
 #endif
-    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled)
+    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
     let listener = NSXPCListener(machServiceName: service)
     listener.setConnectionCodeSigningRequirement(requirement)
     listener.delegate = delegate

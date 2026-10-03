@@ -4,6 +4,46 @@ import WorkspaceCore
 import XCTest
 
 @MainActor final class BrowserToolbarDragTest: XCTestCase {
+    func testStandardWindowControlsDispatchTheirWindowActions() throws {
+        _ = NSApplication.shared
+        let toolbar = BrowserToolbarView()
+        let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 480, height: 28),
+                              styleMask: .borderless, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = toolbar
+        defer { window.close() }
+        var actions: [BrowserToolbarAction] = []
+        toolbar.onAction = { actions.append($0) }
+        for identifier in ["close", "minimize", "fullscreen"] {
+            let button = try XCTUnwrap(toolbar.subviews.compactMap { $0 as? NSButton }.first {
+                $0.accessibilityIdentifier() == "winmux.browser." + identifier
+            })
+            XCTAssertTrue(button.isEnabled)
+            XCTAssertFalse(button.isHidden)
+            button.performClick(nil)
+        }
+        XCTAssertEqual(actions, [.close, .minimize, .fullscreen])
+        XCTAssertFalse(window.isMiniaturized, "Traffic lights must act on the page, not its helper header")
+        XCTAssertFalse(window.styleMask.contains(.fullScreen))
+    }
+
+    func testTrafficLightsAndAddressRemainUsableInNarrowSplits() throws {
+        let toolbar = BrowserToolbarView()
+        for width: CGFloat in [164, 170, 200, 239, 240, 279, 280, 379, 380, 700] {
+            toolbar.frame = .init(x: 0, y: 0, width: width, height: 28)
+            toolbar.needsLayout = true
+            toolbar.layoutSubtreeIfNeeded()
+            XCTAssertGreaterThanOrEqual(toolbar.address.frame.width, 40, "Address too small at \(width) points")
+            let controls = toolbar.subviews.filter { !$0.isHidden && !($0 is BrowserChromeBackgroundView) }
+            for (index, control) in controls.enumerated() {
+                XCTAssertTrue(toolbar.bounds.contains(control.frame), "Control outside \(width)-point header")
+                for other in controls.dropFirst(index + 1) {
+                    XCTAssertFalse(control.frame.intersects(other.frame), "Controls overlap at \(width) points")
+                }
+            }
+        }
+    }
+
     func testInteractiveHeaderHasWindowAndToolbarAccessibilityWhileBackingIsIgnored() throws {
         _ = NSApplication.shared
         let id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
@@ -64,8 +104,8 @@ import XCTest
         let moved = item.replacingBodyFrame(.init(x: -1432, y: -250, width: 704, height: 742), screenTop: 900)
         let body = try XCTUnwrap(moved.bodyFrame), page = try XCTUnwrap(moved.pageFrame)
         XCTAssertEqual(body, .init(x: -1432, y: 408, width: 704, height: 742))
-        XCTAssertEqual(moved.frame, .init(x: -1434, y: 1150, width: 708, height: 44))
-        XCTAssertEqual(page, .init(x: -1434, y: 406, width: 708, height: 788))
+        XCTAssertEqual(moved.frame, .init(x: -1433, y: 1150, width: 706, height: 28))
+        XCTAssertEqual(page, .init(x: -1433, y: 407, width: 706, height: 771))
         XCTAssertEqual(moved.frame.minY, body.maxY)
         XCTAssertEqual(moved.frame.maxY, page.maxY)
         XCTAssertEqual(moved.url, item.url)
