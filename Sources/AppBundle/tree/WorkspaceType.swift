@@ -9,6 +9,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     var projectId: WorkspaceProjectId = workspaceProjectDefaultId
     var preferredMonitorPoint: CGPoint?
     var lifecycle: WorkspaceLifecycle = .durable
+    var isPinnedGroup = false
 
     @MainActor
     private init(_ name: String) {

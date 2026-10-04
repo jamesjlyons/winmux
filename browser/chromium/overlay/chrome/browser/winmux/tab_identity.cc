@@ -129,6 +129,15 @@ void RegisterWorkspaceProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kProfileIdentityPref, "");
 }
 
+std::string ExistingProfileID(Profile* profile) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (!profile || !profile->IsRegularProfile())
+    return {};
+  const auto id = base::Uuid::ParseCaseInsensitive(
+      profile->GetPrefs()->GetString(kProfileIdentityPref));
+  return id.is_valid() ? id.AsLowercaseString() : std::string();
+}
+
 std::string PersistentTabID(content::WebContents* contents) {
   auto* identity = EnsureIdentity(contents);
   return identity ? identity->id() : std::string();

@@ -48,6 +48,7 @@ func clearOrphanedWorkspaceSidebarLabels() {
 @MainActor
 func workspaceDefaultDisplayName(_ workspaceName: String, automaticIndices: [WorkspaceId: Int]? = nil) -> String {
     if let workspace = Workspace.existing(byName: workspaceName) {
+        if workspace.isPinnedGroup { return "Pinned" }
         guard workspace.usesAutomaticDisplayName else { return workspaceName }
         let displayIndex: Int?
         if let automaticIndices {

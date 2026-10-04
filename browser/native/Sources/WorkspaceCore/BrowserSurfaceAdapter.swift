@@ -52,11 +52,19 @@ public final class BrowserSurfaceSession {
     private let sendLayout: LayoutTransport?
     public var supportsLayout = false
     public var supportsBrowserControls = false
+    public var supportsTabCreation = false
+    public typealias NewTabTransport = @MainActor (BrowserNewTabRequest, @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> Void
+    private let sendNewTab: NewTabTransport?
     private struct PendingAction {
         let request: BrowserActionRequest
         let completion: (@MainActor (BrowserActionReply) -> Void)?
     }
     private var pendingActions: [PendingAction] = []
+    private struct PendingCreation {
+        let request: BrowserNewTabRequest
+        let completion: @MainActor (BrowserActionReply, SurfaceID?) -> Void
+    }
+    private var pendingCreations: [PendingCreation] = []
     private var layoutGeneration: UInt64 = 0
     private var desiredLayout: [BrowserHostPlacement]?
     private var acknowledgedLayout: [BrowserHostPlacement]?
@@ -66,10 +74,11 @@ public final class BrowserSurfaceSession {
     private var layoutCompletion: (@MainActor (BrowserActionReply) -> Void)?
     private let send: Transport
 
-    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, send: @escaping Transport) {
+    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, sendNewTab: NewTabTransport? = nil, send: @escaping Transport) {
         self.focusCoordinator = focusCoordinator
         self.send = send
         self.sendLayout = sendLayout
+        self.sendNewTab = sendNewTab
     }
 
     public func connect(epoch: UUID) {
@@ -77,6 +86,9 @@ public final class BrowserSurfaceSession {
         inventory = BrowserInventory()
         focusIntent = nil
         pendingActions.removeAll()
+        let creations = pendingCreations
+        pendingCreations.removeAll()
+        creations.forEach { $0.completion(.staleEpoch, nil) }
         inFlightLayout = nil
         acknowledgedLayout = nil
         lastLayoutRequest = nil
@@ -90,6 +102,9 @@ public final class BrowserSurfaceSession {
         inventory = BrowserInventory()
         focusIntent = nil
         pendingActions.removeAll()
+        let creations = pendingCreations
+        pendingCreations.removeAll()
+        creations.forEach { $0.completion(.staleEpoch, nil) }
         inFlightLayout = nil
         acknowledgedLayout = nil
         lastLayoutRequest = nil
@@ -104,6 +119,7 @@ public final class BrowserSurfaceSession {
             self.focusIntent = nil
         }
         flushPendingActions()
+        flushPendingCreations()
         return true
     }
 
@@ -223,6 +239,65 @@ public final class BrowserSurfaceSession {
             // A single retry consumes newer authoritative inventory; issued
             // commands and uncertain transport failures are never replayed.
             sendAction(retry, canRetry: false, completion: pending.completion)
+        }
+    }
+
+    /// A session owns creation even when its authoritative inventory is empty.
+    /// No uncertain transport failure is retried, so a shortcut opens one page.
+    @discardableResult
+    public func openTab(sourceSurfaceID: SurfaceID? = nil, profileID: UUID? = nil, url: String? = nil,
+                        completion: @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> SurfaceActionOutcome {
+        guard supportsTabCreation, sendNewTab != nil else { completion(.unsupported, nil); return .unsupported }
+        guard let epoch else { completion(.unavailable, nil); return .unavailable }
+        guard sourceSurfaceID == nil || inventory.tabs[sourceSurfaceID!] != nil else {
+            completion(.unavailable, nil); return .unavailable
+        }
+        guard url == nil || (url?.isEmpty == false && (url?.utf8.count ?? 0) <= 16_384) else {
+            completion(.invalidRequest, nil); return .unsupported
+        }
+        let sourceProfile = sourceSurfaceID.flatMap { id -> UUID? in
+            if case .browserTab(let profile, _) = id { return profile }; return nil
+        }
+        guard profileID == nil || sourceProfile == nil || profileID == sourceProfile else {
+            completion(.invalidRequest, nil); return .unsupported
+        }
+        let request = BrowserNewTabRequest(epoch: epoch, operation: UUID(), sourceSurfaceID: sourceSurfaceID,
+                                           profileID: profileID ?? sourceProfile, revision: inventory.revision, url: url)
+        sendCreation(request, canRetry: true, completion: completion)
+        return .issued
+    }
+
+    private func sendCreation(_ request: BrowserNewTabRequest, canRetry: Bool,
+                              completion: @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) {
+        guard let sendNewTab else { completion(.unsupported, nil); return }
+        sendNewTab(request) { [weak self] reply, id in
+            let epoch = request.epoch
+            guard self?.epoch == epoch else { completion(.staleEpoch, nil); return }
+            guard let self else { completion(.unavailable, nil); return }
+            if reply == .staleRevision, canRetry, self.pendingCreations.count < 16 {
+                self.pendingCreations.append(PendingCreation(request: request, completion: completion))
+                self.flushPendingCreations()
+                return
+            }
+            guard reply != .issued || id.map({ id in
+                if case .browserTab(let profile, _) = id { return request.profileID == nil || profile == request.profileID }
+                return false
+            }) == true else {
+                completion(.invalidRequest, nil); return
+            }
+            completion(reply, reply == .issued ? id : nil)
+        }
+    }
+
+    private func flushPendingCreations() {
+        let ready = pendingCreations.filter { inventory.revision > $0.request.revision }
+        pendingCreations.removeAll { inventory.revision > $0.request.revision }
+        for pending in ready {
+            let request = pending.request
+            let source = request.sourceSurfaceID.flatMap { inventory.tabs[$0] != nil ? $0 : nil }
+            let retry = BrowserNewTabRequest(epoch: request.epoch, operation: UUID(), sourceSurfaceID: source,
+                                              profileID: request.profileID, revision: inventory.revision, url: request.url)
+            sendCreation(retry, canRetry: false, completion: pending.completion)
         }
     }
 

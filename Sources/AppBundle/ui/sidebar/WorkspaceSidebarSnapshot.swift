@@ -48,6 +48,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var autoHide = false
     var swipeToCreateProjects = false
     var menuBarStyle = false
+    var showsBrowserControls = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -68,6 +69,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
 enum WorkspaceSidebarSurfaceDragSubject: Hashable, Sendable {
     case surface(SurfaceID)
     case group(UUID)
+    case pin(UUID)
 }
 
 enum WorkspaceSidebarAction: Equatable {
@@ -76,6 +78,15 @@ enum WorkspaceSidebarAction: Equatable {
     case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
+    case newBrowserTab(workspaceName: String?)
+    case pinSurface(SurfaceID)
+    case selectPin(UUID)
+    case unpin(UUID)
+    case movePin(UUID, toSpace: WorkspaceProjectId)
+    case pinBrowserTab(SurfaceID)
+    case unpinBrowserTab(UUID)
+    case selectPinnedBrowserTab(UUID)
+    case movePinnedBrowserTab(UUID, toWorkspace: String)
     case selectSurface(SurfaceID)
     case closeSurface(SurfaceID)
     case reorderSurface(SurfaceID, earlier: Bool)

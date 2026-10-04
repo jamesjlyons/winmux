@@ -19,5 +19,6 @@ func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
         autoHide: config.workspaceSidebar.autoHide,
         swipeToCreateProjects: config.workspaceSidebar.swipeToCreateProjects,
         menuBarStyle: config.workspaceSidebar.menuBarStyle,
+        showsBrowserControls: BrowserWorkspaceController.shared.usesSurfaceTree,
     )
 }

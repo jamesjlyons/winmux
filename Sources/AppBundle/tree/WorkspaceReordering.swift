@@ -11,7 +11,7 @@ func canReorderWorkspace(_ name: String, relativeTo targetName: String) -> Bool 
           let workspace = Workspace.existing(byName: name),
           let target = Workspace.existing(byName: targetName)
     else { return false }
-    return workspace.projectId == target.projectId && !workspace.isArchived && !target.isArchived
+    return workspace.projectId == target.projectId && !workspace.isArchived && !target.isArchived && !workspace.isPinnedGroup && !target.isPinnedGroup
 }
 
 @MainActor

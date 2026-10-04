@@ -26,8 +26,9 @@ func switchWorkspaceProject(_ projectId: WorkspaceProjectId, on monitor: Monitor
 @MainActor
 func preferredWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace? {
     projectWorkspaces(projectId: projectId)
-        .filter { !$0.isArchived }
+        .filter { !$0.isArchived && (!$0.isPinnedGroup || BrowserWorkspaceController.shared.hasPins(in: $0.name)) }
         .filter { isValidAssignment(workspace: $0, screen: monitor.rect.topLeftCorner) }
+        .filter { !$0.isPinnedGroup }
         .first
 }
 
@@ -54,6 +55,7 @@ func getOrCreateAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: M
 
 @MainActor
 func deleteWorkspace(_ workspace: Workspace) throws {
+    guard !workspace.isPinnedGroup else { throw WorkspaceMutationError.workspaceCannotBeDeleted(workspace.name) }
     let fallback = workspaceFallbackForDeletion(
         excluding: workspace,
         projectId: workspace.projectId,
@@ -200,7 +202,7 @@ func workspaceShouldSurviveReconciliation(
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
 ) -> Bool {
     guard !workspace.isArchived else { return false }
-    return workspace.isVisible ||
+    return workspace.isPinnedGroup || workspace.isVisible ||
         workspaceHasLifecycleWindows(workspace) ||
         workspace.isConfiguredPersistent ||
         projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1 ||

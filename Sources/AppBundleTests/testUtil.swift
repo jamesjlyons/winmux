@@ -61,6 +61,7 @@ func setUpWorkspacesForTests() {
     clearPendingWindowDragIntent()
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
+    TestApp.shared.bundlePath = nil
 }
 
 extension ParsedCmd {

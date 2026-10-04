@@ -65,7 +65,7 @@ extension HotKey {
 
 @MainActor func activateMode(_ targetMode: String?) async throws {
     let mode = targetMode.flatMap { config.modes[$0] }
-    let targetBindings = mode?.bindings ?? [:]
+    let targetBindings = effectiveHotkeyBindings(for: targetMode)
     activeTapBindings = mode?
         .tapBindings
         .values
@@ -228,7 +228,7 @@ private func tapModifiersPressed(in modifierFlags: NSEvent.ModifierFlags) -> Set
 }
 
 @MainActor private func applyHotkeyEnabledState() {
-    let targetBindings = activeMode.flatMap { config.modes[$0] }?.bindings ?? [:]
+    let targetBindings = effectiveHotkeyBindings(for: activeMode)
     for (binding, key) in hotkeys {
         key.isEnabled = !hotkeysSuspended && targetBindings.keys.contains(binding)
     }

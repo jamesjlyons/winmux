@@ -3,6 +3,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
 
     case agent
     case balanceSizes = "balance-sizes"
+    case browserNewTab = "browser-new-tab"
     case close
     case closeAllWindowsButCurrent = "close-all-windows-but-current"
     case config
@@ -57,6 +58,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseAgentCmdArgs)
             case .balanceSizes:
                 result[kind.rawValue] = SubCommandParser(BalanceSizesCmdArgs.init)
+            case .browserNewTab:
+                result[kind.rawValue] = SubCommandParser(BrowserNewTabCmdArgs.init)
             case .close:
                 result[kind.rawValue] = SubCommandParser(CloseCmdArgs.init)
             case .closeAllWindowsButCurrent:

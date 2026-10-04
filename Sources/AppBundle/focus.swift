@@ -124,12 +124,14 @@ func replaceWorkspaceNameInFocusState(oldName: String, newName: String) {
         }
     }
     if _focus == newFocus.frozen {
+        BrowserWorkspaceController.shared.rememberRegularWorkspace(newFocus.workspace)
         return newFocus.workspace.isVisible || newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     }
     let oldFocus = focus
     TrackpadNavigationController.shared.cancelNavigation()
     let status = newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     guard status else { return false }
+    BrowserWorkspaceController.shared.rememberRegularWorkspace(newFocus.workspace)
 
     // Normalize mruWindow when focus away from a workspace
     if oldFocus.workspace != newFocus.workspace {

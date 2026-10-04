@@ -110,13 +110,13 @@ func ensureMinimumWorkspaceForAllProjects(monitor: Monitor = mainMonitor) {
 @MainActor
 func ensureMinimumWorkspace(for projectId: WorkspaceProjectId, monitor: Monitor = mainMonitor) {
     guard winMuxWorkspaceState.projectsById[projectId] != nil else { return }
-    guard !Workspace.all.contains(where: { $0.projectId == projectId && !$0.isArchived }) else { return }
+    guard !Workspace.all.contains(where: { $0.projectId == projectId && !$0.isArchived && !$0.isPinnedGroup }) else { return }
     _ = createBlankWorkspace(projectId: projectId, monitor: monitor)
 }
 
 @MainActor
 func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throws {
-    guard Workspace.existing(byName: workspaceName) != nil else {
+    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup else {
         throw WorkspaceMutationError.workspaceNotFound(workspaceName)
     }
     let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -135,7 +135,7 @@ func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throw
 
 @MainActor
 func resetWorkspaceSidebarName(workspaceName: String) throws {
-    guard Workspace.existing(byName: workspaceName) != nil else {
+    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup else {
         throw WorkspaceMutationError.workspaceNotFound(workspaceName)
     }
     config.workspaceSidebar.workspaceLabels.removeValue(forKey: workspaceName)
@@ -213,6 +213,7 @@ private func deleteWorkspaceProjectMovingWindowsToFallback(_ projectId: Workspac
     }
 
     let fallbackId = workspaceProjectFallbackForDeletion(excluding: projectId)
+    BrowserWorkspaceController.shared.movePins(in: projectId, to: fallbackId)
     let viewportsShowingDeletedProject = winMuxWorkspaceState.monitorViewportsById.values.compactMap { viewport -> MonitorViewportId? in
         guard let activeWorkspaceId = viewport.activeWorkspaceId,
               winMuxWorkspaceState.workspaceById[activeWorkspaceId]?.projectId == projectId
@@ -280,6 +281,7 @@ private func closeWindowsAndDeleteWorkspaceProject(_ projectId: WorkspaceProject
 
 @MainActor
 private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectId) throws {
+    BrowserWorkspaceController.shared.discardPins(in: projectId)
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil

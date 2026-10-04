@@ -15,6 +15,7 @@ struct WorkspaceSidebarView: View {
     @State var renamingProjectText = ""
     @State var renamingWorkspaceName: String? = nil
     @State var renamingWorkspaceText = ""
+    @State var isPinDropActive = false
     @State var searchText = ""
     @State var isSearchEditing = false
     @State var searchEditingPanel: WorkspaceSidebarPanel? = nil
@@ -104,9 +105,11 @@ struct WorkspaceSidebarView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerChangedNotification)) { notification in
             guard let pointer = workspaceSidebarDragPointer(from: notification) else { return }
+            isPinDropActive = true
             handleProjectEdgeDrag(pointer: pointer, expansionProgress: expansionProgress)
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerEndedNotification)) { _ in
+            isPinDropActive = false
             resetProjectEdgeDrag()
         }
     }
@@ -266,6 +269,8 @@ struct WorkspaceSidebarView: View {
                 actions.send(.selectWorkspace(workspaceName))
             case .surface(let surfaceID):
                 actions.send(.selectSurface(surfaceID))
+            case .pinnedBrowserTab(let id):
+                actions.send(.selectPin(id))
         }
         finishSidebarSearch(clearText: true)
         closeWorkspaceSidebarFromCommand(panel)
@@ -870,6 +875,23 @@ extension WorkspaceSidebarView {
         showsCreateWorkspace: Bool = true,
         allowsActivation: Bool? = nil,
     ) -> some View {
+        let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
+        return VStack(alignment: .leading, spacing: 0) {
+            if let pins = workspaces.first(where: \.isPinnedGroup) {
+                WorkspaceSidebarPinGrid(workspace: pins, projects: snapshot.projects, isCompact: isCompact,
+                    availableWidth: max(32, (isOrganizing ? workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration) : snapshot.visibleWidth) - leadingInset - trailingInset - 4),
+                    showsDropWell: isPinDropActive, actions: actions)
+                    .padding(.leading, leadingInset)
+                    .padding(.trailing, trailingInset)
+            }
+            if snapshot.configuration.showsBrowserControls {
+                WorkspaceSidebarNewTabButton(isCompact: isCompact) {
+                    let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
+                        ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
+                    actions.send(.newBrowserTab(workspaceName: workspace?.name))
+                }
+                .padding(.leading, leadingInset).padding(.trailing, trailingInset).padding(.bottom, 6)
+            }
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if showsPinnedActiveWorkspace,
@@ -887,7 +909,7 @@ extension WorkspaceSidebarView {
                         projectContextColor: projectColor(snapshot.activeProjectId)
                     )
                 }
-                ForEach(workspaces) { workspace in
+                ForEach(workspaces.filter { !$0.isPinnedGroup }) { workspace in
                     workspaceSection(
                         workspace: workspace,
                         expansionProgress: expansionProgress,
@@ -943,11 +965,12 @@ extension WorkspaceSidebarView {
             }
             .padding(.leading, leadingInset)
             .padding(.trailing, trailingInset)
-            .padding(.top, topPadding)
             .padding(.bottom, 10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .workspaceSidebarDropViewport()
+        }
+        .padding(.top, topPadding)
     }
 
     @ViewBuilder
@@ -1025,6 +1048,7 @@ extension WorkspaceSidebarView {
               displayedProjectId != snapshot.activeProjectId,
               !pageWorkspaces.contains(where: { workspaceIsActiveOnTargetMonitor($0) }),
               let focusedWorkspace = snapshot.workspaces.first(where: { workspaceIsActiveOnTargetMonitor($0) }),
+              !focusedWorkspace.isPinnedGroup,
               workspaceSidebarWorkspaceMatchesScope(
                 focusedWorkspace,
                 selectedScopeId: snapshot.selectedMonitorScopeId,

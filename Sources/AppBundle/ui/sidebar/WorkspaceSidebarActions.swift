@@ -298,6 +298,10 @@ private func moveSidebarSourceToNewWorkspace(
 
 @MainActor
 func previewWorkspaceSidebarDrop(_ windowId: UInt32, subject: WindowDragSubject, target: WorkspaceSidebarDropTargetKind) {
+    if case .pin(let id) = target, let name = BrowserWorkspaceController.shared.pinWorkspaceName(id) {
+        previewWorkspaceSidebarDrop(windowId, subject: subject, target: .workspace(name))
+        return
+    }
     guard let sourceWindow = Window.get(byId: windowId) else {
         clearWorkspaceSidebarDropPreview()
         return
@@ -564,7 +568,7 @@ func workspaceSidebarFallbackWorkspaceName(forSurfaceID surfaceID: SurfaceID) ->
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
-                case .surface, .surfaceGroup:
+                case .surface, .surfaceGroup, .pinnedBrowserTab:
                     if item.surfaceIDs.contains(surfaceID) { return workspace.name }
                 case .browserTab(let tab):
                     if tab.surfaceID == surfaceID { return tab.workspaceName }
@@ -604,7 +608,7 @@ func workspaceSidebarFallbackWorkspaceName(for windowId: UInt32) -> String? {
     for workspace in TrayMenuModel.shared.workspaceSidebarWorkspaces {
         for item in workspace.items {
             switch item.kind {
-                case .surface, .surfaceGroup:
+                case .surface, .surfaceGroup, .pinnedBrowserTab:
                     if let window = Window.get(byId: windowId), item.surfaceIDs.contains(window.surfaceID) { return workspace.name }
                 case .browserTab:
                     continue
@@ -750,6 +754,11 @@ private func commitActiveWorkspaceSidebarDragIfPossible() -> Bool {
     clearWorkspaceSidebarDropPreview()
     WindowDragCursorProxyPanel.shared.hide()
     switch target {
+        case .pin(let id):
+            guard let name = BrowserWorkspaceController.shared.pinWorkspaceName(id) else { return false }
+            if activeDrag.subject == .group { moveTabGroupFromSidebar(sourceWindow.windowId, toWorkspace: name) }
+            else { moveWindowFromSidebar(sourceWindow.windowId, toWorkspace: name) }
+            return true
         case .workspace(let workspaceName):
             if activeDrag.subject == .group {
                 moveTabGroupFromSidebar(sourceWindow.windowId, toWorkspace: workspaceName)
@@ -776,6 +785,10 @@ func moveSurfaceFromSidebar(_ id: SurfaceID, toWorkspace name: String) {
         guard let workspace = Workspace.existing(byName: name), !workspace.isArchived,
               BrowserWorkspaceController.shared.workspaceName(for: id) != workspace.name,
               BrowserWorkspaceController.shared.canMoveSurface(id) else { return }
+        if workspace.isPinnedGroup {
+            _ = BrowserWorkspaceController.shared.pinSurface(id, in: workspace.projectId)
+            return
+        }
         guard moveSidebarSurface(id, to: workspace) else { return }
         await updateWorkspaceSidebarModel()
     }
@@ -796,8 +809,8 @@ func moveSurfaceToNewWorkspaceFromSidebar(_ id: SurfaceID, projectId: WorkspaceP
 
 @MainActor
 @discardableResult
-func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace) -> Bool {
-    guard !workspace.isArchived, BrowserWorkspaceController.shared.canMoveSurface(id) else { return false }
+func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace, controller: BrowserWorkspaceController = .shared) -> Bool {
+    guard !workspace.isArchived, controller.canMoveSurface(id) else { return false }
     if let window = Window.get(bySurfaceID: id) {
         // Revalidate the durable native owner and suppress its AX move events,
         // then use the same shared move and source-focus repair as browser leaves.
@@ -805,13 +818,18 @@ func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace) -> Bool {
         syncClosedWindowsCacheToCurrentWorld()
         suppressPostDragAxObserverEvents(for: [window.windowId])
     }
-    return moveSurfaceToWorkspace(id, workspace, CmdIo(stdin: .emptyStdin), focusFollowsSurface: false, failIfNoop: false)
+    return moveSurfaceToWorkspace(id, workspace, CmdIo(stdin: .emptyStdin), focusFollowsSurface: false, failIfNoop: false, controller: controller)
 }
 
 
 @MainActor
 func moveSurfaceGroupFromSidebar(_ id: UUID, toWorkspace name: String) {
     runWorkspaceSidebarSession {
+        if let workspace = Workspace.existing(byName: name), workspace.isPinnedGroup,
+           BrowserWorkspaceController.shared.canMoveGroup(id), let group = BrowserWorkspaceController.shared.surfaceTree.group(id) {
+            for surface in group.surfaces { _ = BrowserWorkspaceController.shared.pinSurface(surface, in: workspace.projectId) }
+            return
+        }
         guard let workspace = Workspace.existing(byName: name), !workspace.isArchived,
               BrowserWorkspaceController.shared.workspaceName(forGroup: id) != workspace.name,
               BrowserWorkspaceController.shared.moveGroup(id, to: workspace) else { return }

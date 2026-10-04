@@ -42,6 +42,9 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 BrowserWorkspaceController.shared.connected(id, processID: pid, sendLayout: { [weak self] request, completion in
                     guard let self else { completion(.unavailable); return }
                     self.sendLayout(request, completion: completion)
+                }, sendNewTab: { [weak self] request, completion in
+                    guard let self else { completion(.unavailable, nil); return }
+                    self.sendNewTab(request, completion: completion)
                 }) { [weak self] request, completion in
                     guard let self else { completion(.unavailable); return }
                     self.send(request, completion: completion)
@@ -84,6 +87,20 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                 revision: request.revision, generation: request.generation, reply: reply)
         } else {
             completion(.unsupported)
+        }
+    }
+
+    @MainActor private func sendNewTab(_ request: BrowserNewTabRequest,
+                                      completion: @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) {
+        guard (session.version ?? 0) >= 5, !lock.withLock({ closed }), let connection,
+              let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+                  DispatchQueue.main.async { completion(.unavailable, nil) }
+              }) as? WMBrowserSurfaceOwner else { completion(.unavailable, nil); return }
+        proxy.openBrowserTab(request.sourceSurfaceID?.description, profile: request.profileID?.uuidString, url: request.url, epoch: request.epoch.uuidString,
+                             operation: request.operation.uuidString, revision: request.revision) { outcome, surface in
+            DispatchQueue.main.async {
+                completion(BrowserActionReply(rawValue: outcome) ?? .invalidRequest, surface.flatMap(SurfaceID.init(string:)))
+            }
         }
     }
 
@@ -172,8 +189,13 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         }
         // Let the helper consume a just-published page-state update. Explicit
         // revisions (including the stale-revision test) are never retried.
+        // This fixture stops an about:blank reload after it finishes. Do not
+        // spend its one retry on the intermediate loading-start inventory.
         if outcome == "stale_revision", revision == nil,
-           let newer = await waitForTestInventory({ $0.revision > currentRevision }) {
+           let newer = await waitForTestInventory({ state in
+               state.revision > currentRevision &&
+                   (action != "stop" || state.tabs[surface]?.isLoading == false)
+           }) {
             return await testAction(action, surface: surface, remote: remote, epoch: epoch,
                                     url: url, revision: newer.revision, operation: operation, generation: generation)
         }
@@ -439,6 +461,71 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         return true
     }
 
+    @MainActor private func testCreate(remote: BrowserOwnerProxy, epoch: String, profile: UUID? = nil,
+                                      url: String? = nil, operation: String = UUID().uuidString,
+                                      revision: UInt64? = nil) async -> (String, SurfaceID?) {
+        let current = revision ?? lock.withLock { inventory.revision }
+        return await withCheckedContinuation { continuation in
+            remote.value.openBrowserTab(nil, profile: profile?.uuidString, url: url, epoch: epoch,
+                                        operation: operation, revision: current) { outcome, surface in
+                continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
+            }
+        }
+    }
+
+    @MainActor private func exerciseEmptyInventoryCreation(epoch: String, remote: BrowserOwnerProxy) async {
+        guard let remaining = await waitForTestInventory({ $0.tabs.count == 1 }), let id = remaining.tabs.keys.first,
+              case .browserTab(let profile, _) = id else { noteTest("create_empty_inventory", "timed_out"); return }
+        noteTest("create_close_last", await testAction("close", surface: id, remote: remote, epoch: epoch))
+        guard let empty = await waitForTestInventory({ $0.tabs.isEmpty }) else {
+            noteTest("create_empty_inventory", "timed_out"); return
+        }
+        noteTest("create_empty_inventory", "yes")
+        noteTest("create_foreign_epoch", (await testCreate(remote: remote, epoch: UUID().uuidString)).0)
+        noteTest("create_stale_revision", (await testCreate(remote: remote, epoch: epoch, revision: 0)).0)
+        noteTest("create_invalid_url", (await testCreate(remote: remote, epoch: epoch, url: "javascript:alert(1)")).0)
+        noteTest("create_unknown_profile", (await testCreate(remote: remote, epoch: epoch, profile: UUID())).0)
+        let operation = UUID().uuidString, url = "about:blank#winmux-empty-inventory"
+        let (outcome, created) = await testCreate(remote: remote, epoch: epoch, profile: profile, url: url,
+                                                operation: operation, revision: empty.revision)
+        noteTest("create_from_empty", outcome)
+        guard let created, let opened = await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[created]?.url == url }) else {
+            noteTest("create_exact_identity", "timed_out"); return
+        }
+        noteTest("create_exact_identity", opened.tabs[created]?.hostWindowID != nil ? "yes" : "no")
+        let repeated = await testCreate(remote: remote, epoch: epoch, profile: profile, url: url,
+                                       operation: operation, revision: empty.revision)
+        noteTest("create_repeat", repeated.0)
+        noteTest("create_repeat_same_identity", repeated.1 == created ? "yes" : "no")
+        noteTest("create_operation_conflict", (await testCreate(remote: remote, epoch: epoch, profile: profile,
+            url: "about:blank#different", operation: operation, revision: empty.revision)).0)
+        noteTest("create_cross_action_conflict", await testAction("close", surface: created, remote: remote, epoch: epoch,
+            revision: empty.revision, operation: operation))
+        noteTest("create_repeat_no_duplicate", lock.withLock { inventory.tabs.count == 1 } ? "yes" : "no")
+        noteTest("create_close_created", await testAction("close", surface: created, remote: remote, epoch: epoch))
+        guard await waitForTestInventory({ $0.tabs.isEmpty }) != nil else { noteTest("create_global_from_empty", "timed_out"); return }
+        var previous = created
+        for iteration in 0..<3 {
+            let reopened = await testCreate(remote: remote, epoch: epoch,
+                                            url: "about:blank#winmux-repeated-global-\(iteration)")
+            guard reopened.0 == "issued", let next = reopened.1, next != previous,
+                  await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[next] != nil }) != nil else {
+                noteTest("create_global_repeated_reopen", "failed"); return
+            }
+            guard await testAction("close", surface: next, remote: remote, epoch: epoch) == "issued",
+                  await waitForTestInventory({ $0.tabs.isEmpty }) != nil else {
+                noteTest("create_global_repeated_reopen", "close_failed"); return
+            }
+            previous = next
+        }
+        noteTest("create_global_repeated_reopen", "yes")
+        let global = await testCreate(remote: remote, epoch: epoch)
+        noteTest("create_global_from_empty", global.0)
+        if let globalID = global.1, await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[globalID] != nil }) != nil {
+            noteTest("create_global_exact_identity", "yes")
+        } else { noteTest("create_global_exact_identity", "timed_out") }
+    }
+
     // Runs only in an explicitly named isolated test service. Production never
     // issues actions without a workspace user's request.
     private func exerciseActions(epoch: String) {
@@ -474,6 +561,9 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                         remote.value.performAction("close", surface: id.description, epoch: UUID().uuidString,
                                                                    operation: UUID().uuidString, revision: revision, generation: 0) { stale in
                                             self.noteTest("foreign_epoch", stale)
+                                            if (self.session.version ?? 0) >= 5 {
+                                                Task { @MainActor in await self.exerciseEmptyInventoryCreation(epoch: epoch, remote: remote) }
+                                            }
                                         }
                                     }
                                 }

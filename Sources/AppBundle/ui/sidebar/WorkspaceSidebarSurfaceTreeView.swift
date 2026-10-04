@@ -12,12 +12,17 @@ struct WorkspaceSidebarSurfaceTreeView: View {
     let isSearchFiltering: Bool
     let actions: WorkspaceSidebarActions
     let onActivate: @MainActor (SurfaceID) -> Void
+    var onActivatePin: @MainActor (UUID) -> Void = { _ in }
     var leadingHitInset: CGFloat = 0
     var unfilteredItems: [WorkspaceSidebarItemViewModel] = []
     @State private var isHovered = false
 
     var body: some View {
         switch item.kind {
+        case .pinnedBrowserTab(let tab):
+            WorkspaceSidebarPinnedBrowserTabRow(tab: tab, workspaceName: workspaceName,
+                selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
+                actions: actions, onActivate: onActivatePin)
         case .surface(let surface):
             surfaceButton(surface)
         case .surfaceGroup(let id, let children):
@@ -42,7 +47,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         WorkspaceSidebarSurfaceTreeView(
             item: child, workspaceName: workspaceName, targetMonitorScopeId: targetMonitorScopeId,
             selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
-            actions: actions, onActivate: onActivate, leadingHitInset: indent, unfilteredItems: unfilteredItems
+            actions: actions, onActivate: onActivate, onActivatePin: onActivatePin, leadingHitInset: indent, unfilteredItems: unfilteredItems
         )
     }
 
@@ -71,6 +76,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
         ))
         .contextMenu {
+            Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+            Divider()
             SurfaceMoveMenu(subject: .surface(surface.surfaceID), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)
             Divider()

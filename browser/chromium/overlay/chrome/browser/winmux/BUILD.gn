@@ -1,5 +1,33 @@
+import("//testing/test.gni")
+
+source_set("profile_identity_lookup") {
+  sources = [
+    "profile_identity_lookup.cc",
+    "profile_identity_lookup.h",
+  ]
+  deps = [
+    "//base",
+    "//chrome/common:non_code_constants",
+  ]
+}
+
+test("profile_identity_lookup_unittests") {
+  sources = [ "profile_identity_lookup_unittest.cc" ]
+  deps = [
+    ":profile_identity_lookup",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//chrome/common:non_code_constants",
+    "//testing/gtest",
+  ]
+}
+
 source_set("tab_identity") {
-  sources = [ "tab_identity.cc", "tab_identity.h" ]
+  sources = [
+    "tab_identity.cc",
+    "tab_identity.h",
+  ]
   deps = [
     "//base",
     "//chrome/browser/profiles:profile",
@@ -14,28 +42,34 @@ source_set("workspace_bridge") {
   sources = [
     "browser_inventory.cc",
     "browser_inventory.h",
-    "host_layout.h",
-    "host_layout.cc",
-    "host_window.h",
-    "host_window.mm",
     "cosmetics_host.cc",
     "cosmetics_host.h",
+    "host_layout.cc",
+    "host_layout.h",
+    "host_window.h",
+    "host_window.mm",
     "workspace_bridge.h",
     "workspace_bridge.mm",
     "workspace_bridge_state.h",
   ]
   deps = [
+    ":profile_identity_lookup",
     ":tab_identity",
     "//base",
+    "//chrome/browser:browser_process",
     "//chrome/browser/lifetime",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/profiles:profile_util",
+    "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/extensions",
-    "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_enums",
+    "//chrome/browser/ui/tabs:tab_strip",
     "//components/tabs:public",
     "//components/winmux/blocking:engine",
+    "//components/favicon/content",
     "//components/winmux/blocking:mojom",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",

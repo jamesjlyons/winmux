@@ -24,6 +24,9 @@ extension ShortcutSettingsModel {
         )
         collectMainBindings(workspaceNumbers: workspaceNumbers, assignments: &nextAssignments, customBindings: &nextCustomBindings)
 
+        if nextAssignments["browser-new-tab"] == nil, let binding = browserNewTabBinding(in: config) {
+            nextAssignments["browser-new-tab"] = binding.descriptionWithKeyNotation
+        }
         self.assignments = nextAssignments
         self.tapBindings = nextTapBindings()
         self.customBindings = nextCustomBindings

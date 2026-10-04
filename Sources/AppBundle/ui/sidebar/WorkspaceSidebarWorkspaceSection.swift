@@ -390,18 +390,35 @@ extension WorkspaceSidebarWorkspaceSection {
     var windowRows: some View {
         if showsWindowRows, !workspace.items.isEmpty {
             VStack(alignment: .leading, spacing: 1) {
-                ForEach(workspace.items) { item in
-                    workspaceItemView(item)
+                if !pinnedItems.isEmpty {
+                    if !density.isNarrow {
+                        Text("Pinned")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+                            .padding(.top, 3)
+                    }
+                    ForEach(pinnedItems) { item in workspaceItemView(item) }
+                    if !ordinaryItems.isEmpty { Divider().padding(.vertical, 4) }
                 }
+                ForEach(ordinaryItems) { item in workspaceItemView(item) }
             }
             .padding(.leading, density.isNarrow || layout.menuBarStyle ? 0 : workspaceSidebarWindowRowsLeadingIndent)
         }
     }
 
+    var pinnedItems: [WorkspaceSidebarItemViewModel] {
+        workspace.items.filter { if case .pinnedBrowserTab = $0.kind { return true }; return false }
+    }
+
+    var ordinaryItems: [WorkspaceSidebarItemViewModel] {
+        workspace.items.filter { if case .pinnedBrowserTab = $0.kind { return false }; return true }
+    }
+
     @ViewBuilder
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
-            case .surface, .surfaceGroup:
+            case .surface, .surfaceGroup, .pinnedBrowserTab:
                 sharedSurfaceItemView(item)
             case .browserTab(let tab):
                 sharedSurfaceItemView(.init(kind: .surface(.init(
@@ -419,9 +436,18 @@ extension WorkspaceSidebarWorkspaceSection {
         WorkspaceSidebarSurfaceTreeView(
             item: item, workspaceName: workspace.name, targetMonitorScopeId: targetMonitorScopeId,
             selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
-            actions: actions, onActivate: activateSharedSurface,
+            actions: actions, onActivate: activateSharedSurface, onActivatePin: activatePinnedBrowserTab,
             unfilteredItems: TrayMenuModel.shared.workspaceSidebarWorkspaces.first(where: { $0.name == workspace.name })?.items ?? workspace.items
         )
+    }
+
+    func activatePinnedBrowserTab(_ id: UUID) {
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()) else { return }
+        if isInUseOnOtherDisplay { activeInUseOverrideWorkspaceName = workspace.name; return }
+        activeInUseOverrideWorkspaceName = nil
+        actions.send(.selectPinnedBrowserTab(id))
     }
 
     func activateSharedSurface(_ id: SurfaceID) {
@@ -646,6 +672,10 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .help(window.title ?? window.appName)
         .contextMenu {
+            if layout.showsBrowserControls {
+                Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }
+                Divider()
+            }
             WindowMoveMenu(
                 windowId: window.windowId,
                 workspaceName: window.workspaceName,

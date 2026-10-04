@@ -81,11 +81,16 @@ extension BrowserWorkspaceController {
         BrowserToolbarController.shared.update(items: items) { [weak self] id, action in
             self?.performToolbarAction(action, for: id)
         }
+        focusCreatedBrowserTabAddress()
     }
 
     func performToolbarAction(_ action: BrowserToolbarAction, for id: SurfaceID) {
         if action == .focusPage { _ = select(id); return }
         if action == .close { _ = close(id); return }
+        if action == .newTab, owner(of: id)?.supportsTabCreation == true {
+            _ = openBrowserTab(workspaceName: workspaceName(for: id), profileID: id.browserProfileID)
+            return
+        }
         guard let session = owner(of: id), session.supportsBrowserControls else { return }
         let request: BrowserSurfaceAction
         var url: String?

@@ -34,6 +34,7 @@ extension CmdArgs {
             case let args as MoveNodeToProjectCmdArgs: MoveNodeToProjectCommand(args: args)
             case let args as MoveNodeToWorkspaceCmdArgs: MoveNodeToWorkspaceCommand(args: args)
             case let args as MoveWorkspaceToMonitorCmdArgs: MoveWorkspaceToMonitorCommand(args: args)
+            case let args as BrowserNewTabCmdArgs: BrowserNewTabCommand(args: args)
             case let args as OpenSidebarCmdArgs: OpenSidebarCommand(args: args)
             case let args as PaletteCmdArgs: PaletteCommand(args: args)
             case let args as ProjectCmdArgs: ProjectCommand(args: args)

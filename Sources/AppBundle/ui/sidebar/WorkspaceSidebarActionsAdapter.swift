@@ -67,6 +67,26 @@ func handleWorkspaceSidebarAction(
             overrideWorkspaceInUseFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .selectWindow(let windowId):
             focusWindowFromSidebar(windowId)
+        case .newBrowserTab(let workspaceName):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.openBrowserTab(workspaceName: workspaceName) }
+        case .pinSurface(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.pinSurface(id) }
+        case .selectPin(let id):
+            WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.selectPin(id) }
+        case .unpin(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.unpin(id) }
+        case .movePin(let id, let space):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.movePin(id, to: space) }
+        case .pinBrowserTab(let surfaceID):
+            BrowserWorkspaceController.shared.pinBrowserTab(surfaceID)
+        case .unpinBrowserTab(let id):
+            BrowserWorkspaceController.shared.unpinBrowserTab(id)
+        case .selectPinnedBrowserTab(let id):
+            WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.selectPinnedBrowserTab(id) }
+        case .movePinnedBrowserTab(let id, let workspaceName):
+            runWorkspaceSidebarSession { BrowserWorkspaceController.shared.movePinnedBrowserTab(id, to: workspaceName) }
         case .selectSurface(let surfaceID):
             focusSurfaceFromSidebar(surfaceID)
         case .closeSurface(let surfaceID):

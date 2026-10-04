@@ -32,6 +32,7 @@ struct SurfaceMoveMenu: View {
     func move(to name: String) {
         guard name != workspaceName else { return }
         switch subject {
+        case .pin: break // Pinned launchers use the separate Move to Space menu.
         case .surface(let id): actions.send(.moveSurface(id, toWorkspace: name))
         case .group(let id): actions.send(.moveSurfaceGroup(id, toWorkspace: name))
         }
@@ -40,6 +41,7 @@ struct SurfaceMoveMenu: View {
     func moveToNewGroup(in projectId: WorkspaceProjectId) {
         let scope = targetMonitorScopeId ?? sidebarModel.workspaceSidebarFocusedMonitorScopeId
         switch subject {
+        case .pin: break
         case .surface(let id): actions.send(.moveSurfaceToNewWorkspace(id, projectId: projectId, monitorScopeId: scope))
         case .group(let id): actions.send(.moveSurfaceGroupToNewWorkspace(id, projectId: projectId, monitorScopeId: scope))
         }

@@ -26,6 +26,11 @@ void StopBrowserInventory();
 std::string PerformBrowserLayout(const std::string& epoch, const std::string& operation,
                                  uint64_t revision, uint64_t generation, const std::string& json);
 void ReleaseBrowserLayout();
+// Creation can asynchronously load the last-used existing profile after every
+// native page is closed. Source is empty, a surface, or "profile:<uuid>".
+using BrowserTabCreationCallback = base::OnceCallback<void(std::string, std::string)>;
+void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
+                    BrowserTabCreationCallback completion);
 std::string PerformBrowserSurfaceAction(const std::string& epoch,
                                         BrowserSurfaceAction request);
 }  // namespace winmux

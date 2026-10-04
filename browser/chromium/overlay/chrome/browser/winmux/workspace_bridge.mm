@@ -198,7 +198,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:4 remote:remote generation:generation];
+  [self negotiate:5 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -209,7 +209,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 4 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 5 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -270,6 +270,35 @@ NSString* OwnTeam() {
         });
       }
     }];
+  });
+}
+
+- (void)openBrowserTab:(NSString*)source profile:(NSString*)profile url:(NSString*)url
+                  epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
+                  reply:(void (^)(NSString*, NSString*))reply {
+  dispatch_async(self.queue, ^{
+    const uint64_t generation = self->_state.generation();
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 5 ||
+        ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch", nil); return; }
+    if (source.length > 128 || profile.length > 40 || operation.length > 40 ||
+        (source.length && profile.length && ![source.lowercaseString hasPrefix:
+            [NSString stringWithFormat:@"browser:%@:", profile.lowercaseString]]) ||
+        (url && [url lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 16384)) {
+      reply(@"invalid_request", nil); return;
+    }
+    std::string context = source.length ? base::SysNSStringToUTF8(source) :
+        profile.length ? "profile:" + base::SysNSStringToUTF8(profile) : std::string();
+    winmux::BrowserSurfaceAction request{"open_tab", std::move(context), base::SysNSStringToUTF8(operation),
+        revision, 0, url ? std::make_optional(base::SysNSStringToUTF8(url)) : std::nullopt};
+    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+        [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string requestEpoch,
+           winmux::BrowserSurfaceAction request, void (^completion)(NSString*, NSString*)) {
+          if (bridge->_activeGeneration.load() != activeGeneration) { completion(@"stale_epoch", nil); return; }
+          winmux::OpenBrowserTab(requestEpoch, std::move(request), base::BindOnce(
+              [](void (^done)(NSString*, NSString*), std::string outcome, std::string surface) {
+                done(base::SysUTF8ToNSString(outcome), surface.empty() ? nil : base::SysUTF8ToNSString(surface));
+              }, [completion copy]));
+        }, self, generation, base::SysNSStringToUTF8(epoch), std::move(request), [reply copy]));
   });
 }
 

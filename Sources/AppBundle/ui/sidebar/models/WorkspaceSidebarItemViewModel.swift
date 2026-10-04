@@ -6,6 +6,7 @@ struct WorkspaceSidebarItemViewModel: Hashable, Identifiable, Sendable {
 
     var id: String {
         switch kind {
+            case .pinnedBrowserTab(let tab): "browser-pin:\(tab.id.uuidString.lowercased())"
             case .surface(let item): item.surfaceID.description
             case .surfaceGroup(let id, _): "surface-group:\(id)"
             case .browserTab(let tab):
@@ -22,6 +23,7 @@ indirect enum WorkspaceSidebarItemKind: Hashable, Sendable {
     case surface(WorkspaceSidebarSurfaceItem)
     case surfaceGroup(UUID, [WorkspaceSidebarItemViewModel])
     case browserTab(WorkspaceSidebarBrowserTabViewModel)
+    case pinnedBrowserTab(WorkspaceSidebarPinnedBrowserTabViewModel)
     case window(WorkspaceSidebarWindowViewModel)
     case tabGroup(WorkspaceSidebarTabGroupViewModel)
 }
@@ -53,6 +55,7 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
 extension WorkspaceSidebarItemViewModel {
     var surfaceIDs: [SurfaceID] {
         switch kind {
+        case .pinnedBrowserTab(let tab): tab.isOpen ? tab.pin.surfaceID.map { [$0] } ?? [] : []
         case .surface(let item): [item.surfaceID]
         case .surfaceGroup(_, let children): children.flatMap(\.surfaceIDs)
         case .browserTab(let tab): [tab.surfaceID]
@@ -65,6 +68,7 @@ extension WorkspaceSidebarItemViewModel {
 extension WorkspaceSidebarItemViewModel {
     var surfaceItems: [WorkspaceSidebarSurfaceItem] {
         switch kind {
+        case .pinnedBrowserTab: []
         case .surface(let item): [item]
         case .surfaceGroup(_, let children): children.flatMap(\.surfaceItems)
         case .browserTab(let tab):

@@ -150,9 +150,14 @@ func isActionableWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceD
     case .group(let id):
         guard controller.canMoveGroup(id) else { return false }
         source = controller.workspaceName(forGroup: id)
+    case .pin(let id):
+        source = controller.pinWorkspaceName(id)
     }
     guard let source, let workspace = Workspace.existing(byName: source), !workspace.isArchived else { return false }
     switch target {
+    case .pin(let id):
+        if case .pin(let sourcePin) = subject { return sourcePin != id && controller.pinWorkspaceName(id) != nil }
+        return controller.pinWorkspaceName(id).map { $0 != source } ?? false
     case .workspace(let name):
         return name != source && Workspace.existing(byName: name)?.isArchived == false
     case .newWorkspace(let projectId, _):
@@ -166,7 +171,38 @@ func isActionableWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceD
 @MainActor
 private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
     guard isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return }
+    let controller = BrowserWorkspaceController.shared
+    if case .pin(let targetPin) = target, let name = controller.pinWorkspaceName(targetPin) {
+        if case .pin(let id) = subject {
+            runWorkspaceSidebarSession {
+                guard let workspace = Workspace.existing(byName: name) else { return }
+                if controller.pinWorkspaceName(id) != name { guard controller.movePin(id, to: workspace.projectId) else { return } }
+                controller.reorderPin(id, before: targetPin)
+            }
+        } else { commitWorkspaceSidebarSurfaceDrop(subject, target: .workspace(name)) }
+        return
+    }
+    if case .workspace(let name) = target, let workspace = Workspace.existing(byName: name), workspace.isPinnedGroup {
+        runWorkspaceSidebarSession {
+            switch subject {
+            case .pin(let id): _ = controller.movePin(id, to: workspace.projectId)
+            case .surface(let id): _ = controller.pinSurface(id, in: workspace.projectId)
+            case .group(let id):
+                guard let group = controller.surfaceTree.group(id), controller.canMoveGroup(id) else { return }
+                for surface in group.surfaces { _ = controller.pinSurface(surface, in: workspace.projectId) }
+            }
+        }
+        return
+    }
     switch (subject, target) {
+    case (.pin(let id), .workspace(let name)):
+        runWorkspaceSidebarSession { if let workspace = Workspace.existing(byName: name) { _ = controller.unpin(id, to: workspace) } }
+    case (.pin(let id), .newWorkspace(let project, let scope)):
+        runWorkspaceSidebarSession {
+            guard controller.pinWorkspaceName(id) != nil else { return }
+            let monitor = workspaceSidebarTargetMonitor(scopeId: scope, fallbackPoint: mouseLocation)
+            _ = controller.unpin(id, to: getOrCreateAdjacentBlankWorkspace(projectId: project, monitor: monitor))
+        }
     case (.surface(let id), .workspace(let name)):
         moveSurfaceFromSidebar(id, toWorkspace: name)
     case (.group(let id), .workspace(let name)):
@@ -178,6 +214,7 @@ private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfac
     case (_, .monitor(let scope)):
         guard let workspace = workspaceSidebarMonitor(forScopeId: scope)?.activeWorkspace else { return }
         commitWorkspaceSidebarSurfaceDrop(subject, target: .workspace(workspace.name))
+    case (_, .pin): break
     }
 }
 
@@ -199,6 +236,22 @@ func workspaceSidebarSurfaceSourcePreview(_ subject: WorkspaceSidebarSurfaceDrag
                                           viewModel: TrayMenuModel = .shared) -> WorkspaceSidebarDropPreviewViewModel? {
     let ids: [SurfaceID]
     switch subject {
+    case .pin(let id):
+        guard let workspace = controller.pinWorkspaceName(id), let pin = controller.pinTiles(in: workspace).first(where: { $0.id == id }) else { return nil }
+        let destination: String?
+        var project: WorkspaceProjectId?
+        var scope: String?
+        switch target {
+        case .pin(let targetID): destination = controller.pinWorkspaceName(targetID)
+        case .workspace(let name): destination = name
+        case .monitor(let id): destination = workspaceSidebarMonitor(forScopeId: id)?.activeWorkspace.name
+        case .newWorkspace(let id, let monitor): destination = nil; project = id; scope = monitor
+        case nil: destination = nil
+        }
+        return .init(sourceSubject: subject, label: pin.title, appName: pin.title,
+            appBundleIdentifier: pin.bundleIdentifier, appBundlePath: pin.bundlePath,
+            targetWorkspaceName: destination, targetsNewWorkspace: project != nil,
+            targetProjectId: project, targetMonitorScopeId: scope, isTabGroup: false, windowCount: 1)
     case .surface(let id):
         guard controller.canMoveSurface(id) else { return nil }
         ids = [id]
@@ -228,6 +281,7 @@ func workspaceSidebarSurfaceSourcePreview(_ subject: WorkspaceSidebarSurfaceDrag
     var scope: String?
     var isNew = false
     switch target {
+    case .pin(let id): targetName = controller.pinWorkspaceName(id)
     case .workspace(let name): targetName = name
     case .monitor(let id): targetName = workspaceSidebarMonitor(forScopeId: id)?.activeWorkspace.name
     case .newWorkspace(let id, let monitor): targetName = nil; project = id; scope = monitor; isNew = true

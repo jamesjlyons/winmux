@@ -17,6 +17,8 @@ func isActionableSidebarWorkspaceDropTarget(
     targetKind: WorkspaceSidebarDropTargetKind?,
 ) -> Bool {
     switch targetKind {
+        case .pin:
+            return true // Resolve the durable pin owner when building the destination.
         case .workspace(let workspaceName):
             return sourceWorkspaceName != workspaceName
         case .monitor:
@@ -37,6 +39,13 @@ func currentSidebarWorkspaceDropDestination(sourceWindow: Window, mouseLocation:
        isActionableSidebarWorkspaceDropTarget(sourceWorkspaceName: sourceWorkspaceName, targetKind: target.kind)
     {
         switch target.kind {
+            case .pin(let id):
+                guard let name = BrowserWorkspaceController.shared.pinWorkspaceName(id), name != sourceWorkspaceName else { return nil }
+                return WindowDragIntentDestination(kind: .moveToWorkspace(workspaceName: name),
+                    previewRect: workspaceSidebarCursorPreviewRect(at: mouseLocation),
+                    interactionRect: sidebarWorkspaceDropInteractionRect(for: target), title: sourceLabel,
+                    subtitle: "Drop to pin this app", previewStyle: .sidebarWorkspaceMove,
+                    previewGeometry: .rounded, isGroup: isGroup)
             case .monitor(let scopeId):
                 guard let monitor = workspaceSidebarMonitor(forScopeId: scopeId) else { return nil }
                 let workspace = monitor.activeWorkspace

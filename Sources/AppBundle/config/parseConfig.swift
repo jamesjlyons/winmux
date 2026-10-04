@@ -73,6 +73,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     keyMappingConfigRootKey: Parser(\.keyMapping, skipParsing(Config().keyMapping)), // Parsed manually
     modeConfigRootKey: Parser(\.modes, skipParsing(Config().modes)), // Parsed manually
 
+    "browser-new-tab-shortcut": Parser(\.browserNewTabShortcut, parseString),
     "auto-add-new-windows-to-tab-group": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
     "gaps": Parser(\.gaps, parseGaps),
     "workspace-sidebar": Parser(\.workspaceSidebar, parseWorkspaceSidebar),
@@ -150,6 +151,10 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
     // Parse modeConfigRootKey after keyMappingConfigRootKey
     if let modes = rawTable[modeConfigRootKey].flatMap({ parseModes($0, .rootKey(modeConfigRootKey), &errors, config.keyMapping.resolve()) }) {
         config.modes = modes
+    }
+    if !config.browserNewTabShortcut.isEmpty {
+        _ = parseBinding(config.browserNewTabShortcut, .rootKey("browser-new-tab-shortcut"), config.keyMapping.resolve())
+            .getOrNil(appendErrorTo: &errors)
     }
     applyShortcutsPreset(&config, mapping: config.keyMapping.resolve(), errors: &errors)
     let shouldValidateMainMode = rawTable.contains(key: modeConfigRootKey) || config.shortcutsPreset != .none

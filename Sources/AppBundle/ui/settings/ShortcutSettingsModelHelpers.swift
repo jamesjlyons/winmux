@@ -7,6 +7,11 @@ import MASShortcut
 @MainActor
 func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
     return [
+        .init(id: "browser", category: .managed, title: "Browser",
+              summary: "Open a page from any app. Change this shortcut if another app uses it.",
+              actions: [shortcutAction(id: "browser-new-tab", title: "New Tab Window",
+                                       subtitle: "Works with all browser pages closed. Cmd+T remains available to other apps.",
+                                       command: "browser-new-tab")]),
         .init(
             id: "managed-focus",
             category: .managed,

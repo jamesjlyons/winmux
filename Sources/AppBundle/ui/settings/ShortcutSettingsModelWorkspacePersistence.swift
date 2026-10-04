@@ -21,14 +21,14 @@ extension ShortcutSettingsModel {
         persistBindings(assignments)
     }
 
-    func renderedManagedAssignments(from updatedAssignments: [String: String]) throws -> [String: String] {
+    func renderedManagedAssignments(from updatedAssignments: [String: String], includeWorkspaceBindings: Bool = true) throws -> [String: String] {
         var generatedPairs: [(notation: String, command: String)] = updatedAssignments.compactMap { actionId, notation in
             guard let action = actionsById[actionId] else { return nil }
             return (notation, action.canonicalCommand)
         }
 
         let overrideMap = Dictionary(uniqueKeysWithValues: workspaceOverrides.map { ($0.workspaceName, $0) })
-        for workspaceName in workspaceNumbers {
+        for workspaceName in includeWorkspaceBindings ? workspaceNumbers : [] {
             if let notation = overrideMap[workspaceName]?.switchNotation ?? workspacePatternNotation(for: .switchTo, workspaceName: workspaceName) {
                 generatedPairs.append((notation, workspaceCommand(workspaceName, kind: .switchTo)))
             }

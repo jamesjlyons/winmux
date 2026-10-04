@@ -6,8 +6,10 @@
 #include <memory>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
+#include "base/base64.h"
 #include "base/json/json_writer.h"
 #include "base/hash/sha1.h"
 #include "chrome/browser/winmux/host_layout.h"
@@ -17,10 +19,18 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_attributes_entry.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -30,12 +40,15 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/winmux/tab_identity.h"
+#include "chrome/browser/winmux/profile_identity_lookup.h"
 #include "chrome/browser/winmux/host_window.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "components/favicon/content/content_favicon_driver.h"
+#include "ui/gfx/image/image.h"
 #include "content/public/common/referrer.h"
 #include "content/public/browser/reload_type.h"
 #include "ui/base/page_transition_types.h"
@@ -81,12 +94,111 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
   void BeginEpoch(std::string epoch) {
+    for (auto& [operation, creation] : pending_creations_) {
+      for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
+    }
+    pending_creations_.clear();
     epoch_ = std::move(epoch);
     operations_.clear();
     operation_order_.clear();
     highest_focus_ = 0;
     highest_layout_ = 0;
     Update(true);
+  }
+
+  void OpenTab(const std::string& epoch, BrowserSurfaceAction request,
+               BrowserTabCreationCallback completion) {
+    if (epoch.empty() || epoch != epoch_) { std::move(completion).Run("stale_epoch", ""); return; }
+    auto operation = base::Uuid::ParseCaseInsensitive(request.operation);
+    if (!operation.is_valid() || request.action != "open_tab" || request.surface.size() > 128 ||
+        request.generation != 0) { std::move(completion).Run("invalid_request", ""); return; }
+    request.operation = operation.AsLowercaseString();
+    auto pending = pending_creations_.find(request.operation);
+    if (pending != pending_creations_.end()) {
+      if (pending->second.request != request) { std::move(completion).Run("operation_conflict", ""); return; }
+      if (pending->second.callbacks.size() >= 16) { std::move(completion).Run("unavailable", ""); return; }
+      pending->second.callbacks.push_back(std::move(completion));
+      return;
+    }
+    auto previous = operations_.find(request.operation);
+    if (previous != operations_.end()) {
+      if (previous->second.first != request) { std::move(completion).Run("operation_conflict", ""); return; }
+      const auto& result = previous->second.second;
+      if (result.starts_with("created:")) std::move(completion).Run("issued", result.substr(8));
+      else std::move(completion).Run(result, "");
+      return;
+    }
+    if (request.url) {
+      GURL url(*request.url);
+      if (request.url->empty() || request.url->size() > 16384 || !url.is_valid() ||
+          !(url.SchemeIsHTTPOrHTTPS() || url.SchemeIsFile() || url.SchemeIs("about") ||
+            url.SchemeIs("chrome") || url.SchemeIs("chrome-extension"))) {
+        std::move(completion).Run("invalid_request", ""); return;
+      }
+    }
+    if (pending_) Update(false);
+    if (request.revision != static_cast<uint64_t>(revision_)) {
+      std::move(completion).Run("stale_revision", ""); return;
+    }
+    if (pending_creations_.size() >= 16 || (browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
+      std::move(completion).Run("unavailable", ""); return;
+    }
+    auto* manager = g_browser_process->profile_manager();
+    if (!manager) { std::move(completion).Run("unavailable", ""); return; }
+    base::FilePath profile_path;
+    std::string lookup_uuid;
+    std::vector<base::FilePath> registered_paths;
+    if (request.surface.empty()) {
+      profile_path = manager->GetLastUsedProfileDir();
+    } else if (request.surface.starts_with("profile:")) {
+      auto profile_id = base::Uuid::ParseCaseInsensitive(request.surface.substr(8));
+      if (!profile_id.is_valid()) { std::move(completion).Run("invalid_request", ""); return; }
+      const auto uuid = profile_id.AsLowercaseString();
+      auto entries = manager->GetProfileAttributesStorage().GetAllProfilesAttributes();
+      if (entries.size() > kMaximumProfileIdentityCandidates) {
+        std::move(completion).Run("unavailable", ""); return;
+      }
+      // Loaded registered profiles have authoritative in-memory preferences.
+      // An unloaded registered profile can still contain a copied UUID, so a
+      // loaded match alone must not bypass checking the remaining accounts.
+      for (auto* entry : entries) {
+        auto path = entry->GetPath();
+        if (auto* loaded = manager->GetProfileByPath(path)) {
+          if (ExistingProfileID(loaded) != uuid) continue;
+          if (!profile_path.empty() && profile_path != path) {
+            std::move(completion).Run("unavailable", ""); return;
+          }
+          profile_path = std::move(path);
+        } else {
+          registered_paths.push_back(std::move(path));
+        }
+      }
+      // A single loaded primary account remains immediate. Other unloaded
+      // accounts are read on a worker, with any loaded match as its seed.
+      if (!registered_paths.empty()) lookup_uuid = uuid;
+    } else {
+      auto found = live_.find(request.surface);
+      if (found == live_.end()) { std::move(completion).Run("unavailable", ""); return; }
+      profile_path = Profile::FromBrowserContext(found->second->GetBrowserContext())->GetPath();
+    }
+    PendingCreation creation{request, {}};
+    creation.callbacks.push_back(std::move(completion));
+    pending_creations_.emplace(request.operation, std::move(creation));
+    // Reserve operation identity before profile loading or window callbacks.
+    Remember(request, "pending");
+    if (!lookup_uuid.empty()) {
+      if (!base::ThreadPool::PostTaskAndReplyWithResult(
+              FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+              base::BindOnce(&FindRegisteredProfileIdentity,
+                             std::move(registered_paths), std::move(lookup_uuid),
+                             std::move(profile_path)),
+              base::BindOnce(&BrowserInventory::LoadProfileForCreation,
+                             weak_factory_.GetWeakPtr(), epoch, request.operation))) {
+        FinishOpenTab(epoch, request.operation, nullptr);
+      }
+    } else {
+      LoadProfileForCreation(epoch, request.operation, std::move(profile_path));
+    }
   }
 
   std::string Perform(const std::string& epoch, BrowserSurfaceAction request) {
@@ -226,6 +338,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
         browser->GetProfile()->IsOffTheRecord())
       return;
+    RetainWorkspaceProfile(browser->GetProfile());
     // TabStripModelObserver removes itself automatically when the source dies.
     browser->GetTabStripModel()->AddObserver(this);
     Schedule();
@@ -250,6 +363,96 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
  private:
+  struct PendingCreation {
+    BrowserSurfaceAction request;
+    std::vector<BrowserTabCreationCallback> callbacks;
+  };
+
+  void LoadProfileForCreation(const std::string& epoch, const std::string& operation,
+                              base::FilePath path) {
+    if (epoch != epoch_ || !pending_creations_.contains(operation)) return;
+    auto* manager = g_browser_process->profile_manager();
+    // Profiles can be deleted while the worker is reading their Preferences.
+    // Registered existing paths are the only permitted loading targets.
+    if (path.empty() || !manager || browser_shutdown::HasShutdownStarted() ||
+        browser_shutdown::IsTryingToQuit() ||
+        !manager->GetProfileAttributesStorage().GetProfileAttributesWithPath(path)) {
+      FinishOpenTab(epoch, operation, nullptr);
+      return;
+    }
+    if (auto* profile = manager->GetProfileByPath(path)) {
+      FinishOpenTab(epoch, operation, profile);
+    } else if (!manager->LoadProfileByPath(path, false,
+        base::BindOnce(&BrowserInventory::FinishOpenTab,
+                       weak_factory_.GetWeakPtr(), epoch, operation))) {
+      FinishOpenTab(epoch, operation, nullptr);
+    }
+  }
+
+  void FinishOpenTab(const std::string& epoch, const std::string& operation, Profile* profile) {
+    // A profile load from an old connection must never open a page later.
+    if (epoch != epoch_) return;
+    auto found = pending_creations_.find(operation);
+    if (found == pending_creations_.end()) return;
+    auto creation = std::move(found->second);
+    pending_creations_.erase(found);
+    std::string outcome = "unavailable", surface;
+    std::string expected_profile;
+    if (creation.request.surface.starts_with("profile:")) {
+      expected_profile = base::Uuid::ParseCaseInsensitive(
+          creation.request.surface.substr(8)).AsLowercaseString();
+    } else if (creation.request.surface.starts_with("browser:")) {
+      expected_profile = base::Uuid::ParseCaseInsensitive(
+          creation.request.surface.substr(8, 36)).AsLowercaseString();
+    }
+    // Revalidate the loaded preference: a deleted/replaced directory or a
+    // changed UUID must never silently open a pin in another account.
+    auto* manager = g_browser_process->profile_manager();
+    if (profile && (!manager ||
+        !manager->GetProfileAttributesStorage().GetProfileAttributesWithPath(profile->GetPath()) ||
+        (!expected_profile.empty() && ExistingProfileID(profile) != expected_profile))) {
+      profile = nullptr;
+    }
+    profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
+    if (profile && !profile->IsOffTheRecord() && !profile->IsGuestSession() &&
+        !profile->IsSystemProfile() && !(browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
+      RetainWorkspaceProfile(profile);
+      BrowserWindowCreateParams params(profile, true);
+      params.should_trigger_session_restore = false;
+      auto* browser = CreateBrowserWindow(std::move(params));
+      if (browser) {
+        browser->OpenGURL(GURL(creation.request.url.value_or("chrome://newtab/")),
+                          WindowOpenDisposition::NEW_FOREGROUND_TAB);
+        auto* contents = browser->GetTabStripModel()->GetActiveWebContents();
+        if (contents) surface = PersistentSurfaceID(contents);
+        if (!surface.empty()) {
+          browser->GetWindow()->Show();
+          browser->GetWindow()->Activate();
+          outcome = "issued";
+        }
+      }
+    }
+    // Keep the exact created ID in the bounded shared operation cache, including
+    // when a repeat arrives after that page has already been closed.
+    const auto cached = outcome == "issued" ? "created:" + surface : outcome;
+    if (auto previous = operations_.find(operation); previous != operations_.end()) previous->second.second = cached;
+    else Remember(creation.request, cached);
+    Schedule();
+    for (auto& callback : creation.callbacks) std::move(callback).Run(outcome, surface);
+  }
+
+  void RetainWorkspaceProfile(Profile* profile) {
+    if (epoch_.empty() || !profile || !profile->IsRegularProfile()) return;
+    auto& retained = profile_keep_alives_[profile->GetPath()];
+    if (!retained || retained->profile() != profile) {
+      // The authenticated workspace is a background owner of its profiles.
+      // Closing its last page must not tear down keyed services and immediately
+      // recreate them: services such as Shortcuts release SQLite asynchronously.
+      // This profile-only keepalive does not prevent an explicit browser Quit.
+      retained = ScopedProfileKeepAlive::TryAcquire(profile, ProfileKeepAliveOrigin::kBackgroundMode);
+    }
+  }
+
   void Remember(const BrowserSurfaceAction& request, const std::string& outcome = "issued") {
     operations_.emplace(request.operation, std::make_pair(request, outcome));
     operation_order_.push_back(request.operation);
@@ -281,6 +484,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
           browser->GetProfile()->IsOffTheRecord() || browser->IsDeleteScheduled())
         return true;
+      RetainWorkspaceProfile(browser->GetProfile());
       const int host_id = browser->GetSessionID().id();
       observed_hosts.insert(host_id);
       auto& host_observer = host_observers_[host_id];
@@ -325,6 +529,15 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("focused", index == strip->active_index() && browser->GetWindow()->IsActive());
         record.Set("host_managed", IsBrowserHostManaged(browser));
         record.Set("url", contents->GetVisibleURL().spec().substr(0, 16384));
+        if (auto* favicon = favicon::ContentFaviconDriver::FromWebContents(contents);
+            favicon && favicon->FaviconIsValid()) {
+          // The driver's regular favicon is a small 16-DIP image. Send a
+          // bounded thumbnail so a closed pin can keep its site identity.
+          auto png = favicon->GetFavicon().As1xPNGBytes();
+          if (png && png->size() > 0 && png->size() <= 98304) {
+            record.Set("icon_png_base64", base::Base64Encode(base::span(*png)));
+          }
+        }
         record.Set("can_go_back", contents->GetController().CanGoBack());
         record.Set("can_go_forward", contents->GetController().CanGoForward());
         record.Set("is_loading", contents->IsLoading());
@@ -373,6 +586,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::map<std::string, std::unique_ptr<TabNavigationObserver>> navigation_observers_;
   std::map<int, std::unique_ptr<BrowserHostWindowObserver>> host_observers_;
   std::map<std::string, raw_ptr<content::WebContents>> live_;
+  std::map<base::FilePath, std::unique_ptr<ScopedProfileKeepAlive>> profile_keep_alives_;
+  std::map<std::string, PendingCreation> pending_creations_;
   std::map<std::string, std::pair<BrowserSurfaceAction, std::string>> operations_;
   std::deque<std::string> operation_order_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver> collection_{this};
@@ -397,6 +612,12 @@ void BeginBrowserInventoryEpoch(std::string epoch) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (inventory)
     inventory->BeginEpoch(std::move(epoch));
+}
+void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
+                    BrowserTabCreationCallback completion) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (inventory) inventory->OpenTab(epoch, std::move(request), std::move(completion));
+  else std::move(completion).Run("unavailable", "");
 }
 std::string PerformBrowserSurfaceAction(const std::string& epoch, BrowserSurfaceAction request) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);

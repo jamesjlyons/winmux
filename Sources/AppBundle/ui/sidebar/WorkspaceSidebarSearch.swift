@@ -25,6 +25,14 @@ private func workspaceSidebarFilteredWorkspace(
     projectName: String?,
     terms: [String],
 ) -> WorkspaceSidebarWorkspaceViewModel? {
+    if workspace.isPinnedGroup {
+        var result = workspace
+        result.pins = workspace.pins.filter { pin in
+            workspaceSidebarSearchTextMatches([pin.title, pin.bundleIdentifier, projectName,
+                "Pinned", pin.url], terms: terms)
+        }
+        return result.pins.isEmpty ? nil : result
+    }
     let matchingItems = workspace.items.compactMap { item in
         workspaceSidebarSearchResultItem(item, workspace: workspace, projectName: projectName, terms: terms)
     }
@@ -62,6 +70,8 @@ private func workspaceSidebarSearchResultItem(
     terms: [String],
 ) -> WorkspaceSidebarItemViewModel? {
     switch item.kind {
+        case .pinnedBrowserTab(let tab):
+            return workspaceSidebarSearchTextMatches([tab.title, tab.pin.url, "Pinned WinMux Browser", workspace.displayName, workspace.name, projectName], terms: terms) ? item : nil
         case .surface(let surface):
             return workspaceSidebarSearchTextMatches([surface.title, surface.appName, workspace.displayName, workspace.name, projectName], terms: terms) ? item : nil
         case .surfaceGroup(let id, let children):

@@ -66,9 +66,43 @@ New pages created by Chromium shortcuts, page links, or extensions are detached
 into independent native hosts, then adopted by the Swift workspace. Closing a
 page is acknowledged only when the engine inventory confirms its removal.
 
+
+## New tabs and pinned pages
+
+Use **Option–Command–T** from any app to open a browser page in the current
+regular group, including when every browser window is closed. **New Tab** in the sidebar
+and its context menu provide the same action. The global shortcut is editable
+under Settings → Shortcuts → Browser. Chromium keeps its usual **Command–T**;
+the global default avoids taking that shortcut from other apps. The CLI action
+is `browser-new-tab`.
+
+Each Space has one pinned group above its regular groups. It uses icon-only
+tiles, with cached website favicons and native app icons. Right-click a page and
+choose **Pin Tab**, or an app window and choose **Pin App**; dragging an item into
+the icon area also pins it. The item moves into the pinned group. Selecting its
+icon activates that group's saved layout. Expanded tiles wrap across the sidebar;
+compact mode uses one column, with scrolling after three rows.
+
+Closing a page leaves its pin available. Clicking the closed pin opens its saved
+URL in the original browser profile. The saved destination is the URL at pin
+time; subsequent navigation does not change where it reopens. An app pin focuses
+the app's last used window, or launches the app if none remain. One app launcher
+is kept per Space. **Unpin** keeps the current window or page open and moves it
+to the last regular group. Icons can be reordered by dragging and moved to
+another Space from their context menu. New tabs and ordinary app windows created
+while the pinned group is active go to that Space's last regular group.
+
+Pins, order and layouts persist across restarts. Existing browser pins migrate
+into their Space's pinned group without reopening closed pages. Empty pinned
+groups stay hidden; regular group numbering is unchanged. Pinned groups cannot
+be renamed, deleted or reordered with the regular groups.
+
 ## Implementation
 
-Protocol 4 adds typed navigation actions and an optional URL payload alongside
+Protocol 5 adds an authenticated browser-level page-creation request with an
+optional source page and the exact created page identity in its reply. It can
+create a page from the loaded browser profile when no windows remain. Protocol 4
+adds typed navigation actions and an optional URL payload alongside
 legacy focus/close operations. Inventory carries navigation/loading state,
 managed-host status, native window identity and focus. Native minimize, fullscreen
 and workspace zoom state suspend the live tile plan while preserving durable

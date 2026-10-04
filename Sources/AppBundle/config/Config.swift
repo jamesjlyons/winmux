@@ -47,6 +47,7 @@ struct Config: ConvenienceCopyable {
     var automaticallyTileNewWindows: Bool = true
     var enableShakeToToggleTiling: Bool = true
     var shortcutsPreset: ShortcutsPreset = .none
+    var browserNewTabShortcut = "alt-cmd-t"
     var tabGroupPadding: Int = 30
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
     var persistentWorkspaces: OrderedSet<String> = []
