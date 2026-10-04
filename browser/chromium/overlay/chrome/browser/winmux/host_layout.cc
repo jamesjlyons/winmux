@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/winmux/host_window.h"
 #include "chrome/browser/winmux/tab_identity.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
 #include "ui/gfx/geometry/rect.h"
@@ -28,6 +29,16 @@
 namespace winmux {
 namespace {
 using Host = base::WeakPtr<BrowserWindowInterface>;
+
+BrowserWindowInterface* BrowserForContents(content::WebContents* contents) {
+  // The live inventory below already admits only pages from the global browser
+  // collection. Resolve their current owner directly: FindBrowserWithTab also
+  // copies/scans that entire collection to check membership on every call.
+  // Consult the tab again after earlier placements, since reconciliation can
+  // detach a page into a different host during this same layout request.
+  auto* tab = tabs::TabInterface::MaybeGetFromContents(contents);
+  return tab ? tab->GetBrowserWindowInterface() : nullptr;
+}
 
 // Chromium may insert tabs through page links, extensions or keyboard commands.
 // Do not leave those pages inside a managed window's hidden native tabstrip.
@@ -161,7 +172,7 @@ std::string ApplyHostLayout(const std::string& json) {
           surfaces.size() > 512) return "invalid_request";
       auto found = live.find(tab.GetString());
       if (found == live.end() || !found->second) return "unavailable";
-      auto* source = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(found->second.get());
+      auto* source = BrowserForContents(found->second.get());
       if (!source) return "unsupported";
       auto existing = Hosts().find(tab.GetString());
       const bool suspended_host = existing != Hosts().end() &&
@@ -189,7 +200,7 @@ std::string ApplyHostLayout(const std::string& json) {
   std::vector<Host> hide_after_reveal;
   for (const auto& p : plan) {
     if (!p.contents) return "unavailable";
-    auto* source = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(p.contents.get());
+    auto* source = BrowserForContents(p.contents.get());
     if (!source || source->IsDeleteScheduled() || source->GetProfile() != p.profile)
       return "unavailable";
     // Reuse only the page's own singleton host. This is independent of container

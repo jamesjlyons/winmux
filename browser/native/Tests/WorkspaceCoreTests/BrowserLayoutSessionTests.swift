@@ -6,6 +6,16 @@ final class BrowserLayoutSessionTests: XCTestCase {
     @MainActor private final class Fixture {
         var requests: [BrowserLayoutRequest] = []
         var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        final class Deadline {
+            let delay: Duration
+            let expired: @MainActor () -> Void
+            var cancelled = false
+            init(delay: Duration, expired: @escaping @MainActor () -> Void) {
+                self.delay = delay
+                self.expired = expired
+            }
+        }
+        var deadlines: [Deadline] = []
         lazy var session = BrowserSurfaceSession(sendLayout: { [unowned self] request, reply in
             requests.append(request)
             replies.append(reply)
@@ -14,6 +24,11 @@ final class BrowserLayoutSessionTests: XCTestCase {
         let container = UUID()
 
         init() {
+            session.scheduleLayoutDeadline = { [unowned self] delay, expired in
+                let deadline = Deadline(delay: delay, expired: expired)
+                deadlines.append(deadline)
+                return { deadline.cancelled = true }
+            }
             session.supportsLayout = true
             let epoch = UUID()
             session.connect(epoch: epoch)
@@ -159,5 +174,166 @@ final class BrowserLayoutSessionTests: XCTestCase {
             fixture.replies[0](outcome)
             XCTAssertEqual(fixture.requests.count, 1, "Only an explicitly stale revision warrants an immediate retry")
         }
+    }
+
+    @MainActor func testLostReplyRetriesLatestPlanAndInventoryWithoutRepeatingOldFocus() {
+        let fixture = Fixture(), latest = fixture.hosts(x: 900)
+        var result: BrowserActionReply?
+        fixture.session.requestLayout(fixture.hosts()) { _ in XCTFail("Obsolete group must not receive focus") }
+        let first = fixture.requests[0]
+        fixture.session.requestLayout(latest) { result = $0 }
+        XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: first.epoch))
+
+        fixture.deadlines[0].expired()
+
+        XCTAssertEqual(fixture.requests.count, 2)
+        XCTAssertEqual(fixture.requests[1].hosts, latest)
+        XCTAssertEqual(fixture.requests[1].revision, 2)
+        XCTAssertGreaterThan(fixture.requests[1].generation, first.generation)
+        XCTAssertNotEqual(fixture.requests[1].operation, first.operation)
+        XCTAssertEqual(fixture.session.layoutTimeoutCount, 1)
+        XCTAssertNotNil(fixture.session.pendingLayoutMilliseconds)
+        fixture.replies[0](.issued)
+        XCTAssertNil(result, "A delayed old reply cannot acknowledge or focus the replacement")
+        fixture.replies[1](.issued)
+        XCTAssertEqual(result, .issued)
+        XCTAssertNil(fixture.session.pendingLayoutMilliseconds)
+        XCTAssertTrue(fixture.deadlines.allSatisfy(\.cancelled))
+        fixture.session.requestLayout(latest) { _ in XCTFail("Recovered plan should be deduplicated") }
+        XCTAssertEqual(fixture.requests.count, 2)
+    }
+
+    @MainActor func testLostReplyRecoveryIsBoundedAndNewPlanCanResume() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        var completions: [BrowserActionReply] = []
+        fixture.session.requestLayout(hosts) { completions.append($0) }
+        for index in 0..<3 { fixture.deadlines[index].expired() }
+
+        XCTAssertEqual(fixture.deadlines.map(\.delay), [.seconds(1), .seconds(2), .seconds(4)])
+        XCTAssertEqual(fixture.requests.count, 3, "A stalled owner cannot create an endless request loop")
+        XCTAssertEqual(fixture.session.layoutTimeoutCount, 3)
+        XCTAssertEqual(fixture.session.lastLayoutReply, .unavailable)
+        XCTAssertNil(fixture.session.pendingLayoutMilliseconds)
+        XCTAssertEqual(completions, [.unavailable])
+        fixture.session.requestLayout(hosts) { _ in XCTFail("Same failed plan must wait for a change") }
+        XCTAssertEqual(fixture.requests.count, 3)
+        for reply in fixture.replies { reply(.issued) }
+        XCTAssertEqual(completions, [.unavailable], "Late replies after exhaustion cannot focus")
+
+        fixture.session.requestLayout(fixture.hosts(x: 900)) { completions.append($0) }
+        XCTAssertEqual(fixture.requests.count, 4)
+        XCTAssertEqual(fixture.deadlines.last?.delay, .seconds(1))
+        fixture.replies[3](.issued)
+        XCTAssertEqual(completions, [.unavailable, .issued])
+    }
+
+    @MainActor func testNewInventoryAllowsRecoveryAfterDeadlineBudgetExhausted() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        fixture.session.requestLayout(hosts) { _ in }
+        for index in 0..<3 { fixture.deadlines[index].expired() }
+        let epoch = fixture.requests[0].epoch
+        XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        fixture.session.requestLayout(hosts) { _ in }
+        XCTAssertEqual(fixture.requests.count, 4)
+        XCTAssertEqual(fixture.requests[3].revision, 2)
+        XCTAssertEqual(fixture.deadlines.last?.delay, .seconds(1))
+    }
+
+    @MainActor func testNewGroupDuringFinalAttemptReceivesItsOwnRecoveryBudget() {
+        let fixture = Fixture(), latest = fixture.hosts(x: 900)
+        fixture.session.requestLayout(fixture.hosts()) { _ in XCTFail("Old group must not complete") }
+        fixture.deadlines[0].expired()
+        fixture.deadlines[1].expired()
+        var result: BrowserActionReply?
+        fixture.session.requestLayout(latest) { result = $0 }
+
+        fixture.deadlines[2].expired()
+
+        XCTAssertNil(result, "A group never attempted cannot exhaust the previous group's budget")
+        XCTAssertEqual(fixture.requests.count, 4)
+        XCTAssertEqual(fixture.requests[3].hosts, latest)
+        XCTAssertEqual(fixture.deadlines[3].delay, .seconds(1))
+        fixture.replies[3](.issued)
+        XCTAssertEqual(result, .issued)
+    }
+
+    @MainActor func testNewRevisionDuringFinalAttemptIsNotMarkedAlreadyAttempted() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        fixture.session.requestLayout(hosts) { _ in }
+        fixture.deadlines[0].expired()
+        fixture.deadlines[1].expired()
+        let epoch = fixture.requests[0].epoch
+        XCTAssertTrue(fixture.session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        var result: BrowserActionReply?
+        fixture.session.requestLayout(hosts) { result = $0 }
+
+        fixture.deadlines[2].expired()
+
+        XCTAssertNil(result)
+        XCTAssertEqual(fixture.requests.count, 4)
+        XCTAssertEqual(fixture.requests[3].revision, 2)
+        XCTAssertEqual(fixture.deadlines[3].delay, .seconds(1))
+        fixture.replies[3](.issued)
+        XCTAssertEqual(result, .issued)
+    }
+
+    @MainActor func testTimeoutRepairsReturningToPreviouslyAcknowledgedGroup() {
+        let fixture = Fixture(), first = fixture.hosts(), second = fixture.hosts(x: 900)
+        fixture.session.requestLayout(first) { _ in }
+        fixture.replies[0](.issued)
+        fixture.session.requestLayout(second) { _ in XCTFail("Timed-out group became obsolete") }
+        var restored: BrowserActionReply?
+        fixture.session.requestLayout(first) { restored = $0 }
+
+        fixture.deadlines[1].expired()
+
+        XCTAssertEqual(fixture.requests.count, 3, "The second group might have applied before its reply was lost")
+        XCTAssertEqual(fixture.requests[2].hosts, first)
+        fixture.replies[2](.issued)
+        XCTAssertEqual(restored, .issued)
+    }
+
+    @MainActor func testInvalidationWithoutReplacementDoesNotReplayOnTimeout() {
+        let fixture = Fixture()
+        fixture.session.requestLayout(fixture.hosts()) { _ in XCTFail("Invalidated plan must not complete") }
+        fixture.session.invalidateLayoutAcknowledgement()
+        fixture.deadlines[0].expired()
+        fixture.replies[0](.issued)
+        XCTAssertEqual(fixture.requests.count, 1)
+        fixture.session.requestLayout(fixture.hosts(x: 900)) { _ in }
+        XCTAssertEqual(fixture.requests.count, 2)
+    }
+
+    @MainActor func testInvalidatedIdenticalReplacementRecoversAfterMissingReply() {
+        let fixture = Fixture(), hosts = fixture.hosts()
+        fixture.session.requestLayout(hosts) { _ in XCTFail("Invalidated completion must not run") }
+        fixture.session.invalidateLayoutAcknowledgement()
+        var result: BrowserActionReply?
+        fixture.session.requestLayout(hosts) { result = $0 }
+        fixture.deadlines[0].expired()
+        fixture.replies[0](.issued)
+        XCTAssertNil(result)
+        fixture.replies[1](.issued)
+        XCTAssertEqual(result, .issued)
+    }
+
+    @MainActor func testReplyAndDisconnectCancelDeadlinesAndFenceAlreadyQueuedExpirations() {
+        let fixture = Fixture()
+        fixture.session.requestLayout(fixture.hosts()) { _ in }
+        fixture.replies[0](.issued)
+        XCTAssertTrue(fixture.deadlines[0].cancelled)
+        fixture.deadlines[0].expired()
+        XCTAssertEqual(fixture.session.layoutTimeoutCount, 0)
+        XCTAssertEqual(fixture.requests.count, 1)
+
+        fixture.session.requestLayout(fixture.hosts(x: 900)) { _ in XCTFail("Disconnected request must not complete") }
+        fixture.session.disconnect(epoch: fixture.requests[1].epoch)
+        XCTAssertTrue(fixture.deadlines[1].cancelled)
+        fixture.session.connect(epoch: UUID())
+        fixture.deadlines[1].expired()
+        fixture.replies[1](.issued)
+        XCTAssertEqual(fixture.requests.count, 2)
+        XCTAssertEqual(fixture.session.layoutTimeoutCount, 0)
+        XCTAssertNil(fixture.session.pendingLayoutMilliseconds)
     }
 }

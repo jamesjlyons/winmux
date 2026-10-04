@@ -42,7 +42,11 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!
     var timer: Timer?
     var busy = false
-    var automaticOpen: UUID?
+    var automaticOpen: UUID? {
+        didSet { if automaticOpen == nil { automaticOpenStartedAt = nil } }
+    }
+    var automaticOpenStartedAt: TimeInterval?
+    var isClosing = false
     var message: String?
 
     init(fixturePID: Int32?) throws {
@@ -89,15 +93,40 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24),
         ])
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
-        }
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func windowShouldClose(_ sender: NSWindow) -> Bool { !busy }
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { busy ? .terminateCancel : .terminateNow }
+    func windowWillClose(_ notification: Notification) { stopPolling() }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !busy else { return .terminateCancel }
+        stopPolling()
+        return .terminateNow
+    }
+
+    private func stopPolling() {
+        isClosing = true
+        automaticOpen = nil
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func scheduleNextRefresh() {
+        timer?.invalidate()
+        timer = nil
+        guard !busy, !isClosing else { return }
+        let interval = workspaceSetupRefreshInterval(
+            automaticLaunchStartedAt: automaticOpenStartedAt,
+            now: ProcessInfo.processInfo.systemUptime)
+        let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    isolated deinit { timer?.invalidate() }
 
     func requestForThisPackage() throws -> WorkspaceActivation? {
         let request = try store.readRequest()
@@ -123,11 +152,19 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func refresh() {
-        guard !busy else { return }
+        timer?.invalidate()
+        timer = nil
+        guard !busy, !isClosing else { return }
+        defer { scheduleNextRefresh() }
         do {
             let request = try store.readRequest()
+            let state = try store.readStatus()
+            if let automaticOpen, request?.id != automaticOpen ||
+                (state?.requestID == automaticOpen && (state?.phase == "failed" || state?.phase == "stopped")) {
+                self.automaticOpen = nil
+            }
             let existingService = request.map { SMAppService.agent(plistName: $0.machService + ".plist") } ?? service
-            let activeProcess = try store.readStatus().map { liveHelper($0, browserPath: request?.browserPath) != nil } ?? false
+            let activeProcess = state.map { liveHelper($0, browserPath: request?.browserPath) != nil } ?? false
             let registered = existingService.status == .enabled || existingService.status == .requiresApproval || activeProcess
             let ours = request == nil || (request?.browserPath == browser.path && request?.machService == serviceName)
             let running = try ours && (request.map { try ready($0) } ?? false)
@@ -139,7 +176,7 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             else if !ours && registered { status.stringValue = WorkspaceActivationError.differentPackage.localizedDescription }
             else if service.status == .requiresApproval { status.stringValue = "Allow WinMux Workspace in Login Items, then return here." }
             else if running { status.stringValue = "Workspace is running. Its browser and saved layout are ready." }
-            else if registered, let state = try store.readStatus(), state.requestID == request?.id, state.phase == "failed" {
+            else if registered, let state, state.requestID == request?.id, state.phase == "failed" {
                 status.stringValue = "Workspace could not start: " + state.detail + " Stop Workspace before retrying."
             } else { status.stringValue = registered ? "Waiting for workspace startup and macOS permissions…" : "Workspace is stopped. Existing apps and profiles are unchanged." }
             if running, let request, automaticOpen == request.id {
@@ -175,6 +212,7 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             try store.writeStatus(.init(requestID: request.id, phase: "starting", helperPID: 0, helperLaunch: nil))
             try service.register()
             automaticOpen = request.id
+            automaticOpenStartedAt = ProcessInfo.processInfo.systemUptime
             message = nil
         } catch { message = error.localizedDescription }
         refresh()
@@ -183,6 +221,8 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func stop() {
         guard !busy else { return }
         busy = true; automaticOpen = nil
+        timer?.invalidate()
+        timer = nil
         startButton.isEnabled = false; stopButton.isEnabled = false; openButton.isEnabled = false
         status.stringValue = "Stopping workspace and restoring native windows…"
         Task { @MainActor in
@@ -207,10 +247,12 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func openBrowser() {
+        defer { refresh() }
         do {
             guard let request = try requestForThisPackage(), try ready(request) else { throw WorkspaceActivationError.unavailable }
+            automaticOpen = nil
             try launchBrowser(request)
-        } catch { message = error.localizedDescription; refresh() }
+        } catch { message = error.localizedDescription }
     }
 
     func launchBrowser(_ request: WorkspaceActivation) throws {
@@ -220,6 +262,12 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configuration.createsNewApplicationInstance = true
         configuration.arguments = ["--user-data-dir=" + request.profile(in: store.root).path,
                                    "--no-first-run", "--no-default-browser-check", "--restore-last-session"]
+        // Launch this setup process with WINMUX_TRACE_LAYOUT=1 to trace the
+        // normal Start Workspace flow. Chromium logs protocol phases only;
+        // this opt-in never enables test faults or changes workspace behavior.
+        if ProcessInfo.processInfo.environment["WINMUX_TRACE_LAYOUT"] == "1" {
+            configuration.arguments.append("--winmux-trace-layout")
+        }
         if request.validationID != nil {
             configuration.arguments += ["--winmux-sidebar-preview", "--winmux-test-service=" + request.machService,
                 "--winmux-bridge-report=" + request.directory(in: store.root).appendingPathComponent("bridge.json").path]

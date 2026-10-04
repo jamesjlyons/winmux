@@ -54,6 +54,84 @@ final class WorkspaceSidebarOrganizeTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarOrganizeScrollStep(pointerX: 600, viewportWidth: 600), 10)
     }
 
+    func testAutoscrollHasNoIdleTimerAndStopsAfterMouseUpOrMissedMouseUp() {
+        let window = OrganizeAutoscrollFixtureWindow()
+        let bridge = WorkspaceSidebarOrganizeScrollView()
+        var buttonDown = false
+        bridge.isDragButtonDown = { buttonDown }
+        window.contentView = bridge
+        defer { window.contentView = nil }
+        XCTAssertFalse(bridge.isAutoscrolling)
+
+        buttonDown = true
+        bridge.refreshActivity()
+        XCTAssertFalse(bridge.isAutoscrolling, "A mouse press without a drag must stay idle")
+        // The pointer event can arrive before the native/sidebar drag model begins.
+        bridge.noteDragActivity(ended: false)
+        bridge.refreshActivity()
+        XCTAssertTrue(bridge.isAutoscrolling)
+        bridge.noteDragActivity(ended: true)
+        XCTAssertFalse(bridge.isAutoscrolling)
+
+        bridge.noteDragActivity(ended: false)
+        bridge.refreshActivity()
+        XCTAssertTrue(bridge.isAutoscrolling)
+        buttonDown = false
+        bridge.refreshActivity()
+        XCTAssertFalse(bridge.isAutoscrolling, "A missed mouse-up must still stop the timer")
+    }
+
+    func testAutoscrollStopsWhenHiddenOccludedOrDetached() {
+        let window = OrganizeAutoscrollFixtureWindow()
+        let bridge = WorkspaceSidebarOrganizeScrollView()
+        bridge.isDragButtonDown = { true }
+        window.contentView = bridge
+        defer { window.contentView = nil }
+        func startDrag() {
+            bridge.noteDragActivity(ended: false)
+            bridge.refreshActivity()
+            XCTAssertTrue(bridge.isAutoscrolling)
+        }
+        func updateOcclusion() {
+            NotificationCenter.default.post(name: NSWindow.didChangeOcclusionStateNotification, object: window)
+        }
+
+        startDrag()
+        window.reportedVisible = false
+        updateOcclusion()
+        XCTAssertFalse(bridge.isAutoscrolling)
+        bridge.noteDragActivity(ended: false)
+        bridge.refreshActivity()
+        XCTAssertFalse(bridge.isAutoscrolling, "Hidden retained panels cannot restart from a global drag")
+
+        window.reportedVisible = true
+        updateOcclusion()
+        startDrag()
+        window.reportedOcclusionState = []
+        updateOcclusion()
+        XCTAssertFalse(bridge.isAutoscrolling)
+
+        window.reportedOcclusionState = .visible
+        updateOcclusion()
+        startDrag()
+        window.contentView = nil
+        XCTAssertFalse(bridge.isAutoscrolling)
+    }
+
+    func testDismantlingCancelsQueuedDragRefresh() async {
+        let window = OrganizeAutoscrollFixtureWindow()
+        let bridge = WorkspaceSidebarOrganizeScrollView()
+        bridge.isDragButtonDown = { true }
+        window.contentView = bridge
+        defer { window.contentView = nil }
+        bridge.noteDragActivity(ended: false)
+        bridge.stop()
+        await Task.yield()
+        bridge.noteDragActivity(ended: false)
+        bridge.refreshActivity()
+        XCTAssertFalse(bridge.isAutoscrolling)
+    }
+
     func testClippingKeepsPartiallyVisibleTargetsWithOriginalReorderGeometry() {
         let target = WorkspaceSidebarDropTargetFrame(kind: .workspace("first"), frame: CGRect(x: -230, y: 60, width: 256, height: 200))
         let viewport = CGRect(x: 0, y: 40, width: 500, height: 600)
@@ -189,6 +267,15 @@ final class WorkspaceSidebarOrganizeTest: XCTestCase {
         let scrollView = try XCTUnwrap(bridge.enclosingScrollView)
         XCTAssertGreaterThan(try XCTUnwrap(scrollView.documentView).bounds.width, scrollView.contentView.bounds.width)
         XCTAssertGreaterThan(scrollView.contentView.bounds.width, 0)
+        XCTAssertFalse(bridge.isAutoscrolling)
         bridge.stop()
     }
+}
+
+/// Exercise visibility without ordering windows in the user's session.
+@MainActor private final class OrganizeAutoscrollFixtureWindow: NSWindow {
+    var reportedVisible = true
+    var reportedOcclusionState: NSWindow.OcclusionState = .visible
+    override var isVisible: Bool { reportedVisible }
+    override var occlusionState: NSWindow.OcclusionState { reportedOcclusionState }
 }

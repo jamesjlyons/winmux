@@ -49,6 +49,11 @@ public final class BrowserSurfaceSession {
     public typealias LayoutTransport = @MainActor (BrowserLayoutRequest, @escaping @MainActor (BrowserActionReply) -> Void) -> Void
     public private(set) var lastLayoutRequest: BrowserLayoutRequest?
     public private(set) var lastLayoutReply: BrowserActionReply?
+    public private(set) var layoutTimeoutCount: UInt64 = 0
+    /// Monotonic transport age, not a measurement of rendered presentation.
+    public var pendingLayoutMilliseconds: Double? {
+        layoutDispatchedAt.map { Double(DispatchTime.now().uptimeNanoseconds - $0) / 1_000_000 }
+    }
     private let sendLayout: LayoutTransport?
     public var supportsLayout = false
     public var supportsBrowserControls = false
@@ -72,6 +77,20 @@ public final class BrowserSurfaceSession {
     private var inFlightLayout: UUID?
     private var layoutAttemptRevision: UInt64?
     private var layoutCompletion: (@MainActor (BrowserActionReply) -> Void)?
+    private var layoutDispatchedAt: UInt64?
+    private var layoutTimeoutRetries = 0
+    private var cancelLayoutDeadline: (@MainActor () -> Void)?
+    // Injectable so missing replies and late callbacks can be tested without
+    // wall-clock sleeps. Only authoritative, generation-fenced layouts retry;
+    // navigation, creation, close and other actions never use this mechanism.
+    typealias LayoutDeadlineScheduler = @MainActor (Duration, @escaping @MainActor () -> Void) -> (@MainActor () -> Void)
+    var scheduleLayoutDeadline: LayoutDeadlineScheduler = { delay, expired in
+        let task = Task { @MainActor in
+            do { try await Task.sleep(for: delay) } catch { return }
+            expired()
+        }
+        return { task.cancel() }
+    }
     private let send: Transport
 
     public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, sendNewTab: NewTabTransport? = nil, send: @escaping Transport) {
@@ -82,6 +101,9 @@ public final class BrowserSurfaceSession {
     }
 
     public func connect(epoch: UUID) {
+        clearLayoutDeadline()
+        layoutTimeoutRetries = 0
+        layoutTimeoutCount = 0
         self.epoch = epoch
         inventory = BrowserInventory()
         focusIntent = nil
@@ -98,6 +120,8 @@ public final class BrowserSurfaceSession {
 
     public func disconnect(epoch: UUID) {
         guard self.epoch == epoch else { return }
+        clearLayoutDeadline()
+        layoutTimeoutRetries = 0
         self.epoch = nil
         inventory = BrowserInventory()
         focusIntent = nil
@@ -126,7 +150,8 @@ public final class BrowserSurfaceSession {
     /// Native movement can invalidate a successfully dispatched frame without
     /// changing the workspace plan. Require a fresh request from the caller;
     /// neither invalidation nor a late reply should resend an obsolete plan.
-    /// Keep the in-flight operation until its reply so transport stays serialized.
+    /// Keep the in-flight operation until its reply or deadline so ordinary
+    /// transport stays serialized, while a lost callback cannot block recovery.
     public func invalidateLayoutAcknowledgement() {
         layoutAcknowledgementToken = UUID()
         acknowledgedLayout = nil
@@ -140,6 +165,41 @@ public final class BrowserSurfaceSession {
         if desiredLayout != hosts { layoutAttemptRevision = nil }
         desiredLayout = hosts
         layoutCompletion = completion
+        if inFlightLayout == nil { layoutTimeoutRetries = 0 }
+        flushLayout()
+    }
+
+    private func clearLayoutDeadline() {
+        cancelLayoutDeadline?()
+        cancelLayoutDeadline = nil
+        layoutDispatchedAt = nil
+    }
+
+    private func layoutDeadlineExpired(_ request: BrowserLayoutRequest) {
+        guard epoch == request.epoch, inFlightLayout == request.operation else { return }
+        clearLayoutDeadline()
+        inFlightLayout = nil
+        lastLayoutReply = .unavailable
+        if layoutTimeoutCount < UInt64.max { layoutTimeoutCount += 1 }
+        // The timed-out request may have applied. An older acknowledged plan
+        // cannot deduplicate a subsequent repair, even if the user returned to it.
+        acknowledgedLayout = nil
+        guard desiredLayout != nil else { return }
+        if desiredLayout != request.hosts || inventory.revision > request.revision {
+            // The latest group/inventory has not been attempted yet. An older
+            // plan's exhausted budget must never mark that replacement failed.
+            layoutTimeoutRetries = 0
+        } else {
+            guard layoutTimeoutRetries < 2 else {
+                // An unchanged plan/revision receives at most three requests
+                // (at 0, 1 and 3s). Actual new work can start a fresh budget.
+                layoutAttemptRevision = inventory.revision
+                layoutCompletion?(.unavailable)
+                return
+            }
+            layoutTimeoutRetries += 1
+        }
+        layoutAttemptRevision = nil
         flushLayout()
     }
 
@@ -156,8 +216,14 @@ public final class BrowserSurfaceSession {
         layoutAttemptRevision = inventory.revision
         let completion = layoutCompletion
         let acknowledgementToken = layoutAcknowledgementToken
+        layoutDispatchedAt = DispatchTime.now().uptimeNanoseconds
+        cancelLayoutDeadline = scheduleLayoutDeadline(.seconds(1 << layoutTimeoutRetries)) { [weak self] in
+            self?.layoutDeadlineExpired(request)
+        }
         sendLayout(request) { [weak self] reply in
             guard let self, self.epoch == epoch, self.inFlightLayout == request.operation else { return }
+            self.clearLayoutDeadline()
+            self.layoutTimeoutRetries = 0
             self.inFlightLayout = nil
             self.lastLayoutReply = reply
             let acknowledgementIsCurrent = self.layoutAcknowledgementToken == acknowledgementToken

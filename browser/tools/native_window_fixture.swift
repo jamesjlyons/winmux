@@ -46,6 +46,7 @@ import AppKit
             windows.append(window)
         }
         NSApplication.shared.activate(ignoringOtherApps: true)
+        writeReport(NSApplication.shared.keyWindow)
     }
 }
 MainActor.assumeIsolated {

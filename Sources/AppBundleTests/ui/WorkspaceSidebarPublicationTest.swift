@@ -4,6 +4,31 @@ import XCTest
 
 @MainActor
 final class WorkspaceSidebarPublicationTest: XCTestCase {
+    func testOptimisticGroupSelectionPreservesPinnedSectionUntilAsyncRefresh() {
+        setUpWorkspacesForTests()
+        let model = TrayMenuModel.shared
+        let previous = model.workspaceSidebarWorkspaces
+        defer { model.workspaceSidebarWorkspaces = previous }
+        let pin = WorkspaceSidebarPinViewModel(id: UUID(), workspaceName: "pins", title: "Docs",
+            bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: nil, surfaceID: nil,
+            isFocused: true, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: true)
+        model.workspaceSidebarWorkspaces = [
+            .init(name: "pins", projectId: workspaceProjectDefaultId, displayName: "Pinned",
+                  sidebarLabel: "", isGeneratedName: false, monitorScopeId: "display", monitorName: nil,
+                  isFocused: true, isVisible: true, items: [], isPinnedGroup: true, pins: [pin]),
+            .init(name: "group", projectId: workspaceProjectDefaultId, displayName: "Group",
+                  sidebarLabel: "", isGeneratedName: false, monitorScopeId: "display", monitorName: nil,
+                  isFocused: false, isVisible: false, items: []),
+        ]
+
+        optimisticallyMarkWorkspaceFocusedInSidebar("group")
+
+        XCTAssertTrue(model.workspaceSidebarWorkspaces[0].isPinnedGroup)
+        XCTAssertEqual(model.workspaceSidebarWorkspaces[0].pins, [pin])
+        XCTAssertFalse(model.workspaceSidebarWorkspaces[0].isFocused)
+        XCTAssertTrue(model.workspaceSidebarWorkspaces[1].isFocused)
+    }
+
     func testRefreshingExpandedSidebarDoesNotPublishUnchangedExpansion() {
         setUpWorkspacesForTests()
         let panel = WorkspaceSidebarPanel.shared

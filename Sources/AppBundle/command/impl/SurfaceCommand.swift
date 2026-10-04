@@ -89,6 +89,8 @@ private struct BrowserSurfaceState: Encodable {
     let layoutReply: String?
     let layoutRevision: UInt64?
     let layoutGeneration: UInt64?
+    let layoutTimeoutCount: UInt64
+    let pendingLayoutMilliseconds: Double?
     let requestedFrame: SurfaceFrame?
     let requestedVisible: Bool?
 
@@ -105,6 +107,8 @@ private struct BrowserSurfaceState: Encodable {
         layoutReply = session.lastLayoutReply?.rawValue
         layoutRevision = session.lastLayoutRequest?.revision
         layoutGeneration = session.lastLayoutRequest?.generation
+        layoutTimeoutCount = session.layoutTimeoutCount
+        pendingLayoutMilliseconds = session.pendingLayoutMilliseconds
         let host = session.lastLayoutRequest?.hosts.first { $0.surfaces.contains(id) }
         requestedFrame = host.map { .init(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
         requestedVisible = host?.visible

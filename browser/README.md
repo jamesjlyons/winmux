@@ -121,6 +121,13 @@ Unknown edits are refused. The pinned Rust blocker and hashed filter snapshots
 are built into a separate native library and bundled inside Chromium Framework.
 The manifest distinguishes the resulting alpha from the archived control.
 
+Configuration changes require `build_alpha.py --allow-configuration-change`
+on each build whose `args.gn` differs from the original control. The archive stays
+unchanged; the alpha manifest records both argument hashes and
+`configuration_changed_from_control`. Such builds are no longer a matched
+configuration performance comparison with the archived control. The flag does
+not bypass source ownership, revision, or archive validation.
+
 The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.

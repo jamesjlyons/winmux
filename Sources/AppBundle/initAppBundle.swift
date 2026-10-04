@@ -56,13 +56,16 @@ func initializeAppBundle(isolatedBrowser: Bool = false) async throws {
     _ = Workspace.all.first?.focusWorkspace()
     BrowserWorkspaceController.shared.adoptNativeWorkspace()
     try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
-    try await runLightSession(.startup, .forceRun) {
+    // Initial discovery just completed. Only user startup commands can introduce
+    // work that requires another global pass; an empty command list cannot.
+    try await runLightSession(.startup, .forceRun, shouldSchedulePostRefresh: !config.afterStartupCommand.isEmpty) {
         if !didLoadPersistedFrozenWorld {
             smartLayoutAtStartup()
         }
         _ = try await config.afterStartupCommand.runCmdSeq(.defaultEnv, .emptyStdin)
     }
     isWinMuxRuntimeReady = true
+    await BrowserWorkspaceController.shared.runtimeDidBecomeReady()
     TrackpadNavigationController.shared.startObserving()
     RestartSessionController.shared.checkpoint()
     if bootstrappedConfigUrl != nil {

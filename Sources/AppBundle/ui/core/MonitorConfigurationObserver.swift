@@ -10,7 +10,7 @@ final class MonitorConfigurationObserver {
     private init() {}
 
     func prepareForStartup() {
-        refreshMonitorPolicy(refreshReason: "MonitorConfigurationObserver.prepareForStartup")
+        refreshMonitorPolicy(refreshReason: "MonitorConfigurationObserver.prepareForStartup", shouldScheduleRefresh: false)
     }
 
     func startObserving() {
@@ -31,10 +31,12 @@ final class MonitorConfigurationObserver {
         scheduleSettledRefresh()
     }
 
-    private func refreshMonitorPolicy(refreshReason: String) {
+    private func refreshMonitorPolicy(refreshReason: String, shouldScheduleRefresh: Bool = true) {
         WorkspaceSidebarPanel.refreshAll()
         WindowTabStripPanelController.shared.refresh()
-        if TrayMenuModel.shared.isEnabled {
+        // Startup performs its own discovery after restoring workspace metadata.
+        // Initialize chrome policy now without racing that pass with a second scan.
+        if shouldScheduleRefresh, TrayMenuModel.shared.isEnabled {
             scheduleRefreshSession(.globalObserver(refreshReason))
         }
     }

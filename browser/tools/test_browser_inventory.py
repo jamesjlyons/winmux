@@ -67,7 +67,8 @@ def main():
         "StandardOutPath": str(output / "helper.log"), "StandardErrorPath": str(output / "helper.log")}))
     command = [str(executable), "--user-data-dir=" + str(output / "profile"),
                "--no-first-run", "--no-default-browser-check", "--enable-logging=stderr",
-               "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service]
+               "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service,
+               "--winmux-trace-layout"]
     command += (["--winmux-sidebar-preview"] if args.native_window_controls else
                 ["--headless=new", "--winmux-bridge-test-disconnect-once"])
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
@@ -84,6 +85,7 @@ def main():
                 "layout_minimum_rejected": "unsupported", "layout_minimum_no_mutation": "yes",
                 "layout_legacy_controls": "issued", "layout_legacy_controls_restored": "yes",
                 "layout_readopt": "issued", "layout_readopted_window_ids": "yes",
+                "layout_repeated_group_switches": "20", "layout_repeated_group_restore": "yes",
                 "navigation_legacy_rejected": "unsupported", "navigate_first": "issued", "navigate_second": "issued",
                 "navigate_repeat": "issued", "navigate_payload_conflict": "operation_conflict",
                 "navigate_stale_revision": "stale_revision", "navigate_invalid_url": "invalid_request",

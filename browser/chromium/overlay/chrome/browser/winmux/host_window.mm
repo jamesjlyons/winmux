@@ -207,10 +207,13 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
               if (restore && !IsBrowserHostZoomed(host.get()))
                 SetHostPresentation(host.get(), true);
             }
-            if ([notification.name isEqualToString:NSWindowDidResizeNotification] ||
-                [notification.name isEqualToString:NSWindowDidExitFullScreenNotification]) {
+            if (IsBrowserHostZoomed(host.get()) &&
+                ([notification.name isEqualToString:NSWindowDidResizeNotification] ||
+                 [notification.name isEqualToString:NSWindowDidExitFullScreenNotification])) {
               // AppKit may send a resize before performZoom finishes changing
               // its zoom flag. Reconcile after the native operation has unwound.
+              // Ordinary tile resizes have no owned zoom to reconcile. Posting
+              // another inventory callback for each can defeat burst coalescing.
               base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
                   FROM_HERE, base::BindOnce(
                       [](base::WeakPtr<BrowserWindowInterface> browser,

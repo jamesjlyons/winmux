@@ -21,6 +21,20 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def configuration_provenance(baseline, original_args, build_args, allow_change=False):
+    if baseline.get("configuration") != "browser-only-control" or baseline.get("build_succeeded") is False:
+        raise RuntimeError("A completed browser-only control is required")
+    control_hash = digest(original_args)
+    if baseline.get("args_sha256") != control_hash:
+        raise RuntimeError("Archived control arguments no longer match its manifest")
+    current_hash = digest(build_args)
+    changed = current_hash != control_hash
+    if changed and not allow_change:
+        raise RuntimeError("Control configuration differs; use --allow-configuration-change to preserve it and build changed alpha arguments")
+    return {"args_sha256": current_hash, "control_args_sha256": control_hash,
+            "configuration_changed_from_control": changed}
+
+
 def owned_patch_state(source, patch):
     actual = subprocess.check_output([
         "git", "diff", "--binary", "--full-index", "--no-ext-diff", "--no-color", "HEAD"
@@ -67,6 +81,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--allow-configuration-change", action="store_true",
+                        help="Allow alpha arguments to differ from the preserved control; record both configurations")
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be positive")
@@ -99,8 +115,9 @@ def build(args, engine):
     baseline_source = control if control.exists() else output
     baseline = json.loads((baseline_source / "winmux-build-manifest.json").read_text())
     build_args = (CONFIG / "args.gn").read_bytes()
-    if baseline["configuration"] != "browser-only-control" or baseline["args_sha256"] != digest(build_args):
-        raise RuntimeError("A completed control with matching configuration is required")
+    configuration = configuration_provenance(
+        baseline, (baseline_source / "args.gn").read_bytes(), build_args,
+        args.allow_configuration_change)
     patches = integration_patches()
     patch_prefix = owned_patch_prefix(source, patches)
     state_path = engine / "alpha-build-state.json"
@@ -144,7 +161,7 @@ def build(args, engine):
         if not target.exists() or target.read_bytes() != data:
             target.write_bytes(data)
     state = {**owner, "configuration": "alpha-milestone-0", "build_succeeded": False,
-             "patches_sha256": {p.name: digest(p.read_bytes()) for p in patches}, "args_sha256": digest(build_args),
+             **configuration, "patches_sha256": {p.name: digest(p.read_bytes()) for p in patches},
              "overlay_sha256": {name: digest(data) for name, data in overlay.items()},
              "build_jobs": args.jobs, "build_directory": str(output),
              "control_directory": str(control)}

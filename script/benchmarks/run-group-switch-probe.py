@@ -6,6 +6,7 @@ surface. Records IDs and frames; never records window titles, URLs, or screensho
 """
 import argparse, concurrent.futures, json, math, os, selectors, socket, struct, subprocess, time
 from pathlib import Path
+from group_probe_geometry import inventory_signature, require_same_inventory, scope_window_snapshot
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--socket', required=True)
 parser.add_argument('--browser-pid', required=True, type=int)
@@ -52,7 +53,9 @@ unready=[dict(id=x['id'],workspace=x['workspace'],managed=x['browser'].get('mana
 if unready:
  (root/'preflight-failure.json').write_text(json.dumps(dict(reason='Browser layout has not become managed and acknowledged',surfaces=unready),indent=2)+'\n')
  raise RuntimeError('Browser layouts are unmanaged or unacknowledged; refusing startup/no-op switching measurements.')
-native_ids={x['nativeWindowID'] for x in surfaces if x.get('nativeWindowID') is not None}
+inventory=inventory_signature(surfaces)
+probe_started=time.perf_counter()
+other_browser_window_snapshots=[]
 observer=subprocess.Popen([str(root/'window-observer')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,bufsize=0)
 observer_ready = selectors.DefaultSelector()
 observer_ready.register(observer.stdout, selectors.EVENT_READ)
@@ -67,14 +70,16 @@ def snapshot():
   chunk=os.read(observer.stdout.fileno(),65536)
   if not chunk: raise RuntimeError('Window observer closed its output unexpectedly')
   line+=chunk
- return {str(w['id']):w['bounds'] for w in json.loads(line)
-         if w['onscreen'] and (w['pid']==browser_pid or w['id'] in native_ids)}
+ managed,other=scope_window_snapshot(json.loads(line),browser_pid,inventory)
+ other_browser_window_snapshots.append(dict(response_seconds=time.perf_counter()-probe_started,frames=other))
+ return managed
 
 samples=[];expected={};drift=[];failure=None;restore_error=None;restoration_request_succeeded=False
 try:
  for group in options.groups:
   request(['workspace',group]);time.sleep(.6)
   expected[group]=snapshot()
+  require_same_inventory(inventory,json.loads(request(['surface','list'])))
   if not expected[group]:
    raise RuntimeError(f'No measurable visible windows for group {group!r}; refusing empty-geometry timing')
   duplicates=[other for other, frame in expected.items() if other != group and frame == expected[group]]
@@ -113,6 +118,9 @@ try:
                        geometry_changes=sum(a[1]!=b[1] for a,b in zip(positions,positions[1:])),
                        frames=positions if options.capture_frames else [],
                        frame_snapshot_requested_ms=frame_snapshot_requested if options.capture_frames else []))
+   # Keep catalog checks outside the timed snapshot loop. Auxiliary Chromium
+   # windows may come and go; new/replaced/moved surfaces invalidate the run.
+   require_same_inventory(inventory,json.loads(request(['surface','list'])))
 except (Exception, KeyboardInterrupt) as error:
  failure=f'{type(error).__name__}: {error}'
 finally:
@@ -131,13 +139,17 @@ finally:
    observer.kill();observer.wait(timeout=3)
 missing_matches=[dict(index=s['index'],group=s['group']) for s in samples if s['first_matching_geometry_ms'] is None]
 report=dict(samples=samples,frame_drift=drift,expected=expected,original_selection=original,
+            inventory_identity=inventory,other_browser_window_snapshots=other_browser_window_snapshots,
             measurement_method=dict(geometry_timestamp='snapshot_response_received',
                                     geometry_bound='upper_bound_on_first_observed_match',
                                     frames_format='[snapshot_response_ms, window_bounds]',
+                                    other_browser_windows='All non-inventory browser windows; timestamps are seconds since probe initialization',
                                     frame_snapshot_requested_ms='Parallel request timestamps for optional frames'),
             missing_geometry_matches=missing_matches,requested_samples=options.samples,
             failure=failure,restoration_request_succeeded=restoration_request_succeeded,restoration_error=restore_error,
             limits=['Command response and WindowServer geometry visibility only; not rendered content or input readiness.',
+                    'Geometry targets original inventory host IDs; other browser windows are recorded separately without size filtering.',
+                    'Surface identities, availability, assignments and host IDs are revalidated outside each timed polling loop.',
                     'Sequential switches in existing groups; system load and active apps are uncontrolled.',
                     'Geometry timings are measured after each snapshot returns: conservative observation upper bounds including snapshot/polling overhead.',
                     'Snapshot-request timestamps are observation-interval starts, not measured switch completion.',

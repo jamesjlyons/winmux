@@ -297,9 +297,85 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 guard await exerciseNativeWindowControls(epoch: epoch, remote: remote, ids: ids, windows: windows,
                     split: split, peerContainer: second) else { return }
             }
+            guard await exerciseRepeatedGroupSwitches(epoch: epoch, remote: remote, ids: ids,
+                windows: windows, split: split) else { return }
             guard await exerciseNavigation(epoch: epoch, remote: remote, ids: ids, windows: windows) else { return }
         }
         exerciseActions(epoch: epoch)
+    }
+
+    @MainActor private func exerciseRepeatedGroupSwitches(epoch: String, remote: BrowserOwnerProxy,
+                                                         ids: [SurfaceID], windows: [SurfaceID: UInt32],
+                                                         split: [BrowserHostPlacement]) async -> Bool {
+        // Exercise the warm path after adoption and native presentation changes.
+        // Every switch must retain each host and its exact original tile frame.
+        var completed = 0
+        var generation: UInt64 = 99
+        func apply(_ placements: [BrowserHostPlacement]) async -> String {
+            for attempt in 0..<3 {
+                let revision = lock.withLock { inventory.revision }
+                generation += 1
+                let outcome = await testLayout(placements, remote: remote, epoch: epoch,
+                    revision: revision, generation: generation)
+                if outcome != "stale_revision" { return outcome }
+                // Native fullscreen/zoom notifications can still be settling.
+                // Match the normal adapter's revision recovery, never retry a
+                // different failure or resend with an already consumed generation.
+                FileHandle.standardError.write(Data("Repeated-group fixture stale revision \(revision), attempt \(attempt + 1).\n".utf8))
+                if attempt == 2 { return "stale_revision_exhausted" }
+                guard await waitForTestInventory({ $0.revision > revision }) != nil else {
+                    return "stale_revision_without_new_inventory"
+                }
+            }
+            return "invalid_fixture"
+        }
+        for index in 0..<20 {
+            let selected = ids[index % ids.count]
+            let placements = split.map { placement in
+                BrowserHostPlacement(containerID: placement.containerID, surfaces: placement.surfaces,
+                    selected: placement.selected,
+                    frame: .init(x: placement.x, y: placement.y, width: placement.width, height: placement.height),
+                    visible: placement.surfaces.contains(selected), nativeControls: true)
+            }
+            let outcome = await apply(placements)
+            guard outcome == "issued" else {
+                noteTest("layout_repeated_group_failure", outcome)
+                noteTest("layout_repeated_group_switches", String(completed))
+                return false
+            }
+            guard await waitForTestInventory({ state in
+                      Set(state.tabs.keys) == Set(ids) && split.allSatisfy { placement in
+                          let id = placement.surfaces[0]
+                          guard let tab = state.tabs[id] else { return false }
+                          return tab.hostWindowID == windows[id] && tab.hostManaged &&
+                              tab.hostVisible == (id == selected) &&
+                              tab.hostFrame == SurfaceFrame(x: placement.x, y: placement.y,
+                                  width: placement.width, height: placement.height)
+                      }
+                  }) != nil else {
+                noteTest("layout_repeated_group_failure", "inventory_or_frame_mismatch")
+                noteTest("layout_repeated_group_switches", String(completed))
+                return false
+            }
+            completed += 1
+        }
+        noteTest("layout_repeated_group_switches", String(completed))
+        let outcome = await apply(split)
+        guard outcome == "issued", await waitForTestInventory({ state in
+            Set(state.tabs.keys) == Set(ids) && split.allSatisfy { placement in
+                let id = placement.surfaces[0]
+                guard let tab = state.tabs[id] else { return false }
+                return tab.hostWindowID == windows[id] && tab.hostManaged && tab.hostVisible == true &&
+                    tab.hostFrame == SurfaceFrame(x: placement.x, y: placement.y,
+                        width: placement.width, height: placement.height)
+            }
+        }) != nil else {
+            noteTest("layout_repeated_group_failure", outcome == "issued" ? "restore_inventory_or_frame_mismatch" : outcome)
+            noteTest("layout_repeated_group_restore", "failed")
+            return false
+        }
+        noteTest("layout_repeated_group_restore", "yes")
+        return true
     }
 
     @MainActor private func exerciseNativeWindowControls(epoch: String, remote: BrowserOwnerProxy,

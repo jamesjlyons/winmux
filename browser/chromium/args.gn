@@ -1,9 +1,11 @@
-# Matched baseline/alpha configurations must differ only in downstream integration.
+# Configuration changes from an archived control require explicit build opt-in.
 is_debug = false
 is_component_build = false
 target_cpu = "arm64"
 symbol_level = 1
 is_chrome_branded = false
+# Production alpha must not activate Chromium's forced test field trials.
+disable_fieldtrial_testing_config = true
 use_remoteexec = false
 # Apple's linker supports the arm64e.x1 TAPI targets in the Xcode 27 SDK.
 # Use the same supported native arm64 linker for control and alpha builds.

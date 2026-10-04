@@ -273,8 +273,10 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (request.action == "focus") {
       strip->ActivateTabAt(index);
       if (IsBrowserHostMinimized(browser)) RestoreMinimizedBrowserHost(browser);
+      // BrowserView::Show activates an already visible window and shows hidden
+      // windows actively. A second Activate repeats Cocoa window ordering and
+      // transaction synchronization for the same focus request.
       browser->GetWindow()->Show();
-      browser->GetWindow()->Activate();
     } else if (request.action == "close") {
       strip->CloseWebContents(contents, TabCloseTypes::CLOSE_USER_GESTURE |
                                           TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
@@ -300,7 +302,6 @@ class BrowserInventory final : public BrowserCollectionObserver,
     } else if (request.action == "extensions") {
       strip->ActivateTabAt(index);
       browser->GetWindow()->Show();
-      browser->GetWindow()->Activate();
       auto* extensions = ExtensionsContainer::From(*browser);
       if (extensions && extensions->HasAnyExtensions()) {
         extensions->ToggleExtensionsMenu();
@@ -427,7 +428,6 @@ class BrowserInventory final : public BrowserCollectionObserver,
         if (contents) surface = PersistentSurfaceID(contents);
         if (!surface.empty()) {
           browser->GetWindow()->Show();
-          browser->GetWindow()->Activate();
           outcome = "issued";
         }
       }

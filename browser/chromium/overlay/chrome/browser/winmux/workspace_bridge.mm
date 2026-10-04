@@ -59,6 +59,8 @@ NSString* OwnTeam() {
 @property(nonatomic, copy) NSString* reportPath;
 @property(nonatomic, copy) NSString* team;
 @property(nonatomic) BOOL disconnectOnceForTesting;
+@property(nonatomic) BOOL traceLayouts;
+@property(nonatomic) BOOL dropLayoutReplyOnceForTesting;
 @property(nonatomic, copy) NSString* serviceName;
 @property(nonatomic, copy) NSString* epoch;
 @property(nonatomic) NSInteger protocolVersion;
@@ -80,6 +82,8 @@ NSString* OwnTeam() {
 @synthesize reportPath = _reportPath;
 @synthesize team = _team;
 @synthesize disconnectOnceForTesting = _disconnectOnceForTesting;
+@synthesize traceLayouts = _traceLayouts;
+@synthesize dropLayoutReplyOnceForTesting = _dropLayoutReplyOnceForTesting;
 @synthesize serviceName = _serviceName;
 @synthesize epoch = _epoch;
 @synthesize protocolVersion = _protocolVersion;
@@ -355,21 +359,35 @@ NSString* OwnTeam() {
            revision:(uint64_t)revision generation:(uint64_t)layoutGeneration reply:(void (^)(NSString*))reply {
   dispatch_async(self.queue, ^{
     const uint64_t generation = self->_state.generation();
+    if (self.traceLayouts)
+      NSLog(@"WinMux layout: received generation=%llu revision=%llu", layoutGeneration, revision);
     if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 3 ||
         ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch"); return; }
     if (layout.length > 262144 || operation.length > 40) { reply(@"invalid_request"); return; }
     if (!layoutGeneration || layoutGeneration < self->_latestLayout.load()) { reply(@"stale_layout"); return; }
     self->_latestLayout.store(layoutGeneration);
     std::string json(static_cast<const char*>(layout.bytes), layout.length);
-    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+    const bool posted = content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string epoch,
            std::string operation, uint64_t revision, uint64_t layoutGeneration, std::string json,
            void (^completion)(NSString*)) {
+          if (bridge.traceLayouts)
+            NSLog(@"WinMux layout: ui_begin generation=%llu", layoutGeneration);
           if (bridge->_activeGeneration.load() != activeGeneration) { completion(@"stale_epoch"); return; }
           if (layoutGeneration < bridge->_latestLayout.load()) { completion(@"stale_layout"); return; }
-          completion(base::SysUTF8ToNSString(winmux::PerformBrowserLayout(epoch, operation, revision, layoutGeneration, json)));
+          NSString* outcome = base::SysUTF8ToNSString(
+              winmux::PerformBrowserLayout(epoch, operation, revision, layoutGeneration, json));
+          if (bridge.traceLayouts)
+            NSLog(@"WinMux layout: ui_end generation=%llu outcome=%@", layoutGeneration, outcome);
+          if (bridge.dropLayoutReplyOnceForTesting && [outcome isEqualToString:@"issued"]) {
+            bridge.dropLayoutReplyOnceForTesting = NO;
+            NSLog(@"WinMux layout: test_dropped_reply generation=%llu", layoutGeneration);
+            return;
+          }
+          completion(outcome);
         }, self, generation, base::SysNSStringToUTF8(epoch), base::SysNSStringToUTF8(operation), revision,
         layoutGeneration, std::move(json), [reply copy]));
+    if (!posted) reply(@"unavailable");
   });
 }
 
@@ -425,6 +443,8 @@ void StartWorkspaceBridge() {
   bridge = [[WMChromiumWorkspaceBridge alloc] init];
   const auto* command = base::CommandLine::ForCurrentProcess();
   bridge.reportPath = base::SysUTF8ToNSString(command->GetSwitchValueNative("winmux-bridge-report"));
+  // Opt-in diagnostics record only protocol metadata, never page content.
+  bridge.traceLayouts = command->HasSwitch("winmux-trace-layout");
   bridge.serviceName = kHelperID;
   if (command->HasSwitch("winmux-managed-workspace") && command->HasSwitch("user-data-dir"))
     bridge.serviceName = [kHelperID stringByAppendingString:@".managed"];
@@ -448,6 +468,10 @@ void StartWorkspaceBridge() {
   }, bridge), isolated_test && command->HasSwitch("winmux-test-inventory-actions"));
   bridge.disconnectOnceForTesting = command->HasSwitch("headless") &&
       bridge.reportPath.length && command->HasSwitch("winmux-bridge-test-disconnect-once");
+  // Fault injection cannot affect an enrolled user workspace: it requires the
+  // existing isolated service, dedicated profile and diagnostic report gates.
+  bridge.dropLayoutReplyOnceForTesting = isolated_test &&
+      command->HasSwitch("winmux-test-drop-layout-reply-once");
   [bridge startWithRegistration:command->HasSwitch("winmux-register-helper")];
 }
 void StopWorkspaceBridge() {

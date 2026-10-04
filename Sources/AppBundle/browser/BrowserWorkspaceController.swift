@@ -34,7 +34,9 @@ public final class BrowserWorkspaceController {
     private var placements: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
-    private lazy var refreshScheduler = CoalescedBrowserRefreshScheduler { [weak self] in
+    private lazy var refreshScheduler = CoalescedBrowserRefreshScheduler(isReady: { [weak self] in
+        isWinMuxRuntimeReady || self?.previewWindow != nil
+    }) { [weak self] in
         await self?.performScheduledRefresh()
     }
     private var browserFocusDeadline: Date?
@@ -974,6 +976,16 @@ public final class BrowserWorkspaceController {
 
     func scheduleRefresh() { refreshScheduler.schedule() }
 
+    /// Inventory may arrive while native discovery and saved-layout restoration
+    /// are still running. Keep that work pending, then publish it before startup
+    /// reports ready, even if the browser sends no further inventory event.
+    func runtimeDidBecomeReady() async {
+        guard isWinMuxRuntimeReady else { return }
+        let interval = signposter.beginInterval("Browser startup presentation")
+        defer { signposter.endInterval("Browser startup presentation", interval) }
+        await refreshScheduler.resumePendingRefreshAndWaitForPass()
+    }
+
     private func performScheduledRefresh() async {
         if previewWindow != nil { refreshPreview() }
         guard isWinMuxRuntimeReady else { return }
@@ -1109,19 +1121,47 @@ private struct BrowserSidebarPreviewView: View {
 /// bursts during that pass request one trailing pass instead of overlapping tasks.
 @MainActor
 final class CoalescedBrowserRefreshScheduler {
+    private let isReady: @MainActor () -> Bool
     private let refresh: @MainActor () async -> Void
     private var requested = false
+    private var requestedGeneration: UInt64 = 0
+    private var completedGeneration: UInt64 = 0
+    private var passWaiters: [(generation: UInt64, continuation: CheckedContinuation<Void, Never>)] = []
     private var task: Task<Void, Never>?
 
-    init(refresh: @escaping @MainActor () async -> Void) { self.refresh = refresh }
+    init(isReady: @escaping @MainActor () -> Bool = { true }, refresh: @escaping @MainActor () async -> Void) {
+        self.isReady = isReady
+        self.refresh = refresh
+    }
 
     func schedule() {
         requested = true
-        guard task == nil else { return }
+        requestedGeneration += 1
+        resumePendingRefresh()
+    }
+
+    /// Wait only for requests already queued by the caller. Later browser
+    /// inventory must not make startup depend on the whole browser becoming idle.
+    func resumePendingRefreshAndWaitForPass() async {
+        guard isReady(), completedGeneration < requestedGeneration else { return }
+        let generation = requestedGeneration
+        resumePendingRefresh()
+        await withCheckedContinuation { continuation in
+            passWaiters.append((generation, continuation))
+        }
+    }
+
+    func resumePendingRefresh() {
+        guard requested, isReady(), task == nil else { return }
         task = Task { @MainActor in
-            while self.requested {
+            while self.requested, self.isReady() {
+                let generation = self.requestedGeneration
                 self.requested = false
                 await self.refresh()
+                self.completedGeneration = generation
+                let completed = self.passWaiters.filter { $0.generation <= generation }
+                self.passWaiters.removeAll { $0.generation <= generation }
+                completed.forEach { $0.continuation.resume() }
             }
             self.task = nil
         }
