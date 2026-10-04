@@ -3,13 +3,16 @@ import AppKit
 struct WindowTabStripLayoutContext {
     let strip: WindowTabStripViewModel
     let width: CGFloat
+    let tabOrder: [UInt32]
+    let tabIndicesById: [UInt32: Int]
 
-    var tabOrder: [UInt32] {
-        strip.tabs.map(\.windowId)
-    }
-
-    var tabIndicesById: [UInt32: Int] {
-        Dictionary(uniqueKeysWithValues: strip.tabs.enumerated().map { ($0.element.windowId, $0.offset) })
+    init(strip: WindowTabStripViewModel, width: CGFloat) {
+        self.strip = strip
+        self.width = width
+        tabOrder = strip.tabs.map(\.windowId)
+        // Every tab consults this during a reorder. Build the index once per render,
+        // rather than allocating a full dictionary for each tab's visual offset.
+        tabIndicesById = Dictionary(uniqueKeysWithValues: tabOrder.enumerated().map { ($0.element, $0.offset) })
     }
 
     var tabWidth: CGFloat {

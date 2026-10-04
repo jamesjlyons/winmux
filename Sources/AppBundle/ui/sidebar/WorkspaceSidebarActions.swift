@@ -7,7 +7,7 @@ import WorkspaceCore
 func focusWorkspaceFromSidebar(_ workspaceName: String, targetMonitorScopeId: String? = nil) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
     optimisticallyMarkWorkspaceFocusedInSidebar(workspaceName)
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(shouldSchedulePostRefresh: false, synchronizeNativeFocus: false) {
         guard let workspace = Workspace.existing(byName: workspaceName) else { return }
         _ = focusWorkspaceFromSidebar(workspace, targetMonitorScopeId: targetMonitorScopeId)
     }
@@ -62,7 +62,7 @@ func focusWorkspaceFromSidebar(_ workspace: Workspace, targetMonitorScopeId: Str
 @MainActor
 func overrideWorkspaceInUseFromSidebar(_ workspaceName: String, targetMonitorScopeId: String? = nil) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(shouldSchedulePostRefresh: false, synchronizeNativeFocus: false) {
         guard let workspace = Workspace.existing(byName: workspaceName),
               let targetMonitorScopeId,
               let targetMonitor = workspaceSidebarMonitor(forScopeId: targetMonitorScopeId)
@@ -73,11 +73,20 @@ func overrideWorkspaceInUseFromSidebar(_ workspaceName: String, targetMonitorSco
 }
 
 @MainActor
-func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> Void) {
+func runWorkspaceSidebarSession(
+    shouldSchedulePostRefresh: Bool = true,
+    synchronizeNativeFocus: Bool = true,
+    _ body: @escaping @MainActor () async throws -> Void,
+) {
     guard let token: RunSessionGuard = .isServerEnabled else { return }
     Task { @MainActor in
         do {
-            try await runLightSession(.menuBarButton, token) {
+            try await runLightSession(
+                .menuBarButton,
+                token,
+                shouldSchedulePostRefresh: shouldSchedulePostRefresh,
+                synchronizeNativeFocus: synchronizeNativeFocus
+            ) {
                 try await body()
             }
         } catch {

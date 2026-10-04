@@ -4,7 +4,8 @@ import WorkspaceCore
 
 struct SurfaceCommand: Command {
     let args: SurfaceCmdArgs
-    let shouldResetClosedWindowsCache = true
+    var shouldResetClosedWindowsCache: Bool { args.operands.first != "list" }
+    var canSkipPostCommandRefresh: Bool { args.operands.first == "list" }
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         let controller = BrowserWorkspaceController.shared

@@ -32,7 +32,12 @@ enum BrowserToolbarAction: Equatable {
 final class BrowserToolbarController {
     static let shared = BrowserToolbarController()
     nonisolated static let height = CGFloat(BrowserPageChromeGeometry.headerHeight)
-    private var panels: [SurfaceID: BrowserToolbarPanel] = [:]
+    private(set) var panels: [SurfaceID: BrowserToolbarPanel] = [:]
+    private var hiddenPanelIDs: [SurfaceID] = []
+    private let isAvailable: @MainActor (SurfaceID) -> Bool
+    // Each cached header owns a page backing too. Bound dormant AppKit windows
+    // while keeping the recently visited groups ready for instant reuse.
+    static let hiddenPanelLimit = 32
     private var plannedItems: [SurfaceID: BrowserToolbarItem] = [:]
     private var displayedItems: [SurfaceID: BrowserToolbarItem] = [:]
 
@@ -50,7 +55,7 @@ final class BrowserToolbarController {
         canFocus: { [weak self] in
             guard let self, BrowserWorkspaceController.shared.ownsForegroundBrowser,
                   let id = self.editingSurfaceID ?? BrowserWorkspaceController.shared.focusCoordinator.target,
-                  self.panels[id] != nil else { return false }
+                  self.panels[id]?.isVisible == true else { return false }
             // An explicit user binding takes precedence over the browser default.
             if let mode = activeMode.flatMap({ config.modes[$0] }),
                mode.bindings.values.contains(where: { $0.keyCode == .l && $0.modifiers == .command }) { return false }
@@ -64,6 +69,10 @@ final class BrowserToolbarController {
         onActivation: { [weak self] in
             self?.panels.values.forEach { $0.invalidateHostStacking() }
         })
+
+    init(isAvailable: @escaping @MainActor (SurfaceID) -> Bool = { BrowserWorkspaceController.shared.isAvailable($0) }) {
+        self.isAvailable = isAvailable
+    }
 
     /// Keep layout acknowledgements from taking focus away from native address
     /// entry or keyboard/VoiceOver operation of the resize grip.
@@ -79,8 +88,21 @@ final class BrowserToolbarController {
         let visible = Set(items.map(\.surfaceID))
         plannedItems = Dictionary(uniqueKeysWithValues: items.map { ($0.surfaceID, $0) })
         for id in Array(panels.keys) where !visible.contains(id) {
-            panels.removeValue(forKey: id)?.dismiss()
+            // Hide immediately, but do not destroy native controls on each group
+            // switch. Retain only live pages, with a bounded least-recently-used cache.
+            if !hiddenPanelIDs.contains(id) {
+                panels[id]?.dismiss()
+                hiddenPanelIDs.append(id)
+            }
+            if !isAvailable(id) {
+                panels.removeValue(forKey: id)
+                hiddenPanelIDs.removeAll { $0 == id }
+            }
             displayedItems.removeValue(forKey: id)
+        }
+        hiddenPanelIDs.removeAll { visible.contains($0) }
+        while hiddenPanelIDs.count > Self.hiddenPanelLimit {
+            panels.removeValue(forKey: hiddenPanelIDs.removeFirst())
         }
         for plannedItem in items {
             let item = BrowserWindowDragController.shared.presentationItem(plannedItem)
@@ -99,7 +121,7 @@ final class BrowserToolbarController {
             displayedItems[item.surfaceID] = item
             panel.update(item)
         }
-        if panels.isEmpty { keyboard.stop() } else { keyboard.refresh() }
+        if items.isEmpty { keyboard.stop() } else { keyboard.refresh() }
     }
 
     /// The native host reports its actual body in global top-left coordinates.
@@ -137,6 +159,7 @@ final class BrowserToolbarController {
         BrowserWindowDragController.shared.cancel()
         for panel in panels.values { panel.dismiss() }
         panels.removeAll()
+        hiddenPanelIDs.removeAll()
         plannedItems.removeAll()
         displayedItems.removeAll()
     }

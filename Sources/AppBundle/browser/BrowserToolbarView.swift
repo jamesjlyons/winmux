@@ -22,6 +22,17 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     private var controlsEnabled = true
     private var canGoBack = false
     private var canGoForward = false
+    private var currentControlState: ControlState?
+
+    private struct ControlState: Equatable {
+        let url: String
+        let isLoading: Bool
+        let controlsEnabled: Bool
+        let canGoBack: Bool
+        let canGoForward: Bool
+        let isFocused: Bool
+        let preserveAddress: Bool
+    }
 
     init() {
         super.init(frame: .zero)
@@ -140,11 +151,23 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         // A managed page's backing already draws the entire frame, including
         // the header. Drawing it again here doubles the material and corner
         // outline, and puts a straight separator across the native page curve.
-        chromeBackground.isHidden = item.pageFrame != nil && item.hostWindowID != nil
+        let hidesHeaderBackground = item.pageFrame != nil && item.hostWindowID != nil
+        if chromeBackground.isHidden != hidesHeaderBackground { chromeBackground.isHidden = hidesHeaderBackground }
         chromeBackground.update(item)
+        // Editing can begin and end between model updates (for example when
+        // leaving a group). Restore the committed URL even if model state is equal.
+        if !preserveAddress, address.stringValue != item.url { address.stringValue = item.url }
+        let state = ControlState(url: item.url, isLoading: item.isLoading,
+            controlsEnabled: item.controlsEnabled, canGoBack: item.canGoBack,
+            canGoForward: item.canGoForward, isFocused: item.isFocused, preserveAddress: preserveAddress)
+        guard currentControlState != state else { return }
+        let previous = currentControlState
+        currentControlState = state
         minimize.isEnabled = item.controlsEnabled
         zoom.isEnabled = item.controlsEnabled
-        for button in [close, minimize, zoom] { button.needsDisplay = true }
+        if previous?.isFocused != item.isFocused {
+            for button in [close, minimize, zoom] { button.needsDisplay = true }
+        }
         isLoading = item.isLoading
         controlsEnabled = item.controlsEnabled
         canGoBack = item.canGoBack
@@ -154,13 +177,12 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         reload.isEnabled = item.controlsEnabled
         address.isEnabled = item.controlsEnabled
         addressWell.isEditing = preserveAddress
-        if !preserveAddress { address.stringValue = item.url }
-        let label = item.isLoading ? "Stop loading" : "Reload page"
-        reload.image = NSImage(systemSymbolName: item.isLoading ? "xmark" : "arrow.clockwise", accessibilityDescription: label)
-        reload.toolTip = label
-        reload.setAccessibilityLabel(label)
-        needsLayout = true
-        needsDisplay = true
+        if previous?.isLoading != item.isLoading {
+            let label = item.isLoading ? "Stop loading" : "Reload page"
+            reload.image = NSImage(systemSymbolName: item.isLoading ? "xmark" : "arrow.clockwise", accessibilityDescription: label)
+            reload.toolTip = label
+            reload.setAccessibilityLabel(label)
+        }
     }
 
     private func configure(_ button: NSButton, symbol: String, label: String, action: Selector) {
@@ -292,7 +314,7 @@ private final class BrowserToolbarButton: NSButton {
 
 private final class BrowserToolbarAddressWell: NSView {
     weak var field: NSTextField?
-    var isEditing = false { didSet { needsDisplay = true } }
+    var isEditing = false { didSet { if oldValue != isEditing { needsDisplay = true } } }
     private var isHovered = false
     private var hoverTracking: NSTrackingArea?
     override var needsPanelToBecomeKey: Bool { true }

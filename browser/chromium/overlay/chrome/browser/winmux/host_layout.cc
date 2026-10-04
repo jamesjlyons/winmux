@@ -186,6 +186,7 @@ std::string ApplyHostLayout(const std::string& json) {
   }
 
   std::set<BrowserWindowInterface*> claimed;
+  std::vector<Host> hide_after_reveal;
   for (const auto& p : plan) {
     if (!p.contents) return "unavailable";
     auto* source = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(p.contents.get());
@@ -252,9 +253,22 @@ std::string ApplyHostLayout(const std::string& json) {
     else if (!p.managed)
       managed.observer.reset();
     claimed.insert(host.get());
-    host->GetWindow()->SetBounds(p.bounds);
-    if (p.visible) host->GetWindow()->ShowInactive();
-    else host->GetWindow()->Hide();
+    auto* window = host->GetWindow();
+    // A visibility-only group switch must not resize the page or reorder an
+    // already visible peer. Both operations can trigger Cocoa/renderer layout
+    // and produce movement even though the workspace geometry is unchanged.
+    if (window->GetBounds() != p.bounds) window->SetBounds(p.bounds);
+    if (p.visible) {
+      if (!window->IsVisible()) window->ShowInactive();
+    } else if (window->IsVisible()) {
+      hide_after_reveal.push_back(host);
+    }
+  }
+  // Reveal the incoming group before withdrawing the old one, independently of
+  // surface-ID ordering. Avoid a desktop flash between two complete layouts.
+  for (const auto& host : hide_after_reveal) {
+    if (host && !host->IsDeleteScheduled() &&
+        !IsBrowserHostSuspended(host.get())) host->GetWindow()->Hide();
   }
   // A removed placement is released to conventional controls, never closed.
   for (auto it = Hosts().begin(); it != Hosts().end();) {

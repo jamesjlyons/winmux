@@ -92,7 +92,8 @@ struct DemoContainer<Content: View>: View {
 
 struct FocusDemoView: View {
     @State private var phase = 0
-    private let timer = Timer.publish(every: 0.8, on: .main, in: .common).autoconnect()
+    @Environment(\.settingsDemoAnimationsEnabled) private var animationsEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         DemoContainer {
@@ -102,15 +103,22 @@ struct FocusDemoView: View {
             }
             .animation(.easeInOut(duration: 0.2), value: phase)
         }
-        .onReceive(timer) { _ in
-            phase = (phase + 1) % 4 // 0: reset, 1: left focused, 2: right focused, 3: delay
+        .task(id: animationsEnabled && !reduceMotion) {
+            guard animationsEnabled && !reduceMotion else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(800)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                phase = (phase + 1) % 4
+            }
         }
     }
 }
 
 struct MoveDemoView: View {
     @State private var phase = 0
-    private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
+    @Environment(\.settingsDemoAnimationsEnabled) private var animationsEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         DemoContainer {
@@ -138,15 +146,22 @@ struct MoveDemoView: View {
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: phase)
         }
-        .onReceive(timer) { _ in
-            phase = (phase + 1) % 3 // 0: A-B, 1: B-A, 2: delay
+        .task(id: animationsEnabled && !reduceMotion) {
+            guard animationsEnabled && !reduceMotion else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(1000)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                phase = (phase + 1) % 3
+            }
         }
     }
 }
 
 struct SplitDemoView: View {
     @State private var phase = 0
-    private let timer = Timer.publish(every: 1.2, on: .main, in: .common).autoconnect()
+    @Environment(\.settingsDemoAnimationsEnabled) private var animationsEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         DemoContainer {
@@ -187,8 +202,14 @@ struct SplitDemoView: View {
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: phase)
         }
-        .onReceive(timer) { _ in
-            phase = (phase + 1) % 3 // 0: side-by-side, 1: stacked, 2: delay
+        .task(id: animationsEnabled && !reduceMotion) {
+            guard animationsEnabled && !reduceMotion else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(1200)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                phase = (phase + 1) % 3
+            }
         }
     }
 }

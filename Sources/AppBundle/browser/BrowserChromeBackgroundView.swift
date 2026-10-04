@@ -6,6 +6,8 @@ import AppKit
 final class BrowserChromeBackgroundView: NSView {
     private let material = BrowserChromeMaterialView()
     private let outline: BrowserChromeOutlineView
+    private var currentColor: NSColor?
+    private var currentFocus: Bool?
 
     init(headerOnly: Bool) {
         outline = BrowserChromeOutlineView(headerOnly: headerOnly)
@@ -37,6 +39,9 @@ final class BrowserChromeBackgroundView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func update(_ item: BrowserToolbarItem) {
+        guard currentColor != item.chromeColor || currentFocus != item.isFocused else { return }
+        currentColor = item.chromeColor
+        currentFocus = item.isFocused
         material.isHidden = item.chromeColor != nil
         // The nonactivating helper panel is never the browser's key window.
         material.state = item.isFocused ? .active : .inactive

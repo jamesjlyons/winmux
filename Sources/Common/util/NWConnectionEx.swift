@@ -50,8 +50,12 @@ extension NWConnection {
                 receive(minimumIncompleteLength: remaining, maximumLength: remaining) { data, context, isComplete, error in
                     if let error {
                         cont.resume(returning: .failure(error))
+                    } else if let data, !data.isEmpty, !isComplete || data.count == remaining {
+                        cont.resume(returning: .success(data))
                     } else {
-                        cont.resume(returning: .success(data ?? Data()))
+                        // EOF may arrive with no error, including partway through a
+                        // frame. Re-receiving empty data spins forever on a closed peer.
+                        cont.resume(returning: .failure(.posix(.ECONNRESET)))
                     }
                 }
             }
@@ -77,7 +81,7 @@ extension NWConnection {
     public func readNonAtomic() async -> Result<Data, NWError> {
         switch await read(bytes: 4) {
             case .success(let header):
-                let count = header.withUnsafeBytes { $0.load(as: UInt32.self) }
+                let count = header.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
                 return await read(bytes: Int(count))
             case .failure(let e):
                 return .failure(e)

@@ -11,6 +11,10 @@ open class Window: TreeNode, Hashable {
     var isFullscreen: Bool = false
     var noOuterGapsInFullscreen: Bool = false
     var layoutReason: LayoutReason = .standard
+    /// A size verified after a completed shared-layout AX write. Parking only changes
+    /// position, so returning to this size need not wait for another minimum-size probe.
+    @MainActor var lastConfirmedSharedLayoutSize: CGSize?
+    @MainActor var restoredFloatingFrameMonitorRect: Rect?
     /// Event-invalidated caches of the native window state (frame, fullscreen, minimized),
     /// read on hot paths instead of polling every window over AX. Entering/exiting native
     /// fullscreen always resizes the window (invalidated via moved/resized events); minimize
@@ -28,11 +32,12 @@ open class Window: TreeNode, Hashable {
     @MainActor private var lastKnownNativeStateGeneration: UInt64 = 0
 
     @MainActor
-    func invalidateLastKnownNativeState() {
+    func invalidateLastKnownNativeState(includingSharedLayoutSize: Bool = false) {
         lastKnownNativeStateGeneration += 1
         lastKnownActualRect = nil
         lastKnownNativeFullscreen = nil
         lastKnownNativeMinimized = nil
+        if includingSharedLayoutSize { lastConfirmedSharedLayoutSize = nil }
     }
 
     /// Capture before starting an async AX observation and pass to the matching record method.
@@ -43,6 +48,7 @@ open class Window: TreeNode, Hashable {
     func recordObservedActualRect(_ rect: Rect?, token: UInt64) {
         if lastKnownNativeStateGeneration == token {
             lastKnownActualRect = rect
+            if let rect, rect.size != lastConfirmedSharedLayoutSize { lastConfirmedSharedLayoutSize = nil }
         }
     }
 
@@ -68,6 +74,7 @@ open class Window: TreeNode, Hashable {
     func recordAuthoritativeActualRect(_ rect: Rect?) {
         lastKnownNativeStateGeneration += 1
         lastKnownActualRect = rect
+        if let rect, rect.size != lastConfirmedSharedLayoutSize { lastConfirmedSharedLayoutSize = nil }
     }
 
     @MainActor

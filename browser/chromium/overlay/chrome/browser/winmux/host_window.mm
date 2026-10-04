@@ -47,6 +47,7 @@ bool SetHostPresentation(BrowserWindowInterface* browser, bool managed) {
       @"shadow": @(native.hasShadow),
       @"movable": @(native.movable),
       @"movable_by_background": @(native.movableByWindowBackground),
+      @"animation_behavior": @(native.animationBehavior),
     };
     objc_setAssociatedObject(native, &kSavedWindowPresentation, saved,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -62,6 +63,10 @@ bool SetHostPresentation(BrowserWindowInterface* browser, bool managed) {
     // Winmux owns surface movement through the authenticated layout channel.
     native.movable = NO;
     native.movableByWindowBackground = NO;
+    // Cocoa's document-window ordering animation scales and bounces every page
+    // during a group switch, including its disappearance. The workspace owns
+    // visibility: present the existing frame immediately and without movement.
+    native.animationBehavior = NSWindowAnimationBehaviorNone;
   } else {
     NSDictionary* saved = objc_getAssociatedObject(native, &kSavedWindowPresentation);
     if (saved) {
@@ -73,6 +78,8 @@ bool SetHostPresentation(BrowserWindowInterface* browser, bool managed) {
       native.hasShadow = [saved[@"shadow"] boolValue];
       native.movable = [saved[@"movable"] boolValue];
       native.movableByWindowBackground = [saved[@"movable_by_background"] boolValue];
+      native.animationBehavior = static_cast<NSWindowAnimationBehavior>(
+          [saved[@"animation_behavior"] integerValue]);
       objc_setAssociatedObject(native, &kSavedWindowPresentation, nil,
                                OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }

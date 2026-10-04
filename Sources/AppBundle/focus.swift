@@ -165,7 +165,7 @@ extension Workspace {
         // a browser MRU. Browser-only groups have no native focusable leaf.
         let surface = restoringSurfaceSelection ? controller.preferredSurface(in: self) : nil
         guard setFocus(to: toLiveFocus(), recordSurfaceIntent: restoringSurfaceSelection && surface == nil) else { return false }
-        if let surface, controller.select(surface) != .issued {
+        if let surface, controller.select(surface, deferNativeFocusUntilLayout: true) != .issued {
             controller.nativeSelectionChanged(focus.windowOrNil?.surfaceID)
         }
         return true

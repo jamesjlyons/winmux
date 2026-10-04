@@ -6,6 +6,7 @@ func buildWorkspaceSidebarWorkspaceViewModels(
 ) async -> [WorkspaceSidebarWorkspaceViewModel] {
     let orderedWorkspaces = orderedWorkspacesForPresentation()
     let automaticIndices = automaticWorkspaceDisplayIndices(workspaces: orderedWorkspaces, focusedWorkspace: currentFocus.workspace)
+    let pinsByWorkspace = BrowserWorkspaceController.shared.pinTilesByWorkspace()
     var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
     for workspace in orderedWorkspaces {
         workspaces.append(await makeWorkspaceSidebarWorkspaceViewModel(
@@ -14,6 +15,7 @@ func buildWorkspaceSidebarWorkspaceViewModels(
             workspaceLabels: workspaceLabels,
             availableMonitors: availableMonitors,
             automaticIndices: automaticIndices,
+            pins: pinsByWorkspace[workspace.name] ?? [],
         ))
     }
     return workspaces
@@ -26,6 +28,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     workspaceLabels: [String: String],
     availableMonitors: [Monitor],
     automaticIndices: [WorkspaceId: Int],
+    pins: [WorkspaceSidebarPinViewModel],
 ) async -> WorkspaceSidebarWorkspaceViewModel {
     let interval = signposter.beginInterval("Sidebar workspace model", "workspace: \(workspace.id.rawValue)")
     defer { signposter.endInterval("Sidebar workspace model", interval) }
@@ -42,7 +45,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
         isVisible: workspace.isVisible,
         items: await buildWorkspaceSidebarItems(for: workspace, currentFocus: currentFocus),
         isPinnedGroup: workspace.isPinnedGroup,
-        pins: BrowserWorkspaceController.shared.pinTiles(in: workspace.name),
+        pins: pins,
     )
 }
 

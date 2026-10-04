@@ -107,6 +107,29 @@ import XCTest
         XCTAssertEqual(malformed.exitCode, 1)
     }
 
+    func testSocketListingPreservesBrowserSelectionWithoutLayoutOrDiscovery() async throws {
+        appForTests = nil
+        TrayMenuModel.shared.isEnabled = true
+        let native = try XCTUnwrap(Window.get(byId: 71) as? TestWindow)
+        let writes = native.frameWriteCount
+        let requestCount = requests.count
+        var refreshes = 0
+        setScheduledRefreshOverrideForTests { _, _, _ in refreshes += 1 }
+        defer { setScheduledRefreshOverrideForTests(nil) }
+        let command = try XCTUnwrap(parseCommand(["surface", "list"]).cmdOrNil)
+        let result = try await runSocketCommandSession(command, .forceRun) {
+            try await command.run(.defaultEnv, .emptyStdin)
+        }
+        try await waitForScheduledRefreshForTests()
+        let rows = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as? [[String: Any]])
+        XCTAssertEqual(rows.first { $0["id"] as? String == tab.description }?["selected"] as? Bool, true)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertEqual(native.frameWriteCount, writes)
+        XCTAssertEqual(requests.count, requestCount)
+        XCTAssertEqual(refreshes, 0)
+        XCTAssertFalse(command.shouldResetClosedWindowsCache)
+    }
+
     func testNativeSelectionAfterDisconnectRetiresBrowserTarget() async throws {
         controller.disconnected(connection)
         XCTAssertEqual(controller.focusCoordinator.target, tab)

@@ -3,7 +3,8 @@ import Common
 
 final class MacWindow: Window {
     let macApp: MacApp
-    private var prevUnhiddenProportionalPositionInsideWorkspaceRect: CGPoint?
+    private var unhiddenFrame: WindowParkingSnapshot?
+    private var unhiddenWasFloating = false
     /// The corner the window is parked in, together with the monitor rect it was parked
     /// against: when the monitor's geometry changes (or the workspace moves to another
     /// monitor), the old corner position is wrong and the window must be re-parked even
@@ -180,22 +181,34 @@ final class MacWindow: Window {
         {
             return
         }
-        // Don't accidentally override prevUnhiddenEmulationPosition in case of subsequent `hideInCorner` calls
+        // Tiled positions already belong to the layout; only floating windows
+        // need a fresh native observation to preserve their user-owned frame.
         if !isHiddenInCorner {
-            guard let windowRect = try await getAxRect() else { return }
+            let windowRect: Rect?
+            if isFloating {
+                windowRect = try await getAxRect()
+            } else if let known = lastAppliedLayoutPhysicalRect ?? lastKnownActualRect {
+                windowRect = known
+            } else {
+                windowRect = try await getAxRect()
+            }
+            guard let windowRect else { return }
             // Check for isHiddenInCorner for the second time because of the suspension point above
             if !isHiddenInCorner {
-                let topLeftCorner = windowRect.topLeftCorner
-                let monitorRect = windowRect.center.monitorApproximation.rect // Similar to layoutFloatingWindow. Non idempotent
-                let absolutePoint = topLeftCorner - monitorRect.topLeftCorner
-                prevUnhiddenProportionalPositionInsideWorkspaceRect =
-                    CGPoint(x: absolutePoint.x / monitorRect.width, y: absolutePoint.y / monitorRect.height)
+                unhiddenFrame = WindowParkingSnapshot(frame: windowRect, monitorRect: nodeMonitor.rect)
+                unhiddenWasFloating = isFloating
             }
         }
         let p: CGPoint
         switch corner {
             case .bottomLeftCorner:
-                guard let s = try await getAxSize() else { fallthrough }
+                let size: CGSize?
+                if let known = lastKnownActualRect?.size {
+                    size = known
+                } else {
+                    size = try await getAxSize()
+                }
+                guard let s = size else { fallthrough }
                 // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/WinMux/issues/527
                 // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: -1)
@@ -212,19 +225,12 @@ final class MacWindow: Window {
 
     @MainActor
     func unhideFromCorner() {
-        guard let prevUnhiddenProportionalPositionInsideWorkspaceRect else { return }
+        guard let unhiddenFrame else { return }
         guard let nodeWorkspace else { return } // hiding only makes sense for workspace windows
         guard let parent else { return }
 
         func restoreToSavedWorkspacePosition() {
-            let workspaceRect = nodeWorkspace.workspaceMonitor.rect
-            var newX = workspaceRect.topLeftX + workspaceRect.width * prevUnhiddenProportionalPositionInsideWorkspaceRect.x
-            var newY = workspaceRect.topLeftY + workspaceRect.height * prevUnhiddenProportionalPositionInsideWorkspaceRect.y
-            let windowWidth = lastKnownActualRect?.width ?? lastFloatingSize?.width ?? 0
-            let windowHeight = lastKnownActualRect?.height ?? lastFloatingSize?.height ?? 0
-            newX = newX.coerce(in: workspaceRect.minX ... max(workspaceRect.minX, workspaceRect.maxX - windowWidth))
-            newY = newY.coerce(in: workspaceRect.minY ... max(workspaceRect.minY, workspaceRect.maxY - windowHeight))
-            setAxFrame(CGPoint(x: newX, y: newY), nil)
+            restoreFloatingFrame(unhiddenFrame, on: nodeWorkspace.workspaceMonitor.rect, restoreSize: unhiddenWasFloating)
         }
 
         switch getChildParentRelation(child: self, parent: parent) {
@@ -236,21 +242,19 @@ final class MacWindow: Window {
                  .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
         }
 
-        self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
+        self.unhiddenFrame = nil
         self.hiddenInCorner = nil
     }
 
     override var isHiddenInCorner: Bool {
-        prevUnhiddenProportionalPositionInsideWorkspaceRect != nil
+        unhiddenFrame != nil
     }
 
     /// The parked AX frame is offscreen; persist the user's floating position instead.
     @MainActor var frameForSessionRestore: CGRect? {
-        if let position = prevUnhiddenProportionalPositionInsideWorkspaceRect, let monitor = nodeMonitor {
-            let size = lastKnownActualRect.map { CGSize(width: $0.width, height: $0.height) } ?? lastFloatingSize ?? .zero
-            return CGRect(x: monitor.rect.minX + monitor.rect.width * position.x,
-                          y: monitor.rect.minY + monitor.rect.height * position.y,
-                          width: size.width, height: size.height)
+        if let unhiddenFrame, let monitor = nodeMonitor {
+            let frame = unhiddenFrame.restoredFrame(on: monitor.rect)
+            return CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height)
         }
         return lastKnownActualRect.map { CGRect(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height) }
     }

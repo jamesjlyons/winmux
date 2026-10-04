@@ -73,6 +73,10 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [pins[2].id, pins[1].id])
         let destination = controller.pinnedGroup(for: space.id)
         XCTAssertEqual(controller.pinTiles(in: destination.name).map(\.id), [pins[0].id])
+        let allPins = controller.pinTilesByWorkspace()
+        XCTAssertEqual(allPins[group.name], controller.pinTiles(in: group.name))
+        XCTAssertEqual(allPins[destination.name], controller.pinTiles(in: destination.name))
+        XCTAssertEqual(Set(allPins.keys), [group.name, destination.name])
         controller.usesSurfaceTree = true
         let snapshot = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
         let restored = BrowserWorkspaceController(); restored.restorePlacementSnapshot(snapshot)

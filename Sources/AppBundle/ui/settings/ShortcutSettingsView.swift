@@ -71,6 +71,7 @@ enum SettingsSidebarItem: Hashable, Identifiable {
 struct ShortcutSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
     @State private var selectedItem: SettingsSidebarItem? = .shortcuts
+    @State private var demoAnimationsActive = false
 
     var body: some View {
         NavigationSplitView {
@@ -105,6 +106,8 @@ struct ShortcutSettingsView: View {
             }
             .navigationTitle(selectedItem?.label ?? "")
         }
+        .environment(\.settingsDemoAnimationsEnabled, demoAnimationsActive)
+        .background(SettingsDemoActivity(isActive: $demoAnimationsActive))
     }
 }
 

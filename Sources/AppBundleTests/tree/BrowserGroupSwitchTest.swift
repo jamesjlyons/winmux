@@ -104,12 +104,16 @@ final class BrowserGroupSwitchTest: XCTestCase {
                        "The native layout synchronization must not override the restored browser page")
     }
 
-    func testReturningToMixedGroupRestoresItsNativeSelection() {
+    func testReturningToMixedGroupRestoresItsNativeSelection() async throws {
         XCTAssertEqual(controller.select(mixedPage), .issued)
         XCTAssertEqual(controller.select(mixedWindow.surfaceID), .issued)
         XCTAssertTrue(source.focusWorkspace())
         sourceWindow.nativeFocus()
-        XCTAssertTrue(focusWorkspaceFromSidebar(mixedGroup))
+        try await runLightSession(.menuBarButton, .forceRun, shouldSchedulePostRefresh: false) {
+            XCTAssertTrue(focusWorkspaceFromSidebar(self.mixedGroup))
+            XCTAssertTrue(TestApp.shared.focusedWindow === self.sourceWindow,
+                          "A parked native target must not be raised until its visible layout is queued")
+        }
         XCTAssertTrue(focus.workspace === mixedGroup)
         XCTAssertEqual(controller.focusCoordinator.target, mixedWindow.surfaceID)
         XCTAssertTrue(TestApp.shared.focusedWindow === mixedWindow)

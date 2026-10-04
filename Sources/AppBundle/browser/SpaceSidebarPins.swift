@@ -301,14 +301,31 @@ extension BrowserWorkspaceController {
 
     func pinTiles(in workspace: String) -> [WorkspaceSidebarPinViewModel] {
         syncSidebarPins()
-        var tiles = browserSidebarPins.filter { $0.workspaceName == workspace }.map { pin in
+        return makePinTiles(in: workspace,
+            browserPins: browserSidebarPins.filter { $0.workspaceName == workspace },
+            nativePins: nativeAppSidebarPins.filter { $0.workspaceName == workspace })
+    }
+
+    /// A sidebar refresh covers every workspace. Reconcile and partition the pins
+    /// once so ordinary groups do not each scan every pin in every space.
+    func pinTilesByWorkspace() -> [String: [WorkspaceSidebarPinViewModel]] {
+        syncSidebarPins()
+        let browser = Dictionary(grouping: browserSidebarPins, by: \.workspaceName)
+        let native = Dictionary(grouping: nativeAppSidebarPins, by: \.workspaceName)
+        return Dictionary(uniqueKeysWithValues: Set(browser.keys).union(native.keys).map { workspace in
+            (workspace, makePinTiles(in: workspace, browserPins: browser[workspace] ?? [], nativePins: native[workspace] ?? []))
+        })
+    }
+
+    private func makePinTiles(in workspace: String, browserPins: [BrowserSidebarPin], nativePins: [NativeAppSidebarPin]) -> [WorkspaceSidebarPinViewModel] {
+        var tiles = browserPins.map { pin in
             let record = pin.surfaceID.flatMap { owner(of: $0)?.inventory.tabs[$0] }
             return WorkspaceSidebarPinViewModel(id: pin.id, workspaceName: workspace, title: record?.title ?? pin.title,
                 bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: pin.iconPNGBase64,
                 surfaceID: pin.surfaceID, isFocused: pin.surfaceID.map { focusCoordinator.target == $0 && record != nil } ?? false,
                 isOpen: record != nil, isLoading: pendingSidebarPinOpenings.contains(pin.id), isUnavailable: false, isBrowser: true, url: pin.url)
         }
-        tiles += nativeAppSidebarPins.filter { $0.workspaceName == workspace }.map { pin in
+        tiles += nativePins.map { pin in
             let window = pin.surfaceID.flatMap { Window.get(bySurfaceID: $0) }
             return WorkspaceSidebarPinViewModel(id: pin.id, workspaceName: workspace, title: pin.title,
                 bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath, iconPNGBase64: nil,

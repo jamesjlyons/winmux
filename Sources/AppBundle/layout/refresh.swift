@@ -1,5 +1,6 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 @MainActor
 private var activeRefreshTask: Task<(), any Error>? = nil
@@ -217,6 +218,7 @@ func runLightSession<T>(
     _ event: RefreshSessionEvent,
     _: RunSessionGuard,
     shouldSchedulePostRefresh: Bool = true,
+    synchronizeNativeFocus: Bool = true,
     scope: WindowRefreshScope = .all,
     body: @MainActor () async throws -> T,
 ) async throws -> T {
@@ -247,11 +249,19 @@ func runLightSession<T>(
     return try await $refreshSessionEvent.withValue(event) {
         try await $_isStartup.withValue(event.isStartup) {
             try await $_refreshSessionFocusSnapshot.withValue(focusSnapshot) {
-                let nativeFocused = try await getNativeFocusedWindow()
-                try checkCancellation()
-                if let nativeFocused { try await debugWindowsIfRecording(nativeFocused) }
-                await updateNativeFullscreenChromeSuppression(nativeFocused: nativeFocused)
-                updateFocusCache(nativeFocused)
+                // Explicit sidebar group selection already identifies its destination. Do not
+                // wait behind the outgoing app's AX queue before applying that selection.
+                // Focus-relative commands retain the live lookup below.
+                let nativeFocused: Window?
+                if synchronizeNativeFocus {
+                    nativeFocused = try await getNativeFocusedWindow()
+                    try checkCancellation()
+                    if let nativeFocused { try await debugWindowsIfRecording(nativeFocused) }
+                    await updateNativeFullscreenChromeSuppression(nativeFocused: nativeFocused)
+                    updateFocusCache(nativeFocused)
+                } else {
+                    nativeFocused = nil
+                }
                 try checkCancellation()
                 let focusBefore = focus.windowOrNil
 
@@ -273,13 +283,15 @@ func runLightSession<T>(
                 // Monitor layout derives sidebar insets synchronously from configuration.
                 // Title-dependent chrome is updated after window placement.
                 SecureInputPanel.shared.refresh()
-                try await layoutWorkspaces()
-                try checkCancellation()
-                // Queue native focus as soon as placement is ready. Chrome publication can
-                // suspend; input should reach the selected window while those models update.
-                if focusBefore != focusAfter && !BrowserWorkspaceController.shared.hasBrowserSelection {
-                    focusAfter?.nativeFocus() // syncFocusToMacOs
+                try await layoutWorkspaces { handledNativeGroupFocus in
+                    // Incoming windows are placed. Focus them before background hidden-group
+                    // reconciliation or chrome publication can suspend on another app's AX.
+                    if !handledNativeGroupFocus, focusBefore != focusAfter,
+                       focus.windowOrNil === focusAfter, !BrowserWorkspaceController.shared.hasBrowserSelection {
+                        focusAfter?.nativeFocus() // syncFocusToMacOs
+                    }
                 }
+                try checkCancellation()
                 await updateWorkspaceSidebarModel()
                 await updateWindowTabModel()
                 RestartSessionController.shared.checkpoint()
@@ -290,6 +302,34 @@ func runLightSession<T>(
                 return result
             }
         }
+    }
+}
+
+/// Polling clients should not cancel discovery, place every visible window, rebuild
+/// chrome, or enqueue a persistence checkpoint merely to read the current model.
+@MainActor
+func runSocketCommandSession<T>(
+    _ command: any Command,
+    _ token: RunSessionGuard,
+    body: @MainActor () async throws -> T,
+) async throws -> T {
+    guard command.isReadOnlyQuery else {
+        return try await runLightSession(
+            .socketServer(command.args),
+            token,
+            shouldSchedulePostRefresh: !command.canSkipPostCommandRefresh,
+            body: body
+        )
+    }
+    return try await $refreshSessionEvent.withValue(.socketServer(command.args)) {
+        if command.requiresNativeFocusForQuery {
+            let nativeFocused = try await getNativeFocusedWindow()
+            try checkCancellation()
+            updateFocusCache(nativeFocused)
+            refreshModel()
+        }
+        try checkCancellation()
+        return try await body()
     }
 }
 
@@ -442,23 +482,27 @@ enum OptimalHideCorner {
 }
 
 @MainActor
-private func layoutWorkspaces(reuseUnchangedFrames: Bool = false) async throws {
+private func layoutWorkspaces(
+    reuseUnchangedFrames: Bool = false,
+    onVisibleLayoutsApplied: @MainActor (Bool) -> Void = { _ in },
+) async throws {
     let interval = signposter.beginInterval("Layout workspaces", id: signposter.makeSignpostID())
     defer { signposter.endInterval("Layout workspaces", interval) }
     try await $reuseGeometryLayoutFrames.withValue(reuseUnchangedFrames) {
-        try await applyWorkspaceLayouts()
+        try await applyWorkspaceLayouts(onVisibleLayoutsApplied: onVisibleLayoutsApplied)
     }
 }
 
 @TaskLocal var reuseGeometryLayoutFrames = false
 
 @MainActor
-private func applyWorkspaceLayouts() async throws {
+private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) -> Void) async throws {
     if !TrayMenuModel.shared.isEnabled {
         for workspace in Workspace.all {
+            let hiddenMixedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInMixedLayout(in: workspace)
             workspace.allLeafWindowsRecursive.forEach { window in
                 guard let macWindow = window as? MacWindow else { return }
-                if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window) {
+                if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenMixedSurfaces: hiddenMixedSurfaces) {
                     return
                 }
                 macWindow.unhideFromCorner()
@@ -466,6 +510,8 @@ private func applyWorkspaceLayouts() async throws {
             try await workspace.layoutWorkspace() // Unhide tiling windows from corner
         }
         BrowserWorkspaceController.shared.publishBrowserLayouts()
+        try checkCancellation()
+        onVisibleLayoutsApplied(BrowserWorkspaceController.shared.finishNativeGroupFocusAfterLayout())
         return
     }
     let monitors = monitors
@@ -497,9 +543,10 @@ private func applyWorkspaceLayouts() async throws {
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
+        let hiddenMixedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInMixedLayout(in: workspace)
         workspace.allLeafWindowsRecursive.forEach { window in
             guard let macWindow = window as? MacWindow else { return }
-            if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window) {
+            if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenMixedSurfaces: hiddenMixedSurfaces) {
                 return
             }
             macWindow.unhideFromCorner()
@@ -507,13 +554,13 @@ private func applyWorkspaceLayouts() async throws {
         try await workspace.layoutWorkspace()
     }
     BrowserWorkspaceController.shared.publishBrowserLayouts()
+    try checkCancellation()
+    onVisibleLayoutsApplied(BrowserWorkspaceController.shared.finishNativeGroupFocusAfterLayout())
     for workspace in Workspace.all where !workspace.isVisible {
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
         let shouldReassertHiddenWindows = refreshSessionEvent?.requiresHiddenWindowsReassertion == true
         for window in workspace.allLeafWindowsRecursive {
             guard let macWindow = window as? MacWindow else { continue }
-            macWindow.lastAppliedLayoutPhysicalRect = nil
-            macWindow.lastAppliedLayoutVirtualRect = nil
             // A nil cached rect means a geometry event arrived since the window was last
             // observed — including our own parking move, but also an app repositioning its
             // parked window (document restore, [NSWindow center], ...). Re-observe and
@@ -521,18 +568,19 @@ private func applyWorkspaceLayouts() async throws {
             // reassert-everything-on-every-event behavior provided, while windows with a
             // confirmed parked position cost nothing.
             let geometryUnconfirmed = macWindow.lastKnownActualRect == nil
-            if geometryUnconfirmed {
+            if geometryUnconfirmed && macWindow.isHiddenInCorner {
                 _ = try? await macWindow.getAxRect()
             }
             try await macWindow.hideInCorner(corner, force: shouldReassertHiddenWindows || geometryUnconfirmed)
+            macWindow.lastAppliedLayoutPhysicalRect = nil
+            macWindow.lastAppliedLayoutVirtualRect = nil
         }
     }
 }
 
 @MainActor
-private func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window) -> Bool {
-    if let workspace = window.nodeWorkspace,
-       BrowserWorkspaceController.shared.isHiddenInMixedLayout(window.surfaceID, workspace: workspace) { return true }
+private func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window, hiddenMixedSurfaces: Set<SurfaceID>) -> Bool {
+    if hiddenMixedSurfaces.contains(window.surfaceID) { return true }
     guard let tabGroup = window.nearestWindowTabGroup, tabGroup.usesWindowTabBehavior else { return false }
     return tabGroup.tabActiveWindow != window
 }

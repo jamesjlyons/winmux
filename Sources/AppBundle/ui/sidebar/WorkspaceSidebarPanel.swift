@@ -959,7 +959,7 @@ extension WorkspaceSidebarPanel {
             cancelExpansionWork()
             let targetWidth = expandedPresentationWidth
             persistentExpansionWidth = layout.expandedWidth
-            viewModel.isWorkspaceSidebarExpanded = true
+            viewModel.setIfChanged(\.isWorkspaceSidebarExpanded, true)
             if viewModel.workspaceSidebarVisibleWidth != targetWidth {
                 viewModel.workspaceSidebarVisibleWidth = targetWidth
             }

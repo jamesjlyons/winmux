@@ -30,6 +30,34 @@ extension Command {
 }
 
 extension Command {
+    /// Model queries need current focus, but must not relayout windows or interrupt
+    /// an in-flight discovery just because a status bar or script polls the CLI.
+    var isReadOnlyQuery: Bool {
+        switch self {
+            case is ConfigCommand, is ListAppsCommand, is ListExecEnvVarsCommand,
+                 is ListModesCommand, is ListMonitorsCommand, is ListWindowsCommand,
+                 is ListWorkspacesCommand:
+                true
+            case let command as AgentCommand:
+                command.args.subcommand.val != .apply
+            case let command as SurfaceCommand:
+                command.args.operands.first == "list"
+            default:
+                false
+        }
+    }
+
+    var requiresNativeFocusForQuery: Bool {
+        switch self {
+            case is ConfigCommand, is ListAppsCommand, is ListExecEnvVarsCommand, is ListModesCommand:
+                false
+            case let command as AgentCommand:
+                command.args.subcommand.val != .skill
+            default:
+                true
+        }
+    }
+
     var canSkipPostCommandRefresh: Bool {
         switch self {
             case is BalanceSizesCommand,

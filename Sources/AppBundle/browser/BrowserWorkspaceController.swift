@@ -34,7 +34,9 @@ public final class BrowserWorkspaceController {
     private var placements: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
-    private var refreshPending = false
+    private lazy var refreshScheduler = CoalescedBrowserRefreshScheduler { [weak self] in
+        await self?.performScheduledRefresh()
+    }
     private var browserFocusDeadline: Date?
     private var unresolvedNativeItems: Set<SurfaceID> = []
     private var closedBrowserTabs: Set<SurfaceID> = []
@@ -42,6 +44,7 @@ public final class BrowserWorkspaceController {
     private var recentSelections: [SurfaceID] = []
     private var restoredPlacements = false
     private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
+    private var pendingNativeLayoutFocus: (id: SurfaceID, generation: UInt64, foregroundPID: Int32?)?
 
     func capturePlacementSnapshot() -> SurfaceWorkspaceSnapshot? {
         guard usesSurfaceTree else { return nil }
@@ -54,6 +57,7 @@ public final class BrowserWorkspaceController {
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
         guard (try? snapshot.validated()) != nil else { return }
+        pendingNativeLayoutFocus = nil
         usesSurfaceTree = true
         surfaceTree = snapshot.tree
         mixedLayoutWorkspaces = snapshot.layoutWorkspaces
@@ -234,6 +238,7 @@ public final class BrowserWorkspaceController {
     /// All native logical selection paths (commands, gestures, mouse and sidebar)
     /// retire old browser work, including selecting the same native window again.
     func nativeSelectionChanged(_ id: SurfaceID?) {
+        pendingNativeLayoutFocus = nil
         if isWinMuxRuntimeReady { restoredSelection = nil }
         if let id { surfaceTree.select(id); rememberSelection(id) }
         let leavingBrowser = hasBrowserSelection
@@ -284,6 +289,7 @@ public final class BrowserWorkspaceController {
             session.supersedeFocus(generation: generation, target: wireID) { [weak self] outcome in
                 guard outcome == .issued, let self, let target,
                       self.focusCoordinator.isCurrent(generation, target: target),
+                      self.pendingNativeLayoutFocus == nil,
                       BrowserToolbarController.shared.focusedControlSurfaceID == nil,
                       !BrowserWindowDragController.shared.isDragging else { return }
                 _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
@@ -343,9 +349,12 @@ public final class BrowserWorkspaceController {
     }
 
     @discardableResult
-    func select(_ id: SurfaceID) -> SurfaceActionOutcome {
+    func select(_ id: SurfaceID, deferNativeFocusUntilLayout: Bool = false) -> SurfaceActionOutcome {
         restoredSelection = nil
-        if isAvailable(id) { surfaceTree.select(id) }
+        if isAvailable(id) {
+            surfaceTree.select(id)
+            pendingNativeLayoutFocus = nil
+        }
         switch id {
             case .browserTab:
                 guard let session = owner(of: id) else { return .unavailable }
@@ -376,14 +385,43 @@ public final class BrowserWorkspaceController {
                 return result
             case .nativeWindow:
                 browserFocusDeadline = nil
-                guard Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil else { return .unavailable }
+                guard let window = Window.get(bySurfaceID: id), let target = window.toLiveFocusOrNil() else { return .unavailable }
                 guard let generation = focusCoordinator.select(id) else { return .unavailable }
-                let result = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
+                let result: SurfaceActionOutcome
+                if deferNativeFocusUntilLayout || window.isHiddenInCorner || !target.workspace.isVisible {
+                    result = setFocus(to: target, recordSurfaceIntent: false) ? .issued : .unavailable
+                    if result == .issued {
+                        pendingNativeLayoutFocus = (id, generation, foregroundProcessID())
+                    }
+                } else {
+                    result = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
+                }
                 if result == .issued { rememberSelection(id) }
                 fenceBrowsers(generation: generation, target: id)
                 scheduleRefresh()
                 return result
         }
+    }
+
+    /// Group selection records intent immediately, but raising a parked native
+    /// window before its destination frame is queued exposes its offscreen move.
+    /// Return whether a deferred intent was handled, including a superseded one,
+    /// so the session must not issue a second, stale native-focus request.
+    func finishNativeGroupFocusAfterLayout() -> Bool {
+        guard let pending = pendingNativeLayoutFocus else { return false }
+        pendingNativeLayoutFocus = nil
+        guard focusCoordinator.isCurrent(pending.generation, target: pending.id),
+              let window = Window.get(bySurfaceID: pending.id), window.nodeWorkspace?.isVisible == true,
+              focus.windowOrNil === window else { return true }
+        let foreground = foregroundProcessID()
+        guard foreground == pending.foregroundPID || foreground == window.app.pid else {
+            // Retire the generation too: a late browser fence must not undo the
+            // user's intervening activation after this pending request is gone.
+            nativeSelectionChanged(nil)
+            return true
+        }
+        window.nativeFocus()
+        return true
     }
 
     @discardableResult
@@ -843,6 +881,11 @@ public final class BrowserWorkspaceController {
         return plannedSurfaces(in: workspace).first { $0.surfaceID == id }?.visible == false
     }
 
+    func hiddenSurfacesInMixedLayout(in workspace: Workspace) -> Set<SurfaceID> {
+        guard TrayMenuModel.shared.isEnabled, mixedLayoutWorkspaces.contains(workspace.name) else { return [] }
+        return Set(plannedSurfaces(in: workspace).filter { !$0.visible }.map(\.surfaceID))
+    }
+
     private func hasNativeFullscreenLayout(in workspace: Workspace) -> Bool {
         workspace.rootTilingContainer.allTabbedContainersRecursive.contains(where: \.hasFullscreenTab) ||
             workspace.rootTilingContainer.mostRecentWindowRecursive?.isFullscreen == true
@@ -861,12 +904,13 @@ public final class BrowserWorkspaceController {
                 let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
                 if !canReuseLastAppliedWindowFrame(previousPhysicalRect: window.lastAppliedLayoutPhysicalRect, nextPhysicalRect: rect) {
                     if let native = window as? MacWindow {
-                        try await window.applySharedLayoutFrame(rect) {
+                        let actual = try await window.applyObservedSharedLayoutFrame(rect, apply: {
                             // AX has no universal minimum-size attribute. Observe the
                             // owner's result after its serialized frame write, never
                             // infer a limit from a stale pre-write window size.
                             try await native.setAxFrameBlocking(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
-                            if let actual = try await native.getAxRect(), window.lastAppliedLayoutPhysicalRect == rect,
+                        }, observe: { try await native.getAxRect() })
+                        if let actual, window.lastAppliedLayoutPhysicalRect == rect,
                                Window.get(bySurfaceID: placement.surfaceID) === window,
                                actual.width.isFinite, actual.height.isFinite,
                                (1...30000).contains(actual.width), (1...30000).contains(actual.height),
@@ -878,7 +922,6 @@ public final class BrowserWorkspaceController {
                                     observedNativeMinimums[placement.surfaceID] = minimum
                                     scheduleRefresh()
                                 }
-                            }
                         }
                     } else {
                         window.lastAppliedLayoutPhysicalRect = rect
@@ -887,9 +930,9 @@ public final class BrowserWorkspaceController {
                     }
                 }
             } else if let native = window as? MacWindow {
+                try await native.hideInCorner(.bottomRightCorner)
                 window.lastAppliedLayoutPhysicalRect = nil
                 window.lastAppliedLayoutVirtualRect = nil
-                try await native.hideInCorner(.bottomRightCorner)
             }
         }
         return !placements.isEmpty
@@ -917,6 +960,7 @@ public final class BrowserWorkspaceController {
                       BrowserToolbarController.shared.focusedControlSurfaceID == nil,
                       !BrowserWindowDragController.shared.isDragging else { return }
                 if case .nativeWindow = target {
+                    guard self.pendingNativeLayoutFocus == nil else { return }
                     _ = NativeWindowSurfaceAdapter(surfaceID: target).requestFocus()
                     return
                 }
@@ -928,20 +972,33 @@ public final class BrowserWorkspaceController {
         }
     }
 
-    func scheduleRefresh() {
-        guard !refreshPending else { return }
-        refreshPending = true
-        Task { @MainActor in
-            self.refreshPending = false
-            if self.previewWindow != nil { self.refreshPreview() }
-            if isWinMuxRuntimeReady {
-                await updateWorkspaceSidebarModel()
-                if !self.mixedLayoutWorkspaces.isEmpty { runWorkspaceSidebarSession {} }
-                if let selected = self.restoredSelection, self.isAvailable(selected) {
-                    _ = self.select(selected)
-                }
-                RestartSessionController.shared.checkpoint()
+    func scheduleRefresh() { refreshScheduler.schedule() }
+
+    private func performScheduledRefresh() async {
+        if previewWindow != nil { refreshPreview() }
+        guard isWinMuxRuntimeReady else { return }
+        // Restore selection before its layout pass, as the old queued sidebar
+        // session did. A selection-triggered refresh coalesces into one follow-up.
+        if let selected = restoredSelection, isAvailable(selected) { _ = select(selected) }
+        if !mixedLayoutWorkspaces.isEmpty, let token = RunSessionGuard.isServerEnabled {
+            do {
+                // Browser inventory and validated surface edits already contain
+                // their complete model changes. They do not need unrelated AX
+                // discovery or an outgoing app focus query. The light session
+                // also publishes sidebar/chrome and checkpoints exactly once.
+                try await runLightSession(
+                    .onTabSwitched, token,
+                    shouldSchedulePostRefresh: false,
+                    synchronizeNativeFocus: false
+                ) {}
+            } catch is CancellationError {
+                return
+            } catch {
+                showWorkspaceSidebarError(error.localizedDescription)
             }
+        } else {
+            await updateWorkspaceSidebarModel()
+            RestartSessionController.shared.checkpoint()
         }
     }
 
@@ -994,6 +1051,34 @@ public final class BrowserWorkspaceController {
 }
 
 extension Window {
+    /// Only geometry-changing sessions probe native minimum sizes again. A normal
+    /// group/tab return queues its previously verified size without serial AX waits.
+    @MainActor func applyObservedSharedLayoutFrame(
+        _ rect: Rect,
+        apply: @MainActor () async throws -> Void,
+        observe: @MainActor () async throws -> Rect?,
+    ) async throws -> Rect? {
+        if refreshSessionEvent?.canReuseLastAppliedWindowFrames == true,
+           lastConfirmedSharedLayoutSize == rect.size {
+            lastAppliedLayoutPhysicalRect = rect
+            lastAppliedLayoutVirtualRect = rect
+            setAxFrame(rect.topLeftCorner, rect.size)
+            return nil
+        }
+        var actual: Rect?
+        lastConfirmedSharedLayoutSize = nil
+        try await applySharedLayoutFrame(rect) {
+            try await apply()
+            let observationToken = nativeStateObservationToken()
+            actual = try await observe()
+            try checkCancellation()
+            if lastAppliedLayoutPhysicalRect == rect, nativeStateObservationToken() == observationToken {
+                lastConfirmedSharedLayoutSize = actual?.size == rect.size ? rect.size : nil
+            }
+        }
+        return actual
+    }
+
     /// AX frame application can be interrupted halfway through a startup or
     /// command session. A requested frame must not remain cached as completed.
     @MainActor func applySharedLayoutFrame(_ rect: Rect, apply: @MainActor () async throws -> Void) async throws {
@@ -1018,4 +1103,29 @@ private struct BrowserSidebarPreviewView: View {
     @ObservedObject var state: BrowserSidebarPreviewState
     let actions: WorkspaceSidebarActions
     var body: some View { WorkspaceSidebarView(snapshot: state.snapshot, actions: actions) }
+}
+
+/// Keep one browser model/layout pass active across suspension points. Inventory
+/// bursts during that pass request one trailing pass instead of overlapping tasks.
+@MainActor
+final class CoalescedBrowserRefreshScheduler {
+    private let refresh: @MainActor () async -> Void
+    private var requested = false
+    private var task: Task<Void, Never>?
+
+    init(refresh: @escaping @MainActor () async -> Void) { self.refresh = refresh }
+
+    func schedule() {
+        requested = true
+        guard task == nil else { return }
+        task = Task { @MainActor in
+            while self.requested {
+                self.requested = false
+                await self.refresh()
+            }
+            self.task = nil
+        }
+    }
+
+    func waitUntilIdle() async { await task?.value }
 }

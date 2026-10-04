@@ -478,16 +478,10 @@ extension WorkspaceSidebarView {
     }
 
     func finishProjectSwipeNavigation(to projectId: WorkspaceProjectId, direction: Int) {
-        let startProjectId = projectSwipeStartProjectId
-        let fullPageOffset = -CGFloat(direction) * max(projectPagerWidth, snapshot.configuration.expandedWidth, 1)
-        withAnimation(.easeOut(duration: 0.12)) {
-            projectSwipeTranslation = fullPageOffset
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            guard projectSwipeStartProjectId == startProjectId else { return }
-            actions.send(.selectProject(projectId))
-            resetProjectSwipeWithoutAnimation()
-        }
+        // Commit on gesture completion. Waiting for a decorative page animation added
+        // 120 ms to every space switch before any window work could even begin.
+        actions.send(.selectProject(projectId))
+        resetProjectSwipeWithoutAnimation()
     }
 
     func finishProjectSwipeCreation() {
