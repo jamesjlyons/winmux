@@ -15,7 +15,7 @@ final class AppShutdownCoordinator {
         TrackpadNavigationController.shared.shutdown()
         let task = Task { @MainActor in
             await finalSave?.value
-            guard isWinMuxRuntimeReady else { return }
+            guard isWinMuxRuntimeReady, !serverArgs.isReadOnly else { return }
             await runBoundedShutdown(timeout: .seconds(5)) {
                 try? await makeAllWindowsVisibleAndRestoreSize()
                 await toggleReleaseServerIfDebug(.on)

@@ -249,6 +249,7 @@ func filterSwitcherPaletteItems(_ items: [SwitcherPaletteItem], query: String) -
 struct SwitcherPaletteView: View {
     @ObservedObject var model: SwitcherPaletteModel
     @FocusState private var searchFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let results = model.results
@@ -256,18 +257,18 @@ struct SwitcherPaletteView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(GlassToken.textTertiary))
+                    .foregroundStyle(Color.primary.opacity(GlassToken.textTertiary))
                 TextField("Search windows…", text: $model.query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(GlassToken.textPrimary))
+                    .foregroundStyle(Color.primary.opacity(GlassToken.textPrimary))
                     .focused($searchFocused)
             }
             .padding(.horizontal, 14)
             .frame(height: 44)
 
             Rectangle()
-                .fill(Color.white.opacity(GlassToken.separatorOpacity))
+                .fill(Color.primary.opacity(GlassToken.separatorOpacity))
                 .frame(height: StrokeToken.hairline)
 
             ScrollViewReader { proxy in
@@ -305,6 +306,7 @@ struct SwitcherPaletteView: View {
         .clipShape(RoundedRectangle(cornerRadius: RadiusToken.panel, style: .continuous))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { searchFocused = true }
+        .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)
     }
 }
 
@@ -323,23 +325,23 @@ private struct SwitcherPaletteRow: View {
                 Image(systemName: "macwindow")
                     .font(.system(size: 13))
                     .frame(width: 18, height: 18)
-                    .foregroundStyle(Color.white.opacity(GlassToken.textTertiary))
+                    .foregroundStyle(Color.primary.opacity(GlassToken.textTertiary))
             }
             Text(item.title)
                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(Color.white.opacity(isSelected ? GlassToken.textPrimary : GlassToken.textSecondary))
+                .foregroundStyle(Color.primary.opacity(isSelected ? GlassToken.textPrimary : GlassToken.textSecondary))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 8)
             if let hotkeyLabel {
                 Text(hotkeyLabel)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(GlassToken.textQuaternary))
+                    .foregroundStyle(Color.primary.opacity(GlassToken.textQuaternary))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
                     .background {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(Color.white.opacity(GlassToken.fillFaint))
+                            .fill(Color.primary.opacity(GlassToken.fillFaint))
                     }
             }
         }
@@ -347,7 +349,7 @@ private struct SwitcherPaletteRow: View {
         .frame(height: 30)
         .background {
             RoundedRectangle(cornerRadius: RadiusToken.row, style: .continuous)
-                .fill(Color.white.opacity(isSelected ? GlassToken.fillActive : 0))
+                .fill(Color.primary.opacity(isSelected ? GlassToken.fillActive : 0))
         }
         .contentShape(Rectangle())
     }

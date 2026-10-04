@@ -22,6 +22,7 @@ struct WorkspaceSidebarWindowRow: View {
     let style: Style
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
+    var fallbackSystemImage: String = "app"
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
@@ -63,7 +64,7 @@ struct WorkspaceSidebarWindowRow: View {
 
     @ViewBuilder
     private var appIconStack: some View {
-        if isTabGroupHeader {
+        if isTabGroupHeader, !appIconInputs.isEmpty {
             HStack(spacing: -3) {
                 ForEach(Array(appIconInputs.prefix(density.isNarrow ? 1 : 4).enumerated()), id: \.offset) { _, input in
                     appIcon(input)
@@ -96,7 +97,7 @@ struct WorkspaceSidebarWindowRow: View {
     }
 
     private var fallbackIcon: some View {
-        Image(systemName: "app")
+        Image(systemName: fallbackSystemImage)
             .font(.system(size: workspaceSidebarAppIconSize))
             .foregroundStyle(Color.primary.opacity(0.45))
             .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)

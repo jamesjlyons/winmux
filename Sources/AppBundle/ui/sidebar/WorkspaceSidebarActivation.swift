@@ -60,7 +60,7 @@ func isWorkspaceSidebarDragInProgress(kind: MouseManipulationKind, startedInSide
 
 @MainActor
 func isWorkspaceSidebarDragInProgress() -> Bool {
-    isWorkspaceSidebarItemDragActive() || isWorkspaceSidebarDragInProgress(
+    currentWorkspaceSidebarSurfaceDragSubject() != nil || isWorkspaceSidebarItemDragActive() || isWorkspaceSidebarDragInProgress(
         kind: getCurrentMouseManipulationKind(),
         startedInSidebar: getCurrentMouseDragStartedInSidebar(),
     )

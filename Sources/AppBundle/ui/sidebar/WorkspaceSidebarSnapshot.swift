@@ -1,4 +1,6 @@
+import Foundation
 import CoreGraphics
+import WorkspaceCore
 
 struct WorkspaceSidebarSnapshot: Equatable {
     var workspaces: [WorkspaceSidebarWorkspaceViewModel]
@@ -46,6 +48,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var autoHide = false
     var swipeToCreateProjects = false
     var menuBarStyle = false
+    var showsBrowserControls = false
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -58,9 +61,15 @@ struct WorkspaceSidebarConfiguration: Equatable {
         showsWeekday: false,
         showsStatusPills: false,
         chromeStyle: .liquidGlass,
-        solidChromeColor: .midnight,
+        solidChromeColor: .system,
         solidChromeCustomColor: "#191B20",
     )
+}
+
+enum WorkspaceSidebarSurfaceDragSubject: Hashable, Sendable {
+    case surface(SurfaceID)
+    case group(UUID)
+    case pin(UUID)
 }
 
 enum WorkspaceSidebarAction: Equatable {
@@ -69,6 +78,27 @@ enum WorkspaceSidebarAction: Equatable {
     case reorderWorkspace(String, relativeTo: String, placement: WorkspaceReorderPlacement)
     case overrideWorkspaceInUse(String)
     case selectWindow(UInt32)
+    case newBrowserTab(workspaceName: String?)
+    case pinSurface(SurfaceID)
+    case selectPin(UUID)
+    case unpin(UUID)
+    case movePin(UUID, toSpace: WorkspaceProjectId)
+    case pinBrowserTab(SurfaceID)
+    case unpinBrowserTab(UUID)
+    case selectPinnedBrowserTab(UUID)
+    case movePinnedBrowserTab(UUID, toWorkspace: String)
+    case selectSurface(SurfaceID)
+    case closeSurface(SurfaceID)
+    case reorderSurface(SurfaceID, earlier: Bool)
+    case moveSurfaceBefore(SurfaceID, SurfaceID)
+    case groupSurfaceWithSelection(SurfaceID)
+    case splitSurfaceWithSelection(SurfaceID, vertical: Bool)
+    case ungroupSurfaces(UUID)
+    case moveSurface(SurfaceID, toWorkspace: String)
+    case moveSurfaceToNewWorkspace(SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String)
+    case moveSurfaceGroup(UUID, toWorkspace: String)
+    case moveSurfaceGroupToNewWorkspace(UUID, projectId: WorkspaceProjectId, monitorScopeId: String)
+    case previewSurfaceDrop(WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind)
     case selectProject(WorkspaceProjectId)
     case reorderProject(WorkspaceProjectId, to: WorkspaceProjectId)
     case createProject
@@ -95,6 +125,8 @@ struct WorkspaceSidebarActions {
     var send: @MainActor (WorkspaceSidebarAction) -> Void
     var setDropTargets: @MainActor ([WorkspaceSidebarDropTargetFrame]) -> Void
     var hoverWorkspace: @MainActor (String, Bool) -> Void
+    var surfaceDragChanged: @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void
+    var surfaceDragEnded: @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void
     var windowDragChanged: @MainActor (UInt32, CGPoint) -> Void
     var windowDragEnded: @MainActor (UInt32, CGPoint) -> Void
     var tabGroupDragChanged: @MainActor (UInt32, CGPoint) -> Void
@@ -104,6 +136,8 @@ struct WorkspaceSidebarActions {
         send: @escaping @MainActor (WorkspaceSidebarAction) -> Void = { _ in },
         setDropTargets: @escaping @MainActor ([WorkspaceSidebarDropTargetFrame]) -> Void = { _ in },
         hoverWorkspace: @escaping @MainActor (String, Bool) -> Void = { _, _ in },
+        surfaceDragChanged: @escaping @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void = { _, _ in },
+        surfaceDragEnded: @escaping @MainActor (WorkspaceSidebarSurfaceDragSubject, CGPoint) -> Void = { _, _ in },
         windowDragChanged: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
         windowDragEnded: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
         tabGroupDragChanged: @escaping @MainActor (UInt32, CGPoint) -> Void = { _, _ in },
@@ -112,6 +146,8 @@ struct WorkspaceSidebarActions {
         self.send = send
         self.setDropTargets = setDropTargets
         self.hoverWorkspace = hoverWorkspace
+        self.surfaceDragChanged = surfaceDragChanged
+        self.surfaceDragEnded = surfaceDragEnded
         self.windowDragChanged = windowDragChanged
         self.windowDragEnded = windowDragEnded
         self.tabGroupDragChanged = tabGroupDragChanged

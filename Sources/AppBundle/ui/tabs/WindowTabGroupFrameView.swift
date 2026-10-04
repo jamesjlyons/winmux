@@ -3,6 +3,7 @@ import SwiftUI
 struct WindowTabGroupFrameView: View {
     let strip: WindowTabStripViewModel
     let groupSize: CGSize
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let tabHeight = min(strip.frame.height, groupSize.height)
@@ -16,6 +17,8 @@ struct WindowTabGroupFrameView: View {
             // Its even-odd mask keeps the window body transparent while retaining that chrome.
             GlassSurface(
                 shape: outerShape,
+                hasHighlight: false,
+                hasBorder: false,
                 style: config.workspaceSidebar.chromeStyle,
                 solidColor: config.workspaceSidebar.resolvedSolidChromeColor,
             )
@@ -24,11 +27,10 @@ struct WindowTabGroupFrameView: View {
             }
 
             outerShape
-                .stroke(Color.white.opacity(GlassToken.borderOpacity), lineWidth: windowTabGroupFrameStrokeWidth)
-                .glassShadow(.raised)
+                .stroke(Color.primary.opacity(GlassToken.borderOpacity), lineWidth: windowTabGroupFrameStrokeWidth)
 
             Rectangle()
-                .fill(Color.white.opacity(GlassToken.separatorOpacity))
+                .fill(Color.primary.opacity(GlassToken.separatorOpacity))
                 .frame(height: StrokeToken.hairline)
                 .offset(y: tabHeight - StrokeToken.hairline)
 
@@ -36,9 +38,10 @@ struct WindowTabGroupFrameView: View {
                 tabBarHeight: tabHeight,
                 activeWindowCornerRadius: strip.activeWindowCornerRadius,
             )
-            .stroke(mattePanelInsetShadow, lineWidth: windowTabGroupFrameInnerStrokeWidth)
+            .stroke(Color.primary.opacity(GlassToken.separatorOpacity), lineWidth: windowTabGroupFrameInnerStrokeWidth)
         }
         .frame(width: groupSize.width, height: groupSize.height)
         .allowsHitTesting(false)
+        .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)
     }
 }

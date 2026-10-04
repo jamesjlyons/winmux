@@ -5,13 +5,25 @@ struct MoveNodeToWorkspaceCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache: Bool = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        if let id = args.selectedBrowserTarget(env) {
+            guard BrowserWorkspaceController.shared.isAvailable(id),
+                  let name = BrowserWorkspaceController.shared.workspaceName(for: id),
+                  let source = Workspace.existing(byName: name),
+                  let destination = resolveDestination(from: source, monitor: source.workspaceMonitor, io) else {
+                return io.err("Cannot resolve browser surface or destination workspace")
+            }
+            return moveSurfaceToWorkspace(id, destination, io, focusFollowsSurface: args.focusFollowsWindow, failIfNoop: args.failIfNoop)
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else { return io.err(noWindowIsFocused) }
-        let subjectWs = window.nodeWorkspace
-        let targetWorkspace: Workspace
+        guard let targetWorkspace = resolveDestination(from: window.nodeWorkspace ?? target.workspace,
+            monitor: window.nodeMonitor ?? target.workspace.workspaceMonitor, io) else { return false }
+        return moveWindowToWorkspace(window, targetWorkspace, io, focusFollowsWindow: args.focusFollowsWindow, failIfNoop: args.failIfNoop)
+    }
+
+    @MainActor private func resolveDestination(from subjectWs: Workspace, monitor: Monitor, _ io: CmdIo) -> Workspace? {
         switch args.target.val {
             case .relative(let nextPrev):
-                guard let subjectWs else { return io.err("Window \(window.windowId) doesn't belong to any workspace") }
                 let ws = getNextPrevWorkspace(
                     current: subjectWs,
                     isNext: nextPrev == .next,
@@ -24,19 +36,19 @@ struct MoveNodeToWorkspaceCommand: Command {
                         wrapAround: args.wrapAround,
                         usesStdin: args.useStdin,
                     )
-                guard let ws else { return io.err("Can't resolve next or prev workspace") }
-                targetWorkspace = ws
+                if ws == nil { io.err("Can't resolve next or prev workspace") }
+                return ws
             case .direct(let name):
                 guard let ws = resolveMoveTargetWorkspace(
                     named: name.raw,
-                    sourceWorkspace: subjectWs ?? target.workspace,
-                    sourceMonitor: window.nodeMonitor ?? target.workspace.workspaceMonitor,
+                    sourceWorkspace: subjectWs,
+                    sourceMonitor: monitor,
                 ) else {
-                    return io.err("Workspace '\(name.raw)' doesn't exist")
+                    io.err("Workspace '\(name.raw)' doesn't exist")
+                    return nil
                 }
-                targetWorkspace = ws
+                return ws
         }
-        return moveWindowToWorkspace(window, targetWorkspace, io, focusFollowsWindow: args.focusFollowsWindow, failIfNoop: args.failIfNoop)
     }
 }
 
@@ -53,7 +65,7 @@ private func createNextTransientBlankWorkspaceForMoveIfAllowed(
 }
 
 @MainActor
-private func resolveMoveTargetWorkspace(
+func resolveMoveTargetWorkspace(
     named workspaceName: String,
     sourceWorkspace: Workspace,
     sourceMonitor: Monitor,
@@ -88,5 +100,6 @@ func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io:
         let binding = workspaceAppendBindingData(targetWorkspace: targetWorkspace, index: index)
         window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
     }
+    BrowserWorkspaceController.shared.didMoveNativeSurface(window.surfaceID, to: targetWorkspace.name)
     return focusFollowsWindow ? window.focusWindow() : true
 }

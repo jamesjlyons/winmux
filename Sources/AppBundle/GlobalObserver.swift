@@ -14,12 +14,14 @@ enum GlobalObserver {
             return
         }
         let notifName = notification.name.rawValue
+        let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+        let scope = WindowRefreshScope.workspaceNotification(notifName, pid: pid)
         Task { @MainActor in
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
                 scheduleRefreshSession(.globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
             } else {
-                scheduleRefreshSession(.globalObserver(notifName))
+                scheduleRefreshSession(.globalObserver(notifName), scope: scope)
             }
         }
     }
@@ -60,7 +62,12 @@ enum GlobalObserver {
     }
 
     private static func onKeyDown(_ event: NSEvent) {
+        let isEscape = event.keyCode == 53
         runOnMainActor {
+            if isEscape { cancelWorkspaceSidebarSurfaceDrag() }
+            if isEscape, BrowserWindowDragController.shared.isDragging {
+                BrowserWindowDragController.shared.cancel()
+            }
             TrackpadNavigationController.shared.cancelNavigation()
             noteTapBindingKeyDown()
         }
@@ -75,17 +82,23 @@ enum GlobalObserver {
     }
 
     private static func onPointerActivity(_ event: NSEvent) {
-        let isLeftMouseDownEvent = event.type == .leftMouseDown
+        let eventType = event.type
+        let isLeftMouseDownEvent = eventType == .leftMouseDown
         let isMouseDownEvent = isLeftMouseDownEvent || event.type == .rightMouseDown || event.type == .otherMouseDown
         let timestamp = event.timestamp
         let screenPoint = NSEvent.mouseLocation
         let point = normalizeAppKitScreenPoint(screenPoint)
         runOnMainActor {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+            noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
+            BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
-            WindowTabStripPanelController.shared.updateMousePolicies(at: NSEvent.mouseLocation)
-            if isMouseDownEvent { TrackpadNavigationController.shared.cancelNavigation() }
+            if isMouseDownEvent {
+                TrackpadNavigationController.shared.cancelNavigation()
+                BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
+            }
+            WindowTabStripPanelController.shared.updateMousePolicies(at: screenPoint)
             if isLeftMouseDownEvent {
                 Task { @MainActor in
                     await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
@@ -144,13 +157,13 @@ enum GlobalObserver {
             runOnMainActor {
                 MousePointerTracker.shared.note(point: point, timestamp: timestamp)
                 WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-                refreshPendingWindowDragIntentFromGlobalMouseDrag()
+                if !BrowserWindowDragController.shared.isDragging { refreshPendingWindowDragIntentFromGlobalMouseDrag() }
             }
         })
 
         let pointerActivityMask: NSEvent.EventTypeMask = [
             .mouseMoved,
-            .leftMouseDown, .rightMouseDown, .otherMouseDown,
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .otherMouseDown,
             .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
             .scrollWheel,
         ]

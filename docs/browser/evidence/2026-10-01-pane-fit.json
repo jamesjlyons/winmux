@@ -1,0 +1,544 @@
+{
+  "date": "2026-10-01",
+  "scope": "Owner minimum-size negotiation and temporary mixed stack fallback, using isolated synthetic windows and browser tabs",
+  "package": {
+    "app": ".local/browser/packages/alpha-fit-3/WinMux Browser Alpha.app",
+    "manifest_sha256": "d1ef13955e5fdb923d476a31fbd9faa23bf0c5e8c46f07b3a1951279e1d0ecdd",
+    "team_identifier": "F7QMMNZWXX",
+    "verified": true,
+    "notarized": false,
+    "native_source_hashes_matched": 568,
+    "browser_executable_sha256": "38b4032220da6e69f983f4e3690698895e02f59a2efc90fb5bdc5c81706dd8fa",
+    "helper_sha256": "6877c69a2672b0f2adb0afd23b53caf64000ad37126ed82da867a40512a7374d",
+    "build": {
+      "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+      "configuration": "alpha-milestone-0",
+      "build_succeeded": true,
+      "build_jobs": 4,
+      "patches_sha256": {
+        "0001-workspace-bridge.patch": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+        "0002-native-request-blocking.patch": "1bd40c5d024e0844a2363a4c925a0ba1f3aa42f7dd260bb1c3b8e2ea906e9486",
+        "0003-blocker-library-bundle.patch": "ad37f775ed9e6cec98e1acd55b86f48782bfbf6a19267eced209844af73ecb23",
+        "0004-document-cosmetics.patch": "2e184a437e0dbb0fa3028453df8e7d514ab17cd2fcb9c291b103723400bb28f4",
+        "0005-persistent-tab-identities.patch": "196d8c23b170c5dcba43508c2be9a70cd645db906f25f0e7a18604a6b00d49c2",
+        "0006-workspace-shutdown.patch": "583042965d37025426321e0d8eafffc581ba08f5b9d983b3807e011d80574380"
+      },
+      "overlay_sha256": {
+        "components/winmux/blocking/engine.h": "6c72d895f5ee8a4a56ff4ab47bd3d16ff69be631918fa07d2bfe9b0d57de7ad0",
+        "components/winmux/blocking/BUILD.gn": "2fd599b39a15bc0d17807cdd1cd7380a7190eda442b1d1a64e3cad9928d850bf",
+        "components/winmux/blocking/engine.cc": "a6994d20a3c2622f031cf4c32b9fe49662fcaedda720f9fb9d21b634f696c861",
+        "components/winmux/blocking/cosmetics.mojom": "2c3804c9bde0c37df1399b81be1bb651abfd3f37f2fc3ec11061776718466470",
+        "chrome/renderer/winmux/BUILD.gn": "52d74ee82a032c18995786cd9145f4b3e7bfc0360bf491829c9d42505453f2a0",
+        "chrome/renderer/winmux/cosmetics_agent.h": "0fd7a0413ceb2074863b4fce44a024733960314630eaa171354f06cb353d1563",
+        "chrome/renderer/winmux/cosmetics_agent.cc": "1048b701aac6eebb22e76c03f081af458e16d922c5c6bb755781a0523ac6baa0",
+        "chrome/browser/winmux/browser_inventory.cc": "f26431c4083aa6cdffdd6ff1e63ec533f12361f5b94aecc0731f8a1beb95af93",
+        "chrome/browser/winmux/host_layout.h": "8da8673595fd64e02d2a502cb6e1c37db7dcf852a0d98375f491bc1db0b5ad73",
+        "chrome/browser/winmux/BUILD.gn": "27c32e57dc651d2c7ffc2d4faf2e2044ae96c218825e3a08b703a090d60e6295",
+        "chrome/browser/winmux/cosmetics_host.h": "89a7745c4a2586e0fac04eeaed8d471f02a6582098da2ffbe499ab138bcabcb1",
+        "chrome/browser/winmux/cosmetics_host.cc": "0c3b9c1365ff2d4a9dee8b68c2267155a23f898feaf3109d90ad663523bbded9",
+        "chrome/browser/winmux/workspace_bridge_state.h": "cddc77b2be39de80001095680a62de33e3745128686af6f601c47bfc739da4cf",
+        "chrome/browser/winmux/host_window.mm": "3c49e864535087486c43b5b3a4bcf153d805a4b02fa1f1981aaf865b34fc2f5d",
+        "chrome/browser/winmux/host_layout.cc": "cb2fef4274511c097df1d9b715e17874bc8f6ff3a7ac05f28dae122ad6c17ca0",
+        "chrome/browser/winmux/workspace_bridge.mm": "20208e20a91311e7618fbaf7e0e83c5c5ba2505c5e3548618eb88e214e4abacf",
+        "chrome/browser/winmux/tab_identity.cc": "5806e12baba32e5cdbfb059b1512b57efe730b25b51b726fed55bdba8324554a",
+        "chrome/browser/winmux/tab_identity.h": "09aeda1754ca09ce57799bb1046a9dbeef9afcac70a0194ab6e9b1ad10612431",
+        "chrome/browser/winmux/workspace_bridge.h": "e7e84e3ae27999e41a4f6d52b9b9e636dba4b4e96b5f953678f92b4ba20aee57",
+        "chrome/browser/winmux/host_window.h": "d7146a9dd10bbd523675e20bcce68b4e7ee41339d43840b71a13a12c183f1e57",
+        "chrome/browser/winmux/browser_inventory.h": "39aee5d0f63e31d8dbf73b3b47bb64298c4a1267c3f9d66daf7a2933606101c5",
+        "services/network/winmux/url_filter.cc": "9d58a4ace2df58c4c7e33c486759a580b552f2d4550b6286ab1be1bda75cbd03",
+        "services/network/winmux/url_filter.h": "4fc2837fe746a26a0625d0d598088779d377d155217c21fa15ab44def2105f77",
+        "chrome/browser/winmux/WMBridgeProtocol.h": "19cc81dae875c34d5da713f0349a861d3f925f1a2bc65939674e6571de3fea21",
+        "components/winmux/blocking/winmux_blocking.h": "691787c723c79c5858a7c6a69ea086868e6ed434e05a533fdc27cbaed19e2fd5"
+      }
+    }
+  },
+  "implementation": [
+    "Chromium publishes its Cocoa content minimum converted to outer-window dimensions in authenticated normal-tab inventory.",
+    "Visible undersized browser layout requests fail preflight before tab transfer or window mutation.",
+    "The helper reads native owner frame results after serialized AX writes, learns enforced minima, and rejects nonfinite/out-of-range observations.",
+    "The shared planner distributes all integer points subject to owner minima. An infeasible split temporarily stacks its children without rewriting the persistent tree.",
+    "Mixed tab navigation can reach root items during temporary stacking; workspace-direction focus uses actual planned frames."
+  ],
+  "checks": {
+    "native_regression_tests": 748,
+    "final_targeted_native_tests": 15,
+    "workspace_core_tests": 28,
+    "bridge_tests": 5,
+    "python_checks": 35,
+    "note": "The full native run preceded one new fallback-navigation test; the final targeted run includes that test. The final package adds a finite/range guard compiled in its release build."
+  },
+  "live": {
+    "package": ".local/browser/packages/alpha-fit-1/WinMux Browser Alpha.app",
+    "method": "Scoped product command API, authenticated browser host reports and synthetic fixture own-window reports. Only the marked isolated config was reloaded; no physical display mode changed.",
+    "native_content_minimum_width": 400,
+    "browser_outer_minimum": {
+      "width": 500,
+      "height": 375
+    },
+    "initial_viewport": {
+      "x": 240,
+      "width": 1680
+    },
+    "expanded_viewport": {
+      "x": 0,
+      "width": 1920
+    },
+    "narrow_viewport": {
+      "x": 500,
+      "width": 920
+    },
+    "saved_tree": {
+      "activeSurfaces": [],
+      "layouts": [],
+      "roots": {
+        "1": [
+          {
+            "surface": "native:152f462d-c6f2-4023-bb45-731937147541"
+          },
+          {
+            "surface": "native:e7d40135-3841-431d-8723-a029477b9e15"
+          },
+          {
+            "surface": "browser:ba480987-451e-45be-8d08-c4a95884cd21:bc549e99-c8ea-4d19-bc9c-2f9cf4238838"
+          },
+          {
+            "surface": "browser:ba480987-451e-45be-8d08-c4a95884cd21:6823e27a-dc41-4fa1-a9f0-c988b3c16c09"
+          }
+        ],
+        "Fit-away": []
+      }
+    },
+    "observations": {
+      "initial-fit": {
+        "selected": "browser:ba480987-451e-45be-8d08-c4a95884cd21:6823e27a-dc41-4fa1-a9f0-c988b3c16c09",
+        "browser_hosts": [
+          {
+            "host_id": "host:1356675408",
+            "visible": true,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "frame": {
+              "height": 960,
+              "y": 30,
+              "width": 1680,
+              "x": 240
+            }
+          },
+          {
+            "host_id": "host:1356675411",
+            "frame": {
+              "width": 1680,
+              "height": 960,
+              "x": 240,
+              "y": 30
+            },
+            "visible": false,
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            }
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "window_id": 4146,
+            "width": 400,
+            "y": 958,
+            "height": 959,
+            "content_minimum_width": 400,
+            "x": 1919,
+            "content_minimum_height": 350
+          },
+          {
+            "title": "WinMux Native Two",
+            "width": 400,
+            "content_minimum_height": 350,
+            "window_id": 4148,
+            "x": 1919,
+            "content_minimum_width": 400,
+            "y": 958,
+            "height": 959
+          }
+        ],
+        "native_key_window": "WinMux Native Two",
+        "saved_tree_unchanged": true
+      },
+      "expanded-fit": {
+        "selected": "browser:ba480987-451e-45be-8d08-c4a95884cd21:6823e27a-dc41-4fa1-a9f0-c988b3c16c09",
+        "browser_hosts": [
+          {
+            "visible": true,
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            },
+            "frame": {
+              "width": 500,
+              "height": 960,
+              "x": 1420,
+              "y": 30
+            },
+            "host_id": "host:1356675408"
+          },
+          {
+            "frame": {
+              "x": 920,
+              "width": 500,
+              "height": 960,
+              "y": 30
+            },
+            "host_id": "host:1356675411",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "visible": true
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "window_id": 4146,
+            "width": 460,
+            "y": 30,
+            "height": 960,
+            "content_minimum_width": 400,
+            "x": 460,
+            "content_minimum_height": 350
+          },
+          {
+            "title": "WinMux Native Two",
+            "width": 460,
+            "content_minimum_height": 350,
+            "window_id": 4148,
+            "x": 0,
+            "content_minimum_width": 400,
+            "y": 30,
+            "height": 960
+          }
+        ],
+        "native_key_window": "WinMux Native Two",
+        "saved_tree_unchanged": true
+      },
+      "narrow-fit": {
+        "selected": "browser:ba480987-451e-45be-8d08-c4a95884cd21:6823e27a-dc41-4fa1-a9f0-c988b3c16c09",
+        "browser_hosts": [
+          {
+            "frame": {
+              "x": 500,
+              "width": 920,
+              "height": 960,
+              "y": 30
+            },
+            "host_id": "host:1356675408",
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            },
+            "visible": true
+          },
+          {
+            "visible": false,
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "frame": {
+              "width": 920,
+              "height": 960,
+              "x": 500,
+              "y": 30
+            },
+            "host_id": "host:1356675411"
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "window_id": 4146,
+            "width": 460,
+            "y": 958,
+            "height": 960,
+            "content_minimum_width": 400,
+            "x": 1919,
+            "content_minimum_height": 350
+          },
+          {
+            "title": "WinMux Native Two",
+            "width": 460,
+            "content_minimum_height": 350,
+            "window_id": 4148,
+            "x": 1919,
+            "content_minimum_width": 400,
+            "y": 958,
+            "height": 960
+          }
+        ],
+        "native_key_window": "WinMux Native Two",
+        "saved_tree_unchanged": true
+      },
+      "narrow-native-selected": {
+        "selected": "native:e7d40135-3841-431d-8723-a029477b9e15",
+        "browser_hosts": [
+          {
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "frame": {
+              "width": 920,
+              "height": 960,
+              "x": 500,
+              "y": 30
+            },
+            "host_id": "host:1356675408",
+            "visible": false
+          },
+          {
+            "visible": false,
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            },
+            "frame": {
+              "x": 500,
+              "width": 920,
+              "height": 960,
+              "y": 30
+            },
+            "host_id": "host:1356675411"
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "width": 920,
+            "content_minimum_height": 350,
+            "window_id": 4146,
+            "x": 500,
+            "content_minimum_width": 400,
+            "y": 30,
+            "height": 960
+          },
+          {
+            "title": "WinMux Native Two",
+            "window_id": 4148,
+            "width": 460,
+            "y": 958,
+            "height": 960,
+            "content_minimum_width": 400,
+            "x": 1919,
+            "content_minimum_height": 350
+          }
+        ],
+        "native_key_window": "WinMux Native One",
+        "saved_tree_unchanged": true
+      },
+      "narrow-browser-selected": {
+        "selected": "browser:ba480987-451e-45be-8d08-c4a95884cd21:bc549e99-c8ea-4d19-bc9c-2f9cf4238838",
+        "browser_hosts": [
+          {
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            },
+            "frame": {
+              "x": 500,
+              "width": 920,
+              "height": 960,
+              "y": 30
+            },
+            "host_id": "host:1356675408",
+            "visible": false
+          },
+          {
+            "frame": {
+              "width": 920,
+              "height": 960,
+              "x": 500,
+              "y": 30
+            },
+            "host_id": "host:1356675411",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "visible": true
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "window_id": 4146,
+            "width": 920,
+            "y": 958,
+            "height": 960,
+            "content_minimum_width": 400,
+            "x": 1919,
+            "content_minimum_height": 350
+          },
+          {
+            "title": "WinMux Native Two",
+            "width": 460,
+            "content_minimum_height": 350,
+            "window_id": 4148,
+            "x": 1919,
+            "content_minimum_width": 400,
+            "y": 958,
+            "height": 960
+          }
+        ],
+        "native_key_window": "WinMux Native One",
+        "saved_tree_unchanged": true
+      },
+      "expanded-again": {
+        "selected": "browser:ba480987-451e-45be-8d08-c4a95884cd21:bc549e99-c8ea-4d19-bc9c-2f9cf4238838",
+        "browser_hosts": [
+          {
+            "frame": {
+              "width": 500,
+              "height": 960,
+              "x": 1420,
+              "y": 30
+            },
+            "host_id": "host:1356675408",
+            "minimum_size": {
+              "width": 500,
+              "height": 375
+            },
+            "visible": true
+          },
+          {
+            "minimum_size": {
+              "height": 375,
+              "width": 500
+            },
+            "frame": {
+              "x": 920,
+              "width": 500,
+              "height": 960,
+              "y": 30
+            },
+            "host_id": "host:1356675411",
+            "visible": true
+          }
+        ],
+        "native_windows": [
+          {
+            "title": "WinMux Native One",
+            "width": 460,
+            "content_minimum_height": 350,
+            "window_id": 4146,
+            "x": 460,
+            "content_minimum_width": 400,
+            "y": 30,
+            "height": 960
+          },
+          {
+            "title": "WinMux Native Two",
+            "window_id": 4148,
+            "width": 460,
+            "y": 30,
+            "height": 960,
+            "content_minimum_width": 400,
+            "x": 0,
+            "content_minimum_height": 350
+          }
+        ],
+        "native_key_window": "",
+        "saved_tree_unchanged": true
+      }
+    },
+    "navigation": "surface focus selected the native item and hid browser hosts; focus tab-next --wrap-around selected the next browser and restored one host.",
+    "result": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.36eb1815-b555-43bc-a976-ad35c042e53c",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-fit-1/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 69014,
+      "browser_pid": 69039,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "difference_from_final": "Final package adds the isolated minimum-rejection probe and finite/range bounds on learned native size; the live fit algorithm is unchanged."
+  },
+  "final_signed_headless": {
+    "passed": true,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true,
+    "seconds_after_recovery": 17.076525,
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.67d321fd-e0c2-469e-a46c-c6bdbb367fc1",
+    "outcomes": {
+      "layout_split_host_count": "2",
+      "layout_minimum_rejected": "unsupported",
+      "layout_hidden": "yes",
+      "layout_repeat": "issued",
+      "stale_focus": "stale_focus",
+      "focus": "issued",
+      "layout_conflict": "operation_conflict",
+      "native_focus_fence": "issued",
+      "layout_identity_retained": "yes",
+      "layout_stale": "stale_layout",
+      "layout_split": "issued",
+      "layout_merged_host_count": "1",
+      "repeated_fence": "issued",
+      "layout_merge": "issued",
+      "layout_minimum_no_mutation": "yes",
+      "layout_frames_match": "yes",
+      "close": "issued",
+      "repeated_close": "issued",
+      "operation_conflict": "operation_conflict",
+      "foreign_epoch": "stale_epoch"
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 3,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "result_sha256": "39b037d9df83f87c2ea3c8fbae379af526be6ba155acfb5da7455fb95bdf5f60",
+    "minimum_rejection_observation": "Rejected as unsupported; helper inventory unchanged at reply. Chromium preflights all proposed source tabs before mutating the host layout."
+  },
+  "cleanup": {
+    "live_browser_pid": 69039,
+    "fixture_pid": 69014,
+    "both_stopped": true,
+    "preserved_pids": [
+      17212,
+      33776,
+      63284
+    ],
+    "preservation": "Original helper and both pre-existing browsers retained their process identities. No installed app, enrollment, original config or user profile was replaced."
+  },
+  "limits": [
+    "A viewport smaller than a single owner minimum still needs a user-visible fallback. Chromium rejects that visible undersized request rather than silently applying clamped overlapping bounds.",
+    "Native limits are learned from actual owner resizing, so the first constrained layout may briefly overshoot before reconciliation. Learned limits are not persisted.",
+    "Physical keyboard/trackpad, physical drag, display transitions, fullscreen, popup geometry and large workloads remain unqualified. This run does not claim hardware delivery or input-ready latency.",
+    "Only the tested root fallback navigation is live-proven; more complex nested effective-stack traversal still needs coverage.",
+    "Performance qualification and extension scenarios remain deferred by the user."
+  ],
+  "raw_logs": [
+    ".local/browser/alpha-fit-build-1.log",
+    ".local/browser/alpha-fit-package-3.log",
+    ".local/browser/fit-native-tests-1.log",
+    ".local/browser/fit-targeted-1.log",
+    ".local/browser/fit-core-tests-2.log",
+    ".local/browser/fit-python-tests.log",
+    ".local/browser/fit-ui-1/commands.jsonl",
+    ".local/browser/fit-headless-2/result.json"
+  ]
+}

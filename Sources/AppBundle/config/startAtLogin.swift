@@ -4,6 +4,7 @@ import ServiceManagement
 
 @MainActor
 func syncStartAtLogin() {
+    guard serverArgs.browserState == nil else { return }
     cleanupPlistFromPrevVersions()
     let service = SMAppService.mainApp
     if config.startAtLogin {

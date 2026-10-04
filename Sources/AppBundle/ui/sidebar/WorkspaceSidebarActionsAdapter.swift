@@ -20,6 +20,12 @@ func makeWorkspaceSidebarActionsAdapter(
                 isHovering: isHovering,
             ))
         },
+        surfaceDragChanged: { subject, pointer in
+            updateWorkspaceSidebarSurfaceDrag(subject, pointer: pointer)
+        },
+        surfaceDragEnded: { subject, pointer in
+            finishWorkspaceSidebarSurfaceDrag(subject, pointer: pointer)
+        },
         windowDragChanged: { windowId, pointer in
             updateSidebarWindowDrag(windowId, subject: .window, pointer: pointer)
         },
@@ -61,6 +67,50 @@ func handleWorkspaceSidebarAction(
             overrideWorkspaceInUseFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .selectWindow(let windowId):
             focusWindowFromSidebar(windowId)
+        case .newBrowserTab(let workspaceName):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.openBrowserTab(workspaceName: workspaceName) }
+        case .pinSurface(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.pinSurface(id) }
+        case .selectPin(let id):
+            WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.selectPin(id) }
+        case .unpin(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.unpin(id) }
+        case .movePin(let id, let space):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.movePin(id, to: space) }
+        case .pinBrowserTab(let surfaceID):
+            BrowserWorkspaceController.shared.pinBrowserTab(surfaceID)
+        case .unpinBrowserTab(let id):
+            BrowserWorkspaceController.shared.unpinBrowserTab(id)
+        case .selectPinnedBrowserTab(let id):
+            WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.selectPinnedBrowserTab(id) }
+        case .movePinnedBrowserTab(let id, let workspaceName):
+            runWorkspaceSidebarSession { BrowserWorkspaceController.shared.movePinnedBrowserTab(id, to: workspaceName) }
+        case .selectSurface(let surfaceID):
+            focusSurfaceFromSidebar(surfaceID)
+        case .closeSurface(let surfaceID):
+            BrowserWorkspaceController.shared.close(surfaceID)
+        case .reorderSurface(let id, let earlier):
+            BrowserWorkspaceController.shared.organize(id, earlier: earlier)
+        case .moveSurfaceBefore(let id, let target):
+            BrowserWorkspaceController.shared.organize(id, before: target)
+        case .groupSurfaceWithSelection(let id):
+            BrowserWorkspaceController.shared.organize(id, groupWithSelection: true)
+        case .splitSurfaceWithSelection(let id, let vertical):
+            BrowserWorkspaceController.shared.organize(id, groupWithSelection: true, layout: vertical ? .vertical : .horizontal)
+        case .ungroupSurfaces(let id):
+            BrowserWorkspaceController.shared.ungroup(id)
+        case .moveSurface(let id, let workspace):
+            moveSurfaceFromSidebar(id, toWorkspace: workspace)
+        case .moveSurfaceToNewWorkspace(let id, let project, let scope):
+            moveSurfaceToNewWorkspaceFromSidebar(id, projectId: project, monitorScopeId: scope)
+        case .moveSurfaceGroup(let id, let workspace):
+            moveSurfaceGroupFromSidebar(id, toWorkspace: workspace)
+        case .moveSurfaceGroupToNewWorkspace(let id, let project, let scope):
+            moveSurfaceGroupToNewWorkspaceFromSidebar(id, projectId: project, monitorScopeId: scope)
+        case .previewSurfaceDrop(let subject, let target):
+            previewWorkspaceSidebarSurfaceDrop(subject, target: target)
         case .selectProject(let projectId):
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"

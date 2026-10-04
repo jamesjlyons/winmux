@@ -30,7 +30,7 @@ extension ShortcutSettingsModel {
         errorMessage = nil
         var updatedAssignments = assignments
         updatedAssignments[actionId] = nil
-        persistBindings(updatedAssignments)
+        persistBindings(updatedAssignments, browserShortcutEdit: actionId == "browser-new-tab")
     }
 
     func applyBindingNotation(_ notation: String, to actionId: String) {
@@ -45,17 +45,36 @@ extension ShortcutSettingsModel {
             updatedAssignments[otherActionId] = nil
         }
         updatedAssignments[actionId] = notation
-        persistBindings(updatedAssignments)
+        persistBindings(updatedAssignments, browserShortcutEdit: actionId == "browser-new-tab")
     }
 
-    func persistBindings(_ updatedAssignments: [String: String]) {
+    func bindingConfigEdits(
+        for updatedAssignments: [String: String],
+        previousAssignments: [String: String],
+        browserShortcutEdit: Bool,
+    ) throws -> (assignments: [String: String], managedCommands: Set<String>) {
+        var scope = managedCommands
+        if browserShortcutEdit {
+            let changedActions = Set(previousAssignments.keys).union(updatedAssignments.keys)
+                .filter { previousAssignments[$0] != updatedAssignments[$0] }
+            scope = Set(changedActions.compactMap { actionsById[$0]?.canonicalCommand })
+            scope.insert("browser-new-tab")
+        }
+        let rendered = try renderedManagedAssignments(from: updatedAssignments, includeWorkspaceBindings: !browserShortcutEdit)
+        return (rendered.filter { $0.value != "browser-new-tab" && scope.contains($0.value) }, scope)
+    }
+
+    func persistBindings(_ updatedAssignments: [String: String], browserShortcutEdit: Bool = false) {
+        let previousAssignments = assignments
         assignments = updatedAssignments
         Task { @MainActor in
             do {
-                let renderedAssignments = try renderedManagedAssignments(from: updatedAssignments)
+                let edits = try bindingConfigEdits(for: updatedAssignments, previousAssignments: previousAssignments,
+                                                  browserShortcutEdit: browserShortcutEdit)
                 let targetUrl = try persistMainModeBindings(
-                    assignments: renderedAssignments,
-                    managedCommands: managedCommands,
+                    assignments: edits.assignments,
+                    managedCommands: edits.managedCommands,
+                    browserNewTabShortcut: updatedAssignments["browser-new-tab"] ?? "",
                 )
                 let isOk = try await reloadConfig(forceConfigUrl: targetUrl)
                 if isOk {

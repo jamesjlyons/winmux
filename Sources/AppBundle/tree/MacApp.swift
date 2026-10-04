@@ -21,7 +21,16 @@ final class MacApp: AbstractApp {
     var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
+    private let quarantine = BrowserHostQuarantine()
+    private var isQuarantined: Bool { quarantine.isQuarantined }
+
+    @MainActor func quarantineBrowserHost() {
+        quarantine.exclude()
+        for job in setFrameJobs.values { job.cancel() }
+        if MacApp.focusJobPID == pid { MacApp.focusJob?.cancel() }
+    }
     @MainActor private static var focusJob: RunLoopJob? = nil
+    @MainActor private static var focusJobPID: Int32? = nil
 
     /*conforms*/ var name: String? { nsApp.localizedName }
     /*conforms*/ var execPath: String? { nsApp.executableURL?.path }
@@ -47,6 +56,12 @@ final class MacApp: AbstractApp {
     @MainActor
     @discardableResult
     static func getOrRegister(_ nsApp: NSRunningApplication) async throws -> MacApp? {
+        // Companion setup/control windows are WinMux UI, including a setup
+        // process launched separately from the active workspace manager.
+        guard nsApp.bundleIdentifier != "com.jameslyons.winmux.browser.alpha",
+              nsApp.bundleIdentifier != "com.jameslyons.winmux.browser.alpha.workspace",
+              BrowserNativeManagement.allowsDiscovery(nsApp),
+              !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: nsApp.processIdentifier) else { return nil }
         // Don't perceive any of the lock screen windows as real windows
         // Otherwise, false positive ax notifications might trigger that lead to gcWindows
         if nsApp.bundleIdentifier == lockScreenAppBundleId { return nil }
@@ -115,6 +130,7 @@ final class MacApp: AbstractApp {
         if serverArgs.isReadOnly { return false }
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         return try await withWindow(windowId) { window, job in
+            guard !serverArgs.isReadOnly else { return false }
             guard let closeButton = window.get(Ax.closeButtonAttr) else { return false }
             return AXUIElementPerformAction(closeButton.cast, kAXPressAction as CFString) == .success
         } ?? false
@@ -190,7 +206,7 @@ final class MacApp: AbstractApp {
     }
 
     @MainActor func nativeFocus(_ windowId: UInt32) {
-        if serverArgs.isReadOnly { return }
+        if serverArgs.isReadOnly || isQuarantined { return }
         signposter.emitEvent("Native focus requested", "window: \(windowId, privacy: .public)")
         MacApp.focusJob?.cancel()
         // Performance optimization. If possible avoid doing AX requests
@@ -210,7 +226,9 @@ final class MacApp: AbstractApp {
         {
             nsApp.activate(options: .activateIgnoringOtherApps)
         } else {
-            MacApp.focusJob = withWindowAsync(windowId) { [nsApp, axApp] window, job in
+            MacApp.focusJobPID = pid
+            MacApp.focusJob = withWindowAsync(windowId) { [nsApp, axApp, quarantine] window, job in
+                guard !serverArgs.isReadOnly, !quarantine.isQuarantined else { return }
                 let interval = signposter.beginInterval("Native focus job", id: signposter.makeSignpostID(), "window: \(windowId, privacy: .public)")
                 defer { signposter.endInterval("Native focus job", interval) }
                 AXUIElementSetAttributeValue(axApp.threadGuarded, kAXFocusedWindowAttribute as CFString, window)
@@ -220,6 +238,7 @@ final class MacApp: AbstractApp {
                 try job.checkCancellation()
                 AXUIElementPerformAction(window, kAXRaiseAction as CFString)
                 try job.checkCancellation()
+                guard !serverArgs.isReadOnly, !quarantine.isQuarantined else { return }
                 nsApp.activate(options: .activateIgnoringOtherApps)
             }
         }
@@ -468,14 +487,16 @@ final class MacApp: AbstractApp {
     }
 
     private func withWindow<T>(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> T?) async throws -> T? {
-        try await thread?.runInLoop { [windows] job in
+        try await thread?.runInLoop { [quarantine, windows] job in
+            guard !quarantine.isQuarantined else { return nil }
             guard let window = windows.threadGuarded[windowId] else { return nil }
             return try body(window.ax, job)
         }
     }
 
     private func withWindowAsync(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> ()) -> RunLoopJob {
-        thread?.runInLoopAsync { [windows] job in
+        thread?.runInLoopAsync { [quarantine, windows] job in
+            guard !quarantine.isQuarantined, !serverArgs.isReadOnly else { return }
             guard let window = windows.threadGuarded[windowId] else { return }
             try? body(window.ax, job)
         } ?? .cancelled
@@ -491,4 +512,13 @@ func shouldUseActivationOnlyForNativeFocus(
     // Activating an app can leave its floating dialog behind another window.
     // Always issue the explicit AX raise for floating targets.
     !isFloating && (lastNativeFocusedWindowId == targetWindowId || logicalWindowsCount == 1)
+}
+
+/// Shared with the AX worker so jobs queued before authentication cannot write
+/// to a browser host after its ownership has been handed to Chromium.
+private final class BrowserHostQuarantine: @unchecked Sendable {
+    private let lock = NSLock()
+    private var excluded = false
+    var isQuarantined: Bool { lock.withLock { excluded } }
+    func exclude() { lock.withLock { excluded = true } }
 }

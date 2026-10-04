@@ -35,6 +35,7 @@ final class RestartSessionController {
 
     var file: RestartSessionFile {
         if let fileOverride { return fileOverride }
+        if let state = serverArgs.browserState { return RestartSessionFile(url: state.session) }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return RestartSessionFile(url: RestartSessionFile.location(appSupport: support, appName: winMuxAppName, explicitConfigPath: serverArgs.configLocation))
     }
@@ -88,6 +89,9 @@ final class RestartSessionController {
         restoredWorkspaces = []
         cancelledWorkspaces = []
         restoreRestartMetadata(snapshot)
+        if BrowserNativeManagement.lease != nil, let surfaces = snapshot.surfaces {
+            BrowserWorkspaceController.shared.restorePlacementSnapshot(surfaces)
+        }
         lastRestore = "Waiting for window discovery"
     }
 
@@ -112,6 +116,13 @@ final class RestartSessionController {
         defer { restoring = false }
         let matched = snapshot.world.windowIds.filter { id in
             Window.get(byId: id).map { snapshot.matches(windowId: id, identity: RestartWindowIdentity($0.app), boot: currentBootSession()) } ?? false
+        }
+        // Numeric IDs alone never restore the new workspace identity. The
+        // existing boot + process launch + window match above is mandatory.
+        for record in snapshot.windows ?? [] where matched.contains(record.id) {
+            if let surfaceID = record.surfaceID {
+                Window.get(byId: record.id)?.restoreSurfaceID(surfaceID)
+            }
         }
         for workspace in snapshot.world.workspaces where !cancelledWorkspaces.contains(workspace.name) {
             let ids = Set(collectFrozenWindows(workspace).keys).intersection(matched)

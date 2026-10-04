@@ -94,7 +94,7 @@ final class WindowResizePreviewItemLayer: CALayer {
 
         let radius = windowResizePreviewCornerRadius(for: bounds)
         strokeLayer.isHidden = false
-        strokeLayer.strokeColor = NSColor.white.withAlphaComponent(GlassToken.borderOpacity).cgColor
+        strokeLayer.strokeColor = NSColor.labelColor.withAlphaComponent(GlassToken.borderOpacity).cgColor
         strokeLayer.lineWidth = StrokeToken.hairline
         strokeLayer.frame = bounds
         strokeLayer.path = CGPath(roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
@@ -225,7 +225,7 @@ final class WindowResizePreviewItemLayer: CALayer {
         textLayer.string = text
         textLayer.alignmentMode = .center
         textLayer.contentsScale = scale
-        textLayer.foregroundColor = NSColor.white.withAlphaComponent(0.82).cgColor
+        textLayer.foregroundColor = NSColor.labelColor.withAlphaComponent(0.82).cgColor
         textLayer.font = NSFont.systemFont(ofSize: size * 0.42, weight: .bold)
         textLayer.fontSize = size * 0.42
         disableResizePreviewLayerActions(textLayer)

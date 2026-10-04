@@ -11,7 +11,34 @@
 
 This fork of [WinMux](https://github.com/ZimengXiong/winmux) adds a more flexible sidebar,
 easier ways to organize windows, trackpad gestures, and layout restoration when you restart
-the app. It also includes performance improvements and a separate development app.
+the app. Browser Alpha adds Chromium pages to the same workspace as Mac app windows.
+
+### Browser Alpha
+
+The October 4, 2026 draft candidate packages **WinMux Browser Alpha.app** for testing
+on another Mac. See the [download, installation, and test guide](docs/browser/alpha-release-2026-10-04.md).
+
+- **Browser pages and Mac windows together.** Organize both in Spaces and Groups,
+  with independent page windows, native navigation controls, splits, stacks, and saved layouts.
+- **New tabs from any app.** Press **Option–Command–T** to open a page in the current
+  regular Group. The shortcut is editable in Settings → Shortcuts → Browser.
+- **Pins for each Space.** Pin pages and apps into an icon group above the regular
+  Groups. Pins, their order, and layouts survive restarts; a closed page pin reopens
+  its saved URL, and an app pin focuses or launches its app.
+- **Separate setup and data.** Workspace Setup starts the native helper and a separate
+  browser profile. Stop Workspace restores native windows and leaves the browser open.
+
+This candidate is **Apple silicon (arm64) only**, signed with Apple Development,
+and **not notarized**. The binaries target macOS 13 or later; recorded live testing
+used macOS 27.0.1 on an M1 Pro. Other Macs and macOS versions still need validation.
+
+The latest audit passed **1,096 automated tests**. On that Mac, 50 Group/native-pin
+switches showed no frame drift; median matching geometry was observed by 82–90 ms.
+Three full helper/browser restarts restored managed geometry within 4.50–4.90 seconds.
+These are observation bounds with existing data and warm OS caches, not page-load
+or input-readiness measurements. See the [performance audit](docs/browser/performance-audit.md)
+for results and limits, and [page controls and pins](docs/browser/page-windows.md)
+for the interface.
 
 ### Sidebar
 
@@ -106,6 +133,9 @@ and [focus notes](docs/focus-performance.md).
 
 ### Development builds and testing
 
+- **Use the pinned Swift compiler.** `.swift-version` selects Swift 6.4.0 for local
+  builds and CI through Swiftly 1.2 or later. Swift 6.2.4 crashes while serializing the settings
+  view's `isolated deinit`; the newer compiler preserves its actor-safe cleanup.
 - **A separate WinMux Dev app.** It has its own name and saved state, with upstream
   automatic updates disabled. Signed updates keep a stable app identity to help preserve
   permissions. Installation checks the signature and prevents replacing a running copy.
@@ -116,12 +146,10 @@ and [focus notes](docs/focus-performance.md).
   and icons; trackpad, focus, and resize diagnostics; performance logging; an icon catalog
   generator; and regression tests for the new behavior.
 
-To try this fork, follow the [WinMux Dev setup](docs/restart-sessions.md). It requires an
-Apple Development signing certificate. The Homebrew instructions below install the original
-WinMux. See [Dev build performance](docs/app-speed.md) for the build options and measurements.
-
-This overview covers the 31 commits after upstream v0.5.4, through `11dd2331`.
-[View the full comparison](https://github.com/jamesjlyons/winmux/compare/e0ad328e...11dd2331).
+To build standalone WinMux Dev, follow the [Dev setup](docs/restart-sessions.md).
+It requires an Apple Development signing certificate. The Homebrew instructions below
+install the original WinMux. See [Dev build performance](docs/app-speed.md) for the
+build options and measurements.
 
 ---
 
@@ -296,25 +324,35 @@ end tell
 ```
 
 ## Installation
-Install WinMux with Homebrew:
+
+### Browser Alpha from this fork
+
+Use the [Browser Alpha release guide](docs/browser/alpha-release-2026-10-04.md) for
+the draft candidate, checksum, permissions, smoke tests, and rollback. It uses
+its own browser profile and native state; the standalone migration below does
+not apply to Workspace Setup.
+
+For the standalone development app, use the
+[signed Dev build and restart-session workflow](docs/restart-sessions.md).
+It installs **WinMux Dev** separately and preserves its signing identity across rebuilds.
+
+### Original WinMux from upstream
+
+These Homebrew commands install [the original WinMux](https://github.com/ZimengXiong/winmux),
+not this fork's Browser Alpha or WinMux Dev:
 
 ```shell
 brew tap ZimengXiong/homebrew https://github.com/ZimengXiong/homebrew
 brew trust ZimengXiong/homebrew
 brew install --cask winmux
-xattr -cr /Applications/WinMux.app
 ```
 
-Or download the latest binary from releases and launch.
+Or download a binary from [upstream releases](https://github.com/ZimengXiong/winmux/releases)
+and follow its installation instructions. The original WinMux checks GitHub Releases
+for signed updates and offers **Check for Updates…** in its menu bar. This is separate
+from the Browser Alpha candidate.
 
-Release builds are signed with the project's Apple Development certificate. They are not notarized, so macOS may require you to right-click the app and choose **Open** the first time you launch it.
-
-WinMux checks GitHub Releases for signed updates automatically. You can also select **Check for Updates…** from the menu bar.
-
-For local development, use the [signed Dev build and restart-session workflow](docs/restart-sessions.md).
-It installs **WinMux Dev** separately and preserves its signing identity across rebuilds.
-
-## Migrating
+## Migrating standalone WinMux
 ### From AeroSpace
 If `~/.config/winmux/winmux.toml` already exists, WinMux uses it as-is.
 

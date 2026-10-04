@@ -75,7 +75,7 @@ func windowMoveMenuDestinations() -> [WindowMoveMenuSpace] {
         WindowMoveMenuSpace(
             id: space.id,
             title: space.name,
-            groups: workspaces.filter { $0.projectId == space.id && !$0.isArchived }.map { workspace in
+            groups: workspaces.filter { $0.projectId == space.id && !$0.isArchived && !$0.isPinnedGroup }.map { workspace in
                 WindowMoveMenuGroup(
                     id: workspace.name,
                     title: workspaceDisplayName(workspace.name, automaticIndices: indices),

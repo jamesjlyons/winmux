@@ -6,6 +6,12 @@ func shouldSuppressSwapDestination(sourceWindow: Window, subject: WindowDragSubj
 
 @MainActor
 func applySidebarWorkspaceMove(sourceNode: TreeNode, sourceWindow: Window, targetWorkspace: Workspace) {
+    if targetWorkspace.isPinnedGroup {
+        for window in sourceNode.allLeafWindowsRecursive {
+            _ = BrowserWorkspaceController.shared.pinSurface(window.surfaceID, in: targetWorkspace.projectId)
+        }
+        return
+    }
     if sourceNode is Window, sourceWindow.isFloating {
         sourceNode.bind(to: targetWorkspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     } else {

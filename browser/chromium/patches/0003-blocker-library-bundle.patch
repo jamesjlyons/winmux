@@ -1,0 +1,12 @@
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+index c84f6d48986034c51b14cad7278025a9f4e57adb..18bedc684992e4859192e825023ac2c37cf4d96b 100644
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -1396,6 +1396,7 @@ if (is_win) {
+ 
+     bundle_deps = [
+       ":aperitif_library",
++      "//components/winmux/blocking:bundle",
+       ":chrome_framework_helpers",
+       ":chrome_framework_resources",
+       ":optimization_guide_library",

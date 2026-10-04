@@ -4,6 +4,7 @@ struct WindowDragCursorProxyView: View {
     let label: String
     let isGroup: Bool
     let preview: WorkspaceSidebarDropPreviewViewModel?
+    @Environment(\.colorScheme) private var colorScheme
 
     init(label: String, isGroup: Bool) {
         self.label = label
@@ -34,14 +35,14 @@ struct WindowDragCursorProxyView: View {
             }
             Text(label)
                 .font(.system(size: isGroup ? 12.5 : 12, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.82))
+                .foregroundStyle(Color.primary.opacity(0.82))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
             if let preview, preview.windowCount > 1 {
                 Text("\(preview.windowCount)")
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.54))
+                    .foregroundStyle(Color.primary.opacity(0.54))
                     .monospacedDigit()
             }
         }
@@ -50,6 +51,7 @@ struct WindowDragCursorProxyView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(WindowDragCursorProxyBackground(isGroup: isGroup))
         .allowsHitTesting(false)
+        .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)
     }
 
     private func sidebarIconStack(_ preview: WorkspaceSidebarDropPreviewViewModel) -> some View {

@@ -4,7 +4,7 @@
 func automaticWorkspaceDisplayIndices(workspaces: [Workspace], focusedWorkspace: Workspace?) -> [WorkspaceId: Int] {
     var counts: [WorkspaceProjectId: Int] = [:]
     var indices: [WorkspaceId: Int] = [:]
-    for workspace in userFacingWorkspaces(workspaces, focusedWorkspace: focusedWorkspace) where workspace.usesAutomaticDisplayName
+    for workspace in userFacingWorkspaces(workspaces, focusedWorkspace: focusedWorkspace) where workspace.usesAutomaticDisplayName && !workspace.isPinnedGroup
     {
         counts[workspace.projectId, default: 0] += 1
         indices[workspace.id] = counts[workspace.projectId]

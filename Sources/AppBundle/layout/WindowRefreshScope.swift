@@ -10,7 +10,18 @@ enum WindowRefreshScope: Equatable, Sendable {
     static func lifecycleNotification(_ notification: String, pid: pid_t?) -> Self {
         guard let pid,
               notification == kAXWindowCreatedNotification as String ||
-              notification == kAXUIElementDestroyedNotification as String
+              notification == kAXUIElementDestroyedNotification as String ||
+              notification == kAXWindowMiniaturizedNotification as String ||
+              notification == kAXWindowDeminiaturizedNotification as String
+        else { return .all }
+        return .apps([pid])
+    }
+
+    static func workspaceNotification(_ notification: String, pid: pid_t?) -> Self {
+        guard let pid,
+              notification == NSWorkspace.didLaunchApplicationNotification.rawValue ||
+              notification == NSWorkspace.didTerminateApplicationNotification.rawValue ||
+              notification == NSWorkspace.didUnhideApplicationNotification.rawValue
         else { return .all }
         return .apps([pid])
     }

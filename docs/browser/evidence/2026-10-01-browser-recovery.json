@@ -1,0 +1,69 @@
+{
+  "scope": "signed_chromium_xpc_connection_recovery",
+  "date_utc": "2026-10-01",
+  "milestone_0_qualified": false,
+  "passed": true,
+  "behavior": [
+    "Interruption, invalidation, negotiation rejection and timeout schedule one asynchronous retry per connection generation.",
+    "Consecutive failures use 1, 2, 4, 8, 16 and capped 30 second delays; authentication resets backoff.",
+    "Each attempt creates a new mutually code-signature-checked connection, negotiates protocol 1 with a fresh epoch and probes the helper.",
+    "Stale replies, duplicate error callbacks and old negotiation timers cannot disrupt a newer authenticated connection.",
+    "Helper enrollment remains an explicit launch option. The conventional browser tab strip stays available."
+  ],
+  "package": {
+    "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-recovery-1/WinMux Browser Alpha.app",
+    "installed_over_existing_alpha": false,
+    "deep_strict_and_exact_identity_verification_passed": true,
+    "notarized": false,
+    "manifest_sha256": "534b54f2f9d9dfca30bd3e2e3b89be305bdcefb8fe2f15da21f71728f38b00d2",
+    "browser_executable_sha256": "bf4230418aae84e09b4357f8ec15010ceedf730ae0de1abb621559e5b4b6cd29",
+    "helper_sha256": "f81de509a507dd90b9e4c5cbef81e82d66a50654df70fa4cc6dbb93041ac09c1",
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be"
+  },
+  "real_browser_test": {
+    "profile": ".local/browser/profiles/alpha-recovery-smoke-2",
+    "headless": true,
+    "connection_generations_authenticated": [
+      1,
+      2
+    ],
+    "first_authentication_observed_seconds": 0.527838625,
+    "disconnection_observed_seconds": 1.508961834,
+    "second_authentication_observed_seconds": 2.58745125,
+    "stable_seconds_after_reauthentication": 17.036952333000002,
+    "helper_identity_unchanged": true,
+    "helper_was_not_restarted": true,
+    "sandbox_and_site_isolation_disabled": false,
+    "only_test_browser_terminated": true,
+    "process_exit_code": 0
+  },
+  "validation": {
+    "cpp_state_machine_probe": "Passed with xcrun clang++ -std=c++20 -O2 -Wall -Wextra -Werror; checks idle state, stale/duplicate callbacks, capped backoff, reset and timer state.",
+    "existing_python_checks_passed": 35,
+    "optimized_incremental_build": "Passed with four jobs; final build completed 5 steps in 23.92 seconds.",
+    "build_log_sha256": "310a6603c40a238ad41d8d32cd1f61d1e7a3a0aea1d6c7c26b5f00494bdd1ef2",
+    "package_log_sha256": "09d0bb2a8e915c9b8c6c7fdfebbfbba97eaaa1794f48db8bca5536eebab78e79"
+  },
+  "limits": [
+    "Only this test client's XPC connection is invalidated; no helper crash is injected",
+    "No UI, presentation, native window management or performance qualification",
+    "Existing profiles and signed-in extension UI are not inspected",
+    "Observed report timestamps include polling; they are not transport or input latency measurements.",
+    "Actual helper crash/restart, unavailable-service recovery and prolonged outage are not exercised by this process test.",
+    "The packaged helper is still transport-only; unified workspace/native-window management has not started.",
+    "The staged recovery package has not replaced the active installed alpha or its signed-in compatibility session.",
+    "The earlier smoke-1 run is superseded by smoke-2, which waits beyond both negotiation timers."
+  ],
+  "source_sha256": {
+    "browser/chromium/overlay/chrome/browser/winmux/BUILD.gn": "cdaf2af0160f0470b38b1b8f78c947b4ead921ef266791ad0650ee14df7107d0",
+    "browser/chromium/overlay/chrome/browser/winmux/workspace_bridge.mm": "344b6f98566eeb65d1191e43e2e74371a7bd44543e10cca3aaff973f5324cb2d",
+    "browser/chromium/overlay/chrome/browser/winmux/workspace_bridge_state.h": "aa73a5090b6624feb6cbcbc96bf9924917ee908bf6d2ac7c539a26f6a86d67d1",
+    "browser/native/probe/bridge_state_test.cc": "2e298852c359eadade71226cc0ada73836efce5aeb986844f4935e294d48a1c9",
+    "browser/tools/test_browser_recovery.py": "3a3397b7b7fa2313a25a5dfa3ff7d920326d29119b2c0db498d6275ddfeda18b"
+  },
+  "raw_files": {
+    "package-manifest.json": "534b54f2f9d9dfca30bd3e2e3b89be305bdcefb8fe2f15da21f71728f38b00d2",
+    "result.json": "ed446787abdbd5350d354b26e7c43d9ce9a03212ecd38775e95518f307e69704"
+  }
+}

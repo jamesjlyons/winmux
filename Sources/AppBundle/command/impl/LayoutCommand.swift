@@ -1,12 +1,45 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 struct LayoutCommand: Command {
     let args: LayoutCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
-        guard let target = args.resolveTargetOrReportError(env, io) else { return false }
+        let controller = BrowserWorkspaceController.shared
+        var nativeConversionTarget: LiveFocus?
+        if controller.usesSurfaceTree, args.windowId == nil, env.windowId == nil,
+           args.workspaceName == nil, env.workspaceName == nil,
+           let id = controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID {
+            let convertsNativeTiling = args.toggleBetween.val.contains { $0 == .tiling || $0 == .floating }
+            if convertsNativeTiling, case .nativeWindow = id {
+                // Resolve the durable selection, including a floating window
+                // that no longer belongs to shared tiled organization.
+                guard let window = Window.get(bySurfaceID: id) else {
+                    return io.err("Selected native surface is unavailable")
+                }
+                guard let target = window.toLiveFocusOrReportError(io) else { return false }
+                nativeConversionTarget = target
+            } else {
+                let group = controller.surfaceTree.containingGroup(of: id)
+                let current = group.flatMap { controller.surfaceTree.layouts[$0] } ?? .horizontal
+                var choices: [SurfaceContainerLayout] = []
+                for description in args.toggleBetween.val {
+                    switch description {
+                    case .tabGroup, .hTabGroup, .vTabGroup: choices.append(.stack)
+                    case .horizontal, .h_tiles: choices.append(.horizontal)
+                    case .vertical, .v_tiles: choices.append(.vertical)
+                    case .tiles: choices.append(current == .vertical ? .vertical : .horizontal)
+                    case .tiling, .floating: return io.err("Floating/tiling conversion is not supported for browser surfaces")
+                    }
+                }
+                guard let next = choices.first(where: { $0 != current }) ?? choices.first else { return false }
+                return controller.editOrganization(of: id) { $0.setLayout(containing: id, to: next) }
+                    || io.err("Cannot change shared layout: owners must be available and the container must have at least two items")
+            }
+        }
+        guard let target = nativeConversionTarget ?? args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else {
             return io.err(noWindowIsFocused)
         }
@@ -42,12 +75,14 @@ struct LayoutCommand: Command {
                     case .workspace(let workspace):
                         window.lastFloatingSize = try await window.getAxSize() ?? window.lastFloatingSize
                         try await window.relayoutWindow(on: workspace, forceTile: true)
+                        controller.nativeTilingStateChanged(window)
                         return true
                 }
             case .floating:
                 let workspace = target.workspace
                 window.bindAsFloatingWindow(to: workspace)
                 if let size = window.lastFloatingSize { window.setAxFrame(nil, size) }
+                controller.nativeTilingStateChanged(window)
                 return true
         }
     }

@@ -3,6 +3,7 @@ import Common
 import Network
 
 func startUnixSocketServer() {
+    let socketPath = serverArgs.browserState?.socket ?? socketPath
     try? FileManager.default.removeItem(atPath: socketPath)
     let params = NWParameters.tcp
     params.requiredLocalEndpoint = .unix(path: socketPath)
@@ -18,7 +19,7 @@ func startUnixSocketServer() {
 }
 
 func toggleReleaseServerIfDebug(_ state: EnableCmdArgs.State) async {
-    if serverArgs.isReadOnly { return }
+    if serverArgs.isReadOnly || serverArgs.browserState != nil { return }
     if !isDebug { return }
     let socketFile = "/tmp/\(stableWinMuxAppId)-\(unixUserName).sock"
     let connection = NWConnection(to: NWEndpoint.unix(path: socketFile), using: .tcp)
@@ -95,11 +96,7 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
         }
         if let command {
             let _answer: Result<ServerAnswer, Error> = await Result {
-                try await runLightSession(
-                    .socketServer(command.args),
-                    token,
-                    shouldSchedulePostRefresh: !command.canSkipPostCommandRefresh
-                ) { () throws in
+                try await runSocketCommandSession(command, token) { () throws in
                     let env = CmdEnv.init(
                         windowId: request.windowId.flatMap { $0 },
                         workspaceName: request.workspace.flatMap { $0 },

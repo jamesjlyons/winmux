@@ -1,0 +1,188 @@
+{
+  "scope": "native_page_window_traffic_lights",
+  "date": "2026-10-02",
+  "controls": {
+    "red": "close",
+    "yellow": "minimize to Dock",
+    "green": "fullscreen",
+    "optionGreen": "native zoom"
+  },
+  "appTests": {
+    "passed": 855,
+    "failures": 0
+  },
+  "nativeTests": {
+    "workspaceCorePassed": 74,
+    "bridgeCorePassed": 10,
+    "failures": 0
+  },
+  "toolTests": {
+    "passed": 39,
+    "failures": 0
+  },
+  "nativeClicks": {
+    "actions": [
+      "fullscreen",
+      "minimize",
+      "close"
+    ],
+    "helperFullscreen": false,
+    "helperMinimized": false,
+    "key": false
+  },
+  "render": {
+    "productionViews": [
+      "BrowserToolbarView",
+      "BrowserPageChromeView"
+    ],
+    "appearances": [
+      "active-light",
+      "active-dark",
+      "inactive-light",
+      "inactive-dark"
+    ],
+    "sampleContent": true,
+    "nativePageCornerSimulated": 20
+  },
+  "visibleEngine": {
+    "passed": true,
+    "outcomeCount": 74,
+    "outcomes": {
+      "native_zoom_enter": "issued",
+      "layout_grouped_window_ids_retained": "yes",
+      "native_zoom_keeps_window_ids": "yes",
+      "layout_split": "issued",
+      "native_restore_focus": "issued",
+      "layout_selected_page_only": "yes",
+      "native_fullscreen_survives_layout": "yes",
+      "layout_grouped_host_count": "2",
+      "layout_group": "issued",
+      "layout_legacy_controls_restored": "yes",
+      "forward": "issued",
+      "layout_stale": "stale_layout",
+      "navigate_stale_revision": "stale_revision",
+      "back_state": "yes",
+      "layout_repeat": "issued",
+      "native_fullscreen_peer_layout": "issued",
+      "layout_hide": "issued",
+      "native_fullscreen_exit_state": "yes",
+      "layout_readopted_window_ids": "yes",
+      "forward_state": "yes",
+      "new_tab": "issued",
+      "native_fullscreen_keeps_window_ids": "yes",
+      "layout_identity_retained": "yes",
+      "native_minimize_peer_layout": "issued",
+      "native_zoom_peer_layout": "issued",
+      "layout_legacy_controls": "issued",
+      "close": "issued",
+      "native_restore_layout": "issued",
+      "layout_frames_match": "yes",
+      "layout_minimum_rejected": "unsupported",
+      "layout_readopt": "issued",
+      "navigate_second": "issued",
+      "back": "issued",
+      "reload": "issued",
+      "native_focus_fence": "issued",
+      "native_zoom_exit_state": "yes",
+      "navigation_keeps_native_windows": "yes",
+      "focus": "issued",
+      "layout_independent_native_windows": "yes",
+      "repeated_close": "issued",
+      "navigate_repeat": "issued",
+      "navigate_first": "issued",
+      "native_zoom_survives_layout": "yes",
+      "native_fullscreen_state": "yes",
+      "navigate_invalid_url": "invalid_request",
+      "new_tab_independent_native_window": "yes",
+      "stop": "issued",
+      "operation_conflict": "operation_conflict",
+      "native_fullscreen_enter": "issued",
+      "navigation_legacy_rejected": "unsupported",
+      "repeated_fence": "issued",
+      "layout_hidden": "yes",
+      "native_minimize_keeps_window_ids": "yes",
+      "stale_focus": "stale_focus",
+      "layout_conflict": "operation_conflict",
+      "native_fullscreen_return_layout": "issued",
+      "layout_split_host_count": "2",
+      "native_minimize_state": "yes",
+      "native_zoom_return_layout": "issued",
+      "native_minimize_survives_layout": "yes",
+      "layout_managed": "yes",
+      "native_window_actions_keep_surfaces": "yes",
+      "new_tab_close": "issued",
+      "native_fullscreen_exit": "issued",
+      "navigate_payload_conflict": "operation_conflict",
+      "native_zoom_exit": "issued",
+      "layout_minimum_no_mutation": "yes",
+      "foreign_epoch": "stale_epoch",
+      "native_restore_frames": "yes",
+      "native_zoom_returns_to_tiles": "yes",
+      "native_restore_state": "yes",
+      "native_fullscreen_returns_to_tiles": "yes",
+      "native_minimize": "issued",
+      "native_zoom_state": "yes"
+    },
+    "existingHelperUnchanged": true,
+    "testServiceRemoved": true
+  },
+  "headlessEngine": {
+    "passed": true,
+    "outcomeCount": 46,
+    "authenticatedConnections": 2,
+    "secondsAfterRecovery": 17.100949375,
+    "existingHelperUnchanged": true,
+    "testServiceRemoved": true
+  },
+  "signedPackage": {
+    "path": "/Users/james/Documents/Codex/winmux/.local/traffic-lights/package-startup/WinMux Browser Alpha.app",
+    "signatureVerified": true,
+    "notarized": false,
+    "helperSHA256": "792a9e5c4e077715ff0a77b6341738ec87aab757a11b73a32a7ada11a193081b",
+    "manifestSHA256": "aaaad3f6705f7d0387116091f1bc60f6f17e3e4b60209e81f947282f4a944fcc"
+  },
+  "sourceSHA256": {
+    "Sources/AppBundle/browser/BrowserToolbarView.swift": "5b74e67dd5905c93af350519d40afe2ca000ace204b0f2b482ed5b65092f28ce",
+    "Sources/AppBundle/browser/BrowserToolbarPanel.swift": "3410eedeae455852c23a6901c00fd26be9fd66a3e3de3abc52f969cba453999d",
+    "Sources/AppBundle/browser/BrowserPagePresentation.swift": "dceafe6e1597c646ba1ba464bed28ce38a6dfce310def9dfede855e539fbd69a",
+    "Sources/AppBundle/browser/BrowserWorkspaceController.swift": "49984a88f4428292b02373891166a58fb2eaf3f27c84b8745e6e951847b90bb1",
+    "browser/native/Sources/WorkspaceCore/BrowserInventory.swift": "cfff83adce5c29b10badc6c797c658bfa35e166a2143a6f93039ea4429539ad8",
+    "browser/native/Sources/WorkspaceCore/BrowserSurfaceAdapter.swift": "efb9b48a608de23c99ee2cc4839aa4495f57c7af5ab5a9e3914f3d1f1bb9ab85",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "ef49c8e7bf44996e77859a386f43a0a43f0dc7c35acea6b9198089155074b659",
+    "browser/chromium/overlay/chrome/browser/winmux/browser_inventory.cc": "f134fd652d546a5e316ea625c6639fb704fd2f5e1eca0d18d18057cace2f625a",
+    "browser/chromium/overlay/chrome/browser/winmux/host_layout.cc": "bbea06bbe83a745d1352249fd38c15107831a9992c247f2a7e34dfe78884c6dc",
+    "browser/chromium/overlay/chrome/browser/winmux/host_window.h": "1e7a59098ba47d5a57d6c96651b4cdae4ed5e089495dec6a7f56d346afe32012",
+    "browser/chromium/overlay/chrome/browser/winmux/host_window.mm": "1f247ef3584b1f73f417b670903e47c26f2167450b07dd7eaf96ac5d155536f4",
+    "browser/tools/test_browser_inventory.py": "6de5a716b5193ab70e33f4e20e0ca08e3f9262a242fe9aad8e6c10d86407dec5",
+    "Sources/AppBundle/browser/BrowserPageChromeGeometry.swift": "9e2bd95d1a25a62e2441f5499d804d0c399ad4fe0d1569fd38df9e22cc89a592",
+    "Sources/AppBundle/browser/BrowserToolbarController.swift": "de3b0d20251ad787622d58afddeee9503b5d69749cc526f520df2c3adc71c4c2",
+    "Sources/AppBundle/command/impl/SurfaceCommand.swift": "3cb29700f424db2d423c9d1b8cad215774676e71d93d26028f15c3dbfa39c209",
+    "Sources/AppBundleTests/tree/BrowserPagePresentationTest.swift": "b49c2155e2dd4d97df10db6f170acc07a8b1e1628f00794155ed52a024cad342",
+    "Sources/AppBundleTests/tree/BrowserToolbarDragTest.swift": "5a33a772891d3a88722f378a8c8611c8567fc1ce42a148822f8dbff89b1f606a",
+    "browser/native/Tests/WorkspaceCoreTests/BrowserInventoryTests.swift": "4efb57f4fe17537979ff9100f971b694e2bb86d3fd2556fde81bb3b6bf47915e",
+    "browser/native/Tests/WorkspaceCoreTests/BrowserSurfaceAdapterTests.swift": "daf3ebe06d0639f596ab4da81973d57d3b178e48223561d8c6762b1e9706da23",
+    "Sources/AppBundleTests/tree/BrowserNativeWindowControlsTest.swift": "811a4e468e4ec3b01ccdb514bf971d0b3ab564b272d875a4c9436db50c64dba0"
+  },
+  "limits": [
+    "Visible test uses a fresh profile and synthetic about:blank pages",
+    "Native controls dispatch checked in a temporary production header with a spy callback",
+    "Option-click routing is implemented; native zoom operation qualified through the authenticated bridge",
+    "Isolated engine tests left the existing helper and daily profile unchanged; the subsequent local rollout installed the verified package and retained the saved profile",
+    "Multi-display transitions and long-running daily use not qualified"
+  ],
+  "localRollout": {
+    "verifiedAt": "2026-10-03T04:18:00.559235+00:00",
+    "phase": "ready",
+    "browserInstanceCount": 1,
+    "workspaceInstanceCount": 1,
+    "managedTabCount": 7,
+    "allLayoutsAcknowledged": true,
+    "savedProfileRetained": true
+  },
+  "startupMinimum": {
+    "width": 160,
+    "height": 120,
+    "regression": "testDenseMixedLayoutFitsManagedMinimumBeforeConventionalHostsAreAdopted",
+    "layoutDiagnostics": "surface list exposes observed host state and the last layout request and reply"
+  }
+}

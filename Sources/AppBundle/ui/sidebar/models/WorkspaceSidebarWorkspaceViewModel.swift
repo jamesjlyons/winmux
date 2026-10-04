@@ -10,6 +10,9 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     let isVisible: Bool
     let items: [WorkspaceSidebarItemViewModel]
 
+    var isPinnedGroup: Bool = false
+    var pins: [WorkspaceSidebarPinViewModel] = []
+
     var id: String { name }
 }
 

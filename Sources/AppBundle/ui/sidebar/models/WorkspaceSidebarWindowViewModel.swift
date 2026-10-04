@@ -1,3 +1,5 @@
+import WorkspaceCore
+
 struct WorkspaceSidebarWindowViewModel: Hashable, Identifiable {
     let windowId: UInt32
     let workspaceName: String
@@ -6,8 +8,9 @@ struct WorkspaceSidebarWindowViewModel: Hashable, Identifiable {
     let appBundlePath: String?
     let title: String?
     let isFocused: Bool
+    let surfaceID: SurfaceID
 
-    var id: UInt32 { windowId }
+    var id: SurfaceID { surfaceID }
 }
 
 struct WorkspaceSidebarTabGroupViewModel: Hashable, Identifiable {

@@ -1,0 +1,20 @@
+[package]
+name = "winmux-blocking"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["staticlib", "rlib", "cdylib"]
+
+[features]
+chromium-bundled = []
+
+[dependencies]
+adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "css-validation", "full-regex-handling"] }
+serde_json = "1.0"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

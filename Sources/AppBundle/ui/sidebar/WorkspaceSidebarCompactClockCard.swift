@@ -15,8 +15,7 @@ struct WorkspaceSidebarCompactClockCard: View {
         GeometryReader { _ in
             let shape = RoundedRectangle(cornerRadius: min(workspaceSidebarStatusCornerRadius, sectionWidth / 3), style: .continuous)
             ZStack(alignment: .bottomLeading) {
-                shape
-                    .fill(Color.primary.opacity(0.06))
+                Color.clear
 
                 VStack(alignment: .center, spacing: 4) {
                     Text(components.hour)
@@ -30,14 +29,13 @@ struct WorkspaceSidebarCompactClockCard: View {
                             .foregroundStyle(Color.primary.opacity(0.66))
                     }
                 }
-                .font(.system(size: max(1, 19 * contentScale), weight: .bold, design: .rounded))
+                .font(.system(size: max(1, 19 * contentScale), weight: .medium, design: .default))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
-                shape
-                    .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
+
             }
             .clipShape(shape)
         }

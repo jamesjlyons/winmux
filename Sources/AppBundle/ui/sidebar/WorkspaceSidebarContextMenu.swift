@@ -5,6 +5,10 @@ struct WorkspaceSidebarContextMenu: View {
     let actions: WorkspaceSidebarActions
 
     var body: some View {
+        if configuration.showsBrowserControls {
+            Button("New Tab") { actions.send(.newBrowserTab(workspaceName: nil)) }
+            Divider()
+        }
         Toggle("Compact Mode", isOn: Binding(
             get: { configuration.isCompactMode },
             set: { actions.send(.setCompactMode($0)) },

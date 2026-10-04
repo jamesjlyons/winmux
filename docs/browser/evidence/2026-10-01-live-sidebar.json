@@ -1,0 +1,292 @@
+{
+  "recorded_utc": "2026-10-01T21:09:05.782445+00:00",
+  "scope": "live production sidebar with authenticated Chromium tabs; native management not activated",
+  "final_package": {
+    "path": ".local/browser/packages/alpha-sidebar-5/winmux-package-manifest.json",
+    "sha256": "190216efeaa1f31ade7ca471d9c11a2540f6d288418b91f429a63587966fc6d4",
+    "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-sidebar-5/WinMux Browser Alpha.app",
+    "helper_relative_path": "Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper",
+    "helper_sha256": "cf46417d56a343bf79d40d78dfaaf75f3bf2b31d52ef0db9e73f5391bd53a949",
+    "verified": true,
+    "notarized": false
+  },
+  "visible_ui_proof": {
+    "package": {
+      "path": ".local/browser/packages/alpha-sidebar-3/winmux-package-manifest.json",
+      "sha256": "332fdb5183ba4cd3b7ab2f579eddaa80c55dfc1b786101f1c894d22992263950"
+    },
+    "mechanism": "Computer Use @oai/sky, only the separately identified WinMux Workspace helper UI",
+    "observations": [
+      {
+        "action": "initial sidebar inspection",
+        "visible_rows": [
+          "WinMux Sidebar One",
+          "WinMux Sidebar Two"
+        ],
+        "inventory_revision": 4,
+        "tab_count": 2
+      },
+      {
+        "action": "click Browser tab: WinMux Sidebar Two",
+        "inventory_revision": 5,
+        "delta_messages": 4,
+        "tab_count": 2,
+        "selected_row_highlight_visible": true
+      },
+      {
+        "action": "row context menu Close Tab",
+        "inventory_revision": 6,
+        "delta_messages": 5,
+        "tab_count": 1,
+        "visible_rows": [
+          "WinMux Sidebar One"
+        ]
+      },
+      {
+        "action": "restart only isolated launchd helper",
+        "authenticated_connections": 2,
+        "inventory_revision": 7,
+        "full_messages": 1,
+        "delta_messages": 0,
+        "tab_count": 1,
+        "visible_rows": [
+          "WinMux Sidebar One"
+        ]
+      }
+    ],
+    "screenshot": {
+      "path": ".local/browser/sidebar-ui-test-2/sidebar-live.jpeg",
+      "sha256": "5d394e694e9f7a155750a4825bec850075f20c0792954abf33085378cde096a2"
+    },
+    "helper_report": {
+      "scope": "isolated_authenticated_inventory_actions",
+      "tab_count": 0,
+      "revision": 8,
+      "full_messages": 1,
+      "delta_messages": 1,
+      "outcomes": {}
+    },
+    "bridge_report": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 2,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "cleanup": {
+      "scope": "isolated_live_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.b4c81b93-0bdc-4abd-bb35-7918618ed63a",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-sidebar-3/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "No native manager activation; mixed layouts and native input readiness not qualified"
+      ],
+      "browser_pid": 46944,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    }
+  },
+  "signed_fence_recovery_proof": {
+    "scope": "actual_signed_browser_authenticated_inventory_actions",
+    "passed": true,
+    "package_manifest_sha256": "3192a78ba096a3252341edc099a62cd56e4be18d85c6c48d7f516d32975a3f80",
+    "test_source_sha256": "db870827f903068077f35ec76b025fb605b4845fa8d3c606208da021b3983db2",
+    "command": [
+      "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-sidebar-4/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+      "--headless=new",
+      "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/sidebar-fence-test/profile",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--enable-logging=stderr",
+      "--winmux-bridge-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/sidebar-fence-test/bridge.json",
+      "--winmux-test-service=com.jameslyons.winmux.browser.alpha.workspace.test.42d1fc33-3bf0-48f9-aeaa-a18a9363a235",
+      "--winmux-bridge-test-disconnect-once",
+      "--winmux-test-inventory-actions",
+      "about:blank"
+    ],
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.42d1fc33-3bf0-48f9-aeaa-a18a9363a235",
+    "private_inventory_test": false,
+    "observations": [
+      {
+        "elapsed_seconds": 7.251115167,
+        "helper": {
+          "revision": 1,
+          "tab_count": 1,
+          "full_messages": 1,
+          "delta_messages": 0,
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {}
+        }
+      },
+      {
+        "elapsed_seconds": 7.3555118340000005,
+        "helper": {
+          "revision": 2,
+          "tab_count": 1,
+          "full_messages": 1,
+          "delta_messages": 1,
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {}
+        }
+      },
+      {
+        "elapsed_seconds": 7.671447500000001,
+        "helper": {
+          "revision": 3,
+          "tab_count": 2,
+          "outcomes": {},
+          "scope": "isolated_authenticated_inventory_actions",
+          "full_messages": 1,
+          "delta_messages": 2
+        }
+      },
+      {
+        "elapsed_seconds": 8.083872875,
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {
+            "repeated_fence": "issued",
+            "focus": "issued",
+            "stale_focus": "stale_focus",
+            "native_focus_fence": "issued"
+          },
+          "revision": 5,
+          "full_messages": 1,
+          "delta_messages": 4,
+          "tab_count": 2
+        }
+      },
+      {
+        "elapsed_seconds": 8.5033135,
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {
+            "repeated_close": "issued",
+            "foreign_epoch": "stale_epoch",
+            "close": "issued",
+            "stale_focus": "stale_focus",
+            "operation_conflict": "operation_conflict",
+            "native_focus_fence": "issued",
+            "focus": "issued",
+            "repeated_fence": "issued"
+          },
+          "revision": 6,
+          "full_messages": 1,
+          "delta_messages": 5,
+          "tab_count": 1
+        }
+      },
+      {
+        "elapsed_seconds": 11.10867625,
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {},
+          "revision": 7,
+          "full_messages": 1,
+          "delta_messages": 0,
+          "tab_count": 1
+        }
+      }
+    ],
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "actions": {
+      "scope": "isolated_authenticated_inventory_actions",
+      "outcomes": {
+        "repeated_close": "issued",
+        "foreign_epoch": "stale_epoch",
+        "close": "issued",
+        "stale_focus": "stale_focus",
+        "operation_conflict": "operation_conflict",
+        "native_focus_fence": "issued",
+        "focus": "issued",
+        "repeated_fence": "issued"
+      },
+      "revision": 6,
+      "full_messages": 1,
+      "delta_messages": 5,
+      "tab_count": 1
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 2,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "helper": {
+      "scope": "isolated_authenticated_inventory_actions",
+      "outcomes": {},
+      "revision": 7,
+      "full_messages": 1,
+      "delta_messages": 0,
+      "tab_count": 1
+    },
+    "seconds_after_recovery": 17.093845333,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  },
+  "checks": {
+    "native_regression": {
+      "passed": 725,
+      "log": {
+        "path": ".local/browser/sidebar-root-tests.log",
+        "sha256": "81de51447da90fc73194dbcdd535d88bc5fd0019cab09b72401516472f22780d"
+      }
+    },
+    "final_sidebar_native_targeted": {
+      "passed": 11,
+      "log": {
+        "path": ".local/browser/sidebar-final-targeted-tests.log",
+        "sha256": "c3bf17c8757f1fc112013755a43f86aa3e2ade5283fe6812ba558b059a525a34"
+      }
+    },
+    "standalone_bridge_core": {
+      "passed": 16,
+      "log": {
+        "path": ".local/browser/sidebar-final-core-tests.log",
+        "sha256": "c3c2ca95fbe182d7a7973f30959ef5435d1e38c1d08e82621fd825f94de66242"
+      }
+    },
+    "python": {
+      "passed": 35,
+      "log": {
+        "path": ".local/browser/sidebar-python-tests.log",
+        "sha256": "0abd475ef5b32f73255e2020fc44633847dba55688318ce1c73bd6d1107193b8"
+      }
+    },
+    "build": {
+      "path": ".local/browser/alpha-sidebar-build-2.log",
+      "sha256": "19a420505ef5ddc29dd3800b317ad25648b031c955ed703078bee4a5ca704a6c"
+    },
+    "package": {
+      "path": ".local/browser/alpha-sidebar-package-5.log",
+      "sha256": "3bf7d3089feaab50250680a528760d816f5c057d30944acb2d8dd1da6d74959e"
+    }
+  },
+  "limits": [
+    "UI proof used package 3; signed fence/recovery proof used package 4. Final package 5 adds tested three-browser focus reaffirmation; that scenario is unit-tested with synthetic owners.",
+    "Native test windows are synthetic. No live native window manager, mixed stack, split, host transfer or geometry operation was launched.",
+    "Browser placement is in memory and appended to an assigned workspace. Native drag/tree and non-sidebar focus paths still need generalization.",
+    "Native host discovery exclusion has code/unit coverage, not a live AX ownership handoff. Existing bindings must be reconciled before activation.",
+    "Focus acknowledgement and a selected tab do not establish input-ready completion.",
+    "Installed alpha-compatibility browser PID 33776 and enrolled helper PID 17212 remained running. Existing helper identity was verified unchanged by the signed test.",
+    "No benchmarks, extension tests, signed-in UI, vault content or original WinMux configuration/session changes."
+  ]
+}

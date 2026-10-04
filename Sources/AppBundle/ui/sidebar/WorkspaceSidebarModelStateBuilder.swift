@@ -11,6 +11,11 @@ func buildWorkspaceSidebarModelState() async -> WorkspaceSidebarModelState {
     )
     let activeProjectId = currentFocus.workspace.projectId
     let projects = buildWorkspaceSidebarProjectViewModels()
+    if BrowserWorkspaceController.shared.usesSurfaceTree {
+        for project in projects {
+            _ = BrowserWorkspaceController.shared.pinnedGroup(for: project.id)
+        }
+    }
     let workspaces = await buildWorkspaceSidebarWorkspaceViewModels(
         currentFocus: currentFocus,
         workspaceLabels: config.workspaceSidebar.workspaceLabels,

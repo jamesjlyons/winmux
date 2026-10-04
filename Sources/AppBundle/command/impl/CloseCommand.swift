@@ -7,6 +7,11 @@ struct CloseCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         try await allowOnlyCancellationError { @MainActor @Sendable in
+            if let id = args.selectedBrowserTarget(env) {
+                // Closing a tab must never quit its profile or a stale native app.
+                guard !args.quitIfLastWindow else { return io.err("--quit-if-last-window is a native-window option") }
+                return reportSurfaceAction(BrowserWorkspaceController.shared.close(id), io)
+            }
             guard let target = args.resolveTargetOrReportError(env, io) else { return false }
             guard let window = target.windowOrNil else {
                 return io.err("Empty workspace")

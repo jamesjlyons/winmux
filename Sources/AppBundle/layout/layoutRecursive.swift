@@ -3,7 +3,18 @@ import Common
 
 extension Workspace {
     @MainActor
+    func layoutFloatingWindowsForSharedLayout() async throws {
+        let context = LayoutContext(self)
+        for window in children.filterIsInstance(of: Window.self) {
+            window.lastAppliedLayoutPhysicalRect = nil
+            window.lastAppliedLayoutVirtualRect = nil
+            try await window.layoutFloatingWindow(context)
+        }
+    }
+
+    @MainActor
     func layoutWorkspace() async throws {
+        if try await BrowserWorkspaceController.shared.applyNativeLayout(in: self) { return }
         if isEffectivelyEmpty { return }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         let context = LayoutContext(self)
@@ -87,7 +98,7 @@ extension TreeNode {
     }
 }
 
-private func canReuseLastAppliedWindowFrame(previousPhysicalRect: Rect?, nextPhysicalRect: Rect) -> Bool {
+func canReuseLastAppliedWindowFrame(previousPhysicalRect: Rect?, nextPhysicalRect: Rect) -> Bool {
     guard reuseGeometryLayoutFrames || refreshSessionEvent?.canReuseLastAppliedWindowFrames == true else { return false }
     guard let previousPhysicalRect else { return false }
     return previousPhysicalRect.topLeftX == nextPhysicalRect.topLeftX &&
@@ -110,10 +121,14 @@ private struct LayoutContext {
 extension Window {
     @MainActor
     fileprivate func layoutFloatingWindow(_ context: LayoutContext) async throws {
+        let restoredMonitor = restoredFloatingFrameMonitorRect
+        restoredFloatingFrameMonitorRect = nil
         // With a single monitor the cross-monitor proportional move below is always a no-op,
         // so skip the AX round-trip it would need. This runs for every floating window on
         // every layout pass.
-        if monitors.count == 1 {
+        // A restored window can deliberately straddle monitors. Its exact saved
+        // position is already correct; center-based relocation would move it again.
+        if monitors.count == 1 || restoredMonitor == context.workspace.workspaceMonitor.rect {
             if isFullscreen {
                 layoutFullscreen(context)
                 isFullscreen = false
@@ -260,11 +275,11 @@ extension TreeNode {
     fileprivate func hideTabbedWindows(_ workspace: Workspace) async throws {
         switch nodeCases {
             case .window(let window):
-                window.lastAppliedLayoutPhysicalRect = nil
-                window.lastAppliedLayoutVirtualRect = nil
                 if let macWindow = window as? MacWindow {
                     try await macWindow.hideInCorner(.bottomRightCorner)
                 }
+                window.lastAppliedLayoutPhysicalRect = nil
+                window.lastAppliedLayoutVirtualRect = nil
             case .tilingContainer(let container):
                 for child in container.children {
                     try await child.hideTabbedWindows(workspace)
@@ -280,11 +295,11 @@ extension TreeNode {
         switch nodeCases {
             case .window(let window):
                 guard window != targetWindow else { return }
-                window.lastAppliedLayoutPhysicalRect = nil
-                window.lastAppliedLayoutVirtualRect = nil
                 if let macWindow = window as? MacWindow {
                     try await macWindow.hideInCorner(.bottomRightCorner)
                 }
+                window.lastAppliedLayoutPhysicalRect = nil
+                window.lastAppliedLayoutVirtualRect = nil
             case .tilingContainer(let container):
                 for child in container.children {
                     try await child.hideAllWindowsExcept(targetWindow)
@@ -304,11 +319,11 @@ extension TreeNode {
         if self === targetNode { return }
         switch nodeCases {
             case .window(let window):
-                window.lastAppliedLayoutPhysicalRect = nil
-                window.lastAppliedLayoutVirtualRect = nil
                 if let macWindow = window as? MacWindow {
                     try await macWindow.hideInCorner(.bottomRightCorner)
                 }
+                window.lastAppliedLayoutPhysicalRect = nil
+                window.lastAppliedLayoutVirtualRect = nil
             case .tilingContainer(let container):
                 for child in container.children {
                     try await child.hideAllWindowsExcept(targetNode)

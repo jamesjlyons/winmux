@@ -1,0 +1,140 @@
+{
+  "recorded_utc": "2026-10-01T18:08:51.743620+00:00",
+  "scope": "signed_upstream_control_packaging_and_benchmark_export_smoke",
+  "milestone_0_complete": false,
+  "performance_qualified": false,
+  "package_manifest_sha256": "0fe0f89ffddf9ce0d6fdf6f4108e1e0fe633dff488d3c3e185983ed70c3b022c",
+  "package_manifest": {
+    "scope": "private_development_upstream_control",
+    "verified": true,
+    "notarized": false,
+    "identity_sha1": "140566AD0A3B967AB81062FD208B94F0E1DAAFEC",
+    "team_identifier": "F7QMMNZWXX",
+    "created_utc": "2026-10-01T18:01:10.954835+00:00",
+    "build": {
+      "pins": {
+        "schema_version": 1,
+        "recorded_utc": "2026-09-19",
+        "chromium": {
+          "repository": "https://chromium.googlesource.com/chromium/src.git",
+          "channel": "Stable",
+          "platform": "Mac",
+          "version": "153.0.8010.53",
+          "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+          "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+        },
+        "depot_tools": {
+          "repository": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+          "revision": "0306e4682b4ac35287c726fa35a983157a625902"
+        },
+        "native_base_revision": "ff1fdd70bb4769e925e7e84196a1e35423ccad65",
+        "alpha_bundle_id": "com.jameslyons.winmux.browser.alpha",
+        "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
+        "browser_data_directory": "WinMux Browser Alpha",
+        "initial_checkout_free_gib": 200,
+        "minimum_build_free_gib": 100,
+        "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+        "rust_version": "1.97.1",
+        "xcode_qualification_version": "27.0"
+      },
+      "configuration": "browser-only-control",
+      "qualification": "not_run",
+      "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+      "native_revision": "ef668277d437c89d77ca264a8ad68b95d274eade",
+      "native_dirty": false,
+      "build_jobs": 4,
+      "hardware": {
+        "model": "MacBookPro18,1",
+        "physical_memory_bytes": 17179869184,
+        "logical_cpus": 10
+      },
+      "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+      "xcode": "Xcode 27.0\nBuild version 27A266a",
+      "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+      "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+      "cargo_lock_sha256": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
+    },
+    "raw_control_sha256": {
+      "Chromium.app/Contents/MacOS/Chromium": "b0980513eeaafaf1bcbc2218479941bd503ea93828704357af2c52c48ebd8897",
+      "Chromium.app/Contents/Frameworks/Chromium Framework.framework/Chromium Framework": "c106a36430ad30e442ba926283e0a969320f89e43f5886b699c98b2aa469f766",
+      "winmux-build-manifest.json": "4ad386c11799af0e31b29564371bce47fda203cdf9c7d769c62c916b4ee5c8ba"
+    },
+    "package_tool_sha256": "9f5dd532e4253ba3ff0c6bc3c8d985b010bda21eee187fca2ec7d9caa9d626f3",
+    "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app",
+    "preserved_control_unchanged": true,
+    "browser_executable_sha256": "a52c39e14dc53c8903102d46b8ef33c6f5c28e7d32bd538b235b8744a23abe84",
+    "framework_sha256": "c0d8c326fa3a2828d17cd831ba8a8936d5e60a4c2b652dda5be3b51d34baf324"
+  },
+  "verification": {
+    "deep_strict_signature": "passed",
+    "exact_team_and_identifier": "passed",
+    "launch_in_separate_profile": "passed",
+    "benchmark_suite_completed": "passed",
+    "clean_quit_exit_code": 0,
+    "python_tests_passed": 23
+  },
+  "benchmark": {
+    "url": "https://browserbench.org/Speedometer3.1/",
+    "instructions": "https://browserbench.org/Speedometer3.1/instructions.html",
+    "version": "3.1",
+    "runs": 1,
+    "iterations": 10,
+    "profile": ".local/browser/profiles/control-benchmark",
+    "required_extensions_installed": false,
+    "power": "AC power, battery 100% at launch",
+    "display_configuration_recorded": false,
+    "uninterrupted_foreground_focus_recorded": false,
+    "background_applications_closed": false,
+    "accessibility_inspected_during_run": true,
+    "matched_alpha_run": false,
+    "score": {
+      "name": "Score",
+      "unit": "score",
+      "description": "Scaled inverse of the Geomean",
+      "mean": 3.8864912970179346,
+      "delta": 0.1309143298250105,
+      "percentDelta": 3.3684452072608457,
+      "sum": 38.86491297017935,
+      "min": 3.4569673260791287,
+      "max": 4.162279540974394,
+      "values": [
+        3.4569673260791287,
+        3.93051539204584,
+        4.162279540974394,
+        4.028025565424166,
+        3.8911110451345587,
+        3.7695640368868766,
+        3.9017047799902187,
+        3.938217038815007,
+        3.8600421561347122,
+        3.9264860886944453
+      ]
+    },
+    "geomean": {
+      "name": "Geomean",
+      "unit": "ms",
+      "description": "Geomean of test totals",
+      "mean": 257.84480805304366,
+      "delta": 9.191965928715055,
+      "percentDelta": 3.5649218606038753,
+      "sum": 2578.4480805304365,
+      "min": 240.25296478907302,
+      "max": 289.2708856274305,
+      "values": [
+        289.2708856274305,
+        254.4195608605665,
+        240.25296478907302,
+        248.26058915410493,
+        256.99600664195873,
+        265.28266669953103,
+        256.2982225432512,
+        253.92201347564526,
+        259.06452819711143,
+        254.68064254176423
+      ]
+    },
+    "raw_file": "2026-10-01-control-speedometer-smoke-raw.json",
+    "raw_sha256": "4eab5b93077f6a8c088fa4dff4ddaf59c8165ef2c7ed2254e08a1f47c2079714",
+    "interpretation": "Execution/export smoke only. Does not meet controlled measurement conditions, compare performance or qualify any milestone gate."
+  }
+}

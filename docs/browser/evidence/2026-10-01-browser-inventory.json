@@ -1,0 +1,390 @@
+{
+  "scope": "milestone_1_browser_inventory_and_owner_actions",
+  "recorded_utc": "2026-10-01T20:35:24.510890+00:00",
+  "passed": true,
+  "package": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-inventory-2/WinMux Browser Alpha.app",
+  "package_manifest_sha256": "ffd1e695d821c7ff73ac33203a6ebacc44aed7951eff9b438afc2fb328adc602",
+  "signing": {
+    "team_identifier": "F7QMMNZWXX",
+    "verified": true,
+    "notarized": false
+  },
+  "build": {
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+    "patches_sha256": {
+      "0001-workspace-bridge.patch": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+      "0002-native-request-blocking.patch": "1bd40c5d024e0844a2363a4c925a0ba1f3aa42f7dd260bb1c3b8e2ea906e9486",
+      "0003-blocker-library-bundle.patch": "ad37f775ed9e6cec98e1acd55b86f48782bfbf6a19267eced209844af73ecb23",
+      "0004-document-cosmetics.patch": "2e184a437e0dbb0fa3028453df8e7d514ab17cd2fcb9c291b103723400bb28f4",
+      "0005-persistent-tab-identities.patch": "196d8c23b170c5dcba43508c2be9a70cd645db906f25f0e7a18604a6b00d49c2",
+      "0006-workspace-shutdown.patch": "583042965d37025426321e0d8eafffc581ba08f5b9d983b3807e011d80574380"
+    },
+    "overlay_sha256": {
+      "components/winmux/blocking/engine.h": "6c72d895f5ee8a4a56ff4ab47bd3d16ff69be631918fa07d2bfe9b0d57de7ad0",
+      "components/winmux/blocking/BUILD.gn": "2fd599b39a15bc0d17807cdd1cd7380a7190eda442b1d1a64e3cad9928d850bf",
+      "components/winmux/blocking/engine.cc": "a6994d20a3c2622f031cf4c32b9fe49662fcaedda720f9fb9d21b634f696c861",
+      "components/winmux/blocking/cosmetics.mojom": "2c3804c9bde0c37df1399b81be1bb651abfd3f37f2fc3ec11061776718466470",
+      "chrome/renderer/winmux/BUILD.gn": "52d74ee82a032c18995786cd9145f4b3e7bfc0360bf491829c9d42505453f2a0",
+      "chrome/renderer/winmux/cosmetics_agent.h": "0fd7a0413ceb2074863b4fce44a024733960314630eaa171354f06cb353d1563",
+      "chrome/renderer/winmux/cosmetics_agent.cc": "1048b701aac6eebb22e76c03f081af458e16d922c5c6bb755781a0523ac6baa0",
+      "chrome/browser/winmux/browser_inventory.cc": "303ea743ab9a3c042820030bd7710d968bc4adf36f11351382054b24df3d6732",
+      "chrome/browser/winmux/BUILD.gn": "392d9e0be217210aa65a4a828dc3f895b53ef867e540f8593f6e29521157bfba",
+      "chrome/browser/winmux/cosmetics_host.h": "89a7745c4a2586e0fac04eeaed8d471f02a6582098da2ffbe499ab138bcabcb1",
+      "chrome/browser/winmux/cosmetics_host.cc": "0c3b9c1365ff2d4a9dee8b68c2267155a23f898feaf3109d90ad663523bbded9",
+      "chrome/browser/winmux/workspace_bridge_state.h": "cddc77b2be39de80001095680a62de33e3745128686af6f601c47bfc739da4cf",
+      "chrome/browser/winmux/workspace_bridge.mm": "aac99724da570d896cc44cf5d0b050b556ab5af7e3d99c87cbcc3d003dc602c0",
+      "chrome/browser/winmux/tab_identity.cc": "5806e12baba32e5cdbfb059b1512b57efe730b25b51b726fed55bdba8324554a",
+      "chrome/browser/winmux/tab_identity.h": "09aeda1754ca09ce57799bb1046a9dbeef9afcac70a0194ab6e9b1ad10612431",
+      "chrome/browser/winmux/workspace_bridge.h": "e7e84e3ae27999e41a4f6d52b9b9e636dba4b4e96b5f953678f92b4ba20aee57",
+      "chrome/browser/winmux/browser_inventory.h": "39316ef248b2a86ca0791bc904c93453a0a0e17584c4f78b2c58b66965ecaeee",
+      "services/network/winmux/url_filter.cc": "9d58a4ace2df58c4c7e33c486759a580b552f2d4550b6286ab1be1bda75cbd03",
+      "services/network/winmux/url_filter.h": "4fc2837fe746a26a0625d0d598088779d377d155217c21fa15ab44def2105f77",
+      "chrome/browser/winmux/WMBridgeProtocol.h": "77664ec071b41dce072e1c5c2c0ac9553215a9afd51a6a323f3dd893745cb100",
+      "components/winmux/blocking/winmux_blocking.h": "691787c723c79c5858a7c6a69ea086868e6ed434e05a533fdc27cbaed19e2fd5"
+    },
+    "build_succeeded": true
+  },
+  "native_sources_sha256": {
+    "browser/native/Sources/WorkspaceCore/SurfaceID.swift": "c988ff3eb70d7d7e1b652649875d837582e6211adf002d929ffac5167d24b201",
+    "browser/native/Sources/WorkspaceCore/BrowserSurfaceAdapter.swift": "f4b5f27089148338c480ed7ff0bd62e71fab156d646c06806e8267b587039840",
+    "browser/native/Sources/WorkspaceCore/BrowserInventory.swift": "6b25a097d3463da7566c3ea7bf5c17d20ca263fa7f4e8733fbda0228b9110c8b",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "3b343099cd898b5d7f4e32d1f540c9358b202a47ec354c658057669d004698dc",
+    "browser/native/Sources/BridgeCore/BridgeSession.swift": "9ab5f260798e7e488047a5317b4cdcc7432f3ae4adaa6496dc2e4dc9e6877610",
+    "browser/native/Sources/BridgeProtocol/include/WMBridgeProtocol.h": "77664ec071b41dce072e1c5c2c0ac9553215a9afd51a6a323f3dd893745cb100",
+    "browser/tools/test_browser_inventory.py": "472ce80c5c4453f6b4e7426a3e9ec2571da2e9cb7c044b6d1e2702acc586450d"
+  },
+  "checks": {
+    "root_native_regression_tests": 721,
+    "native_bridge_and_workspace_core_tests": 15,
+    "python_checks": 35,
+    "cpp_connection_state_probe": "passed"
+  },
+  "authenticated_inventory_actions": {
+    "scope": "actual_signed_browser_authenticated_inventory_actions",
+    "passed": true,
+    "package_manifest_sha256": "ffd1e695d821c7ff73ac33203a6ebacc44aed7951eff9b438afc2fb328adc602",
+    "test_source_sha256": "472ce80c5c4453f6b4e7426a3e9ec2571da2e9cb7c044b6d1e2702acc586450d",
+    "command": [
+      "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-inventory-2/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+      "--headless=new",
+      "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-test-final/profile",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--enable-logging=stderr",
+      "--winmux-bridge-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-test-final/bridge.json",
+      "--winmux-test-service=com.jameslyons.winmux.browser.alpha.workspace.test.9f3d8334-19b2-4bb1-91fe-50122a9025db",
+      "--winmux-bridge-test-disconnect-once",
+      "--winmux-test-inventory-actions",
+      "about:blank"
+    ],
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.9f3d8334-19b2-4bb1-91fe-50122a9025db",
+    "private_inventory_test": false,
+    "observations": [
+      {
+        "elapsed_seconds": 0.8292868340000001,
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "revision": 1,
+          "tab_count": 1,
+          "outcomes": {},
+          "delta_messages": 0,
+          "full_messages": 1
+        }
+      },
+      {
+        "elapsed_seconds": 0.9345532920000001,
+        "helper": {
+          "outcomes": {},
+          "tab_count": 1,
+          "revision": 2,
+          "full_messages": 1,
+          "delta_messages": 1,
+          "scope": "isolated_authenticated_inventory_actions"
+        }
+      },
+      {
+        "elapsed_seconds": 1.24898175,
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "outcomes": {},
+          "tab_count": 2,
+          "delta_messages": 3,
+          "full_messages": 1,
+          "revision": 4
+        }
+      },
+      {
+        "elapsed_seconds": 1.6644320419999998,
+        "helper": {
+          "full_messages": 1,
+          "delta_messages": 3,
+          "revision": 4,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 2,
+          "outcomes": {
+            "stale_focus": "stale_focus",
+            "focus": "issued"
+          }
+        }
+      },
+      {
+        "elapsed_seconds": 2.086215792,
+        "helper": {
+          "full_messages": 1,
+          "delta_messages": 4,
+          "revision": 5,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 1,
+          "outcomes": {
+            "focus": "issued",
+            "repeated_close": "issued",
+            "operation_conflict": "operation_conflict",
+            "foreign_epoch": "stale_epoch",
+            "close": "issued",
+            "stale_focus": "stale_focus"
+          }
+        }
+      },
+      {
+        "elapsed_seconds": 4.719818792,
+        "helper": {
+          "full_messages": 1,
+          "delta_messages": 0,
+          "revision": 6,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 1,
+          "outcomes": {}
+        }
+      }
+    ],
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "actions": {
+      "full_messages": 1,
+      "delta_messages": 4,
+      "revision": 5,
+      "scope": "isolated_authenticated_inventory_actions",
+      "tab_count": 1,
+      "outcomes": {
+        "focus": "issued",
+        "repeated_close": "issued",
+        "operation_conflict": "operation_conflict",
+        "foreign_epoch": "stale_epoch",
+        "close": "issued",
+        "stale_focus": "stale_focus"
+      }
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 2,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "helper": {
+      "full_messages": 1,
+      "delta_messages": 0,
+      "revision": 6,
+      "scope": "isolated_authenticated_inventory_actions",
+      "tab_count": 1,
+      "outcomes": {}
+    },
+    "seconds_after_recovery": 17.087536042,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  },
+  "private_tab_inventory": {
+    "scope": "actual_signed_browser_authenticated_inventory_actions",
+    "passed": true,
+    "package_manifest_sha256": "ffd1e695d821c7ff73ac33203a6ebacc44aed7951eff9b438afc2fb328adc602",
+    "test_source_sha256": "472ce80c5c4453f6b4e7426a3e9ec2571da2e9cb7c044b6d1e2702acc586450d",
+    "command": [
+      "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-inventory-2/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+      "--headless=new",
+      "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-private-test/profile",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--enable-logging=stderr",
+      "--winmux-bridge-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-private-test/bridge.json",
+      "--winmux-test-service=com.jameslyons.winmux.browser.alpha.workspace.test.d6f98fcf-a661-48f4-8b4b-32887806862c",
+      "--winmux-bridge-test-disconnect-once",
+      "--incognito",
+      "about:blank"
+    ],
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.d6f98fcf-a661-48f4-8b4b-32887806862c",
+    "private_inventory_test": true,
+    "observations": [
+      {
+        "elapsed_seconds": 0.8254767080000001,
+        "helper": {
+          "revision": 1,
+          "tab_count": 0,
+          "full_messages": 1,
+          "outcomes": {},
+          "delta_messages": 0,
+          "scope": "isolated_authenticated_inventory_actions"
+        }
+      },
+      {
+        "elapsed_seconds": 4.700461291,
+        "helper": {
+          "revision": 2,
+          "outcomes": {},
+          "full_messages": 1,
+          "delta_messages": 0,
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 0
+        }
+      }
+    ],
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "actions": {
+      "revision": 1,
+      "tab_count": 0,
+      "full_messages": 1,
+      "outcomes": {},
+      "delta_messages": 0,
+      "scope": "isolated_authenticated_inventory_actions"
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 2,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "helper": {
+      "revision": 2,
+      "outcomes": {},
+      "full_messages": 1,
+      "delta_messages": 0,
+      "scope": "isolated_authenticated_inventory_actions",
+      "tab_count": 0
+    },
+    "seconds_after_recovery": 17.046133375,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  },
+  "legacy_helper_fallback": {
+    "scope": "actual_signed_headless_chromium_connection_recovery",
+    "passed": true,
+    "args": [
+      "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-inventory-2/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+      "--headless=new",
+      "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/inventory-legacy-recovery",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--enable-logging=stderr",
+      "--winmux-bridge-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-legacy-recovery/bridge.json",
+      "--winmux-bridge-test-disconnect-once",
+      "about:blank"
+    ],
+    "package_manifest_sha256": "ffd1e695d821c7ff73ac33203a6ebacc44aed7951eff9b438afc2fb328adc602",
+    "test_source_sha256": "3a3397b7b7fa2313a25a5dfa3ff7d920326d29119b2c0db498d6275ddfeda18b",
+    "observations": [
+      {
+        "elapsed_seconds": 0.415617958,
+        "report": {
+          "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+          "connection_generation": 1,
+          "native_window_management_enabled": false,
+          "scope": "chromium_signed_xpc_transport_with_recovery",
+          "team_identifier": "F7QMMNZWXX",
+          "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+          "protocol_version": 1,
+          "authenticated_connections": 1,
+          "inventory_enabled": false,
+          "state": "authenticated",
+          "presentation_measured": false
+        }
+      },
+      {
+        "elapsed_seconds": 1.561105958,
+        "report": {
+          "detail": "Browser controls remain available; reconnect scheduled",
+          "connection_generation": 1,
+          "native_window_management_enabled": false,
+          "scope": "chromium_signed_xpc_transport_with_recovery",
+          "team_identifier": "F7QMMNZWXX",
+          "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+          "protocol_version": 1,
+          "authenticated_connections": 1,
+          "inventory_enabled": false,
+          "state": "disconnected",
+          "presentation_measured": false
+        }
+      },
+      {
+        "elapsed_seconds": 2.61084825,
+        "report": {
+          "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+          "connection_generation": 2,
+          "native_window_management_enabled": false,
+          "scope": "chromium_signed_xpc_transport_with_recovery",
+          "team_identifier": "F7QMMNZWXX",
+          "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+          "protocol_version": 1,
+          "authenticated_connections": 2,
+          "inventory_enabled": false,
+          "state": "authenticated",
+          "presentation_measured": false
+        }
+      }
+    ],
+    "limits": [
+      "Only this test client's XPC connection is invalidated; no helper crash is injected",
+      "No UI, presentation, native window management or performance qualification",
+      "Existing profiles and signed-in extension UI are not inspected"
+    ],
+    "browser_pid": 43216,
+    "helper_identity_unchanged": true,
+    "seconds_after_reauthentication": 17.028709292000002,
+    "elapsed_seconds": 19.639702416,
+    "test_process_exit_code": 0
+  },
+  "prior_failed_attempt": {
+    "path": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/inventory-test-1/result.json",
+    "browser_exit_code": -5,
+    "cause": "Inventory observation outlived GlobalBrowserCollection; fixed by explicit pre-teardown stop and observer destruction"
+  },
+  "logs_sha256": {
+    ".local/browser/inventory-test-2/result.json": "b1cbeb0d52fae7388f9799ff67c8347bad7c8378af4c8cd5927f47f988cd2161",
+    ".local/browser/inventory-private-test/result.json": "07919900facfef084bac3e605490a69c383ac51b771cd9a341720fa8088b584c",
+    ".local/browser/inventory-legacy-recovery/result.json": "0f134371f497f3de92c7a8d8ccd9f1ceb0259d53ed34e8085b8cce0a5c30e22b",
+    ".local/browser/alpha-inventory-build-4.log": "8872be87371eadec85a027eead5b59fcf2bbd6a32e21b304f537585b0ef6c2cd",
+    ".local/browser/alpha-inventory-package-2.log": "a7ff49b94797a1e0bfd21a1ae0a66b3ae92caa066c9b3667b5636c682d414a15",
+    ".local/browser/inventory-native-adapter-tests.log": "0c24735078697df2247b160ae5e02e40d66ac691bc3ff94c31a5730e36267652",
+    ".local/browser/inventory-root-regression.log": "3bd1b761499daddd2dacc98f6cf4cc2b5367aaa8bf05954037bf4ba65019beb5",
+    ".local/browser/inventory-python-tests.log": "55cf225f2917fcd37cb1feffcc7026fe46a30fc46c1744429a851577b9b31a10",
+    ".local/browser/inventory-test-final/result.json": "22503efe52b9a258b840d749f37e72dd43dddcdd11fa39e603b375713977b9a7"
+  },
+  "limits": [
+    "No shared sidebar or mixed layout UI is running yet",
+    "Only focus/close actions currently implemented",
+    "Issued focus is not native input-ready confirmation",
+    "Native/browser focus arbitration and host AX exclusion still need integration",
+    "Performance and further extension testing remain deferred by user instruction"
+  ]
+}

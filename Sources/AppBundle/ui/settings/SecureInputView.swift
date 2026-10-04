@@ -59,7 +59,7 @@ struct SecureInputView: View {
                     .padding(10)
             }
         }
-        .foregroundStyle(Color.white.opacity(GlassToken.textPrimary))
+        .foregroundStyle(Color.primary.opacity(GlassToken.textPrimary))
         .clipShape(RoundedRectangle(cornerRadius: RadiusToken.section, style: .continuous))
         .onTapGesture {
             if !isMinimized {

@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import Foundation
+import WorkspaceCore
 
 struct RestartWindowIdentity: Codable, Equatable, Sendable {
     let pid: Int32
@@ -24,6 +25,7 @@ struct RestartWindow: Codable, Equatable, Sendable {
     let id: UInt32
     let identity: RestartWindowIdentity
     let floatingFrame: CGRect?
+    var surfaceID: SurfaceID? = nil
 }
 
 struct RestartProject: Codable, Equatable, Sendable {
@@ -34,7 +36,7 @@ struct RestartProject: Codable, Equatable, Sendable {
 }
 
 struct RestartSessionSnapshot: Codable, Sendable {
-    var version = 2
+    var version = 3
     let savedAt: Date
     let bootSession: String?
     let world: FrozenWorld
@@ -42,13 +44,14 @@ struct RestartSessionSnapshot: Codable, Sendable {
     let projects: [RestartProject]?
     let focusedWindowId: UInt32?
     let focusedWorkspace: String?
+    var surfaces: SurfaceWorkspaceSnapshot? = nil
 
     /// Timestamps change on every capture; only persistent content should trigger a write.
     /// Compare values before encoding so an unchanged checkpoint allocates no JSON payload.
     func hasSameContent(as other: RestartSessionSnapshot) -> Bool {
         version == other.version && bootSession == other.bootSession && world == other.world &&
             windows == other.windows && projects == other.projects &&
-            focusedWindowId == other.focusedWindowId && focusedWorkspace == other.focusedWorkspace
+            focusedWindowId == other.focusedWindowId && focusedWorkspace == other.focusedWorkspace && surfaces == other.surfaces
     }
 
     @MainActor static func capture(now: Date = .now) -> RestartSessionSnapshot {
@@ -58,19 +61,22 @@ struct RestartSessionSnapshot: Codable, Sendable {
         let world = FrozenWorld(workspaces: workspaces.map(FrozenWorkspace.init), monitors: monitors.map(FrozenMonitor.init),
                                 windowIds: workspaces.flatMap(collectAllWindowIds).toSet())
         return RestartSessionSnapshot(
+            version: BrowserWorkspaceController.shared.usesSurfaceTree ? 4 : 3,
             savedAt: now, bootSession: currentBootSession(), world: world,
             windows: world.windowIds.sorted().compactMap { id in
                 guard let window = Window.get(byId: id) else { return nil }
                 let frame: CGRect? = window.isFloating ? (window as? MacWindow)?.frameForSessionRestore ?? window.lastKnownActualRect.map {
                     CGRect(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height)
                 } : nil
-                return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame)
+                return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame,
+                                     surfaceID: window.surfaceID)
             },
             projects: winMuxWorkspaceState.projectsById.values.sorted { $0.order < $1.order }.map { project in
                 RestartProject(id: project.id, name: project.name, order: project.order,
                                workspaceNames: project.workspaceOrder.compactMap { winMuxWorkspaceState.workspaceById[$0]?.name })
             },
-            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.name
+            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.name,
+            surfaces: BrowserWorkspaceController.shared.capturePlacementSnapshot()
         )
     }
 

@@ -1,0 +1,35 @@
+{
+  "recorded_utc": "2026-10-01T18:26:32.254595+00:00",
+  "scope": "partial_extension_clean_restart",
+  "milestone_0_complete": false,
+  "app": "/Applications/WinMux Browser Alpha.app",
+  "package": ".local/browser/packages/alpha-blocking-1/winmux-package-manifest.json",
+  "profile": ".local/browser/profiles/alpha-compatibility",
+  "previous_browser_pid": 21875,
+  "clean_quit_confirmed": true,
+  "restarted_browser_pid": 28054,
+  "restore_last_session_flag": true,
+  "test_tabs_restored": 7,
+  "public_test_url": "https://www.chromium.org/chromium-projects/",
+  "method": "Computer Use accessibility observations of public test page and extension UI; no vault inspection",
+  "readwise": {
+    "version": "0.18.3",
+    "saved_page_toolbar_available": true,
+    "existing_highlight_count": 1,
+    "new_login_required": false
+  },
+  "cosmos": {
+    "version": "6.15.3",
+    "authenticated_private_collection_picker_available": true,
+    "login_prompt_visible": false,
+    "new_save_submitted_after_restart": false
+  },
+  "native_helper_reauthenticated": true,
+  "bridge_log": ".local/browser/alpha-compatibility-restart-1.log",
+  "onepassword": "Further testing explicitly deferred by user; not a blocker for continued implementation",
+  "limits": [
+    "Clean restart only, not crash recovery or extension update",
+    "Second-profile behavior remains unverified",
+    "No account names, collection names, document IDs or credential contents recorded"
+  ]
+}

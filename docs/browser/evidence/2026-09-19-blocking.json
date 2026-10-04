@@ -1,0 +1,53 @@
+{
+  "scope": "native_blocker_microbenchmark",
+  "browser_integrated": false,
+  "compile_ms": 50.285,
+  "threads": 4,
+  "runs": [
+    {
+      "run": 1,
+      "requests": 40000,
+      "p95_ms": 0.031958,
+      "p99_ms": 0.053041
+    },
+    {
+      "run": 2,
+      "requests": 40000,
+      "p95_ms": 0.031625,
+      "p99_ms": 0.054416
+    },
+    {
+      "run": 3,
+      "requests": 40000,
+      "p95_ms": 0.031792,
+      "p99_ms": 0.054334
+    }
+  ],
+  "lists": [
+    {
+      "name": "easylist",
+      "file": "easylist.txt.gz",
+      "url": "https://easylist.to/easylist/easylist.txt",
+      "sha256": "bbe8c20b23ff2d575e2b67b8c94dc986ffe596df227bcb1be7e7da0a2a7ef66a",
+      "version": "202609190406",
+      "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+    },
+    {
+      "name": "easyprivacy",
+      "file": "easyprivacy.txt.gz",
+      "url": "https://easylist.to/easylist/easyprivacy.txt",
+      "sha256": "3a20222981143f120063ff5b6f09a416b886a120fb73d995e93facbcb80d3491",
+      "version": "202609190406",
+      "license": "GPL-3.0-or-later OR CC-BY-SA-4.0"
+    }
+  ],
+  "rust_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428",
+  "recorded_utc": "2026-09-19T04:37:58.516367+00:00",
+  "qualification_conditions": "Development machine during implementation; not controlled browser qualification",
+  "source_sha256": {
+    "browser/blocking/src/lib.rs": "c198a81d7e7515d702c79ec295dd00e64ed66b616b943cc4dc218c2c6578b3e5",
+    "browser/blocking/tests/native_probe.cc": "c74328890afdb9f890a9a6d21b1152205b76429e0fa3694c5192d512a3338230",
+    "browser/blocking/Cargo.lock": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
+  }
+}

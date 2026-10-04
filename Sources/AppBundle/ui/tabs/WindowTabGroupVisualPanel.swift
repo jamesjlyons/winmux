@@ -5,8 +5,9 @@ import SwiftUI
 @MainActor
 final class WindowTabGroupVisualPanel: NSPanelHud {
     let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
-    var currentContent: WindowTabGroupChromeContent?
+    var currentContent: WindowTabGroupVisualContent?
     var currentPanelFrame: CGRect?
+    var currentOrderingWindowId: UInt32?
 
     init(id: ObjectIdentifier) {
         super.init()
@@ -29,8 +30,8 @@ final class WindowTabGroupVisualPanel: NSPanelHud {
     func update(with strip: WindowTabStripViewModel) {
         let displayStrip = strip.alignedForWindowTabChrome()
         let panelFrame = displayStrip.groupFrame
-        let nextContent = WindowTabGroupChromeContent(strip: displayStrip)
-        guard shouldUpdate(content: nextContent, frame: panelFrame) else { return }
+        let nextContent = WindowTabGroupVisualContent(strip: displayStrip)
+        guard shouldUpdate(content: nextContent, frame: panelFrame, orderingWindowId: displayStrip.activeWindowId) else { return }
         if currentContent != nextContent {
             hostingView.rootView = AnyView(WindowTabGroupVisualView(
                 strip: displayStrip,
@@ -38,14 +39,15 @@ final class WindowTabGroupVisualPanel: NSPanelHud {
             currentContent = nextContent
         }
         currentPanelFrame = panelFrame
+        currentOrderingWindowId = displayStrip.activeWindowId
         debugFocusLog("WindowTabGroupVisualPanel.update id=\(String(describing: identifier?.rawValue)) frame=\(panelFrame)")
         setWindowTabChromePanelFrame(panelFrame, on: self)
         ignoresMouseEvents = true
         applyWindowTabVisualStackingPolicy(for: displayStrip, to: self)
     }
 
-    private func shouldUpdate(content: WindowTabGroupChromeContent, frame: CGRect) -> Bool {
-        if currentContent == content, currentPanelFrame == frame, isVisible {
+    private func shouldUpdate(content: WindowTabGroupVisualContent, frame: CGRect, orderingWindowId: UInt32?) -> Bool {
+        if currentContent == content, currentPanelFrame == frame, currentOrderingWindowId == orderingWindowId, isVisible {
             ignoresMouseEvents = true
             return false
         }

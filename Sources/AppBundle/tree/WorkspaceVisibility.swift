@@ -11,7 +11,8 @@ func orderedUserFacingWorkspaces(in projectId: WorkspaceProjectId, focusedWorksp
 @MainActor
 func workspaceHasSidebarVisibleWindows(_ workspace: Workspace) -> Bool {
     !workspace.rootTilingContainer.isEffectivelyEmpty ||
-        !workspace.floatingWindows.isEmpty
+        !workspace.floatingWindows.isEmpty ||
+        BrowserWorkspaceController.shared.containsBrowserItems(in: workspace.name)
 }
 
 @MainActor
@@ -34,12 +35,14 @@ func workspaceNamesWithOwnedMinimizedWindows() -> Set<String> {
 
 @MainActor
 func workspaceHasLifecycleWindows(_ workspace: Workspace) -> Bool {
-    !workspace.isEffectivelyEmpty || !workspaceOwnedMinimizedWindows(workspace).isEmpty
+    !workspace.isEffectivelyEmpty || !workspaceOwnedMinimizedWindows(workspace).isEmpty ||
+        BrowserWorkspaceController.shared.containsBrowserItems(in: workspace.name)
 }
 
 @MainActor
 func isUserFacingWorkspace(_ workspace: Workspace, focusedWorkspace: Workspace? = nil) -> Bool {
-    !workspace.isArchived &&
+    if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
+    return !workspace.isArchived &&
         (
             workspaceHasSidebarVisibleWindows(workspace) ||
                 workspace.isVisible ||
@@ -55,6 +58,7 @@ func userFacingWorkspaces(_ workspaces: [Workspace], focusedWorkspace: Workspace
     var retainedIds: [WorkspaceScope: WorkspaceId]?
     return workspaces.filter { workspace in
         guard !workspace.isArchived else { return false }
+        if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
         if workspaceHasSidebarVisibleWindows(workspace) || workspace.isVisible ||
             workspace.isConfiguredPersistent || minimizedNames.contains(workspace.name)
         { return true }

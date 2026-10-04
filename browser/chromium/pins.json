@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "recorded_utc": "2026-09-19",
+  "chromium": {
+    "repository": "https://chromium.googlesource.com/chromium/src.git",
+    "channel": "Stable",
+    "platform": "Mac",
+    "version": "153.0.8010.53",
+    "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+  },
+  "depot_tools": {
+    "repository": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+    "revision": "0306e4682b4ac35287c726fa35a983157a625902"
+  },
+  "native_base_revision": "ff1fdd70bb4769e925e7e84196a1e35423ccad65",
+  "alpha_bundle_id": "com.jameslyons.winmux.browser.alpha",
+  "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
+  "browser_data_directory": "WinMux Browser Alpha",
+  "initial_checkout_free_gib": 200,
+  "minimum_build_free_gib": 100,
+  "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+  "rust_version": "1.97.1",
+  "xcode_qualification_version": "27.0"
+}

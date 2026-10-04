@@ -389,11 +389,13 @@ private struct SettingsSolidColorPalette: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Solid color")
-            Text("Choose an opaque chrome color.")
+            Text("Follow macOS appearance or choose a fixed chrome color.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(ChromeSolidColor.allCases) { color in
+                    let swatchColor = color == .custom ? ChromePalette.customColor(customColor) : color.nsColor
+                    let selectionColor: Color = color == .system ? .primary : (ChromePalette.appearance(for: swatchColor) == .darkAqua ? .white : .black)
                     Button {
                         selection = color
                     } label: {
@@ -407,11 +409,10 @@ private struct SettingsSolidColorPalette: View {
                             .overlay {
                                 if selection == color {
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
+                                        .strokeBorder(selectionColor.opacity(0.85), lineWidth: 1.5)
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 13, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .shadow(color: .black.opacity(0.4), radius: 2)
+                                        .foregroundStyle(selectionColor)
                                 }
                             }
                     }

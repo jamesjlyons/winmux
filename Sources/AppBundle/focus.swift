@@ -117,14 +117,21 @@ func replaceWorkspaceNameInFocusState(oldName: String, newName: String) {
 /// WINMUX_WORKSPACE env before accessing the global focus.
 @MainActor var focus: LiveFocus { _focus.live }
 
-@MainActor func setFocus(to newFocus: LiveFocus) -> Bool {
+@MainActor func setFocus(to newFocus: LiveFocus, recordSurfaceIntent: Bool = true) -> Bool {
+    defer {
+        if recordSurfaceIntent, _focus == newFocus.frozen {
+            BrowserWorkspaceController.shared.nativeSelectionChanged(newFocus.windowOrNil?.surfaceID)
+        }
+    }
     if _focus == newFocus.frozen {
+        BrowserWorkspaceController.shared.rememberRegularWorkspace(newFocus.workspace)
         return newFocus.workspace.isVisible || newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     }
     let oldFocus = focus
     TrackpadNavigationController.shared.cancelNavigation()
     let status = newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     guard status else { return false }
+    BrowserWorkspaceController.shared.rememberRegularWorkspace(newFocus.workspace)
 
     // Normalize mruWindow when focus away from a workspace
     if oldFocus.workspace != newFocus.workspace {
@@ -149,11 +156,19 @@ extension Window {
     @MainActor func toLiveFocusOrNil() -> LiveFocus? { visualWorkspace.map { LiveFocus(windowOrNil: self, workspace: $0) } }
 }
 extension Workspace {
-    @MainActor func focusWorkspace() -> Bool {
+    @MainActor func focusWorkspace(restoringSurfaceSelection: Bool = true) -> Bool {
         if self != focus.workspace {
             WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
         }
-        return setFocus(to: toLiveFocus())
+        let controller = BrowserWorkspaceController.shared
+        // Capture the group's selection before its native fallback can replace
+        // a browser MRU. Browser-only groups have no native focusable leaf.
+        let surface = restoringSurfaceSelection ? controller.preferredSurface(in: self) : nil
+        guard setFocus(to: toLiveFocus(), recordSurfaceIntent: restoringSurfaceSelection && surface == nil) else { return false }
+        if let surface, controller.select(surface, deferNativeFocusUntilLayout: true) != .issued {
+            controller.nativeSelectionChanged(focus.windowOrNil?.surfaceID)
+        }
+        return true
     }
 
     func toLiveFocus() -> LiveFocus {

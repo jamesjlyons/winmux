@@ -2,6 +2,7 @@ import SwiftUI
 
 enum WorkspaceSidebarDropTargetKind: Equatable {
     case workspace(String)
+    case pin(UUID)
     case newWorkspace(projectId: WorkspaceProjectId, monitorScopeId: String)
     case monitor(String)
 }
@@ -30,7 +31,7 @@ struct WorkspaceSidebarDropTargetPreferenceKey: PreferenceKey {
 func workspaceSidebarDropTarget(at mouseLocation: CGPoint, hitSlop: NSEdgeInsets = NSEdgeInsets()) -> WorkspaceSidebarDropTarget? {
     WorkspaceSidebarPanel.panel(containing: mouseLocation)
         .flatMap { panel in
-            panel.dropTargets.last(where: { target in
+            let matches = panel.dropTargets.filter { target in
                 (target.clipRect?.contains(mouseLocation) ?? true) &&
                     target.rect.expanded(
                         left: hitSlop.left,
@@ -38,7 +39,8 @@ func workspaceSidebarDropTarget(at mouseLocation: CGPoint, hitSlop: NSEdgeInsets
                         top: hitSlop.top,
                         bottom: hitSlop.bottom
                     ).contains(mouseLocation)
-            })
+            }
+            return matches.last { if case .pin = $0.kind { return true }; return false } ?? matches.last
         }
 }
 

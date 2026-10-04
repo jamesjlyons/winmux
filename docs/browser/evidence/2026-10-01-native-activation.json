@@ -1,0 +1,90 @@
+{
+  "scope": "isolated_native_activation_implementation",
+  "captured_utc": "2026-10-01T21:35:31.742553+00:00",
+  "native_ui_acceptance": "pending_user_protected_permission",
+  "native_activation": {
+    "state_directory": ".local/browser/native-ui-test-1/native-state",
+    "permission": "macOS Device Control and Data Access (Accessibility)",
+    "protected_step": "User password in System Settings; requested once",
+    "runtime_ready_observed": false,
+    "scope": "Only synthetic native fixture PID 51097, bound to its launch date",
+    "config_and_marker_created": true,
+    "native_session_created": false,
+    "native_socket_started": false
+  },
+  "signed_browser_trial": {
+    "package": "alpha-native-1",
+    "protocol_version": 2,
+    "authenticated": true,
+    "full_messages": 1,
+    "delta_messages": 5,
+    "tab_count": 0,
+    "revision": 6,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "fixture_stopped": true,
+    "launcher_completed_means": "Test session cleaned up; does not imply native acceptance"
+  },
+  "checks": {
+    "native_regression_tests": 731,
+    "native_regression_failures": 0,
+    "final_targeted_native_focus_gesture_tests": 30,
+    "bridge_core_tests": 16,
+    "python_tests": 35,
+    "logs": [
+      ".local/browser/native-activation-regression-final.log",
+      ".local/browser/native-activation-final-checks.log",
+      ".local/browser/native-activation-core.log",
+      ".local/browser/native-activation-python.log"
+    ]
+  },
+  "preserved_processes": {
+    "installed_alpha_pid": 33776,
+    "enrolled_transport_helper_pid": 17212
+  },
+  "limits": [
+    "No live native selection or input-ready proof before approval",
+    "No mixed layout/drag/group/split implementation in this change",
+    "Browser placement remains in memory",
+    "No performance or extension acceptance resumed"
+  ],
+  "final_staging_package": {
+    "path": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-native-3/WinMux Browser Alpha.app",
+    "verified": true,
+    "notarized": false,
+    "helper_sha256": "f931663d53a55b596130e1f7beb0ae842795d96862b0c50a7de69263b1e3509a",
+    "manifest_sha256": "b76f1c71bb1ddb01902cd592bfd8280dcc0c92c535305836a1939a6861143ab7",
+    "native_source_hashes_match": true
+  },
+  "final_signed_headless_check": {
+    "passed": true,
+    "package_manifest_sha256": "b76f1c71bb1ddb01902cd592bfd8280dcc0c92c535305836a1939a6861143ab7",
+    "actions": {
+      "scope": "isolated_authenticated_inventory_actions",
+      "full_messages": 1,
+      "outcomes": {
+        "stale_focus": "stale_focus",
+        "focus": "issued",
+        "operation_conflict": "operation_conflict",
+        "native_focus_fence": "issued",
+        "repeated_close": "issued",
+        "repeated_fence": "issued",
+        "close": "issued",
+        "foreign_epoch": "stale_epoch"
+      },
+      "delta_messages": 4,
+      "revision": 5,
+      "tab_count": 1
+    },
+    "seconds_after_recovery": 17.029594584,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true,
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "raw_result": ".local/browser/native-headless-check/result.json"
+  }
+}

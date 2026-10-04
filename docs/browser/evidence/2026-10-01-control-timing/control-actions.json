@@ -1,0 +1,102 @@
+{
+  "scope": "synthetic_ui_action_log_not_latency_measurements",
+  "input_echo_observed": true,
+  "actions": [
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881912909,
+      "end_wall_ms": 1790881913379,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881913379,
+      "end_wall_ms": 1790881913805,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881913806,
+      "end_wall_ms": 1790881914208,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881914208,
+      "end_wall_ms": 1790881914651,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881914651,
+      "end_wall_ms": 1790881915118,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881915118,
+      "end_wall_ms": 1790881915600,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881915600,
+      "end_wall_ms": 1790881916070,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881916070,
+      "end_wall_ms": 1790881916526,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881916526,
+      "end_wall_ms": 1790881916991,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881916991,
+      "end_wall_ms": 1790881917442,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881917442,
+      "end_wall_ms": 1790881917919,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881917919,
+      "end_wall_ms": 1790881918392,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881918392,
+      "end_wall_ms": 1790881918865,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881918865,
+      "end_wall_ms": 1790881919312,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+1",
+      "begin_wall_ms": 1790881919312,
+      "end_wall_ms": 1790881919769,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing A\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    },
+    {
+      "key": "super+2",
+      "begin_wall_ms": 1790881919769,
+      "end_wall_ms": 1790881920218,
+      "state": "The following is a diff from the previous accessibility tree for Window: \"WinMux Timing B\" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range."
+    }
+  ]
+}

@@ -5,6 +5,16 @@ struct MoveNodeToProjectCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        if let id = args.selectedBrowserTarget(env) {
+            guard BrowserWorkspaceController.shared.isAvailable(id),
+                  let name = BrowserWorkspaceController.shared.workspaceName(for: id),
+                  let source = Workspace.existing(byName: name),
+                  let project = resolveProjectTarget(args.target.val, currentProjectId: source.projectId, wrapAround: args.wrapAround) else {
+                return io.err("Cannot resolve browser surface or destination project")
+            }
+            return moveSurfaceToWorkspace(id, firstWorkspaceForProjectMove(projectId: project.id, monitor: source.workspaceMonitor), io,
+                focusFollowsSurface: args.focusFollowsWindow, failIfNoop: args.failIfNoop)
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else { return io.err(noWindowIsFocused) }
         guard let sourceWorkspace = window.nodeWorkspace else {

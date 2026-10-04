@@ -24,39 +24,50 @@ struct WorkspaceSidebarStatusView: View {
 
     var body: some View {
         Group {
-            if menuBarStyle {
+            if let clockDate {
+                clock(date: clockDate)
+            } else if showsSeconds {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    WorkspaceSidebarMenuBarClock(
-                        date: clockDate ?? context.date,
-                        sectionWidth: sectionWidth,
-                        isCompact: isCompact,
-                        showsSeconds: showsSeconds,
-                        showsDate: showsDate,
-                        showsWeekday: showsWeekday,
-                    )
-                }
-            } else if isCompact {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    WorkspaceSidebarCompactClockCard(
-                        date: clockDate ?? context.date,
-                        sectionWidth: sectionWidth,
-                        showsSeconds: showsSeconds,
-                    )
+                    clock(date: context.date)
                 }
             } else {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    WorkspaceSidebarExpandedStatusCard(
-                        date: clockDate ?? context.date,
-                        sectionWidth: sectionWidth,
-                        showsSeconds: showsSeconds,
-                        showsDate: showsDate,
-                        showsWeekday: showsWeekday,
-                    )
+                // Match the displayed precision and wake on minute boundaries,
+                // rather than rebuilding an unchanged clock 60 times a minute.
+                TimelineView(.everyMinute) { context in
+                    clock(date: context.date)
                 }
             }
         }
         .frame(width: sectionWidth, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(isCompact ? workspaceSidebarCollapseAnimation : workspaceSidebarExpansionAnimation, value: isCompact)
+    }
+
+    @ViewBuilder
+    private func clock(date: Date) -> some View {
+        if menuBarStyle {
+            WorkspaceSidebarMenuBarClock(
+                date: date,
+                sectionWidth: sectionWidth,
+                isCompact: isCompact,
+                showsSeconds: showsSeconds,
+                showsDate: showsDate,
+                showsWeekday: showsWeekday,
+            )
+        } else if isCompact {
+            WorkspaceSidebarCompactClockCard(
+                date: date,
+                sectionWidth: sectionWidth,
+                showsSeconds: showsSeconds,
+            )
+        } else {
+            WorkspaceSidebarExpandedStatusCard(
+                date: date,
+                sectionWidth: sectionWidth,
+                showsSeconds: showsSeconds,
+                showsDate: showsDate,
+                showsWeekday: showsWeekday,
+            )
+        }
     }
 }

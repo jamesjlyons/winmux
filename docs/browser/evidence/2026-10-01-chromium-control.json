@@ -1,0 +1,61 @@
+{
+  "scope": "upstream_control_build_and_launch_smoke",
+  "build_manifest": {
+    "pins": {
+      "schema_version": 1,
+      "recorded_utc": "2026-09-19",
+      "chromium": {
+        "repository": "https://chromium.googlesource.com/chromium/src.git",
+        "channel": "Stable",
+        "platform": "Mac",
+        "version": "153.0.8010.53",
+        "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+        "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+      },
+      "depot_tools": {
+        "repository": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+        "revision": "0306e4682b4ac35287c726fa35a983157a625902"
+      },
+      "native_base_revision": "ff1fdd70bb4769e925e7e84196a1e35423ccad65",
+      "alpha_bundle_id": "com.jameslyons.winmux.browser.alpha",
+      "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
+      "browser_data_directory": "WinMux Browser Alpha",
+      "initial_checkout_free_gib": 200,
+      "minimum_build_free_gib": 100,
+      "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+      "rust_version": "1.97.1",
+      "xcode_qualification_version": "27.0"
+    },
+    "configuration": "browser-only-control",
+    "qualification": "not_run",
+    "args_sha256": "c27c8ac7a04e9240fded1ad531fdda208706d57363604d3483503c1556b880be",
+    "native_revision": "ef668277d437c89d77ca264a8ad68b95d274eade",
+    "native_dirty": false,
+    "build_jobs": 4,
+    "hardware": {
+      "model": "MacBookPro18,1",
+      "physical_memory_bytes": 17179869184,
+      "logical_cpus": 10
+    },
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "xcode": "Xcode 27.0\nBuild version 27A266a",
+    "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "cargo_lock_sha256": "5a16fe2b2ff5639b5baf0a41ecf879aabe9fcb70cd88019ff857285fef5b4a45"
+  },
+  "build_succeeded": true,
+  "build_steps": 56885,
+  "active_build_seconds": 23670.55,
+  "version_command": "Chromium 153.0.8010.53",
+  "launch_verified": true,
+  "rendered_page_verified": true,
+  "profile_path": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/control-smoke/Default",
+  "version_page_revision": "0000000000000000000000000000000000000000-0000000000000000000000000000000000000000",
+  "revision_source": "Verified git HEAD and build manifest; shallow developer build version page contains zero revision placeholders.",
+  "release_signature_verified": false,
+  "signature_note": "Raw upstream developer bundle launches, but deep codesign verification reports no resources despite a signature indicating resources. Signed alpha packaging remains separate and unverified.",
+  "browser_integration": false,
+  "performance_qualification": "not_run",
+  "preserved_control_directory": "/Users/james/Documents/Codex/winmux/.local/browser-engine/chromium/src/out/WinMuxControlBaseline",
+  "working_cache_note": "Original out/WinMuxControl reused for downstream incremental builds; preserved control archive remains untouched."
+}

@@ -14,7 +14,7 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
         // See movedObs: geometry events invalidate the cached native state (consumers re-fetch
         // on demand), but suppressed events are our own moves whose authors maintain the cache.
         if let windowId {
-            Window.get(byId: windowId)?.invalidateLastKnownNativeState()
+            Window.get(byId: windowId)?.invalidateLastKnownNativeState(includingSharedLayoutSize: true)
         }
         guard RunSessionGuard.isServerEnabled != nil else { return }
         guard let windowId, let window = Window.get(byId: windowId) else {

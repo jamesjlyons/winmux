@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-01",
+  "scope": "explicit_workspace_activation_and_fixture_scoped_rollback",
+  "package": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-setup-3/WinMux Browser Alpha.app",
+  "package_manifest_sha256": "f3f270cbe94246e8d8224f4284488594572b97aa5820725be77bb9fddeb65fb1",
+  "verified": true,
+  "notarized": false,
+  "native_source_hashes_matched": 573,
+  "engine_changed": "Workspace Setup menu and explicit managed-service switch only; same optimized cache and sandbox policy",
+  "live": {
+    "service_manager": "SMAppService",
+    "production_service_enrolled": false,
+    "fixture_scope": "kernel process start timestamp plus PID; two synthetic native windows only",
+    "inventory": {
+      "native": 2,
+      "browser": 1
+    },
+    "shared_actions": [
+      "group native/browser in stack",
+      "focus browser",
+      "focus native"
+    ],
+    "rollback": {
+      "status": {
+        "detail": "",
+        "helperPID": 0,
+        "phase": "stopped",
+        "requestID": "CA37A99B-34A7-415E-9E62-08ED5F79FA16"
+      },
+      "service_absent": 113,
+      "helper_exited": true,
+      "browser_still_running": true,
+      "fixture": {
+        "window_id": 4342,
+        "key_changes": 5,
+        "key_window": "WinMux Native Two",
+        "windows": [
+          {
+            "content_minimum_height": 350,
+            "x": 710,
+            "width": 500,
+            "window_id": 4340,
+            "height": 392,
+            "content_minimum_width": 400,
+            "title": "WinMux Native One",
+            "y": 314
+          },
+          {
+            "content_minimum_height": 350,
+            "y": 314,
+            "content_minimum_width": 400,
+            "window_id": 4342,
+            "width": 500,
+            "x": 710,
+            "height": 392,
+            "title": "WinMux Native Two"
+          }
+        ]
+      }
+    },
+    "cleanup": {
+      "browser_pid": true,
+      "fixture_pid": true,
+      "helper_pid": true,
+      "setup_pid": true,
+      "service_absent": true
+    },
+    "browser_menu_opened_normal_setup": true,
+    "normal_setup_left_open": true,
+    "normal_workspace_activated_by_agent": false,
+    "initial_failure": "alpha-setup-2 refused fixture startup because Launch Services omitted launchDate for a directly launched app. Replaced with kernel process start identity; alpha-setup-3 passed.",
+    "ui_lookup_incident": "After failed setup, a lookup launched transport-only alpha-setup-2 helper PID 76342. It was verified and stopped; no native management or user browser launch occurred."
+  },
+  "signed_headless": {
+    "passed": true,
+    "seconds_after_recovery": 17.093876083,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  },
+  "checks": {
+    "full_native_before_kernel_identity_correction": 755,
+    "final_targeted_native": 5,
+    "workspace_core": 31,
+    "bridge_core": 9,
+    "python": 35
+  },
+  "limits": [
+    "Only fixture-scoped activation and rollback were exercised; unscoped daily workspace awaits explicit user activation.",
+    "Shortcut command paths compile and have prior functional coverage; physical keyboard/trackpad delivery remains unqualified.",
+    "No performance or extension qualification was resumed.",
+    "Fullscreen, popups, display transitions and tiny viewport fallback remain open.",
+    "SM registration stays active until Stop Workspace and can run at login."
+  ],
+  "raw_evidence": {
+    ".local/browser/setup-ui-1/session.json": "75ef7c14350c90f513bf38c7ccd0388790ecfd0e68ed4372ccbd552fe6e0989d",
+    ".local/browser/setup-ui-1/commands.jsonl": "d68881a9735af094d92101f61d90158d28c96b5d0bcd4b59f02d8a01c86c28c3",
+    ".local/browser/setup-ui-1/rollback.json": "d0c3f85343b75ae6eda9c343b0926d2de6bb9bcbb2bbe42910cb32f95b0efe93",
+    ".local/browser/setup-ui-1/cleanup.json": "93fe36afc7373b9025a2526ed912c6985623bd6c2c47a84b62c6a6e9ea43e9de",
+    ".local/browser/setup-ui-1/session-before-stop.json": "240c673211210051a1f12a9868358e4d7c9344f6c01d337b71b2d319cf547571",
+    ".local/browser/setup-ui-1/bridge-before-stop.json": "58a97afe63aeeb41e81a1a600c2a182233ab381770b1bf5248974f6f847030f9",
+    ".local/browser/setup-ui-1/workspace-setup-handoff.jpg": "e195db4d90abc4b177cfd4bea5a3ff13a59e998629acb6721b3aa7c47e5c4662"
+  },
+  "preserved_processes": [
+    "17212 Thu Oct  1 09:03:28 2026     Contents/Helpers/WinMuxWorkspaceHelper",
+    "33776 Thu Oct  1 12:04:37 2026     /Applications/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+    "63284 Thu Oct  1 16:07:27 2026     /Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-persistence-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+    "63344 Thu Oct  1 16:08:05 2026     /Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-persistence-1/WinMux Browser Alpha.app/Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper"
+  ]
+}

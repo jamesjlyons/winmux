@@ -18,6 +18,9 @@ extension WindowTabStripViewModel {
 
 @MainActor
 func setWindowTabChromePanelFrame(_ frame: CGRect, on panel: NSPanelHud) {
+    // Title/focus changes and returning to a workspace do not change geometry.
+    // Avoid a WindowServer frame write and a synchronous SwiftUI layout in that case.
+    guard panel.frame != frame else { return }
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     panel.setFrame(frame, display: true, animate: false)

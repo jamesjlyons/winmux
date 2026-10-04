@@ -1,0 +1,33 @@
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index eaa7929a316674a9d2673e07bab3b8a110b895b1..801f5f4f994fdd9280f15dcf58a748afc261a42f 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1521,6 +1521,7 @@ source_set("core") {
+       "//chrome/app_shim",
+       "//chrome/browser/apps/app_shim",
+       "//chrome/browser/enterprise/connectors/device_trust/key_management/core/mac",
++      "//chrome/browser/winmux:workspace_bridge",
+       "//chrome/browser/mac",
+       "//chrome/browser/mac:impl",
+       "//chrome/browser/renderer_host:delegate",
+diff --git a/chrome/browser/chrome_browser_main_mac.mm b/chrome/browser/chrome_browser_main_mac.mm
+index b269f1610a55d31aa58beab694fa7cbb214b58d1..2ccb7c5fa22f7ecf2ed99f56e80ddf06442561df 100644
+--- a/chrome/browser/chrome_browser_main_mac.mm
++++ b/chrome/browser/chrome_browser_main_mac.mm
+@@ -28,6 +28,7 @@
+ #include "chrome/browser/buildflags.h"
+ #import "chrome/browser/chrome_browser_application_mac.h"
+ #include "chrome/browser/first_run/first_run.h"
++#include "chrome/browser/winmux/workspace_bridge.h"
+ #include "chrome/browser/mac/install_from_dmg.h"
+ #include "chrome/browser/mac/metrics.h"
+ #include "chrome/browser/ui/cocoa/main_menu_builder.h"
+@@ -179,6 +180,8 @@
+ void ChromeBrowserMainPartsMac::PostProfileInit(Profile* profile,
+                                                 bool is_initial_profile) {
+   ChromeBrowserMainPartsPosix::PostProfileInit(profile, is_initial_profile);
++  if (is_initial_profile)
++    winmux::StartWorkspaceBridge();
+ }
+ 
+ void ChromeBrowserMainPartsMac::DidEndMainMessageLoop() {

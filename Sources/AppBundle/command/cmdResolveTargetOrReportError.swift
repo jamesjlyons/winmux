@@ -1,8 +1,37 @@
 import Common
+import WorkspaceCore
 
 extension CmdArgs {
+    /// Explicit native IDs keep their established meaning. A missing/disconnected
+    /// browser owner still counts as a browser selection: never fall back to AX.
+    @MainActor
+    func selectedBrowserTarget(_ env: CmdEnv) -> SurfaceID? {
+        guard windowId == nil, workspaceName != nil || env.windowId == nil,
+              let id = BrowserWorkspaceController.shared.focusCoordinator.target,
+              case .browserTab = id else { return nil }
+        if let workspace = workspaceName?.raw ?? env.workspaceName,
+           workspace != BrowserWorkspaceController.shared.workspaceName(for: id) { return nil }
+        return id
+    }
+
+    private var requiresNativeTarget: Bool {
+        switch Self.info.kind {
+        case .balanceSizes, .close, .closeAllWindowsButCurrent, .flattenWorkspaceTree,
+             .fullscreen, .joinWith, .layout, .macosNativeFullscreen, .macosNativeMinimize,
+             .move, .moveNodeToMonitor, .moveNodeToProject, .moveNodeToWorkspace,
+             .resize, .split, .stackWith, .swap: true
+        case .moveMouse:
+            (self as? MoveMouseCmdArgs).map { $0.mouseTarget.val == .windowLazyCenter || $0.mouseTarget.val == .windowForceCenter } ?? false
+        default: false
+        }
+    }
+
     @MainActor
     func resolveTargetOrReportError(_ env: CmdEnv, _ io: CmdIo) -> LiveFocus? {
+        if requiresNativeTarget, selectedBrowserTarget(env) != nil {
+            io.err("'\(Self.info.kind.rawValue)' does not support the selected browser tab; use a supported surface action or an explicit native --window-id")
+            return nil
+        }
         // Flags
         if let windowId {
             if let wi = Window.get(byId: windowId) {

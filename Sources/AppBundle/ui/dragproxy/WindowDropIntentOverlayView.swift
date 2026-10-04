@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WindowDropIntentOverlayView: View {
     let model: WindowDropIntentOverlayModel
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -17,6 +18,7 @@ struct WindowDropIntentOverlayView: View {
         .compositingGroup()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)
     }
 
     private var cornerRadius: CGFloat {

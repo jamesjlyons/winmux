@@ -8,12 +8,25 @@ final class WindowLifecycleRefreshTest: XCTestCase {
     private let destroyed = RefreshSessionEvent.ax(kAXUIElementDestroyedNotification as String)
 
     func testOnlyIdentifiedLifecycleEventsUseAppScope() {
-        for notification in [kAXWindowCreatedNotification, kAXUIElementDestroyedNotification] {
+        for notification in [kAXWindowCreatedNotification, kAXUIElementDestroyedNotification,
+                             kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification] {
             XCTAssertEqual(WindowRefreshScope.lifecycleNotification(notification, pid: 42), .apps([42]))
             XCTAssertEqual(WindowRefreshScope.lifecycleNotification(notification, pid: nil), .all)
         }
-        XCTAssertEqual(WindowRefreshScope.lifecycleNotification(kAXWindowMiniaturizedNotification, pid: 42), .all)
         XCTAssertEqual(WindowRefreshScope.lifecycleNotification(kAXMovedNotification, pid: 42), .all)
+    }
+
+    func testWorkspaceAppNotificationsDoNotScanUnrelatedApps() {
+        for notification in [NSWorkspace.didLaunchApplicationNotification,
+                             NSWorkspace.didTerminateApplicationNotification,
+                             NSWorkspace.didUnhideApplicationNotification] {
+            XCTAssertEqual(WindowRefreshScope.workspaceNotification(notification.rawValue, pid: 42), .apps([42]))
+            XCTAssertEqual(WindowRefreshScope.workspaceNotification(notification.rawValue, pid: nil), .all)
+        }
+        for notification in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification,
+                             NSWorkspace.activeSpaceDidChangeNotification] {
+            XCTAssertEqual(WindowRefreshScope.workspaceNotification(notification.rawValue, pid: 42), .all)
+        }
     }
 
     @MainActor

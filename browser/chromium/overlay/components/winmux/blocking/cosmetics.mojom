@@ -1,0 +1,8 @@
+module winmux.mojom;
+
+// Internal frame interface. It has no workspace-control methods and accepts no
+// URL: the browser supplies the committed document identity. Lists only return
+// declarative selectors; no downloaded script is executed.
+interface Cosmetics {
+  GetSelectors(string tokens_json) => (string selectors_json);
+};

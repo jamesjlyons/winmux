@@ -1,11 +1,32 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 struct ResizeCommand: Command {
     let args: ResizeCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        let controller = BrowserWorkspaceController.shared
+        if controller.usesSurfaceTree, args.windowId == nil, env.windowId == nil,
+           let id = controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID,
+           let name = controller.workspaceName(for: id), let workspace = Workspace.existing(byName: name) {
+            let dimension: SurfaceResizeDimension = switch args.dimension.val {
+                case .width: .width
+                case .height: .height
+                case .smart: .smart
+                case .smartOpposite: .smartOpposite
+            }
+            let amount: Double
+            let absolute: Bool
+            switch args.units.val {
+            case .set(let value): amount = Double(value); absolute = true
+            case .add(let value): amount = Double(value); absolute = false
+            case .subtract(let value): amount = -Double(value); absolute = false
+            }
+            return controller.resizeSurface(id, in: workspace, dimension: dimension, amount: amount, absolute: absolute)
+                || io.err("Cannot resize this surface: no matching split or its minimum size has been reached")
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
 
         let candidates = target.windowOrNil?.parentsWithSelf

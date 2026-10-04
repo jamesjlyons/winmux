@@ -627,7 +627,7 @@ extension WorkspaceSidebarPanel {
         shouldLockWorkspaceSidebarExpansion(
             hasDropPreview: TrayMenuModel.shared.workspaceSidebarDropPreview != nil,
             hasPinnedDraggedWindow: hasPinnedDraggedWindow(),
-            isSidebarDragInProgress: getCurrentMouseManipulationKind() == .move && getCurrentMouseDragStartedInSidebar(),
+            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress(),
             hasActiveEditor: isMenuTrackingOrInGracePeriod() || shouldKeepSidebarOpenForInlineTextEditing(),
         ) || isMouseWindowDragInProgress()
     }
@@ -959,7 +959,7 @@ extension WorkspaceSidebarPanel {
             cancelExpansionWork()
             let targetWidth = expandedPresentationWidth
             persistentExpansionWidth = layout.expandedWidth
-            viewModel.isWorkspaceSidebarExpanded = true
+            viewModel.setIfChanged(\.isWorkspaceSidebarExpanded, true)
             if viewModel.workspaceSidebarVisibleWidth != targetWidth {
                 viewModel.workspaceSidebarVisibleWidth = targetWidth
             }

@@ -1,0 +1,71 @@
+{
+  "scope": "actual_signed_headless_chromium_connection_recovery",
+  "passed": true,
+  "args": [
+    "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-recovery-1/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+    "--headless=new",
+    "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/alpha-recovery-smoke-2",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--enable-logging=stderr",
+    "--winmux-bridge-report=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/recovery-smoke-2/bridge.json",
+    "--winmux-bridge-test-disconnect-once",
+    "about:blank"
+  ],
+  "package_manifest_sha256": "534b54f2f9d9dfca30bd3e2e3b89be305bdcefb8fe2f15da21f71728f38b00d2",
+  "test_source_sha256": "3a3397b7b7fa2313a25a5dfa3ff7d920326d29119b2c0db498d6275ddfeda18b",
+  "observations": [
+    {
+      "elapsed_seconds": 0.527838625,
+      "report": {
+        "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+        "connection_generation": 1,
+        "native_window_management_enabled": false,
+        "scope": "chromium_signed_xpc_transport_with_recovery",
+        "team_identifier": "F7QMMNZWXX",
+        "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+        "authenticated_connections": 1,
+        "state": "authenticated",
+        "presentation_measured": false
+      }
+    },
+    {
+      "elapsed_seconds": 1.508961834,
+      "report": {
+        "detail": "Browser controls remain available; reconnect scheduled",
+        "connection_generation": 1,
+        "native_window_management_enabled": false,
+        "scope": "chromium_signed_xpc_transport_with_recovery",
+        "team_identifier": "F7QMMNZWXX",
+        "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+        "authenticated_connections": 1,
+        "state": "disconnected",
+        "presentation_measured": false
+      }
+    },
+    {
+      "elapsed_seconds": 2.58745125,
+      "report": {
+        "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+        "connection_generation": 2,
+        "native_window_management_enabled": false,
+        "scope": "chromium_signed_xpc_transport_with_recovery",
+        "team_identifier": "F7QMMNZWXX",
+        "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+        "authenticated_connections": 2,
+        "state": "authenticated",
+        "presentation_measured": false
+      }
+    }
+  ],
+  "limits": [
+    "Only this test client's XPC connection is invalidated; no helper crash is injected",
+    "No UI, presentation, native window management or performance qualification",
+    "Existing profiles and signed-in extension UI are not inspected"
+  ],
+  "browser_pid": 35248,
+  "helper_identity_unchanged": true,
+  "seconds_after_reauthentication": 17.036952333000002,
+  "elapsed_seconds": 19.624520792000002,
+  "test_process_exit_code": 0
+}

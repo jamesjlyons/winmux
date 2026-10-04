@@ -29,6 +29,7 @@ final class TrackpadNavigationController: ObservableObject {
     private let activate: @MainActor (Window, Window) -> Void
     private var configuration = TrackpadNavigationConfig()
     private var candidate: (device: UInt, target: TrackpadTabTarget)?
+    private var mixedCandidate: (device: UInt, target: MixedTrackpadTarget)?
     private var generation: UInt64 = 0
     private struct FocusTransition {
         let target: TrackpadTabTarget
@@ -51,7 +52,7 @@ final class TrackpadNavigationController: ObservableObject {
         },
         now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime },
         activate: @escaping @MainActor (Window, Window) -> Void = { source, destination in
-            if source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
+            if serverArgs.browserState == nil, source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
                 DoubleSidedWindowController.shared.flip(source)
             } else {
                 focusWindowFromTabStrip(destination.windowId, fallbackWorkspace: focus.workspace.name)
@@ -133,6 +134,7 @@ final class TrackpadNavigationController: ObservableObject {
 
     func cancelCandidate() {
         candidate = nil
+        mixedCandidate = nil
     }
 
     /// Explicit focus changes and other input end our short native-focus grace
@@ -193,16 +195,27 @@ final class TrackpadNavigationController: ObservableObject {
                 case .began(let device):
                     ownedDevices.insert(device)
                     cancelCandidate()
+                    if fresh, ownedDevices.count == 1, canNavigate, let target = MixedTrackpadTarget.capture(), target.pid == frontmostPID() {
+                        mixedCandidate = (device, target)
+                        continue
+                    }
                     if fresh, ownedDevices.count == 1, canNavigate, let target = TrackpadTabTarget.capture(),
                        let window = target.focusedWindow, canNavigate(from: window) {
                         candidate = (device, target)
                     }
                 case .cancelled(let device):
-                    if candidate?.device == device { cancelCandidate() }
+                    if candidate?.device == device || mixedCandidate?.device == device { cancelCandidate() }
                 case .ended(let device):
                     ownedDevices.remove(device)
-                    if candidate?.device == device { cancelCandidate() }
+                    if candidate?.device == device || mixedCandidate?.device == device { cancelCandidate() }
                 case .committed(let device, let direction):
+                    if let mixed = mixedCandidate, mixed.device == device {
+                        mixedCandidate = nil
+                        if fresh, canNavigate, mixed.target.pid == frontmostPID() {
+                            _ = mixed.target.commit(next: (direction == .left) != configuration.reverseDirection)
+                        }
+                        continue
+                    }
                     guard fresh, canNavigate, let candidate, candidate.device == device else { continue }
                     self.candidate = nil
                     commit(candidate.target, direction: direction)

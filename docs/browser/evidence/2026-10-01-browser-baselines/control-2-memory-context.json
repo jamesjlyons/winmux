@@ -1,0 +1,48 @@
+{
+  "workload": "Fresh profile, one about:blank tab, at least 30 seconds after launch",
+  "wall_ms": 1790881112021.249,
+  "seconds_since_launch": 33.403478145599365,
+  "processes": [
+    {
+      "pid": 32767,
+      "ppid": 1,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/MacOS/Chromium"
+    },
+    {
+      "pid": 32782,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper.app/Contents/MacOS/Chromium Helper"
+    },
+    {
+      "pid": 32784,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper.app/Contents/MacOS/Chromium Helper"
+    },
+    {
+      "pid": 32795,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper.app/Contents/MacOS/Chromium Helper"
+    },
+    {
+      "pid": 32803,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper (Renderer).app/Contents/MacOS/Chromium Helper (Renderer)"
+    },
+    {
+      "pid": 32806,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper (Renderer).app/Contents/MacOS/Chromium Helper (Renderer)"
+    },
+    {
+      "pid": 32807,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper (Renderer).app/Contents/MacOS/Chromium Helper (Renderer)"
+    },
+    {
+      "pid": 32817,
+      "ppid": 32767,
+      "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/Frameworks/Chromium Framework.framework/Versions/153.0.8010.53/Helpers/Chromium Helper (Renderer).app/Contents/MacOS/Chromium Helper (Renderer)"
+    }
+  ],
+  "unique_memory_qualified": false
+}

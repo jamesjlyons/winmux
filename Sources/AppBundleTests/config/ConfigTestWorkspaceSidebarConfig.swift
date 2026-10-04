@@ -106,7 +106,7 @@ extension ConfigTest {
             """,
         )
         assertEquals(solidColorErrors.descriptions, [
-            "workspace-sidebar.solid-chrome-color: Possible values: black, onyx, charcoal, midnight, graphite, slate, steel, silver, fog, blue, indigo, lavender, ocean, teal, mint, green, sage, gold, cocoa, rose, mauve, plum, violet, apricot, custom",
+            "workspace-sidebar.solid-chrome-color: Possible values: system, black, onyx, charcoal, midnight, graphite, slate, steel, silver, fog, blue, indigo, lavender, ocean, teal, mint, green, sage, gold, cocoa, rose, mauve, plum, violet, apricot, custom",
         ])
 
         let (_, alwaysExpandedWidthErrors) = parseConfig(
@@ -476,4 +476,38 @@ extension ConfigTest {
         assertEquals(colemakConfig.keyMapping.resolve()["f"], .e)
     }
 
+}
+
+
+extension ConfigTest {
+    func testSystemChromeFollowsAppearanceWhileFixedColorsKeepTheirContrast() throws {
+        let (parsed, errors) = parseConfig("[workspace-sidebar]\nchrome-style = 'solid'\nsolid-chrome-color = 'system'")
+        XCTAssertTrue(errors.isEmpty)
+        XCTAssertEqual(parsed.workspaceSidebar.solidChromeColor, .system)
+        XCTAssertEqual(WorkspaceSidebarConfig().solidChromeColor, .system)
+        XCTAssertNil(parsed.workspaceSidebar.chromeAppearance)
+        XCTAssertNil(parsed.workspaceSidebar.chromeColorScheme)
+
+        let color = parsed.workspaceSidebar.resolvedSolidChromeNSColor
+        var light: NSColor?, dark: NSColor?
+        try XCTUnwrap(NSAppearance(named: .aqua)).performAsCurrentDrawingAppearance {
+            light = color.usingColorSpace(.sRGB)
+        }
+        try XCTUnwrap(NSAppearance(named: .darkAqua)).performAsCurrentDrawingAppearance {
+            dark = color.usingColorSpace(.sRGB)
+        }
+        XCTAssertGreaterThan(try XCTUnwrap(light).redComponent, 0.9)
+        XCTAssertLessThan(try XCTUnwrap(dark).redComponent, 0.2)
+
+        var fixed = WorkspaceSidebarConfig(chromeStyle: .solid, solidChromeColor: .midnight)
+        XCTAssertEqual(fixed.chromeAppearance, .darkAqua)
+        fixed.solidChromeColor = .custom
+        fixed.solidChromeCustomColor = "#FAFAFA"
+        XCTAssertEqual(fixed.chromeAppearance, .aqua)
+        XCTAssertEqual(try XCTUnwrap(fixed.resolvedSolidChromeNSColor.usingColorSpace(.sRGB)).redComponent, CGFloat(250.0 / 255.0), accuracy: 0.0001)
+        fixed.solidChromeCustomColor = "#101014"
+        XCTAssertEqual(fixed.chromeAppearance, .darkAqua)
+        fixed.chromeStyle = .liquidGlass
+        XCTAssertNil(fixed.chromeAppearance, "Native glass always follows the system appearance")
+    }
 }

@@ -129,7 +129,7 @@ extension WorkspaceSidebarView {
                     .accessibilityLabel("Resize sidebar")
             }
         }
-        .environment(\.colorScheme, snapshot.configuration.menuBarStyle ? colorScheme : .dark)
+        .environment(\.colorScheme, snapshot.configuration.menuBarStyle ? colorScheme : (snapshot.configuration.chromeColorScheme ?? colorScheme))
         .environment(\.workspaceSidebarMenuBarStyle, snapshot.configuration.menuBarStyle)
     }
 }

@@ -1,0 +1,240 @@
+{
+  "recorded_utc": "2026-10-01T18:26:32.253800+00:00",
+  "scope": "environment_recorder_validation_only",
+  "benchmark_qualified": false,
+  "milestone_0_qualified": false,
+  "test_target": "Agent-owned /bin/sleep process; removed after test",
+  "swift6_warnings_as_errors": "passed",
+  "python_tests_passed": 28,
+  "wrong_executable_rejected_before_output": true,
+  "existing_output_preserved": true,
+  "raw_records": [
+    {
+      "collector_executable_sha256": "f2cea94e7a03700cf5a262ffb73a4b45e21074dac12c2a05c1643be407bd3c09",
+      "interval_seconds": 1,
+      "limits": [
+        "App foreground is not tab/window focus or presented content",
+        "Does not measure benchmark scores or close background applications",
+        "Refresh rate zero means unknown/variable, not a measured cadence",
+        "Notifications and periodic samples may miss events; no milestone qualification"
+      ],
+      "logical_cpus": 10,
+      "mach_timebase": {
+        "denom": 3,
+        "numer": 125
+      },
+      "memory_bytes": 17179869184,
+      "os": "Version 27.0.1 (Build 26A434)",
+      "recorded_utc": "2026-10-01T18:20:59Z",
+      "requested_seconds": 5,
+      "schema_version": 1,
+      "scope": "benchmark_environment_observation_only",
+      "target_executable": "/bin/sleep",
+      "target_executable_sha256": "38d6b9431656a92cfa223d1325cbea4dc3f56ef29833eb2a3ff7f6ab21f95b5b",
+      "target_pid": 28012,
+      "type": "metadata"
+    },
+    {
+      "awake_ns": 51197224823416,
+      "continuous_ns": 74693039333000,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "start",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51198268248958,
+      "continuous_ns": 74694082758250,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "interval",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51199268256833,
+      "continuous_ns": 74695082765916,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "interval",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51200267987750,
+      "continuous_ns": 74696082496041,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "interval",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51201268354083,
+      "continuous_ns": 74697082860208,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "interval",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51202268425083,
+      "continuous_ns": 74698082933125,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "interval",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "awake_ns": 51202269576500,
+      "continuous_ns": 74698084085875,
+      "displays": [
+        {
+          "height_pixels": 2160,
+          "height_points": 1080,
+          "id": 15,
+          "mode_available": true,
+          "refresh_hz": 60,
+          "width_pixels": 3840,
+          "width_points": 1920,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "low_power_mode": false,
+      "power_source": "AC Power",
+      "reason": "end",
+      "target_foreground": false,
+      "target_identity_matches": true,
+      "thermal_state": 0,
+      "type": "sample"
+    },
+    {
+      "complete": true,
+      "target_executable_sha256": "38d6b9431656a92cfa223d1325cbea4dc3f56ef29833eb2a3ff7f6ab21f95b5b",
+      "target_identity_matches": true,
+      "type": "completion"
+    }
+  ],
+  "check": {
+    "scope": "benchmark_environment_only",
+    "benchmark_qualified": false,
+    "milestone_0_qualified": false,
+    "valid_observation": true,
+    "conditions_consistent": false,
+    "observation_problems": [],
+    "condition_problems": [
+      "Target was not continuously observed as foreground"
+    ],
+    "unverified": [
+      "Full benchmark interval is covered by this recording",
+      "Correct tab/window is visible and receiving input",
+      "Equivalent builds, extensions, profiles and workloads",
+      "Background workload, display frame cadence and repeatability"
+    ],
+    "elapsed_seconds": 5.044752875,
+    "samples": 7
+  },
+  "source_sha256": {
+    "browser/tools/observe_environment.swift": "6839debaf26495bef4e6f4e91273c6e52cf356367bc6e502c0d2c5bdcd075092",
+    "browser/tools/check_environment.py": "45bd9d048076934c5bb5ce5910e1e374b48867d7f62d4aa66092d44792325752"
+  },
+  "sources": [
+    "https://developer.apple.com/documentation/appkit/nsworkspace/didactivateapplicationnotification",
+    "https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.property",
+    "https://developer.apple.com/documentation/foundation/processinfo/islowpowermodeenabled"
+  ]
+}

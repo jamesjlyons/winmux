@@ -47,6 +47,7 @@ struct Config: ConvenienceCopyable {
     var automaticallyTileNewWindows: Bool = true
     var enableShakeToToggleTiling: Bool = true
     var shortcutsPreset: ShortcutsPreset = .none
+    var browserNewTabShortcut = "alt-cmd-t"
     var tabGroupPadding: Int = 30
     var enableNormalizationOppositeOrientationForNestedContainers: Bool = true
     var persistentWorkspaces: OrderedSet<String> = []
@@ -94,7 +95,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var showWeekday: Bool = true
     var chromeStyle: ChromeStyle = .liquidGlass
     var menuBarStyle: Bool = false
-    var solidChromeColor: ChromeSolidColor = .midnight
+    var solidChromeColor: ChromeSolidColor = .system
     var solidChromeCustomColor: String = "#191B20"
     var menuBarReserveHeight: Int = 28
     var projectDeletionAction: WorkspaceProjectDeletionAction = .closeWindows
@@ -112,6 +113,7 @@ enum ChromeStyle: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum ChromeSolidColor: String, CaseIterable, Identifiable, Sendable {
+    case system
     case black
     case onyx
     case charcoal
@@ -142,6 +144,7 @@ enum ChromeSolidColor: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .system: "Follow macOS"
         case .black: "Black"
         case .onyx: "Onyx"
         case .charcoal: "Charcoal"
@@ -172,6 +175,8 @@ enum ChromeSolidColor: String, CaseIterable, Identifiable, Sendable {
 
     var rgb: (red: Double, green: Double, blue: Double) {
         switch self {
+        // Rendering resolves this choice through the dynamic chrome palette.
+        case .system: (0.50, 0.50, 0.50)
         case .black: (0.015, 0.016, 0.020)
         case .onyx: (0.045, 0.048, 0.055)
         case .charcoal: (0.10, 0.105, 0.12)

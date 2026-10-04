@@ -1,0 +1,14 @@
+{
+  "pid": 32767,
+  "executable": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/MacOS/Chromium",
+  "args": [
+    "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/MacOS/Chromium",
+    "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/baseline-2-control-repeat",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--enable-logging=stderr",
+    "--window-size=1500,950",
+    "about:blank"
+  ],
+  "launched_wall_ms": 1790881078617.774
+}

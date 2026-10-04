@@ -1,0 +1,18 @@
+{
+  "pid": 34189,
+  "args": [
+    "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/signed-control-2/WinMux Browser Control.app/Contents/MacOS/Chromium",
+    "--user-data-dir=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/timing-1-control",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--enable-logging=stderr",
+    "--window-size=1500,950",
+    "--trace-startup=startup,latency,input,benchmark",
+    "--trace-startup-format=json",
+    "--trace-startup-duration=90",
+    "--trace-startup-file=/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/baselines/timing-1/control-trace.json",
+    "file:///Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/baselines/timing-1/A.html"
+  ],
+  "launched_wall_ms": 1790881874051.147,
+  "background_compatibility_browser_left_running": true
+}

@@ -1303,7 +1303,8 @@ private enum MarketingFixtures {
             appBundleId: bundle,
             appBundlePath: nil,
             title: title,
-            isFocused: focused
+            isFocused: focused,
+            surfaceID: .nativeWindow(UUID())
         )
     }
 

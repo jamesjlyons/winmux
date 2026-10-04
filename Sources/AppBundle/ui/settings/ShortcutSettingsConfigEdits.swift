@@ -85,16 +85,17 @@ func readModeBindingEntries(
 }
 
 @MainActor
-func persistMainModeBindings(assignments: [String: String], managedCommands: Set<String>) throws -> URL {
+func persistMainModeBindings(assignments: [String: String], managedCommands: Set<String>, browserNewTabShortcut: String? = nil) throws -> URL {
     let targetUrl = preferredShortcutSettingsConfigUrl()
     let currentText = currentShortcutSettingsConfigText(for: targetUrl)
-    let updatedText = updateModeBindingConfig(
+    var updatedText = updateModeBindingConfig(
         in: currentText,
         modeName: mainModeId,
         tableKey: "binding",
         managedCommands: managedCommands,
         assignments: assignments,
     )
+    if let browserNewTabShortcut { updatedText = updateBrowserNewTabShortcutConfig(in: updatedText, notation: browserNewTabShortcut) }
     if let parent = targetUrl.deletingLastPathComponent().takeIf({ $0.path != targetUrl.path }) {
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
     }

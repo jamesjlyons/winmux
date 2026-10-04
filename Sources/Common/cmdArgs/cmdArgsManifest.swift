@@ -3,6 +3,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
 
     case agent
     case balanceSizes = "balance-sizes"
+    case browserNewTab = "browser-new-tab"
     case close
     case closeAllWindowsButCurrent = "close-all-windows-but-current"
     case config
@@ -41,6 +42,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case stackWith = "stack-with"
     case subscribe
     case summonWorkspace = "summon-workspace"
+    case surface
     case swap
     case triggerBinding = "trigger-binding"
     case volume
@@ -56,6 +58,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseAgentCmdArgs)
             case .balanceSizes:
                 result[kind.rawValue] = SubCommandParser(BalanceSizesCmdArgs.init)
+            case .browserNewTab:
+                result[kind.rawValue] = SubCommandParser(BrowserNewTabCmdArgs.init)
             case .close:
                 result[kind.rawValue] = SubCommandParser(CloseCmdArgs.init)
             case .closeAllWindowsButCurrent:
@@ -136,6 +140,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseSubscribeCmdArgs)
             case .summonWorkspace:
                 result[kind.rawValue] = SubCommandParser(SummonWorkspaceCmdArgs.init)
+            case .surface:
+                result[kind.rawValue] = SubCommandParser(parseSurfaceCmdArgs)
             case .swap:
                 result[kind.rawValue] = SubCommandParser(parseSwapCmdArgs)
             case .triggerBinding:

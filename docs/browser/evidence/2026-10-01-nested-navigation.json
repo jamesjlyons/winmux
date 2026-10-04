@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-02T01:49:37.941655+00:00",
+  "scope": "Integrated nested effective-stack navigation on independent page windows",
+  "integrationBaseRevision": "24b59ae160eb730a742bb0ef77ab7e339869ed3b",
+  "isolatedCandidateRevision": "7ec2edacd6d06a5537531a4fad80063209b8221b",
+  "isolatedCandidateEvidence": {
+    "schemaVersion": 1,
+    "recordedAt": "2026-10-02T01:35:34.821732+00:00",
+    "baseRevision": "e98fe4527cfd85335378c4c0e17e39fe209b53a5",
+    "scope": "Isolated candidate for nested effective-stack navigation and gesture invalidation; not applied to the active checkout or packaged.",
+    "behavior": [
+      "Layout placements expose the nearest effective stack, including temporary minimum-size fallbacks, without mutating the saved tree.",
+      "Mixed next/previous navigation follows the effective stack instead of the outer saved group.",
+      "A trackpad candidate is rejected if its effective navigation membership changes before commit."
+    ],
+    "checks": [
+      {
+        "name": "Core and bridge suites",
+        "result": "passed",
+        "counts": {
+          "WorkspaceCore": 34,
+          "BridgeCore": 9
+        },
+        "log": "core-tests.log",
+        "sha256": "21086574f1707e7cb68e956add1e160a9e757cf04d0e3357d75761ecf86fe0d2"
+      },
+      {
+        "name": "Native restoration/navigation suite",
+        "result": "passed",
+        "count": 8,
+        "log": "native-tests-final.log",
+        "sha256": "83d47f6814e60974ef67cdfe543028c3a608b55ce89207bececca8b552a80034"
+      },
+      {
+        "name": "Regression with baseline navigation restored",
+        "result": "failed as expected",
+        "tests": 1,
+        "assertionFailures": 3,
+        "log": "baseline-regression.log",
+        "sha256": "adcb947d13e2eaa5b9fa61db211778c3e08a9e8682494ad658872be8ee6a104a"
+      },
+      {
+        "name": "Read-only snapshot of concurrent weighted allocator plus candidate placement metadata",
+        "result": "passed",
+        "counts": {
+          "WorkspaceCore": 39,
+          "BridgeCore": 9
+        },
+        "log": "compatibility-tests.log",
+        "sha256": "f2c6b7ed0c7cbddd6dc0e0b46dab6ec098d5e1ef8e5d867110e6784f77e09b25",
+        "snapshot": {
+          "browser/native/Sources/WorkspaceCore/SurfaceTree.swift": "f89ff2941538be90a30e49efd6eec05ff7f9681548471df2a0f74ac092bbe939",
+          "browser/native/Sources/WorkspaceCore/SurfaceLayout.swift": "f3cbae6787a0c48c3a33d132ab97f4e6817beec24870a9f4528a9c3be17f77e6",
+          "browser/native/Sources/WorkspaceCore/SurfaceResizing.swift": "4a974fe92cc77152ee93307e60aa6c40f480b8f5452757220514a4a82cc71cc4",
+          "browser/native/Tests/WorkspaceCoreTests/SurfaceResizingTests.swift": "0973f7cf5862d08e3e996795f9f4ff3316a5aba12b76ab207c3a787b98c0432b"
+        }
+      }
+    ],
+    "sourceSHA256": {
+      "Sources/AppBundle/browser/BrowserSurfaceNavigation.swift": "9efed91ff748b78179e823f2517666534cd05acf03dde81d6bb3536b26742301",
+      "Sources/AppBundle/browser/BrowserWorkspaceController.swift": "a3136922a1f4158aa8ae5bb689d6eb14d81ceb29f402c66e9610fc5548252b4c",
+      "Sources/AppBundleTests/tree/BrowserPlacementRestoreTest.swift": "3676cc0df91798af7acab5b58052caf3cabf28dc5569a2ac556466630ed42f9d",
+      "browser/native/Sources/WorkspaceCore/SurfaceLayout.swift": "c8861cbec9e70046e2f0ff454f6f62eafd7232b91a7ef163b64dc202639f115f",
+      "browser/native/Tests/WorkspaceCoreTests/SurfaceLayoutTests.swift": "b59762f2775ade230b94c78802fdbc2a515a53b906494bcf1f127d1ebd22b474"
+    },
+    "limits": [
+      "No live keyboard, trackpad, display or browser validation was performed; the user daily workspace was active.",
+      "No engine build, package replacement, profile inspection, native ownership change or active-checkout source modification was performed for this candidate.",
+      "The weighted compatibility run tests a snapshot of concurrent work, not its final packaged implementation.",
+      "Full native suite was not rerun for this isolated candidate; the focused regression suite passed."
+    ]
+  },
+  "integration": {
+    "savedTreeAndLayoutGeometryUnchanged": true,
+    "nativeSourceSHA256": {
+      "Sources/AppBundle/browser/BrowserSurfaceNavigation.swift": "9efed91ff748b78179e823f2517666534cd05acf03dde81d6bb3536b26742301",
+      "Sources/AppBundle/browser/BrowserWorkspaceController.swift": "ab9637fb0135d1e8851bc17de1e0b54e08c8c6ce25c9b114a9f17cc89dae7965",
+      "Sources/AppBundleTests/tree/BrowserPlacementRestoreTest.swift": "3676cc0df91798af7acab5b58052caf3cabf28dc5569a2ac556466630ed42f9d",
+      "browser/native/Sources/WorkspaceCore/SurfaceLayout.swift": "11617a74481d8767dab4c92d9842350c446884b84aa06d173dc2d8bf0b778ace",
+      "browser/native/Tests/WorkspaceCoreTests/SurfaceLayoutTests.swift": "b59762f2775ade230b94c78802fdbc2a515a53b906494bcf1f127d1ebd22b474"
+    },
+    "tests": {
+      "WorkspaceCore": 45,
+      "BridgeCore": 10,
+      "focusedNative": 27
+    },
+    "testLogs": {
+      ".local/browser/nested-navigation-core.log": "11bcfdb0e697193046ba76f1080b9697335336178cf3eb47dabf36836f6b7f25",
+      ".local/browser/nested-navigation-native.log": "cba4f408fe87075a5df57b2da17ec5bac15f1853a5add7628284ff92e6e51cf0"
+    },
+    "package": {
+      "app": ".local/browser/packages/alpha-page-navigation-1/WinMux Browser Alpha.app",
+      "verified": true,
+      "deepStrictVerification": true,
+      "nativeSourceHashesMatched": 581,
+      "manifestSHA256": "23edb99d2fc4d8020999f220eeee14f3ca01521806d591c45540b01c852f68d2",
+      "helperSHA256": "d2d1f6d8789f9fc14247877a871aeeb46f5edcee82caf41aeac81df4dd9d7836",
+      "activated": false
+    },
+    "signedEngineTest": {
+      "rawResult": ".local/browser/page-navigation-smoke-2/result.json",
+      "resultSHA256": "d7d4bccf866dc167dc1ab201bb8a9932a01feba30261244885af5a835d7746e4",
+      "passed": true,
+      "outcomes": {
+        "layout_selected_page_only": "yes",
+        "layout_managed": "yes",
+        "native_focus_fence": "issued",
+        "foreign_epoch": "stale_epoch",
+        "focus": "issued",
+        "layout_legacy_controls": "issued",
+        "navigate_first": "issued",
+        "repeated_fence": "issued",
+        "navigation_keeps_native_windows": "yes",
+        "layout_split_host_count": "2",
+        "layout_stale": "stale_layout",
+        "layout_identity_retained": "yes",
+        "layout_hidden": "yes",
+        "layout_frames_match": "yes",
+        "navigation_legacy_rejected": "unsupported",
+        "navigate_payload_conflict": "operation_conflict",
+        "new_tab_close": "issued",
+        "close": "issued",
+        "stale_focus": "stale_focus",
+        "navigate_second": "issued",
+        "back": "issued",
+        "layout_minimum_rejected": "unsupported",
+        "layout_grouped_window_ids_retained": "yes",
+        "new_tab": "issued",
+        "navigate_stale_revision": "stale_revision",
+        "back_state": "yes",
+        "reload": "issued",
+        "layout_independent_native_windows": "yes",
+        "layout_legacy_controls_restored": "yes",
+        "layout_readopted_window_ids": "yes",
+        "operation_conflict": "operation_conflict",
+        "layout_split": "issued",
+        "repeated_close": "issued",
+        "layout_hide": "issued",
+        "layout_readopt": "issued",
+        "navigate_repeat": "issued",
+        "navigate_invalid_url": "invalid_request",
+        "forward": "issued",
+        "stop": "issued",
+        "layout_minimum_no_mutation": "yes",
+        "layout_repeat": "issued",
+        "layout_grouped_host_count": "2",
+        "layout_group": "issued",
+        "forward_state": "yes",
+        "new_tab_independent_native_window": "yes",
+        "layout_conflict": "operation_conflict"
+      },
+      "secondsStableAfterRecovery": 17.057229832999997,
+      "browserExitCode": 0,
+      "testServiceRemoved": true,
+      "existingManagedHelperUnchanged": true
+    },
+    "preflightRetry": "The first smoke attempt stopped before launching a test service/browser because the reference helper 77913 had exited. Read-only metadata showed the user had switched from alpha-setup-3 to alpha-page-windows-1. The new managed helper 91506 was verified by launch identity/executable and used as the preservation reference for the successful test."
+  },
+  "limits": [
+    "No physical keyboard, trackpad, drag, fullscreen or display validation was performed.",
+    "The 27 targeted native tests include placement restoration, page presentation and shared commands; the full native suite was not rerun for this fix.",
+    "The signed engine harness validates packaging and transport/page-owner behavior; nested navigation is covered by model/command regression tests.",
+    "User workspace and all existing profiles were left untouched; the user independently activated alpha-page-windows-1 during this work.",
+    "A viewport smaller than a single owner minimum and live fullscreen/popup/display behavior remain open."
+  ]
+}

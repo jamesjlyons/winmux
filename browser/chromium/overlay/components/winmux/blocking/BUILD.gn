@@ -1,0 +1,35 @@
+import("//mojo/public/tools/bindings/mojom.gni")
+
+copy("library") {
+  sources = [ "prebuilt/libwinmux_blocking.dylib" ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+source_set("engine") {
+  sources = [
+    "engine.cc",
+    "engine.h",
+  ]
+  deps = [
+    ":library",
+    "//base",
+    "//url",
+  ]
+  libs = [
+    "$root_out_dir/libwinmux_blocking.dylib",
+  ]
+  frameworks = [
+    "CoreFoundation.framework",
+    "Security.framework",
+  ]
+}
+
+bundle_data("bundle") {
+  sources = [ "$root_out_dir/libwinmux_blocking.dylib" ]
+  outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+  public_deps = [ ":library" ]
+}
+
+mojom("mojom") {
+  sources = [ "cosmetics.mojom" ]
+}

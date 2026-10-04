@@ -1,0 +1,95 @@
+diff --git a/services/network/BUILD.gn b/services/network/BUILD.gn
+index 518ada28dc04d6e00d10f741912441000c2de962..96a055cdcc79da61fc1970ca77a0105981716ebf 100644
+--- a/services/network/BUILD.gn
++++ b/services/network/BUILD.gn
+@@ -339,6 +339,8 @@ component("network_service") {
+ 
+   if (is_mac) {
+     sources += [
++      "winmux/url_filter.cc",
++      "winmux/url_filter.h",
+       "mac_system_proxy_resolver_mojo.cc",
+       "mac_system_proxy_resolver_mojo.h",
+     ]
+@@ -406,6 +408,10 @@ component("network_service") {
+     ]
+   }
+ 
++  if (is_mac) {
++    deps += [ "//components/winmux/blocking:engine" ]
++  }
++
+   public_deps = [ "//services/network/public/cpp:buildflags" ]
+ 
+   if (is_ct_supported) {
+diff --git a/services/network/url_loader.cc b/services/network/url_loader.cc
+index 1e700c0fc0a4ebf9c08c682a1edd556159213ce4..7dd14265e28f384105bd65383bbbe767795ebb8e 100644
+--- a/services/network/url_loader.cc
++++ b/services/network/url_loader.cc
+@@ -4,6 +4,12 @@
+ 
+ #include "services/network/url_loader.h"
+ 
++#include "build/build_config.h"
++#if BUILDFLAG(IS_MAC)
++#include "components/winmux/blocking/engine.h"
++#include "services/network/winmux/url_filter.h"
++#endif
++
+ #include <algorithm>
+ #include <limits>
+ #include <map>
+@@ -739,6 +745,20 @@ void URLLoader::OnDoneBeginningTrustTokenOperation(
+ }
+ 
+ void URLLoader::ScheduleStart() {
++#if BUILDFLAG(IS_MAC)
++  if (winmux::DeferUntilBlockingReady(base::BindOnce(
++          &URLLoader::ScheduleStart, weak_ptr_factory_.GetWeakPtr()))) {
++    return;
++  }
++  if (winmux_filter::ShouldBlock(*url_request_, request_destination_,
++                                 url_request_->url(), url_request_->method())) {
++    TaskRunner(url_request_->priority())->PostTask(
++        FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
++                                 weak_ptr_factory_.GetWeakPtr(),
++                                 net::ERR_BLOCKED_BY_CLIENT));
++    return;
++  }
++#endif
+   TRACE_EVENT("loading", "URLLoader::ScheduleStart",
+               net::NetLogWithSourceToFlow(url_request_->net_log()));
+   bool defer = false;
+@@ -782,6 +802,14 @@ void URLLoader::FollowRedirect(
+     NOTREACHED();
+   }
+ 
++#if BUILDFLAG(IS_MAC)
++  if (new_url && winmux_filter::ShouldBlock(*url_request_, request_destination_,
++                                           *new_url, url_request_->method())) {
++    NotifyCompleted(net::ERR_BLOCKED_BY_CLIENT);
++    return;
++  }
++#endif
++
+   // Note: There are some ordering dependencies here.
+   // `CalculateStorageAccessStatus` depends on
+   // `url_request->cookie_setting_overrides()`. `SetFetchMetadataHeaders`
+@@ -957,6 +985,17 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
+                                    bool* defer_redirect) {
+   DCHECK(url_request == url_request_.get());
+ 
++#if BUILDFLAG(IS_MAC)
++  if (winmux_filter::ShouldBlock(*url_request_, request_destination_,
++                                 redirect_info.new_url, redirect_info.new_method)) {
++    *defer_redirect = true;
++    TaskRunner(url_request_->priority())->PostTask(
++        FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
++                                 weak_ptr_factory_.GetWeakPtr(),
++                                 net::ERR_BLOCKED_BY_CLIENT));
++    return;
++  }
++#endif
+   DCHECK(!deferred_redirect_url_);
+   deferred_redirect_url_ = std::make_unique<GURL>(redirect_info.new_url);
+ 

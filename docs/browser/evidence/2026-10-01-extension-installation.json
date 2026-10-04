@@ -1,0 +1,69 @@
+{
+  "recorded_utc": "2026-10-01T17:38:51.711021+00:00",
+  "scope": "milestone_0_extension_installation_only",
+  "milestone_0_complete": false,
+  "implementation_commit": "ed88cc72",
+  "app": "/Applications/WinMux Browser Alpha.app",
+  "bundle_identifier": "com.jameslyons.winmux.browser.alpha",
+  "package_source": ".local/browser/packages/alpha-blocking-1/WinMux Browser Alpha.app",
+  "copied_app_deep_strict_signature": "passed",
+  "profile": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/profiles/alpha-compatibility",
+  "default_browser_changed": false,
+  "sandbox_disabled": false,
+  "blocking_enabled": true,
+  "extensions": [
+    {
+      "id": "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
+      "name": "1Password \u2013 Password Manager",
+      "version": "8.12.38.34",
+      "manifest_sha256": "f326dede0175cf367e9228cb0539526cd0629e40f5d7f35ea348479319ba16ec",
+      "installation": "Official Chrome Web Store through normal Add extension confirmation",
+      "enabled_ui_verified": true,
+      "onboarding_ui_loaded": true,
+      "login_verified": false
+    },
+    {
+      "id": "jjhefcfhmnkfeepcpnilbbkaadhngkbi",
+      "name": "Readwise Highlighter",
+      "version": "0.18.3",
+      "manifest_sha256": "ac3d6f17f1eab495f5eccd20139a887007097f286f2e2155a76f3f1d2a757458",
+      "installation": "Official Chrome Web Store through normal Add extension confirmation",
+      "enabled_ui_verified": true,
+      "onboarding_ui_loaded": true,
+      "login_verified": false
+    },
+    {
+      "id": "mgjneceglphcpbbfbhjplkpgfapebmdg",
+      "name": "Save to Cosmos",
+      "version": "6.15.3",
+      "manifest_sha256": "125416b0db0f2d0bdefa498ae7260544e2c7723dfa7f79d40948a1967a80f11a",
+      "installation": "Official Chrome Web Store through normal Add extension confirmation",
+      "enabled_ui_verified": true,
+      "onboarding_ui_loaded": true,
+      "login_verified": false
+    }
+  ],
+  "onepassword_desktop": {
+    "path": "/Applications/1Password.app",
+    "version": "8.12.38",
+    "vendor_team": "2BUA8C4S2C",
+    "deep_strict_signature": "passed",
+    "gatekeeper": "accepted, Notarized Developer ID",
+    "source": "https://downloads.1password.com/mac/1Password.zip",
+    "sign_in": "User action required at Welcome screen",
+    "additional_browser_registration": "Pending sign-in; no vault has been accessed"
+  },
+  "pending": [
+    "User sign-in to 1Password desktop app, Readwise and Cosmos in alpha-compatibility profile",
+    "1Password supported Add Browser flow and native messaging",
+    "Fill/save/passkey, article/highlight and collection/image acceptance scenarios",
+    "Second profile and restart/update compatibility scenarios",
+    "Matched startup, switching, memory and BrowserBench measurements"
+  ],
+  "sources": [
+    "https://support.1password.com/additional-browsers/",
+    "https://1password.com/downloads/mac",
+    "https://docs.readwise.io/reader/docs/faqs/adding-new-content",
+    "https://help.cosmos.so/en/articles/11717927-download-our-extensions"
+  ]
+}

@@ -44,13 +44,13 @@ struct WorkspaceSidebarProjectPopup: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(.regularMaterial)
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
+                    .fill(Color.primary.opacity(0.025))
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.75)
+                    .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.75)
             }
             .compositingGroup()
         }
-        .shadow(color: .black.opacity(0.50), radius: 18, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 5)
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 

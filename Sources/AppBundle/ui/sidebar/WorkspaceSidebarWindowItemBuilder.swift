@@ -19,7 +19,8 @@ func makeWorkspaceSidebarWindowViewModel(
         appBundleId: window.app.rawAppBundleId,
         appBundlePath: window.app.bundlePath,
         title: title,
-        isFocused: currentFocus.windowOrNil == window,
+        isFocused: !BrowserWorkspaceController.shared.hasBrowserSelection && currentFocus.windowOrNil == window,
+        surfaceID: window.surfaceID,
     )
 }
 

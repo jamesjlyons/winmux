@@ -40,6 +40,7 @@ let subcommandDescriptions = [
     ["  stack-with", "Put the focused window into the same tab group as the nearest window in the specified direction."],
     ["  subscribe", "Subscribe to WinMux events and receive notifications via socket"],
     ["  summon-workspace", "Move the requested workspace to the focused monitor."],
+    ["  surface", "List, focus, move or close a typed native window or browser tab"],
     ["  swap", "Swaps the focused window with another window."],
     ["  trigger-binding", "Trigger WinMux binding as if it was pressed by user"],
     ["  volume", "Manipulate volume"],

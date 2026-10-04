@@ -1,34 +1,32 @@
+import AppKit
 import SwiftUI
 
-// WinMux design tokens: the single source of truth for the app's visual language — a dark
-// macOS-glass surface (glass/blur base + dark scrim + neutral tint + top highlight + hairline
-// border) with one shared scale of radii, strokes, shadows, and motion. Every piece of chrome
-// should pull from here so all surfaces read as the same material. The glass recipe is pure
-// opacity layers over a single base, so it stays cheap to composite.
+// Shared neutral chrome follows macOS appearance. Explicit solid-color themes
+// retain their chosen color and use a matching foreground appearance.
 
 enum GlassToken {
     // Surface recipe (originally the sidebar surface, now shared by all chrome)
     static let tint = Color(hue: 0, saturation: 0, brightness: 0.50)
-    static let tintOpacity: Double = 0.06
-    static let scrimOpacity: Double = 0.58
-    static let highlightPeak: Double = 0.08
-    static let borderOpacity: Double = 0.10
+    static let tintOpacity: Double = 0.025
+    static let scrimOpacity: Double = 0.12
+    static let highlightPeak: Double = 0.025
+    static let borderOpacity: Double = 0.09
     static let separatorOpacity: Double = 0.07
     // Width of the refractive Liquid Glass edge band (macOS 26). Wider = more visible
     // refraction; the main knob for how pronounced the glassy border reads.
-    static let refractiveBorderWidth: CGFloat = 3
+    static let refractiveBorderWidth: CGFloat = 1
 
     // Interactive fills layered on glass
-    static let fillActive: Double = 0.14
-    static let fillHover: Double = 0.085
-    static let fillResting: Double = 0.06
-    static let fillFaint: Double = 0.04
+    static let fillActive: Double = 0.10
+    static let fillHover: Double = 0.055
+    static let fillResting: Double = 0.025
+    static let fillFaint: Double = 0.015
 
     // Strokes around interactive elements
-    static let strokeActive: Double = 0.18
+    static let strokeActive: Double = 0.12
     static let strokeHover: Double = 0.10
-    static let strokeResting: Double = 0.06
-    static let cardStroke: Double = 0.08
+    static let strokeResting: Double = 0.035
+    static let cardStroke: Double = 0.05
 
     // Text emphasis on glass
     static let textPrimary: Double = 0.92
@@ -73,22 +71,63 @@ extension View {
     }
 }
 
-extension ChromeSolidColor {
-    var color: Color {
-        let components = rgb
-        return Color(red: components.red, green: components.green, blue: components.blue)
+enum ChromePalette {
+    static let background = NSColor(name: "WinMuxChromeBackground") { appearance in
+        let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return NSColor(srgbRed: dark ? 0.12 : 0.955, green: dark ? 0.12 : 0.955,
+                       blue: dark ? 0.13 : 0.96, alpha: 1)
+    }
+    static let separator = NSColor.separatorColor
+
+    static func customColor(_ hex: String) -> NSColor {
+        let value = UInt64(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0x191B20
+        return NSColor(srgbRed: Double((value >> 16) & 0xff) / 255,
+                       green: Double((value >> 8) & 0xff) / 255,
+                       blue: Double(value & 0xff) / 255, alpha: 1)
+    }
+
+    static func appearance(for color: NSColor) -> NSAppearance.Name {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return .darkAqua }
+        func linear(_ component: CGFloat) -> CGFloat {
+            component <= 0.04045 ? component / 12.92 : pow((component + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linear(rgb.redComponent) + 0.7152 * linear(rgb.greenComponent) + 0.0722 * linear(rgb.blueComponent)
+        return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.05 ? .darkAqua : .aqua
     }
 }
 
+extension ChromeSolidColor {
+    var nsColor: NSColor {
+        if self == .system { return ChromePalette.background }
+        let components = rgb
+        return NSColor(srgbRed: components.red, green: components.green, blue: components.blue, alpha: 1)
+    }
+    var color: Color { Color(nsColor: nsColor) }
+}
+
 extension WorkspaceSidebarConfig {
-    var resolvedSolidChromeColor: Color {
-        solidChromeColor == .custom ? Color(chromeHex: solidChromeCustomColor) : solidChromeColor.color
+    var resolvedSolidChromeNSColor: NSColor {
+        solidChromeColor == .custom ? ChromePalette.customColor(solidChromeCustomColor) : solidChromeColor.nsColor
+    }
+    var resolvedSolidChromeColor: Color { Color(nsColor: resolvedSolidChromeNSColor) }
+    var chromeAppearance: NSAppearance.Name? {
+        chromeStyle == .solid && solidChromeColor != .system ? ChromePalette.appearance(for: resolvedSolidChromeNSColor) : nil
+    }
+    var chromeColorScheme: ColorScheme? {
+        chromeAppearance.map { $0 == .darkAqua ? .dark : .light }
     }
 }
 
 extension WorkspaceSidebarConfiguration {
-    var resolvedSolidChromeColor: Color {
-        solidChromeColor == .custom ? Color(chromeHex: solidChromeCustomColor) : solidChromeColor.color
+    var resolvedSolidChromeNSColor: NSColor {
+        solidChromeColor == .custom ? ChromePalette.customColor(solidChromeCustomColor) : solidChromeColor.nsColor
+    }
+    var resolvedSolidChromeColor: Color { Color(nsColor: resolvedSolidChromeNSColor) }
+    var chromeAppearance: NSAppearance.Name? {
+        chromeStyle == .solid && solidChromeColor != .system ? ChromePalette.appearance(for: resolvedSolidChromeNSColor) : nil
+    }
+    var chromeColorScheme: ColorScheme? {
+        chromeAppearance.map { $0 == .darkAqua ? .dark : .light }
     }
 }
 
@@ -109,20 +148,21 @@ extension Color {
     }
 }
 
-/// The shared glass surface: glass/blur base, dark scrim, neutral tint, top highlight,
-/// hairline border.
+/// Native material supplies depth; a quiet wash and hairline keep shared chrome
+/// readable in either appearance without layering another glossy card over it.
 struct GlassSurface<S: Shape>: View {
+    @Environment(\.colorScheme) private var colorScheme
     let shape: S
-    var hasHighlight: Bool = true
+    var hasHighlight: Bool = false
     var hasBorder: Bool = true
     var style: ChromeStyle = .liquidGlass
-    var solidColor: Color = .black
+    var solidColor: Color = Color(nsColor: ChromePalette.background)
 
     var body: some View {
         ZStack {
             base
             if style == .liquidGlass {
-                shape.fill(Color.black.opacity(GlassToken.scrimOpacity))
+                shape.fill((colorScheme == .dark ? Color.black : .white).opacity(GlassToken.scrimOpacity))
                 shape.fill(GlassToken.tint.opacity(GlassToken.tintOpacity))
                     .blendMode(.plusLighter)
             }
@@ -160,24 +200,11 @@ struct GlassSurface<S: Shape>: View {
                 Color.clear.glassEffect(.regular.interactive(false), in: shape)
             } else {
                 shape.fill(.ultraThinMaterial)
-                    .environment(\.colorScheme, .dark)
             }
         }
     }
 
-    /// The outer edge. On macOS 26 it's a ring of real Liquid Glass masked to just the
-    /// border band, so the edge refracts — light bends along the rounded corner like the
-    /// native material — over a faint hairline that keeps the outline defined. Older systems
-    /// get the plain hairline.
-    @ViewBuilder
     private var borderEdge: some View {
-        if #available(macOS 26.0, *), style == .liquidGlass {
-            Color.clear
-                .glassEffect(.regular, in: shape)
-                .mask(shape.stroke(lineWidth: GlassToken.refractiveBorderWidth))
-                .overlay(shape.stroke(Color.white.opacity(GlassToken.borderOpacity), lineWidth: StrokeToken.hairline))
-        } else {
-            shape.stroke(Color.white.opacity(GlassToken.borderOpacity), lineWidth: StrokeToken.hairline)
-        }
+        shape.stroke(Color.primary.opacity(GlassToken.borderOpacity), lineWidth: StrokeToken.hairline)
     }
 }

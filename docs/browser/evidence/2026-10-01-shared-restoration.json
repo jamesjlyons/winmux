@@ -1,0 +1,440 @@
+{
+  "date_utc": "2026-10-01T23:15:47.120594+00:00",
+  "base_commit": "70b512a3",
+  "scope": "Version-4 shared placement persistence and mixed command/gesture traversal",
+  "final_package": ".local/browser/packages/alpha-persistence-2/WinMux Browser Alpha.app",
+  "live_test_package": ".local/browser/packages/alpha-persistence-1/WinMux Browser Alpha.app",
+  "package_manifest_sha256": "2997e7dac51aec2df985eb569e15d9225911a3e23fb5f10c4e176a09703b5bc2",
+  "native_source_hashes_matched": 566,
+  "deep_strict_signature_verified": true,
+  "helper_sha256": "a82a70aebef2d9d792187327a996c5936b52f27c1ea40f7b554cfdaf5efd5a6f",
+  "browser_executable_sha256": "d65b7243b91d6fdc8a0f8e00a21f2f630c139c279fac5466168c22f56837909c",
+  "live_restart": {
+    "method": "Computer Use created the mixed stack; the launcher later restarted its isolated browser profile and native state under a new temporary service.",
+    "snapshot_version": 4,
+    "shared_tree_exactly_equal": true,
+    "surface_snapshot_before": {
+      "closedBrowserTabs": [],
+      "layoutWorkspaces": [
+        "1"
+      ],
+      "selected": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923",
+      "tree": {
+        "activeSurfaces": [
+          "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+          "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+        ],
+        "layouts": [
+          "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+          "stack"
+        ],
+        "roots": {
+          "1": [
+            {
+              "surface": "native:9d31c6fb-6b15-4039-95ab-49e30e28e68a"
+            },
+            {
+              "children": [
+                {
+                  "surface": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+                },
+                {
+                  "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19"
+                }
+              ],
+              "group": "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734"
+            },
+            {
+              "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:92180f5e-3d14-4b18-9301-4e5ac9ac6817"
+            }
+          ]
+        }
+      }
+    },
+    "surface_snapshot_after": {
+      "closedBrowserTabs": [],
+      "layoutWorkspaces": [
+        "1"
+      ],
+      "selected": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923",
+      "tree": {
+        "activeSurfaces": [
+          "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+          "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+        ],
+        "layouts": [
+          "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+          "stack"
+        ],
+        "roots": {
+          "1": [
+            {
+              "surface": "native:9d31c6fb-6b15-4039-95ab-49e30e28e68a"
+            },
+            {
+              "children": [
+                {
+                  "surface": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+                },
+                {
+                  "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19"
+                }
+              ],
+              "group": "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734"
+            },
+            {
+              "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:92180f5e-3d14-4b18-9301-4e5ac9ac6817"
+            }
+          ]
+        }
+      }
+    },
+    "same_native_fixture_launch": true,
+    "initial_session_result": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.2a8530c3-84eb-469f-8cab-5743e4840dbf",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-persistence-1/WinMux Browser Alpha.app",
+      "completed": false,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 62165,
+      "browser_pid": 62755,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "restarted_session_result": {
+      "scope": "isolated_native_browser_sidebar",
+      "service": "com.jameslyons.winmux.browser.alpha.workspace.test.e76da86a-8052-42ee-8633-4b2529069866",
+      "app": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/packages/alpha-persistence-1/WinMux Browser Alpha.app",
+      "completed": true,
+      "limits": [
+        "Native management restricted to the explicit fixture process; mixed layouts not qualified"
+      ],
+      "native_fixture_pid": 62165,
+      "resumed_from": "/Users/james/.codex/worktrees/chromium-browser/winmux/.local/browser/persistence-ui-1",
+      "browser_pid": 63472,
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "initial_exit": "The initial session reached its automatic fifteen-minute timeout. Browser exited 0, helper removed; confirmed-close tombstones stayed empty and both browser references survived.",
+    "proofs": {
+      "browser": {
+        "surfaces": {
+          "closedBrowserTabs": [],
+          "layoutWorkspaces": [
+            "1"
+          ],
+          "selected": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19",
+          "tree": {
+            "activeSurfaces": [
+              "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+              "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19"
+            ],
+            "layouts": [
+              "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+              "stack"
+            ],
+            "roots": {
+              "1": [
+                {
+                  "surface": "native:9d31c6fb-6b15-4039-95ab-49e30e28e68a"
+                },
+                {
+                  "children": [
+                    {
+                      "surface": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+                    },
+                    {
+                      "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19"
+                    }
+                  ],
+                  "group": "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734"
+                },
+                {
+                  "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:92180f5e-3d14-4b18-9301-4e5ac9ac6817"
+                }
+              ]
+            }
+          }
+        },
+        "helper": {
+          "full_messages": 1,
+          "outcomes": {},
+          "hosts": [
+            {
+              "visible": true,
+              "host_id": "host:4300453",
+              "frame": {
+                "width": 560,
+                "height": 960,
+                "x": 1360,
+                "y": 30
+              }
+            },
+            {
+              "visible": true,
+              "frame": {
+                "y": 30,
+                "width": 560,
+                "height": 960,
+                "x": 800
+              },
+              "host_id": "host:4300455"
+            }
+          ],
+          "scope": "isolated_authenticated_inventory_actions",
+          "tab_count": 2,
+          "revision": 4,
+          "delta_messages": 3
+        }
+      },
+      "native": {
+        "surfaces": {
+          "closedBrowserTabs": [],
+          "layoutWorkspaces": [
+            "1"
+          ],
+          "selected": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923",
+          "tree": {
+            "activeSurfaces": [
+              "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+              "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+            ],
+            "layouts": [
+              "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734",
+              "stack"
+            ],
+            "roots": {
+              "1": [
+                {
+                  "surface": "native:9d31c6fb-6b15-4039-95ab-49e30e28e68a"
+                },
+                {
+                  "children": [
+                    {
+                      "surface": "native:8a0e19fa-83c1-4c92-beb1-0f566cd41923"
+                    },
+                    {
+                      "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:87563f3b-bae9-49e4-9e1b-af421ab71d19"
+                    }
+                  ],
+                  "group": "E8CC991E-3A31-43D5-AB06-AC6B6BEA8734"
+                },
+                {
+                  "surface": "browser:8da0b88d-13c9-4c40-af4c-da30042e24b0:92180f5e-3d14-4b18-9301-4e5ac9ac6817"
+                }
+              ]
+            }
+          }
+        },
+        "helper": {
+          "scope": "isolated_authenticated_inventory_actions",
+          "revision": 5,
+          "tab_count": 2,
+          "hosts": [
+            {
+              "visible": true,
+              "frame": {
+                "width": 560,
+                "x": 1360,
+                "y": 30,
+                "height": 960
+              },
+              "host_id": "host:4300453"
+            },
+            {
+              "visible": false,
+              "host_id": "host:4300455",
+              "frame": {
+                "width": 560,
+                "height": 960,
+                "x": 800,
+                "y": 30
+              }
+            }
+          ],
+          "outcomes": {},
+          "full_messages": 1,
+          "delta_messages": 4
+        },
+        "native": {
+          "window_id": 3920,
+          "key_window": "WinMux Native One",
+          "windows": [
+            {
+              "title": "WinMux Native One",
+              "window_id": 3920,
+              "x": 800,
+              "y": 30,
+              "width": 560,
+              "height": 960
+            },
+            {
+              "x": 240,
+              "y": 30,
+              "window_id": 3922,
+              "height": 959,
+              "width": 560,
+              "title": "WinMux Native Two"
+            }
+          ],
+          "key_changes": 8
+        }
+      }
+    },
+    "commands": {
+      "next": {
+        "stdout": "",
+        "serverVersionAndHash": "0.5.4 c75b7f0cac433f0a14aafdf1a0fddc14b219e785",
+        "exitCode": 0,
+        "stderr": ""
+      },
+      "previous_binding": {
+        "stdout": "",
+        "serverVersionAndHash": "0.5.4 c75b7f0cac433f0a14aafdf1a0fddc14b219e785",
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    "command_scope": "Only the marked isolated state directory socket; manager discovery restricted to the verified synthetic fixture PID and launch identity.",
+    "fixture_stopped": true,
+    "limits": [
+      "Command dispatch and owner state do not establish input-ready latency.",
+      "Physical keyboard and trackpad delivery are not accepted; gesture candidate behavior has unit coverage.",
+      "Normal browser session content remains Chromium-owned; this run validates reference/layout restoration.",
+      "The launcher cleanup result is not itself a UI correctness verdict."
+    ]
+  },
+  "ui_tool_incident": {
+    "description": "After the isolated session timed out, a Computer Use lookup of the exact staged browser app path launched it without test-profile arguments. Browser UI targeting was stopped.",
+    "separate_staged_browser_pid": 63284,
+    "started_local": "2026-10-01 16:07:27",
+    "left_untouched": true,
+    "installed_browser_pid": 33776,
+    "installed_browser_started_local": "2026-10-01 12:04:37",
+    "enrolled_helper_pid": 17212,
+    "enrolled_helper_started_local": "2026-10-01 09:03:28",
+    "follow_up": "Check process/profile command arguments before any future Computer Use lookup; do not inspect or stop this default-profile browser to prepare tests."
+  },
+  "checks": {
+    "native_regression": {
+      "passed": 737,
+      "log": ".local/browser/persistence-native-regression.log",
+      "stage": "before final targeted refinements"
+    },
+    "final_targeted": {
+      "passed": 13,
+      "log": ".local/browser/persistence-final-targeted-2.log"
+    },
+    "workspace_core": {
+      "passed": 23,
+      "bridge_passed": 5,
+      "log": ".local/browser/persistence-core-tests-2.log"
+    },
+    "python": {
+      "passed": 35,
+      "log": ".local/browser/persistence-python-final.log"
+    },
+    "build_log": ".local/browser/alpha-persistence-build-1.log",
+    "package_log": ".local/browser/alpha-persistence-package-2.log"
+  },
+  "package_2_delta": "Startup inventory arriving before snapshot load goes to Recovered; subsequent new tabs use current workspace; preserve selected native item during native stack import. These refinements passed targeted tests but the live restart used package 1.",
+  "remaining": [
+    "Physical mixed drag/drop and cross-workspace UI moves",
+    "Physical keyboard/trackpad delivery",
+    "Display changes/minimum-size/fullscreen/popups",
+    "Complete shared CLI/action coverage and cross-monitor browser focus",
+    "Explicit daily-driver activation; existing installation remains unchanged",
+    "Performance and extension qualification deferred"
+  ],
+  "final_signed_headless": {
+    "scope": "actual_signed_browser_authenticated_inventory_actions",
+    "passed": true,
+    "package_manifest_sha256": "2997e7dac51aec2df985eb569e15d9225911a3e23fb5f10c4e176a09703b5bc2",
+    "test_source_sha256": "7f2b9ee3db758f5e5d033c2fa5ce03a8e94ebea3809ea2a64fc74a60c1abde5d",
+    "service": "com.jameslyons.winmux.browser.alpha.workspace.test.f96c1faf-917f-494b-900e-5d61083ec935",
+    "private_inventory_test": false,
+    "limits": [
+      "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation",
+      "No native window manager or shared sidebar is launched",
+      "Existing browser profiles, helper enrollment and signed-in UI are preserved"
+    ],
+    "actions": {
+      "hosts": [
+        {
+          "host_id": "host:1610790356",
+          "visible": true,
+          "frame": {
+            "width": 600,
+            "x": 100,
+            "y": 100,
+            "height": 600
+          }
+        }
+      ],
+      "revision": 7,
+      "outcomes": {
+        "layout_frames_match": "yes",
+        "layout_identity_retained": "yes",
+        "repeated_close": "issued",
+        "layout_stale": "stale_layout",
+        "layout_hidden": "yes",
+        "close": "issued",
+        "repeated_fence": "issued",
+        "operation_conflict": "operation_conflict",
+        "focus": "issued",
+        "layout_split_host_count": "2",
+        "layout_merge": "issued",
+        "foreign_epoch": "stale_epoch",
+        "layout_merged_host_count": "1",
+        "layout_repeat": "issued",
+        "native_focus_fence": "issued",
+        "layout_conflict": "operation_conflict",
+        "layout_split": "issued",
+        "stale_focus": "stale_focus"
+      },
+      "full_messages": 1,
+      "tab_count": 1,
+      "delta_messages": 6,
+      "scope": "isolated_authenticated_inventory_actions"
+    },
+    "bridge": {
+      "detail": "Chromium browser process and packaged Swift helper exchanged an asynchronous probe",
+      "connection_generation": 2,
+      "native_window_management_enabled": false,
+      "scope": "chromium_signed_xpc_transport_with_recovery",
+      "team_identifier": "F7QMMNZWXX",
+      "browser_identifier": "com.jameslyons.winmux.browser.alpha",
+      "protocol_version": 3,
+      "authenticated_connections": 2,
+      "inventory_enabled": true,
+      "state": "authenticated",
+      "presentation_measured": false
+    },
+    "helper": {
+      "hosts": [
+        {
+          "frame": {
+            "width": 600,
+            "height": 600,
+            "y": 100,
+            "x": 100
+          },
+          "host_id": "host:1610790356",
+          "visible": true
+        }
+      ],
+      "revision": 8,
+      "outcomes": {},
+      "full_messages": 1,
+      "tab_count": 1,
+      "delta_messages": 0,
+      "scope": "isolated_authenticated_inventory_actions"
+    },
+    "seconds_after_recovery": 17.020899042,
+    "browser_exit_code": 0,
+    "test_service_removed": true,
+    "existing_helper_unchanged": true
+  }
+}

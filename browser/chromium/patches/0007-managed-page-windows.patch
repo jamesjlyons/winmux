@@ -1,0 +1,119 @@
+diff --git a/chrome/browser/ui/views/frame/browser_view.h b/chrome/browser/ui/views/frame/browser_view.h
+--- a/chrome/browser/ui/views/frame/browser_view.h
++++ b/chrome/browser/ui/views/frame/browser_view.h
+@@ -169,6 +169,11 @@
+   // Returns the BrowserView used for the specified Browser.
+   static BrowserView* GetBrowserViewForBrowser(
+       const BrowserWindowInterface* browser);
++
++  // Winmux owns navigation and grouping for an individual page window. Keep
++  // the normal browser controllers alive while hiding their presentation.
++  void SetWinmuxManaged(bool managed);
++  bool IsWinmuxManaged() const { return winmux_managed_; }
+ 
+   // After calling RevealTopContainerIfNeeded(), there is normally a delay
+   // before the tabstrip is hidden. Tests can use this function to disable that
+@@ -1245,6 +1250,7 @@
+ 
+   // True if we have already been initialized.
+   bool initialized_ = false;
++  bool winmux_managed_ = false;
+ 
+   // True if layout should be suppressed (used during teardown).
+   bool suppress_layout_for_teardown_ = false;
+diff --git a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -1320,6 +1320,18 @@
+   return exclusive_access_context_.get();
+ }
+ 
++void BrowserView::SetWinmuxManaged(bool managed) {
++  if (winmux_managed_ == managed) {
++    return;
++  }
++  winmux_managed_ = managed;
++  if (initialized_) {
++    InvalidateLayout();
++    DeprecatedLayoutImmediately();
++    GetWidget()->OnSizeConstraintsChanged();
++  }
++}
++
+ bool BrowserView::GetTabStripVisible() const {
+   if (!ShouldDrawTabStrip()) {
+     return false;
+@@ -1382,6 +1394,9 @@
+ }
+ 
+ bool BrowserView::ShouldDrawTabStrip() const {
++  if (winmux_managed_) {
++    return false;
++  }
+   // Return false if this window does not normally display a tabstrip or if the
+   // tabstrip is currently hidden, e.g. because we're in fullscreen.
+   if (!WindowFeatureController::From(browser_)->SupportsWindowFeature(
+@@ -2987,6 +3002,9 @@
+ }
+ 
+ bool BrowserView::IsBookmarkBarVisible() const {
++  if (winmux_managed_) {
++    return false;
++  }
+   if (!WindowFeatureController::From(browser_)->SupportsWindowFeature(
+           WindowFeatureController::WindowFeature::kFeatureBookmarkBar)) {
+     return false;
+@@ -3025,6 +3043,9 @@
+ }
+ 
+ bool BrowserView::IsToolbarVisible() const {
++  if (winmux_managed_) {
++    return false;
++  }
+ #if BUILDFLAG(IS_MAC)
+   // Immersive full screen makes it possible to display the toolbar when
+   // kShowFullscreenToolbar is not set.
+@@ -3052,6 +3073,9 @@
+ }
+ 
+ bool BrowserView::IsLocationBarVisible() const {
++  if (winmux_managed_) {
++    return false;
++  }
+   return WindowFeatureController::From(browser_)->SupportsWindowFeature(
+              WindowFeatureController::WindowFeature::kFeatureLocationBar) &&
+          GetLocationBar()->IsVisible();
+@@ -4772,6 +4796,9 @@
+ }
+ 
+ gfx::Size BrowserView::GetMinimumSize() const {
++  if (winmux_managed_) {
++    return gfx::Size(160, 120);
++  }
+   auto* const layout = GetBrowserViewLayout();
+   return layout ? layout->GetMinimumSize(this) : gfx::Size();
+ }
+diff --git a/chrome/browser/ui/views/frame/browser_frame_view_mac.mm b/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
+--- a/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
+@@ -226,6 +226,11 @@
+ 
+ BrowserLayoutParams BrowserFrameViewMac::GetBrowserLayoutParams() const {
+   auto params = BrowserFrameView::GetBrowserLayoutParams();
++  if (GetBrowserView()->IsWinmuxManaged()) {
++    params.leading_exclusion = {};
++    params.trailing_exclusion = {};
++    return params;
++  }
+   if (GetBrowserView()->IsFullscreen()) {
+     // No insets for caption buttons in fullscreen, since caption buttons are on
+     // a separate pane that slides in. However, preserve the height of the
+@@ -422,7 +427,7 @@
+ 
+   // Headless mode does not enforce macOS desktop window aspect ratio
+   // constraints.
+-  if (headless::IsHeadlessMode()) {
++  if (headless::IsHeadlessMode() || GetBrowserView()->IsWinmuxManaged()) {
+     return client_size;
+   }
+ 

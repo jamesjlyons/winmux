@@ -26,6 +26,7 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
+    Window.resetSurfaceRegistryForTests()
     config = defaultConfig
     setMonitorsForTests(nil)
     configUrl = defaultConfigUrl
@@ -60,6 +61,7 @@ func setUpWorkspacesForTests() {
     clearPendingWindowDragIntent()
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
+    TestApp.shared.bundlePath = nil
 }
 
 extension ParsedCmd {

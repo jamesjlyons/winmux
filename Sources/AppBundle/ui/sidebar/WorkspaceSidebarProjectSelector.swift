@@ -4,6 +4,7 @@ import SwiftUI
 
 struct WorkspaceSidebarProjectSelector: View {
     @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
+    @State private var isHovered = false
     let scopes: [WorkspaceSidebarMonitorScopeViewModel]
     let projects: [WorkspaceSidebarProjectViewModel]
     let selectedScopeId: String
@@ -93,7 +94,8 @@ struct WorkspaceSidebarProjectSelector: View {
         }
         .padding(.horizontal, 7)
         .frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
-        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(menuBarStyle ? 0 : 0.07)))
+        .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(isHovered ? 0.05 : 0)))
+        .onHover { isHovered = $0 }
     }
 
     private func projectMenuItem(_ project: WorkspaceSidebarProjectViewModel, selected: Bool, action: @escaping () -> Void) -> some View {

@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import SwiftUI
+import WorkspaceCore
 
 struct WorkspaceSidebarWorkspaceSection: View {
     let workspace: WorkspaceSidebarWorkspaceViewModel
@@ -173,6 +174,8 @@ extension WorkspaceSidebarWorkspaceSection {
             return
         }
         switch payload {
+            case .surface(let id): actions.send(.moveSurface(id, toWorkspace: workspace.name))
+            case .surfaceGroup(let id): actions.send(.moveSurfaceGroup(id, toWorkspace: workspace.name))
             case .window(let windowId):
                 actions.send(.moveWindow(windowId, toWorkspace: workspace.name))
             case .tabGroup(let representativeWindowId):
@@ -184,6 +187,10 @@ extension WorkspaceSidebarWorkspaceSection {
 @MainActor
 private func workspaceSidebarPayload(_ payload: WorkspaceSidebarDragPayload, comesFromWorkspace workspaceName: String) -> Bool {
     switch payload {
+        case .surface(let id):
+            return BrowserWorkspaceController.shared.workspaceName(for: id) == workspaceName
+        case .surfaceGroup(let id):
+            return BrowserWorkspaceController.shared.workspaceName(forGroup: id) == workspaceName
         case .window(let windowId):
             return Window.get(byId: windowId)?.nodeWorkspace?.name == workspaceName
         case .tabGroup(let representativeWindowId):
@@ -195,66 +202,19 @@ extension WorkspaceSidebarWorkspaceSection {
     var sectionBackground: some View {
         sectionShape
             .fill(sectionBackgroundFill)
-            .background { sectionGlassCard }
             .overlay {
                 if isActiveWorkspaceSelection && !layout.menuBarStyle {
                     sectionShape
-                        .strokeBorder(Color.primary.opacity(isCompact ? 0.30 : 0.20), lineWidth: StrokeToken.control)
+                        .strokeBorder(Color.primary.opacity(isCompact ? 0.15 : 0.10), lineWidth: StrokeToken.control)
                 }
                 if isPinnedActiveWorkspace && !isSearchFiltering && !layout.menuBarStyle {
                     sectionShape
                         .strokeBorder(
-                            Color.primary.opacity(0.24),
+                            Color.primary.opacity(0.16),
                             style: StrokeStyle(lineWidth: 1, dash: [5, 4])
                         )
                 }
             }
-    }
-
-    /// The Apple-native container look for a workspace: a dimensional Liquid Glass card.
-    /// A bare `.glassEffect` over the already-glassy panel reads flat, so this adds the three
-    /// things that give real Liquid Glass its depth — a refractive edge, a specular top
-    /// highlight, and a lift shadow — and renders inside a `GlassEffectContainer` (only glass,
-    /// no foreground text, so it's safe) where the native lensing actually engages. The state
-    /// tint fills on top. No-op on older systems; the plain tint fill stands in.
-    @ViewBuilder
-    var sectionGlassCard: some View {
-        if layout.menuBarStyle {
-            // Selection and hover fills supply the hierarchy on the flat menu material.
-            Color.clear
-        } else if #available(macOS 26.0, *), layout.chromeStyle == .liquidGlass {
-            GlassEffectContainer {
-                ZStack {
-                    Color.clear.glassEffect(.regular, in: sectionShape)
-                    // Specular top sheen.
-                    sectionShape
-                        .fill(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: Color.white.opacity(0.16), location: 0),
-                                    .init(color: Color.white.opacity(0.04), location: 0.14),
-                                    .init(color: Color.clear, location: 0.5),
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom,
-                            )
-                        )
-                        .blendMode(.screen)
-                    // Refractive glass edge.
-                    Color.clear
-                        .glassEffect(.regular, in: sectionShape)
-                        .mask(sectionShape.stroke(lineWidth: 2))
-                    sectionShape.strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
-                }
-            }
-            .glassShadow(.resting)
-        } else if layout.chromeStyle == .solid {
-            sectionShape
-                .fill(layout.resolvedSolidChromeColor.opacity(0.38))
-                .overlay {
-                    sectionShape.strokeBorder(Color.white.opacity(0.12), lineWidth: StrokeToken.hairline)
-                }
-        }
     }
 
     var sectionBackgroundFill: Color {
@@ -267,10 +227,10 @@ extension WorkspaceSidebarWorkspaceSection {
         if isDropTarget {
             // A neutral lift works against both solid colors and Liquid Glass without
             // introducing the system accent color into themed chrome.
-            return Color.primary.opacity(layout.chromeStyle == .solid ? 0.18 : 0.14)
+            return Color.primary.opacity(0.10)
         }
         if isSearchSelectedWorkspace {
-            return Color.primary.opacity(0.105)
+            return Color.primary.opacity(0.075)
         }
         if isSearchFiltering {
             return isHovered ? Color.primary.opacity(0.045) : Color.primary.opacity(0.015)
@@ -281,11 +241,11 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color(nsColor: .systemRed).opacity(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return Color.primary.opacity(isHovered ? 0.15 : 0.10)
+            return Color.primary.opacity(isHovered ? 0.09 : 0.06)
         }
         if isActiveOnTargetMonitor {
-            let compactOpacity: Double = workspace.isFocused ? 0.24 : 0.14
-            let expandedOpacity: Double = workspace.isFocused ? 0.12 : 0.07
+            let compactOpacity: Double = workspace.isFocused ? 0.13 : 0.075
+            let expandedOpacity: Double = workspace.isFocused ? 0.055 : 0.025
             return Color.primary.opacity(isCompact ? compactOpacity : expandedOpacity)
         }
         if isFromOtherDisplay {
@@ -294,7 +254,7 @@ extension WorkspaceSidebarWorkspaceSection {
         if isHovered {
             return Color.primary.opacity(0.045)
         }
-        return Color.primary.opacity(0.015)
+        return .clear
     }
 
     var isActiveWorkspaceSelection: Bool {
@@ -430,22 +390,78 @@ extension WorkspaceSidebarWorkspaceSection {
     var windowRows: some View {
         if showsWindowRows, !workspace.items.isEmpty {
             VStack(alignment: .leading, spacing: 1) {
-                ForEach(workspace.items) { item in
-                    workspaceItemView(item)
+                if !pinnedItems.isEmpty {
+                    if !density.isNarrow {
+                        Text("Pinned")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+                            .padding(.top, 3)
+                    }
+                    ForEach(pinnedItems) { item in workspaceItemView(item) }
+                    if !ordinaryItems.isEmpty { Divider().padding(.vertical, 4) }
                 }
+                ForEach(ordinaryItems) { item in workspaceItemView(item) }
             }
             .padding(.leading, density.isNarrow || layout.menuBarStyle ? 0 : workspaceSidebarWindowRowsLeadingIndent)
         }
     }
 
+    var pinnedItems: [WorkspaceSidebarItemViewModel] {
+        workspace.items.filter { if case .pinnedBrowserTab = $0.kind { return true }; return false }
+    }
+
+    var ordinaryItems: [WorkspaceSidebarItemViewModel] {
+        workspace.items.filter { if case .pinnedBrowserTab = $0.kind { return false }; return true }
+    }
+
     @ViewBuilder
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
+            case .surface, .surfaceGroup, .pinnedBrowserTab:
+                sharedSurfaceItemView(item)
+            case .browserTab(let tab):
+                sharedSurfaceItemView(.init(kind: .surface(.init(
+                    surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
+                    appBundleId: "com.jameslyons.winmux.browser.alpha"
+                ))))
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
             case .tabGroup(let group):
                 workspaceTabGroupView(group)
         }
+    }
+
+    func sharedSurfaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
+        WorkspaceSidebarSurfaceTreeView(
+            item: item, workspaceName: workspace.name, targetMonitorScopeId: targetMonitorScopeId,
+            selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
+            actions: actions, onActivate: activateSharedSurface, onActivatePin: activatePinnedBrowserTab,
+            unfilteredItems: TrayMenuModel.shared.workspaceSidebarWorkspaces.first(where: { $0.name == workspace.name })?.items ?? workspace.items
+        )
+    }
+
+    func activatePinnedBrowserTab(_ id: UUID) {
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()) else { return }
+        if isInUseOnOtherDisplay { activeInUseOverrideWorkspaceName = workspace.name; return }
+        activeInUseOverrideWorkspaceName = nil
+        actions.send(.selectPinnedBrowserTab(id))
+    }
+
+    func activateSharedSurface(_ id: SurfaceID) {
+        guard allowsWorkspaceActivation,
+              shouldHandleWorkspaceSidebarActivation(
+                editingWorkspaceName: renamingWorkspaceName,
+                isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+              ) else { return }
+        if isInUseOnOtherDisplay {
+            activeInUseOverrideWorkspaceName = workspace.name
+            return
+        }
+        activeInUseOverrideWorkspaceName = nil
+        actions.send(.selectSurface(id))
     }
 
     @ViewBuilder
@@ -548,7 +564,11 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
-            actions.send(.selectWindow(group.representativeWindowId))
+            if let representative = group.tabs.first(where: { $0.windowId == group.representativeWindowId }) {
+                actions.send(.selectSurface(representative.surfaceID))
+            } else {
+                actions.send(.selectWorkspace(group.workspaceName))
+            }
         } label: {
             WorkspaceSidebarWindowRow(
                 title: "\(group.windowCount) \(group.windowCount == 1 ? "window" : "windows")",
@@ -556,7 +576,9 @@ extension WorkspaceSidebarWorkspaceSection {
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredTabGroupId == group.representativeWindowId || selectedSearchTarget == .window(group.representativeWindowId),
+                isHovered: hoveredTabGroupId == group.representativeWindowId || group.tabs.contains {
+                    $0.windowId == group.representativeWindowId && selectedSearchTarget == .surface($0.surfaceID)
+                },
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
@@ -608,7 +630,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
-            actions.send(.selectWindow(window.windowId))
+            actions.send(.selectSurface(window.surfaceID))
         } label: {
             WorkspaceSidebarWindowRow(
                 title: window.title ?? window.appName,
@@ -616,7 +638,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 isFocused: window.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredWindowId == window.windowId || selectedSearchTarget == .window(window.windowId),
+                isHovered: hoveredWindowId == window.windowId || selectedSearchTarget == .surface(window.surfaceID),
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [window.appBundleId],
                 appBundlePaths: [window.appBundlePath],
@@ -650,6 +672,10 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .help(window.title ?? window.appName)
         .contextMenu {
+            if layout.showsBrowserControls {
+                Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }
+                Divider()
+            }
             WindowMoveMenu(
                 windowId: window.windowId,
                 workspaceName: window.workspaceName,
