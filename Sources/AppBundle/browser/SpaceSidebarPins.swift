@@ -136,8 +136,10 @@ extension BrowserWorkspaceController {
               window.app.rawAppBundleId == nativeAppSidebarPins[index].bundleIdentifier,
               let group = Workspace.existing(byName: nativeAppSidebarPins[index].workspaceName),
               window.nodeWorkspace == group || canAdoptNativePinWindow(window) else { return false }
-        if let previous = nativeAppSidebarPins[index].surfaceID, previous != window.surfaceID, isAvailable(previous),
-           !adoptPinnedSurface(previous, into: regularWorkspaceForNewItem(group).name) { return false }
+        if let previous = nativeAppSidebarPins[index].surfaceID, previous != window.surfaceID, isAvailable(previous) {
+            let destination = config.workspaceInteractionMode == .views ? newStandaloneWorkspace(in: group) : regularWorkspaceForNewItem(group)
+            guard adoptPinnedSurface(previous, into: destination.name) else { return false }
+        }
         if let previous = nativeAppSidebarPins[index].surfaceID, previous != window.surfaceID, !isAvailable(previous) {
             retireMissingNativePinBinding(previous)
         }
@@ -158,7 +160,7 @@ extension BrowserWorkspaceController {
         let wasFocused = live != nil && (focusCoordinator.target == live || focus.windowOrNil?.surfaceID == live)
         guard let workspace else { return false }
         if let live, let group = Workspace.existing(byName: workspace) {
-            let target = destination ?? regularWorkspaceForNewItem(group)
+            let target = destination ?? (config.workspaceInteractionMode == .views ? newStandaloneWorkspace(in: group) : regularWorkspaceForNewItem(group))
             guard !target.isPinnedGroup else { return false }
             if case .browserTab = live {
                 guard adoptPinnedSurface(live, into: target.name) else { return false }

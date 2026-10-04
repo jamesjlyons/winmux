@@ -9,6 +9,7 @@ extension SurfaceID {
 extension BrowserWorkspaceController {
     @discardableResult
     func openBrowserTab(url: String? = nil, workspaceName: String? = nil, profileID: UUID? = nil,
+                        explicitPlacement: Bool = false,
                         created: (@MainActor (SurfaceID) -> Void)? = nil,
                         completion: (@MainActor (BrowserActionReply) -> Void)? = nil) -> SurfaceActionOutcome {
         guard let session = tabCreationSession(profileID: profileID) else {
@@ -31,7 +32,9 @@ extension BrowserWorkspaceController {
             if reply == .issued, let id, let self {
                 let selectCreated = self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)
-                self.placeCreatedBrowserTab(id, in: workspace, focusAddress: url == nil,
+                let destination = config.workspaceInteractionMode == .views && !explicitPlacement
+                    ? self.standaloneBrowserDestination(id, in: requestedWorkspace) : workspace
+                self.placeCreatedBrowserTab(id, in: destination, focusAddress: url == nil,
                                            selectCreated: selectCreated, focusGeneration: startingFocus)
                 created?(id)
             }

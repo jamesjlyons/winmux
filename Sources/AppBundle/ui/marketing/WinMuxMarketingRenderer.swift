@@ -1,5 +1,54 @@
 import AppKit
 import SwiftUI
+import WorkspaceCore
+
+/// Render the actual experimental sidebar without starting a native manager or
+/// opening user windows. Companion live tests use the scoped fixture launcher.
+@MainActor
+public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let previousMode = config.workspaceInteractionMode
+    config.workspaceInteractionMode = .views
+    defer { config.workspaceInteractionMode = previousMode }
+    for light in [false, true] {
+        for width: CGFloat in [240, 140, 40] {
+            var snapshot = MarketingFixtures.sidebarSnapshot
+            let original = snapshot.workspaces[0]
+            func surface(_ title: String, app: String, bundle: String) -> WorkspaceSidebarItemViewModel {
+                .init(kind: .surface(.init(surfaceID: .nativeWindow(UUID()), title: title,
+                    appName: app, isFocused: false, appBundleId: bundle)))
+            }
+            let items = [surface("Project notes", app: "Notes", bundle: "com.apple.Notes"),
+                surface("Implementation", app: "Xcode", bundle: "com.apple.dt.Xcode"),
+                surface("Reference documentation", app: "Safari", bundle: "com.apple.Safari")]
+            func workspace(_ name: String, title: String, items: [WorkspaceSidebarItemViewModel], focused: Bool) -> WorkspaceSidebarWorkspaceViewModel {
+                .init(name: name, projectId: snapshot.activeProjectId, displayName: title, sidebarLabel: "", isGeneratedName: true,
+                    monitorScopeId: original.monitorScopeId, monitorName: nil, isFocused: focused, isVisible: focused,
+                    items: items, isViewMode: true)
+            }
+            var pins = workspace("proof-pins", title: "Pinned", items: [], focused: false)
+            pins.isPinnedGroup = true
+            pins.pins = [WorkspaceSidebarPinViewModel(id: UUID(), workspaceName: pins.name, title: "Mail",
+                bundleIdentifier: "com.apple.mail", bundlePath: nil, iconPNGBase64: nil, surfaceID: nil,
+                isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: false)]
+            snapshot.workspaces = [pins,
+                workspace("proof-notes", title: "Project notes", items: [items[0]], focused: false),
+                workspace("proof-build", title: "Implementation + Reference documentation", items: Array(items.dropFirst()), focused: true)]
+            snapshot.configuration.expandedWidth = width < 120 ? 240 : width
+            snapshot.configuration.collapsedWidth = 40
+            snapshot.configuration.showsClock = false
+            snapshot.configuration.chromeStyle = .solid
+            snapshot.configuration.solidChromeColor = .system
+            snapshot.visibleWidth = width
+            let view = ZStack {
+                light ? Color(white: 0.94) : Color(white: 0.08)
+                WorkspaceSidebarView(snapshot: snapshot).environment(\.colorScheme, light ? .light : .dark)
+            }
+            try renderMarketingView(view, to: directory.appendingPathComponent("views-\(Int(width))-\(light ? "light" : "dark").png"),
+                size: CGSize(width: width, height: 700), colorScheme: light ? .light : .dark)
+        }
+    }
+}
 
 /// Width regression fixtures rendered with the production sidebar, without running the manager.
 @MainActor
@@ -135,14 +184,15 @@ private func renderMarketingView<Content: View>(
     _ rootView: Content,
     to outputURL: URL,
     size: CGSize = CGSize(width: 1_600, height: 900),
-    renderScale: CGFloat = 1
+    renderScale: CGFloat = 1,
+    colorScheme: ColorScheme = .dark
 ) throws {
     let renderSize = CGSize(width: size.width * renderScale, height: size.height * renderScale)
     let content = rootView
         .frame(width: size.width, height: size.height)
         .scaleEffect(renderScale, anchor: .topLeading)
         .frame(width: renderSize.width, height: renderSize.height, alignment: .topLeading)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, colorScheme)
         .environment(\.workspaceSidebarClockDate, Calendar.current.date(
             from: DateComponents(year: 2026, month: 9, day: 5, hour: 10)
         ))
@@ -166,6 +216,7 @@ private func renderMarketingView<Content: View>(
         defer: false
     )
     window.contentView = hostingView
+    window.appearance = NSAppearance(named: colorScheme == .light ? .aqua : .darkAqua)
     window.backgroundColor = .black
     window.isOpaque = true
     window.hasShadow = false

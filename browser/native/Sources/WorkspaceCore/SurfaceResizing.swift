@@ -8,9 +8,10 @@ extension SurfaceTree {
     @discardableResult
     public mutating func resize(_ target: SurfaceID, dimension: SurfaceResizeDimension, amount: Double,
                                 absolute: Bool = false, frame: SurfaceFrame,
-                                minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:]) -> Bool {
+                                minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:],
+                                rootPresentation: SurfaceRootPresentation = .adaptiveTiles) -> Bool {
         guard amount.isFinite, let workspace = workspace(of: target), let roots = roots[workspace] else { return false }
-        let plan = placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target)
+        let plan = placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
         func bounds(_ node: SurfaceTreeNode, in placements: [SurfacePlacement]) -> SurfaceFrame? {
             let frames = placements.filter { node.surfaces.contains($0.surfaceID) }.map(\.frame)
             guard let x = frames.map(\.x).min(), let y = frames.map(\.y).min(),
@@ -45,7 +46,9 @@ extension SurfaceTree {
         let rowStarts = Array(Set(rootFrames.map(\.y))).sorted()
         let columns = columnStarts.map { x in roots.indices.filter { rootFrames.indices.contains($0) && rootFrames[$0].x == x } }
         let rows = rowStarts.map { y in roots.indices.filter { rootFrames.indices.contains($0) && rootFrames[$0].y == y } }
-        if rootFrames.count == roots.count && (rowStarts.count > 1 || columns.count < roots.count) {
+        if rootPresentation == .selectedRoot {
+            // Only explicit splits inside the selected view can be resized.
+        } else if rootFrames.count == roots.count && (rowStarts.count > 1 || columns.count < roots.count) {
             // Adaptive cells share column widths and row heights. A temporary
             // stack contributes one allocation even when it holds many leaves.
             if columns.count > 1 { candidates.append(.init(siblings: columns.map { $0.map { roots[$0] } }, layout: .horizontal, adaptive: true)) }
@@ -142,7 +145,7 @@ extension SurfaceTree {
         }
         var resized = self
         resized.setWeights(values)
-        let updated = resized.placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target)
+        let updated = resized.placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
         for node in roots.indices {
             guard let actual = bounds(roots[node], in: updated),
                   let column = columns.firstIndex(where: { $0.contains(node) }),

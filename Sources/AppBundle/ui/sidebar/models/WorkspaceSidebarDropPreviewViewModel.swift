@@ -19,6 +19,7 @@ struct WorkspaceSidebarDropPreviewViewModel: Hashable {
     let isTabGroup: Bool
     let windowCount: Int
     let tabItems: [WorkspaceSidebarDropPreviewTabItem]
+    var intentLabel: String?
 
     init(
         sourceWindowId: UInt32? = nil,

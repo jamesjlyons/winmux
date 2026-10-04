@@ -38,11 +38,13 @@ extension BrowserWorkspaceController {
         // A lost helper connection is not confirmation that a live page closed.
         if let surfaceID = pin.surfaceID, unresolvedSidebarPinOwners[surfaceID] != nil { return .unavailable }
         guard pendingSidebarPinOpenings.insert(id).inserted else { return .issued }
-        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, created: { [weak self] surfaceID in
+        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, explicitPlacement: true, created: { [weak self] surfaceID in
             guard let self else { return }
             guard let index = self.browserSidebarPins.firstIndex(where: { $0.id == id }) else {
                 if let group = Workspace.existing(byName: pin.workspaceName) {
-                    _ = self.adoptPinnedSurface(surfaceID, into: self.regularWorkspaceForNewItem(group).name)
+                    let destination = config.workspaceInteractionMode == .views
+                        ? self.newStandaloneWorkspace(in: group) : self.regularWorkspaceForNewItem(group)
+                    _ = self.adoptPinnedSurface(surfaceID, into: destination.name)
                     if self.focusCoordinator.target == surfaceID { _ = self.select(surfaceID) }
                 }
                 return

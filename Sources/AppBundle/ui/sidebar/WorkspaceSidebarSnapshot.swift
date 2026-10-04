@@ -94,6 +94,8 @@ enum WorkspaceSidebarAction: Equatable {
     case groupSurfaceWithSelection(SurfaceID)
     case splitSurfaceWithSelection(SurfaceID, vertical: Bool)
     case ungroupSurfaces(UUID)
+    case combineViews(SurfaceID, with: SurfaceID, layout: SurfaceContainerLayout, before: Bool)
+    case separateView(SurfaceID)
     case moveSurface(SurfaceID, toWorkspace: String)
     case moveSurfaceToNewWorkspace(SurfaceID, projectId: WorkspaceProjectId, monitorScopeId: String)
     case moveSurfaceGroup(UUID, toWorkspace: String)

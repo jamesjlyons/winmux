@@ -107,6 +107,23 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return workspace(of: member)
     }
 
+    /// Combine complete root arrangements without flattening their children.
+    @discardableResult public mutating func combineRootGroup(_ id: UUID, with target: SurfaceID,
+        layout: SurfaceContainerLayout, before: Bool) -> Bool {
+        guard let name = workspace(ofGroup: id), workspace(of: target) == name,
+              let source = group(id), !source.surfaces.contains(target),
+              var nodes = roots[name], let sourceIndex = nodes.firstIndex(of: source) else { return false }
+        nodes.remove(at: sourceIndex)
+        guard let targetIndex = nodes.firstIndex(where: { $0.surfaces.contains(target) }) else { return false }
+        let anchor = nodes[targetIndex], combined = UUID()
+        nodes[targetIndex] = .group(combined, before ? [source, anchor] : [anchor, source])
+        roots[name] = nodes; layouts[combined] = layout
+        activeSurfaces[combined] = source.surfaces.first
+        weights[source.weightKey] = 1; weights[anchor.weightKey] = 1
+        pruneMetadata()
+        return true
+    }
+
     /// Transfer one complete subtree without pruning its identity or metadata
     /// between removing it from the source and inserting it at the destination.
     @discardableResult public mutating func moveGroupToRoot(_ target: UUID, in destination: String) -> Bool {

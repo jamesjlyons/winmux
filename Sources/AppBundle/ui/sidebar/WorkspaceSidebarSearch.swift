@@ -48,6 +48,8 @@ private func workspaceSidebarFilteredWorkspace(
             isFocused: workspace.isFocused,
             isVisible: workspace.isVisible,
             items: matchingItems,
+            isViewMode: workspace.isViewMode,
+            totalViewSurfaceCount: workspace.viewSurfaceCount,
         )
     }
     if workspaceSidebarWorkspaceMatchesSearch(workspace, projectName: projectName, terms: terms) {

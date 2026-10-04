@@ -63,6 +63,12 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
     "automatically-tile-new-windows": Parser(\.automaticallyTileNewWindows, parseBool),
+    "workspace-interaction-mode": Parser(\.workspaceInteractionMode) { raw, trace in
+        parseString(raw, trace).flatMap {
+            WorkspaceInteractionMode(rawValue: $0)
+                .orFailure(.semantic(trace, "Expected workspace-interaction-mode to be 'tiling' or 'views'"))
+        }
+    },
     "enable-shake-to-toggle-tiling": Parser(\.enableShakeToToggleTiling, parseBool),
     "shortcuts-preset": Parser(\.shortcutsPreset, parseShortcutsPreset),
     "tab-group-padding": Parser(\.tabGroupPadding, parseInt),

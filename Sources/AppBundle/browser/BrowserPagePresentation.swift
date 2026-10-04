@@ -165,7 +165,8 @@ extension BrowserWorkspaceController {
         let minima = minimumSizes(in: workspace)
         var livePlan = liveLayoutTree(in: workspace)
         guard livePlan.workspace(of: id) == workspace.name,
-              livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima) else { return false }
+              livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima,
+                              rootPresentation: rootPresentation(in: workspace)) else { return false }
         return editOrganization(of: id) { durable in
             // Removing reservations only collapses containers; every remaining
             // weight key still belongs to the saved tree. Preserve its complete

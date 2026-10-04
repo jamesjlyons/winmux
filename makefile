@@ -80,6 +80,7 @@ check:
 	set -euo pipefail && \
 	source ./script/setup.sh && \
 	python3 -m unittest script/test_validate_appcast.py && \
+	python3 -m unittest discover -s browser/tools -p test_workspace_views_trial.py && \
 	swift package resolve && \
 	git diff --exit-code -- Package.resolved'
 

@@ -101,6 +101,10 @@ func handleWorkspaceSidebarAction(
             BrowserWorkspaceController.shared.organize(id, groupWithSelection: true, layout: vertical ? .vertical : .horizontal)
         case .ungroupSurfaces(let id):
             BrowserWorkspaceController.shared.ungroup(id)
+        case .combineViews(let id, let target, let layout, let before):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.combineViews(id, with: target, layout: layout, before: before) }
+        case .separateView(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.separateView(id) }
         case .moveSurface(let id, let workspace):
             moveSurfaceFromSidebar(id, toWorkspace: workspace)
         case .moveSurfaceToNewWorkspace(let id, let project, let scope):

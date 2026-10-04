@@ -89,6 +89,10 @@ struct WorkspaceSidebarPinGrid: View {
             }
         }
         .contextMenu {
+            if config.workspaceInteractionMode == .views, let id = pin.surfaceID {
+                SurfaceViewActionsMenu(surface: id, actions: actions)
+                Divider()
+            }
             Button(pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
             Button(pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
             Menu("Move to Space") {

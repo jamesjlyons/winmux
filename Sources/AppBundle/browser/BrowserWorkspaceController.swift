@@ -32,6 +32,7 @@ public final class BrowserWorkspaceController {
     var usesSurfaceTree = false
     private var mixedLayoutWorkspaces: Set<String> = []
     private var placements: [SurfaceID: String] = [:]
+    private var standaloneBrowserViews: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
     private lazy var refreshScheduler = CoalescedBrowserRefreshScheduler(isReady: { [weak self] in
@@ -44,6 +45,7 @@ public final class BrowserWorkspaceController {
     private var closedBrowserTabs: Set<SurfaceID> = []
     private var restoredSelection: SurfaceID?
     private var recentSelections: [SurfaceID] = []
+    private var selectedByWorkspace: [String: SurfaceID] = [:]
     private var restoredPlacements = false
     private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
     private var pendingNativeLayoutFocus: (id: SurfaceID, generation: UInt64, foregroundPID: Int32?)?
@@ -54,7 +56,8 @@ public final class BrowserWorkspaceController {
         let selected = restoredSelection ?? focusCoordinator.target
         return .init(tree: surfaceTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(surfaceTree.roots.keys),
                      selected: selected.flatMap { surfaceTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs,
-                     browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups)
+                     browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups,
+                     selectedByWorkspace: selectedByWorkspace.filter { surfaceTree.workspace(of: $0.value) == $0.key })
     }
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
@@ -75,8 +78,10 @@ public final class BrowserWorkspaceController {
         for pin in browserSidebarPins { _ = Workspace.get(byName: pin.workspaceName) }
         restoredSelection = snapshot.selected
         recentSelections = snapshot.selected.map { [$0] } ?? []
+        selectedByWorkspace = snapshot.selectedByWorkspace
         restoredPlacements = true
         placements = [:]
+        standaloneBrowserViews = [:]
         unresolvedNativeItems = []
         for (workspace, nodes) in surfaceTree.roots {
             _ = Workspace.get(byName: workspace)
@@ -156,6 +161,7 @@ public final class BrowserWorkspaceController {
             browserPinDidClose(id)
             closedBrowserTabs.insert(id)
             placements.removeValue(forKey: id)
+            standaloneBrowserViews.removeValue(forKey: id)
             surfaceTree.remove(id)
         }
         // A tab restored by Chromium (including explicit undo-close) is live.
@@ -164,18 +170,23 @@ public final class BrowserWorkspaceController {
         // Later full snapshots also carry newly opened pages; place those in
         // the active group just like a delta, while keeping existing placements.
         let workspace = restoredPlacements && isInitialInventory && message.full ? "Recovered" : (previewWindow == nil ? regularWorkspaceForNewItem(focus.workspace).name : "browser-alpha")
-        for id in session.inventory.tabs.keys {
+        let arrivalContext = focus.workspace
+        let separateArrivals = config.workspaceInteractionMode == .views && previewWindow == nil &&
+            !(restoredPlacements && isInitialInventory && message.full)
+        for id in session.inventory.tabs.keys.sorted(by: { $0.description < $1.description }) {
             closedBrowserTabs.remove(id)
             if placements[id] == nil {
-                placements[id] = workspace
-                if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspace) }
+                let destination = separateArrivals ? standaloneBrowserDestination(id, in: arrivalContext) : workspace
+                placements[id] = destination
+                if isWinMuxRuntimeReady { _ = Workspace.get(byName: destination) }
             }
         }
         if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
            let workspaceName = placements[focused.surfaceID],
-           let workspace = Workspace.existing(byName: workspaceName), workspace.isVisible,
+           let workspace = Workspace.existing(byName: workspaceName),
+           workspace.isVisible || (separateArrivals && !oldIDs.contains(focused.surfaceID)),
            focusCoordinator.target != focused.surfaceID {
             // The browser reports native activation. Reflect clicks in the shared
             // selection without issuing a second activation back to Chromium.
@@ -258,6 +269,7 @@ public final class BrowserWorkspaceController {
     }
 
     private func rememberSelection(_ id: SurfaceID) {
+        if let workspace = workspaceName(for: id) { selectedByWorkspace[workspace] = id }
         // Effective overflow stacks have no durable container identity. Keep
         // their recent selection during this session so focusing another tile
         // does not reset an unfocused tile to its first member.
@@ -278,6 +290,7 @@ public final class BrowserWorkspaceController {
             return browser?.hostMinimized != true && browser?.hostFullscreen != true && browser?.hostZoomed != true
         }
         if let recent = recentSelections.first(where: belongs) { return recent }
+        if let saved = selectedByWorkspace[workspace.name], belongs(saved) { return saved }
         if let native = workspace.toLiveFocus().windowOrNil?.surfaceID { return native }
         if let first = (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces).first(where: belongs) { return first }
         return placements.keys.filter(belongs).sorted { $0.description < $1.description }.first
@@ -326,6 +339,18 @@ public final class BrowserWorkspaceController {
             completePendingBrowserTabSelections()
         }
         scheduleRefresh()
+    }
+
+    /// Inventory and creation replies can arrive in either order. Reserve by
+    /// durable page identity, and retain the request's captured Space/display.
+    func standaloneBrowserDestination(_ id: SurfaceID, in context: Workspace) -> String {
+        if let name = standaloneBrowserViews[id], let existing = Workspace.existing(byName: name),
+           existing.projectId == context.projectId,
+           MonitorViewportId(existing.workspaceMonitor) == MonitorViewportId(context.workspaceMonitor) { return name }
+        let destination = newStandaloneWorkspace(in: context,
+            reserved: Set(placements.values).union(standaloneBrowserViews.values))
+        standaloneBrowserViews[id] = destination.name
+        return destination.name
     }
 
     func owner(of id: SurfaceID) -> BrowserSurfaceSession? {
@@ -583,7 +608,7 @@ public final class BrowserWorkspaceController {
     /// Preflight the complete subtree before synchronously moving either owner.
     /// Intermediate leaf moves would dissolve the stack and prune its metadata.
     @discardableResult
-    func moveGroup(_ id: UUID, to destination: Workspace) -> Bool {
+    func moveGroup(_ id: UUID, to destination: Workspace, edit: (inout SurfaceTree) -> Bool = { _ in true }) -> Bool {
         guard !destination.isArchived, canMoveGroup(id), let group = surfaceTree.group(id),
               let sourceName = surfaceTree.workspace(ofGroup: id), sourceName != destination.name,
               let source = Workspace.existing(byName: sourceName) else { return false }
@@ -605,7 +630,7 @@ public final class BrowserWorkspaceController {
                                                    activeSurfaces: imported.active, weights: imported.weights) else { return false }
             }
         }
-        guard candidate.moveGroupToRoot(id, in: destination.name),
+        guard candidate.moveGroupToRoot(id, in: destination.name), edit(&candidate),
               reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }),
               let data = try? JSONEncoder().encode(candidate),
               (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
@@ -650,6 +675,10 @@ public final class BrowserWorkspaceController {
             _ = surfaceTree.move(id, before: target)
         } else if let earlier { _ = surfaceTree.reorder(id, earlier: earlier) }
         else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
+            if config.workspaceInteractionMode == .views {
+                _ = combineViews(id, with: target, layout: layout)
+                return
+            }
             if surfaceTree.group(id, with: target, layout: layout), let workspace = surfaceTree.workspace(of: id),
                sessions.values.allSatisfy({ $0.supportsLayout }) {
                 mixedLayoutWorkspaces.insert(workspace)
@@ -875,7 +904,15 @@ public final class BrowserWorkspaceController {
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return livePlan.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
-            visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace), selectedSurface: focusCoordinator.target, recentSelections: recentSelections)
+            visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace),
+            selectedSurface: rootPresentation(in: workspace) == .selectedRoot
+                ? (focusCoordinator.target.flatMap { livePlan.workspace(of: $0) == workspace.name ? $0 : nil } ?? preferredSurface(in: workspace))
+                : focusCoordinator.target,
+            recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace))
+    }
+
+    func rootPresentation(in workspace: Workspace) -> SurfaceRootPresentation {
+        config.workspaceInteractionMode == .views && workspace.isPinnedGroup ? .selectedRoot : .adaptiveTiles
     }
 
     func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {

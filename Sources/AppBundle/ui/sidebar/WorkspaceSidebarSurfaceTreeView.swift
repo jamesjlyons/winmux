@@ -76,6 +76,10 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
         ))
         .contextMenu {
+            if config.workspaceInteractionMode == .views {
+                SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
+                Divider()
+            }
             Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
             Divider()
             SurfaceMoveMenu(subject: .surface(surface.surfaceID), workspaceName: workspaceName,
