@@ -3,7 +3,8 @@
 This candidate combines the Chromium browser, native window management, global
 new tabs, per-Space pinned groups, and the startup and switching performance fixes.
 The application source is `06519287` on `codex/performance-audit`. The release
-branch `codex/alpha-release-2026-10-04` adds documentation to that tested source.
+branch `codex/alpha-release-2026-10-04` adds documentation and a CI toolchain update
+to that tested source.
 The existing signed application is packaged without rebuilding or modifying it.
 
 ## Download and requirements
@@ -133,13 +134,23 @@ The release manifest records the archive hash, binary hashes, source revision,
 build-configuration provenance. The historical engine manifest records parent
 `27cd99f1` plus dirty source hashes because the build preceded its final audit
 commit. Matching hashes establish the packaged application's relationship to
-`06519287`; the documentation-only release commit does not imply a rebuild.
+`06519287`; the release preparation and compiler-pin commits do not imply a rebuild.
 
 The scoped release review covered startup readiness, layout retries, group
 focus/placement, pin persistence, helper enrollment/rollback and packaging. It
 found no release-blocking defect. The application suites and runtime checks
 above are existing qualification evidence; packaging checks do not rerun them.
 New-Mac results must be recorded before promoting this draft.
+
+### CI compiler
+
+Local builds through Swiftly and GitHub Actions use the compiler pinned in
+`.swift-version`. The release branch now selects stable Swift 6.4.0. The earlier
+Swift 6.2.4 CI run crashed during module serialization of `SettingsDemoActivity`'s
+`isolated deinit`, before the tests ran. Updating the compiler retains the
+actor-isolated cleanup used by the application already built with Xcode's Swift
+6.4. The RC1 download remains the original signed application; this compiler pin
+does not change its binary or the source provenance in its release manifest.
 
 Further usage details: [Workspace Setup](workspace-setup.md),
 [page controls and pins](page-windows.md), and
