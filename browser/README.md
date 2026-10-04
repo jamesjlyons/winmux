@@ -1,22 +1,42 @@
-# WinMux Browser implementation
+# WinMux Browser Alpha
 
-For the current Spaces/Groups interface, shared moves, and a fresh layout with
-retained browser data, see [fork interface](../docs/browser/fork-interface.md).
-Native page controls are described in [page windows](../docs/browser/page-windows.md).
+Browser Alpha combines independent Chromium page windows and Mac app windows in
+WinMux's **Spaces → Groups → Windows** interface. The Swift helper manages shared
+placement, selection, splits, stacks, pins, native page controls, and restoration;
+Chromium owns page contents, navigation, profiles, and extensions.
 
-The component history and build instructions follow.
+Use **Option–Command–T** from any app to create a page in the current regular Group.
+Each Space has a pinned group for page and app icons. Closed page pins reopen their
+saved URLs; app pins focus or launch their app. Pins, order, and layouts persist.
 
-This directory implements the independent parts of **Milestone 0** of the
-[approved plan](../docs/browser/approved-plan.md). The optimized Chromium control
-and a signed alpha with native blocking now build and launch. The Milestone 0 exit gate remains unmet, and the native WinMux
-model has not been migrated.
+The [October 4 draft candidate guide](../docs/browser/alpha-release-2026-10-04.md)
+covers installation, first launch, testing on another Mac, and rollback. The app
+is **arm64-only**, Apple Development signed, and **not notarized**. Its binaries
+target macOS 13 or later; live testing recorded here used macOS 27.0.1 on an M1 Pro.
+That minimum target does not establish compatibility across all macOS versions.
+
+The latest [performance audit](../docs/browser/performance-audit.md) passed 1,096
+automated tests and recorded no frame drift across 50 Group/native-pin switches.
+Median matching geometry was observed by 82–90 ms; three full helper/browser
+restarts restored managed geometry within 4.50–4.90 seconds. These observations
+used existing data and warm OS caches, and do not measure page load or input readiness.
+Broader extension compatibility, physical input, display changes, and long-running
+daily use still need qualification.
+
+[Spaces, Groups, and shared moves](../docs/browser/fork-interface.md) ·
+[Page controls and pins](../docs/browser/page-windows.md) ·
+[Workspace Setup](../docs/browser/workspace-setup.md)
+
+## Components and build tools
 
 Implemented and exercised:
 
-- A release-built Swift helper control plane and Objective-C++ client using
+- An optimized Swift helper and Objective-C++ client using
   asynchronous XPC. macOS checks the peer's Apple signing anchor, team and exact
-  identifier in both directions. Negotiation and connection epochs reject
-  unsupported versions, duplicate and stale probes.
+  identifier in both directions. Authenticated inventory, owner actions, layout
+  acknowledgements, and connection recovery coordinate browser and native windows.
+- Explicit Workspace Setup with separate data, Accessibility approval, managed
+  helper registration, and reversible handoff from standalone WinMux.
 - A native Rust blocker with a C ABI, pinned adblock-rust, bundled and hashed
   EasyList/EasyPrivacy, network exceptions, per-call site control, declarative
   cosmetic queries, bounded DOM-token deltas, and one bundled replacement.
@@ -25,14 +45,9 @@ Implemented and exercised:
 - A trace evaluator that distinguishes activation, frame presentation and
   input readiness. It cannot qualify transport-only results or a daily driver.
 
-The helper currently exposes only negotiation and a transport probe. It does
-not manage windows, advertise a fake inventory, or start the original WinMux
-runtime. The Chromium bridge and private alpha packaging compile against the
-full checkout. Real bundled-helper enrollment, authenticated exchange and restart
-have passed. Network interception and initial renderer cosmetics now pass a
-local browser/control comparison. Required-extension and performance
-qualification remain pending.
-Neither the C ABI probe nor the helper probe is a browser substitute.
+The component proofs below exercise blocking and transport in isolation. They
+complement the integrated browser checks recorded in the performance audit;
+neither a C ABI probe nor a transport probe establishes browser qualification.
 
 ## Run the component proofs
 
@@ -132,11 +147,17 @@ The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.
 The resulting app is a private Apple Development build, not a notarized release.
-Use a separate test profile with `--user-data-dir`; enroll the packaged helper
-explicitly with `--winmux-register-helper`. An optional absolute
-`--winmux-bridge-report` path records transport status without browsing data.
+For the integrated workspace, use the application's **Workspace Setup…** menu
+and [Start/Stop workflow](../docs/browser/workspace-setup.md). It creates its own
+profile and native state. Stop the old workspace and quit its browser before
+changing packages; keep the new app at its installed path while management is active.
 
-Native helper and eventual browser identities are respectively
+Transport-only diagnostics can use a separate test profile with `--user-data-dir`
+and explicit `--winmux-register-helper` enrollment. An optional absolute
+`--winmux-bridge-report` path records transport status without browsing data;
+this is separate from the managed workspace's helper service.
+
+Native helper and browser identities are respectively
 `com.jameslyons.winmux.browser.alpha.workspace` and
 `com.jameslyons.winmux.browser.alpha`. The bundled LaunchAgent plist belongs in
 `Contents/Library/LaunchAgents/`, and its executable belongs in
@@ -187,7 +208,11 @@ and display mode refresh is not a measurement of actual frame cadence.
 
 ## Qualification
 
-See [the current evidence and blockers](../docs/browser/milestone-0-status.md).
+See the [current performance audit](../docs/browser/performance-audit.md),
+[integration validation](../docs/browser/fork-integration-validation.md), and
+[original qualification plan](../docs/browser/approved-plan.md). The
+[Milestone 0 record](../docs/browser/milestone-0-status.md) retains earlier component
+evidence and benchmark limits.
 Each measurement must retain the build, rules and extension versions. The
 interaction evaluator accepts a shared monotonic clock, six distinct focus
 stages, visible-selection timestamps, real presentation/input evidence and
