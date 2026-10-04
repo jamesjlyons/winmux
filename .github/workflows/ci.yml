@@ -23,9 +23,18 @@ jobs:
 
       - name: Install the pinned Swift toolchain
         run: |
-          brew install swiftly
-          swiftly init --skip-install --assume-yes --verbose
-          swiftly install
+          # Swiftly 1.2 understands the explicit .0 in Swift 6.4.0 download URLs.
+          # Homebrew's older Swiftly builds construct a URL that does not exist.
+          swiftly_package="$RUNNER_TEMP/swiftly-1.2.0.pkg"
+          curl --fail --location --retry 3 \
+            https://download.swift.org/swiftly/darwin/swiftly-1.2.0.pkg \
+            --output "$swiftly_package"
+          echo "a1b48692b00ea6902957423473c87bee7c7f3e18c015a4a09317102f6820b987  $swiftly_package" | shasum -a 256 -c -
+          pkgutil --check-signature "$swiftly_package"
+          installer -pkg "$swiftly_package" -target CurrentUserHomeDirectory
+          echo "$HOME/.swiftly/bin" >> "$GITHUB_PATH"
+          "$HOME/.swiftly/bin/swiftly" init --skip-install --assume-yes --no-modify-profile
+          "$HOME/.swiftly/bin/swiftly" install --assume-yes
 
       - name: Record tool versions
         run: |

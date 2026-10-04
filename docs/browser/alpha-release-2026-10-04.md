@@ -151,6 +151,8 @@ Swift 6.2.4 CI run crashed during module serialization of `SettingsDemoActivity`
 actor-isolated cleanup used by the application already built with Xcode's Swift
 6.4. The RC1 download remains the original signed application; this compiler pin
 does not change its binary or the source provenance in its release manifest.
+Swiftly 1.2 or later is required to resolve Swift 6.4.0's download URL; CI installs
+the signed Swiftly 1.2.0 package directly instead of an older Homebrew build.
 
 Further usage details: [Workspace Setup](workspace-setup.md),
 [page controls and pins](page-windows.md), and

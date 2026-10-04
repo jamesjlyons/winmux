@@ -134,7 +134,7 @@ and [focus notes](docs/focus-performance.md).
 ### Development builds and testing
 
 - **Use the pinned Swift compiler.** `.swift-version` selects Swift 6.4.0 for local
-  builds and CI through Swiftly. Swift 6.2.4 crashes while serializing the settings
+  builds and CI through Swiftly 1.2 or later. Swift 6.2.4 crashes while serializing the settings
   view's `isolated deinit`; the newer compiler preserves its actor-safe cleanup.
 - **A separate WinMux Dev app.** It has its own name and saved state, with upstream
   automatic updates disabled. Signed updates keep a stable app identity to help preserve
