@@ -37,13 +37,13 @@ name and release manifest identify the WinMux changes separately.
 
    All three listed files must report `OK`. If a checksum differs, download that
    asset again before continuing.
-2. Extract the ZIP. Copy **WinMux Browser Alpha.app** into **Applications** before
+2. If an older alpha is installed, first use its **Workspace Setup… → Stop
+   Workspace**, quit the browser, and retain the old app and a stopped-state
+   data backup as described below, before replacing the app in Applications.
+3. Extract the ZIP. Copy **WinMux Browser Alpha.app** into **Applications** before
    launching it or starting its workspace. The app contains Chromium and the
    workspace helper; no source checkout, compiler, or signing certificate is
    needed on the destination Mac.
-3. If an older alpha is installed, first use its **Workspace Setup… → Stop
-   Workspace**, quit the browser, and retain the old app and a stopped-state
-   data backup as described below. Then replace the app in Applications.
 4. Check the extracted application's signature:
 
    ```sh
