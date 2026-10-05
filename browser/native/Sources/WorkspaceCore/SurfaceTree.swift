@@ -220,8 +220,15 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     /// Callers retain disconnected browser leaves until authoritative removal.
     public mutating func reconcile(_ ids: [SurfaceID], in workspace: String, retaining: Set<SurfaceID> = []) {
         let allowed = Set(ids).union(retaining)
-        roots[workspace] = Self.filter(roots[workspace] ?? [], keeping: allowed)
-        for id in ids where self.workspace(of: id) != workspace {
+        let nodes = Self.filter(roots[workspace] ?? [], keeping: allowed)
+        var present = Set(nodes.flatMap(\.surfaces))
+        let arrivals = ids.filter { !present.contains($0) }
+        // Sidebar refreshes reconcile every view even when only its title or
+        // focus changed. Avoid scanning all other views and pruning the entire
+        // tree's metadata when this workspace's membership is already correct.
+        if roots[workspace] == nodes, arrivals.isEmpty { return }
+        roots[workspace] = nodes
+        for id in arrivals where present.insert(id).inserted {
             remove(id)
             roots[workspace, default: []].append(.surface(id))
         }

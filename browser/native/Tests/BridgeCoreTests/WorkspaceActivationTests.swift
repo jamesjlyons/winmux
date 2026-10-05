@@ -1,8 +1,18 @@
-import BridgeCore
+@testable import BridgeCore
 import Foundation
 import XCTest
 
 final class WorkspaceActivationTests: XCTestCase {
+    func testViewsTrialUsesSeparateProfileStateAndActivationFiles() throws {
+        let daily = WorkspaceActivationStore.root(forViewsTrial: false)
+        let trial = WorkspaceActivationStore.root(forViewsTrial: true)
+        XCTAssertNotEqual(daily, trial)
+        XCTAssertEqual(daily.lastPathComponent, "WinMux Browser Workspace Alpha")
+        XCTAssertEqual(trial.lastPathComponent, "WinMux Browser Views Trial")
+        let request = try WorkspaceActivation(browser: URL(fileURLWithPath: "/Applications/WinMux Browser Views Trial.app"))
+        XCTAssertNotEqual(request.profile(in: daily), request.profile(in: trial))
+        XCTAssertNotEqual(request.nativeState(in: daily), request.nativeState(in: trial))
+    }
     private func directory() throws -> URL {
         let path = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true)

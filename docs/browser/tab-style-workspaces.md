@@ -15,6 +15,11 @@ The default remains `tiling`. The Chromium bridge protocol and existing workspac
 identities are unchanged: a regular workspace represents one sidebar view, and
 an arrangement lives inside it.
 
+For a complete app to try on another Mac, use the
+[October 4 Views Trial](views-trial-2026-10-04.md). That package enables the model
+automatically and keeps its profile and state separate from the daily alpha.
+The developer fixture launcher below is only needed for scoped integration work.
+
 ## Trying the model
 
 - A single window appears as one sidebar row. An arrangement has a disclosure

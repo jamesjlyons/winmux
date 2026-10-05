@@ -81,6 +81,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="New package directory (must not exist)")
+    parser.add_argument("--views-trial", action="store_true", help="Package the tab-style trial with separate profile and state")
     args = parser.parse_args()
     identity = os.environ.get("BROWSER_SIGNING_IDENTITY", "")
     team = os.environ.get("BROWSER_SIGNING_TEAM", "")
@@ -92,6 +93,8 @@ def main():
 
 
 def package(args, identity, team, source):
+    views_trial = args.views_trial
+    app_name = "WinMux Browser Views Trial" if views_trial else APP_NAME
     build = source / "out/WinMuxControl"
     manifest = json.loads((build / "winmux-build-manifest.json").read_text())
     validate_manifest(manifest, source)
@@ -114,7 +117,7 @@ def package(args, identity, team, source):
     class AlphaConfig(ChromiumCodeSignConfig):
         @property
         def app_product(self):
-            return APP_NAME
+            return app_name
 
         @property
         def base_bundle_id(self):
@@ -133,10 +136,10 @@ def package(args, identity, team, source):
     output.mkdir(parents=True)
     report_path = output / "winmux-package-manifest.json"
     report = {"scope": "private_development_alpha_milestone_0", "verified": False,
-              "notarized": False, "identity_sha1": identity, "team_identifier": team,
+              "notarized": False, "views_trial": views_trial, "identity_sha1": identity, "team_identifier": team,
               "build": manifest, "created_utc": datetime.now(timezone.utc).isoformat()}
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    app = output / (APP_NAME + ".app")
+    app = output / (app_name + ".app")
     chromium.run("cp", "-cpR", str(build / "Chromium.app"), str(app))
     blocker_library = app / "Contents/Frameworks/Chromium Framework.framework/Libraries/libwinmux_blocking.dylib"
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", APP_ID + ".blocking",
@@ -162,6 +165,7 @@ def package(args, identity, team, source):
         "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
         "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
         "WinMuxValidationService": validation_service,
+        "WinMuxWorkspaceViewsTrial": views_trial,
     }))
     for resource in (native_build / "release").glob("*.bundle"):
         destination = helper_app / "Contents/Resources" / resource.name
@@ -200,7 +204,7 @@ def package(args, identity, team, source):
         data = plistlib.loads(info.read_bytes())
         data["CFBundleIdentifier"] = part.identifier
         if part.identifier == APP_ID:
-            data.update(CFBundleDisplayName=APP_NAME, CFBundleName=APP_NAME, CrProductDirName=APP_NAME)
+            data.update(CFBundleDisplayName=app_name, CFBundleName=app_name, CrProductDirName=app_name)
             for scheme in data.get("CFBundleURLTypes", []):
                 name = scheme.get("CFBundleURLName", "")
                 if name.startswith("org.chromium.Chromium"):

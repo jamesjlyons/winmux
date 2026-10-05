@@ -1,5 +1,5 @@
 @MainActor
-func buildWorkspaceSidebarItems(
+func buildWorkspaceSidebarNativeItems(
     for workspace: Workspace,
     currentFocus: LiveFocus,
 ) async -> [WorkspaceSidebarItemViewModel] {
@@ -15,5 +15,5 @@ func buildWorkspaceSidebarItems(
             currentFocus: currentFocus,
         ))))
     }
-    return BrowserWorkspaceController.shared.organizedRows(native: items, in: workspace.name)
+    return items
 }

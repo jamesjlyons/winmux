@@ -14,7 +14,7 @@ struct BrowserNativeState: Sendable {
         return "/tmp/winmux-browser-\(getuid())-\(hash).sock"
     }
 
-    init(directory: URL, workspaceShortcuts: Bool = false) throws {
+    init(directory: URL, workspaceShortcuts: Bool = false, viewsTrial: Bool = false) throws {
         guard directory.isFileURL, directory.path.hasPrefix("/") else { throw NativeManagementError.invalidState }
         self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
         let fm = FileManager.default
@@ -32,7 +32,8 @@ struct BrowserNativeState: Sendable {
         }
         if !fm.fileExists(atPath: config.path) {
             let shortcuts = workspaceShortcuts ? "\nalt-j = 'focus tab-next'\nalt-k = 'focus tab-prev'\nalt-space = 'layout horizontal vertical'\n" : ""
-            try Data((Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
+            let mode = viewsTrial ? "workspace-interaction-mode = 'views'\n" : ""
+            try Data((mode + Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
         }
     }
 
@@ -133,7 +134,8 @@ public func checkBrowserNativeOwnership() throws { try BrowserNativeManagement.c
 
 @MainActor
 public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: Int32? = nil,
-                                         expectedProcessLaunch: Date? = nil, workspaceShortcuts: Bool = false) async throws {
+                                         expectedProcessLaunch: Date? = nil, workspaceShortcuts: Bool = false,
+                                         viewsTrial: Bool = false) async throws {
     guard BrowserNativeManagement.lease == nil, !isWinMuxRuntimeReady else { throw NativeManagementError.anotherManager }
     try BrowserNativeManagement.checkOwnership()
     let lease = try NativeManagementLease()
@@ -144,7 +146,7 @@ public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: I
         }
         BrowserNativeManagement.processScope = (pid, launch)
     }
-    let state = try BrowserNativeState(directory: stateDirectory, workspaceShortcuts: workspaceShortcuts)
+    let state = try BrowserNativeState(directory: stateDirectory, workspaceShortcuts: workspaceShortcuts, viewsTrial: viewsTrial)
     configureBrowserNativeState(state, lease: lease)
     BrowserNativeManagement.lease = lease
     BrowserNativeManagement.observeOwnership()

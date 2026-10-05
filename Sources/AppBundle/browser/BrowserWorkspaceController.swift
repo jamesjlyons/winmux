@@ -3,6 +3,13 @@ import AppKit
 import SwiftUI
 import WorkspaceCore
 
+/// One value snapshot per sidebar refresh; never reused across inventory changes.
+struct BrowserSidebarProjection {
+    var rowsByWorkspace: [String: [WorkspaceSidebarItemViewModel]] = [:]
+    var appPaths: [SurfaceID: String] = [:]
+    var retainedByWorkspace: [String: Set<SurfaceID>] = [:]
+}
+
 /// The authenticated helper is the only producer. No browser tab is represented
 /// by a fabricated native Window or by a renderer/tab-strip index.
 @MainActor
@@ -375,6 +382,34 @@ public final class BrowserWorkspaceController {
                 isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64))) }
     }
 
+    func sidebarProjection() -> BrowserSidebarProjection {
+        var result = BrowserSidebarProjection()
+        var ownerCounts: [SurfaceID: Int] = [:]
+        for session in sessions.values {
+            for id in session.inventory.tabs.keys { ownerCounts[id, default: 0] += 1 }
+        }
+        for (connection, session) in sessions {
+            let appPath: String?
+            if let binding = processBindings[connection],
+               let app = NSRunningApplication(processIdentifier: binding.pid), !app.isTerminated,
+               app.launchDate == binding.launch { appPath = app.bundleURL?.path }
+            else { appPath = nil }
+            for record in session.inventory.tabs.values where ownerCounts[record.surfaceID] == 1 {
+                guard let workspace = placements[record.surfaceID] else { continue }
+                result.rowsByWorkspace[workspace, default: []].append(.init(kind: .browserTab(.init(
+                    surfaceID: record.surfaceID, workspaceName: workspace,
+                    title: record.title.isEmpty ? "New tab" : record.title,
+                    isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64))))
+                result.appPaths[record.surfaceID] = appPath
+            }
+        }
+        for name in Array(result.rowsByWorkspace.keys) {
+            result.rowsByWorkspace[name]?.sort { $0.id < $1.id }
+        }
+        for (id, workspace) in placements { result.retainedByWorkspace[workspace, default: []].insert(id) }
+        return result
+    }
+
     @discardableResult
     func select(_ id: SurfaceID, deferNativeFocusUntilLayout: Bool = false) -> SurfaceActionOutcome {
         restoredSelection = nil
@@ -469,10 +504,12 @@ public final class BrowserWorkspaceController {
         unresolvedSidebarPinOwners.removeValue(forKey: id)
     }
 
-    func organizedRows(native: [WorkspaceSidebarItemViewModel], in workspace: String) -> [WorkspaceSidebarItemViewModel] {
+    func organizedRows(native: [WorkspaceSidebarItemViewModel], in workspace: String,
+                       projection: BrowserSidebarProjection? = nil) -> [WorkspaceSidebarItemViewModel] {
         let pinned: [WorkspaceSidebarItemViewModel] = []
         let pinnedIDs = Set(pinned.flatMap(\.surfaceIDs))
-        guard usesSurfaceTree else { return pinned + native + rows(in: workspace).filter { $0.surfaceIDs.allSatisfy { !pinnedIDs.contains($0) } } }
+        let browserRows = projection.map { $0.rowsByWorkspace[workspace] ?? [] } ?? rows(in: workspace)
+        guard usesSurfaceTree else { return pinned + native + browserRows.filter { $0.surfaceIDs.allSatisfy { !pinnedIDs.contains($0) } } }
         var available: [SurfaceID: WorkspaceSidebarItemViewModel] = [:]
         var ordered: [SurfaceID] = []
         var nativeOnlyRows: [WorkspaceSidebarItemViewModel] = []
@@ -491,7 +528,8 @@ public final class BrowserWorkspaceController {
                     appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)))
             case .browserTab(let tab):
                 ordered.append(tab.surfaceID)
-                let path = browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
+                let path = projection != nil ? projection?.appPaths[tab.surfaceID]
+                    : browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
                 available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
                     title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
                     appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path, iconPNGBase64: tab.iconPNGBase64)))
@@ -501,7 +539,7 @@ public final class BrowserWorkspaceController {
             case .surface, .surfaceGroup, .pinnedBrowserTab: break
             }
         }
-        (native + rows(in: workspace)).forEach(collect)
+        (native + browserRows).forEach(collect)
         unresolvedNativeItems.subtract(available.keys)
         // Native fullscreen/minimize transitions must not erase a saved mixed
         // stack. Floating conversion intentionally leaves shared organization.
@@ -509,8 +547,10 @@ public final class BrowserWorkspaceController {
             guard let window = Window.get(bySurfaceID: $0), window.nodeWorkspace?.name == workspace else { return false }
             return !window.isFloating && !participatesInSharedTiling(window)
         })
+        let retained = projection.map { $0.retainedByWorkspace[workspace] ?? [] }
+            ?? Set(placements.filter { $0.value == workspace }.map(\.key))
         surfaceTree.reconcile(ordered, in: workspace,
-                              retaining: Set(placements.filter { $0.value == workspace }.map(\.key))
+                              retaining: retained
                                 .union(unresolvedNativeItems).union(temporaryNative))
         if importNativeGroups {
             if let owner = Workspace.existing(byName: workspace) {

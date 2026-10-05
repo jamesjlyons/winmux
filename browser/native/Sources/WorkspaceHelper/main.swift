@@ -784,7 +784,8 @@ do {
             Task { @MainActor in
                 do {
                     try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
-                        expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil)
+                        expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil,
+                        viewsTrial: WorkspaceActivationStore.isViewsTrial)
                     installHostedShortcutSettingsWindow()
                     if let request {
                         try WorkspaceActivationStore().writeStatus(.init(requestID: request.id, phase: "ready",

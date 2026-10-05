@@ -68,13 +68,16 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 330),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = fixture == nil ? "WinMux Workspace Setup" : "WinMux Workspace Setup — Fixture Validation"
+        let viewsTrial = WorkspaceActivationStore.isViewsTrial
+        window.title = fixture == nil ? (viewsTrial ? "WinMux Views Trial Setup" : "WinMux Workspace Setup") : "WinMux Workspace Setup — Fixture Validation"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        let title = NSTextField(labelWithString: "Bring tabs and Mac windows together")
+        let title = NSTextField(labelWithString: viewsTrial ? "Try tab-style workspaces" : "Bring tabs and Mac windows together")
         title.font = .boldSystemFont(ofSize: 20)
         let explanation = NSTextField(wrappingLabelWithString: fixture == nil
-            ? "Start a separate browser workspace with its own profile and settings. Quit standalone WinMux first. Your existing browser sessions stay open."
+            ? (viewsTrial
+                ? "Each tab or app starts in its own view. Combine views when you want a split or stack. This trial uses a separate profile and settings. Stop any other WinMux workspace before starting."
+                : "Start a separate browser workspace with its own profile and settings. Quit standalone WinMux first. Your existing browser sessions stay open.")
             : "Validation manages only the two synthetic fixture windows, with a fresh browser profile. Your app windows stay outside this workspace.")
         let shortcuts = NSTextField(wrappingLabelWithString:
             "Option–J / K switches items. Option–Space changes the layout.\nStop Workspace restores native windows and leaves the browser open. You can then reopen standalone WinMux.")

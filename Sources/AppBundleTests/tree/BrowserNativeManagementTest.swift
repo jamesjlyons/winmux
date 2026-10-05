@@ -63,6 +63,21 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertTrue(parsed.config.workspaceSidebar.workspaceLabels.isEmpty)
     }
 
+    func testViewsTrialStartsInViewsModeAndPreservesLaterPreferences() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let state = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
+        let text = try String(contentsOf: state.config, encoding: .utf8)
+        let parsed = parseConfig(text)
+        XCTAssertTrue(parsed.errors.isEmpty)
+        XCTAssertEqual(parsed.config.workspaceInteractionMode, .views)
+        XCTAssertTrue(text.contains("alt-j = 'focus tab-next'"))
+        let customized = text.replacingOccurrences(of: "workspace-interaction-mode = 'views'", with: "workspace-interaction-mode = 'tiling'")
+        try customized.write(to: state.config, atomically: true, encoding: .utf8)
+        _ = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
+        XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), customized)
+    }
+
     func testStandaloneOwnershipRecognizesNativeAppButAllowsTransportHelper() {
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: "com.zimengxiong.winmux", executable: nil))
         XCTAssertTrue(BrowserNativeManagement.isStandaloneManager(bundleID: nil, executable: "WinMuxApp"))

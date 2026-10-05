@@ -7,6 +7,38 @@ import XCTest
 final class BrowserSidebarIntegrationTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testSidebarProjectionMatchesLiveRowsAndRefreshesOwnershipAndIcons() throws {
+        let controller = BrowserWorkspaceController(), connection = UUID(), duplicate = UUID(), epoch = UUID()
+        let first = SurfaceID.browserTab(profile: UUID(), tab: UUID()), second = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree()
+        tree.reconcile([first], in: "one"); tree.reconcile([second], in: "two")
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        defer { controller.disconnected(connection); controller.disconnected(duplicate) }
+        let icon = favicon(red: 255, blue: 0)
+        let record = BrowserTabRecord(surfaceID: first, hostID: "first", title: "Website", selected: false, iconPNGBase64: icon)
+        controller.received(.init(revision: 1, full: true, tabs: [record,
+            .init(surfaceID: second, hostID: "second", title: "Other", selected: false)]), epoch: epoch, connection: connection)
+        let before = controller.sidebarProjection()
+        for name in ["one", "two"] {
+            XCTAssertEqual(before.rowsByWorkspace[name], controller.rows(in: name))
+            XCTAssertEqual(controller.organizedRows(native: [], in: name, projection: before),
+                           controller.organizedRows(native: [], in: name))
+        }
+        XCTAssertEqual(before.retainedByWorkspace["one"], [first])
+        controller.connected(duplicate, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [record]), epoch: UUID(), connection: duplicate)
+        XCTAssertNil(controller.sidebarProjection().rowsByWorkspace["one"], "Ambiguous owners must not produce actionable rows")
+        XCTAssertEqual(controller.sidebarProjection().rowsByWorkspace["two"]?.count, 1)
+        controller.disconnected(duplicate)
+        controller.received(.init(revision: 2, full: false, tabs: [
+            .init(surfaceID: first, hostID: "first", title: "Navigated", selected: false, iconPNGBase64: nil),
+        ]), epoch: epoch, connection: connection)
+        XCTAssertNil(controller.sidebarProjection().rowsByWorkspace["one"]?.first?.surfaceItems.first?.iconPNGBase64)
+        XCTAssertEqual(before.rowsByWorkspace["one"]?.first?.surfaceItems.first?.iconPNGBase64, icon,
+            "The projection is a per-refresh value, not a persistent cache with stale invalidation")
+    }
+
     func testCurrentWebsiteFaviconReachesSharedRowsAndSearchAfterNavigation() throws {
         let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID()
         controller.usesSurfaceTree = true

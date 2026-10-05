@@ -87,9 +87,15 @@ public final class WorkspaceActivationLock {
 
 public struct WorkspaceActivationStore: Sendable {
     public let root: URL
+    public static var isViewsTrial: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "WinMuxWorkspaceViewsTrial") as? Bool ?? false
+    }
     public static var defaultRoot: URL {
+        root(forViewsTrial: isViewsTrial)
+    }
+    static func root(forViewsTrial trial: Bool) -> URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/WinMux Browser Workspace Alpha", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/" + (trial ? "WinMux Browser Views Trial" : "WinMux Browser Workspace Alpha"), isDirectory: true)
     }
     public init(root: URL = Self.defaultRoot) throws {
         guard root.isFileURL, root.path.hasPrefix("/"),
