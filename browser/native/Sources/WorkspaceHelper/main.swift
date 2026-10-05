@@ -28,12 +28,15 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     private let sidebarEnabled: Bool
     private let windowControlsEnabled: Bool
     private var closed = false
+    private let authenticatedBrowser: (@Sendable (Int32) -> Void)?
 
-    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
+    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool,
+         authenticatedBrowser: (@Sendable (Int32) -> Void)? = nil) {
         self.connection = connection
         self.testReport = testReport
         self.sidebarEnabled = sidebarEnabled
         self.windowControlsEnabled = windowControlsEnabled
+        self.authenticatedBrowser = authenticatedBrowser
         super.init()
 #if canImport(AppBundle)
         if sidebarEnabled {
@@ -128,6 +131,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     func negotiateVersion(_ version: Int, reply: @escaping (Int, String?) -> Void) {
         let epoch = session.negotiate(version: version)
+        if epoch != nil, let connection { authenticatedBrowser?(connection.processIdentifier) }
         reply(epoch == nil ? BridgeSession.version : version, epoch)
     }
 
@@ -743,15 +747,19 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     let testReport: URL?
     let sidebarEnabled: Bool
     let windowControlsEnabled: Bool
-    init(testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
+    let authenticatedBrowser: (@Sendable (Int32) -> Void)?
+    init(testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool,
+         authenticatedBrowser: (@Sendable (Int32) -> Void)? = nil) {
         self.testReport = testReport
         self.sidebarEnabled = sidebarEnabled
         self.windowControlsEnabled = windowControlsEnabled
+        self.authenticatedBrowser = authenticatedBrowser
     }
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         connection.exportedInterface = NSXPCInterface(with: WMWorkspaceBridge.self)
         connection.remoteObjectInterface = NSXPCInterface(with: WMBrowserSurfaceOwner.self)
-        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
+        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled,
+                                       windowControlsEnabled: windowControlsEnabled, authenticatedBrowser: authenticatedBrowser)
         connection.exportedObject = endpoint
         connection.invalidationHandler = { [weak endpoint] in endpoint?.invalidate() }
         connection.interruptionHandler = { [weak endpoint] in endpoint?.invalidate() }
@@ -871,7 +879,17 @@ do {
 #else
     guard !sidebarEnabled else { throw NSError(domain: "WinMuxBrowser.SidebarUnavailable", code: 1) }
 #endif
-    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
+    var authenticatedBrowser: (@Sendable (Int32) -> Void)?
+#if canImport(AppBundle)
+    if WorkspaceActivationStore.isViewsTrial, let activation, activation.validationID == nil {
+        let lifetime = ManagedBrowserLifetime(request: activation, store: try WorkspaceActivationStore())
+        authenticatedBrowser = { pid in
+            DispatchQueue.main.async { lifetime.observeAuthenticatedBrowser(pid) }
+        }
+    }
+#endif
+    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled,
+                                    windowControlsEnabled: windowControlsEnabled, authenticatedBrowser: authenticatedBrowser)
     let listener = NSXPCListener(machServiceName: service)
     listener.setConnectionCodeSigningRequirement(requirement)
     listener.delegate = delegate

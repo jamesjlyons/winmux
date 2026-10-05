@@ -49,9 +49,18 @@ The managed service is
 transport-only helper registration has a different service name and remains
 untouched. Ordinary non-trial Chromium launches continue to use that transport service.
 Only the separate profile launched by Setup uses the managed service.
-Registration remains active until Stop Workspace; macOS can start the registered
-agent again at login. Quit the browser independently when desired. To disable
-workspace management across logins, use Stop Workspace.
+For the Views Trial, quitting the last managed browser process also unregisters
+and stops its workspace helper through the normal native-window restoration
+path. This includes Command–Q, Raycast Quit Application, and browser process
+failure. Closing windows or interrupting/reconnecting XPC does not stop a live
+browser's workspace. Only authenticated processes from the activated browser
+package are tracked; the launcher, other packages, transport-only helpers, and
+validation services do not trigger this cleanup. Opening the trial while its
+helper is stopping waits for shutdown before restarting.
+
+The non-trial alpha retains its previous independent helper lifetime until Stop
+Workspace; macOS can start that registered agent again at login. Use Stop
+Workspace to disable its management across logins.
 
 An active workspace is bound to the exact staged package path. Stop it from that
 package before activating another build. A second Setup window cannot race an

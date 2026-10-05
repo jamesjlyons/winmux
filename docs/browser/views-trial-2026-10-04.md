@@ -111,8 +111,12 @@ Include the Mac model/chip and macOS version with any issue you notice.
 
 ## Stop or return to the previous version
 
-Use the trial's **Workspace Setup… → Stop Workspace**, then quit the trial
-browser. Native windows return to ordinary behavior. Open the previous alpha
+Quit the updated trial with **Command–Q**, its **Quit** menu, or Raycast's
+**Quit Application**. When its last managed browser process exits, the workspace
+helper unregisters and shuts down, restoring native windows. Closing a browser
+window with the red button leaves the app and workspace running. You can also
+use **Workspace Setup… → Stop Workspace** to stop management while leaving the
+browser open. Open the previous alpha
 and use its **Start Workspace**. Its separate profile and settings are retained.
 
 Keep the app in its installed location while the workspace is active. Closing

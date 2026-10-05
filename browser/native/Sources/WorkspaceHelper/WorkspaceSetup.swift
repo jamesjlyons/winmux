@@ -106,14 +106,6 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ])
         refresh()
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
-        // A normal app launch is the user's start request. Opening the setup
-        // menu alone remains read-only, so stopping or inspecting is safe.
-        if openExistingWorkspace, startButton.isEnabled {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, !self.isClosing, self.openExistingWorkspace, self.startButton.isEnabled else { return }
-                self.start()
-            }
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -212,6 +204,9 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             else if waitingForAccessibility { status.stringValue = "Enable Accessibility, then return here. Startup will continue automatically." }
             else if service.status == .requiresApproval { status.stringValue = "Allow WinMux Workspace in Login Items, then return here." }
             else if running { status.stringValue = "Workspace is running. Its browser and saved layout are ready." }
+            else if registered, state?.requestID == request?.id, state?.phase == "stopping" {
+                status.stringValue = "Finishing workspace shutdown and restoring app windows…"
+            }
             else if registered, let state, state.requestID == request?.id, state.phase == "failed" {
                 status.stringValue = "Workspace could not start: " + state.detail + " Stop Workspace before retrying."
             } else if registered, needsAccessibility {
@@ -221,6 +216,14 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 automaticOpen = nil
                 openExistingWorkspace = false
                 try launchBrowser(request, closeSetupWhenOpened: true)
+            } else if openExistingWorkspace, !registered, !waitingForAccessibility, message == nil {
+                // Opening the app during shutdown waits for the old helper to
+                // exit before starting again. The manual setup menu stays idle.
+                openExistingWorkspace = false
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, !self.isClosing else { return }
+                    self.start()
+                }
             }
         } catch { status.stringValue = error.localizedDescription; startButton.isEnabled = false; openButton.isEnabled = false }
     }
