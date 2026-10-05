@@ -85,11 +85,15 @@ def main():
     parser.add_argument("--existing-helper-executable", type=Path, required=True)
     parser.add_argument("--resume-profiles-from", type=Path,
                         help="Reuse only a previously successful, stopped synthetic fixture to verify profile restart")
+    parser.add_argument("--workspace-startup", action="store_true",
+                        help="Test URL-free startup with saved profiles and Chromium's profile picker preference enabled")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--private", action="store_true", help="Verify private tabs keep their off-the-record owner through creation, layout and reconnect")
     modes.add_argument("--native-window-controls", action="store_true",
                        help="Use visible isolated native windows to verify minimize, fullscreen, zoom and restoration")
     args = parser.parse_args()
+    if args.workspace_startup and (not args.resume_profiles_from or args.private or args.native_window_controls):
+        parser.error("Workspace startup requires a stopped regular profile fixture")
     profile_root = None
     if args.resume_profiles_from:
         previous = args.resume_profiles_from.resolve(strict=True)
@@ -121,6 +125,17 @@ def main():
     before = identity(existing.read())
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
+    if args.workspace_startup:
+        # Keep the original successful fixture intact. Enabling the picker in
+        # this synthetic copy reproduces an ordinary multi-profile startup.
+        import shutil
+        shutil.copytree(profile_root, output / "profile", symlinks=True)
+        profile_root = output / "profile"
+        local_state = profile_root / "Local State"
+        state = json.loads(local_state.read_text())
+        assert len(state["profile"]["info_cache"]) >= 3
+        state["profile"]["show_picker_on_startup"] = True
+        local_state.write_text(json.dumps(state))
     profile_root = profile_root or output / "profile"
     server = ThreadingHTTPServer(("127.0.0.1", 0), ProfileFixture)
     server.observations = []
@@ -145,7 +160,8 @@ def main():
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
     if args.private:
         command += ["--winmux-tab-report=" + str(output / "private-identities.jsonl")]
-    command += ["about:blank"]
+    # A URL suppresses Chromium's picker by itself, masking launch regressions.
+    command += ["--restore-last-session"] if args.workspace_startup else ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
                 "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
                 "native_focus_fence": "issued", "repeated_fence": "issued",
@@ -202,6 +218,7 @@ def main():
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
+        "workspace_startup_test": args.workspace_startup,
         "native_window_controls_test": args.native_window_controls, "observations": [],
         "limits": [fixture_description,
                    "No native window manager or shared sidebar is launched",

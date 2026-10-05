@@ -28,6 +28,9 @@ Each named profile has Chromium's own history, cookies, site storage, extensions
 settings, and saved-password database. Spaces that choose the same profile share
 that data. Shared uses the trial's original browser profile. New tabs from the
 sidebar, page-toolbar **+**, and **Option–Command–T** use the Space's choice.
+Startup bypasses Chromium's profile chooser, including when several named
+profiles exist. Saved tabs restore under their original profiles; new tabs use
+the active Space's profile without an additional profile-selection screen.
 Pages opened by a website or Chromium's own commands retain their source browser
 profile. Existing tabs and
 pins keep their original profile when a Space's setting changes. Sending a tab,
@@ -93,6 +96,10 @@ workspace manager.
   Grant permission and approve the background item if requested, then confirm
   the managed browser opens. On later launches, the workspace should open
   automatically without clicking Start.
+
+- With Work and Personal profiles already created, quit and reopen the trial.
+  The Chromium profile chooser should not appear. Saved pages should retain
+  their accounts, and new tabs should use the active Space's selected profile.
 
 - Open three pages and two ordinary app windows. Each should have its own view.
   Selecting a view should fill the desktop without entering macOS fullscreen.

@@ -325,7 +325,12 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         configuration.arguments = ["--user-data-dir=" + request.profile(in: store.root).path,
+                                   "--profile-directory=Default",
                                    "--no-first-run", "--no-default-browser-check", "--restore-last-session"]
+        // Select Chromium's bootstrap profile explicitly so multiple Space
+        // profiles never trigger its startup picker. Session restore still
+        // loads each saved profile; new tabs use the active Space's profile
+        // through the workspace bridge, independently of this bootstrap.
         // Launch this setup process with WINMUX_TRACE_LAYOUT=1 to trace the
         // normal Start Workspace flow. Chromium logs protocol phases only;
         // this opt-in never enables test faults or changes workspace behavior.
