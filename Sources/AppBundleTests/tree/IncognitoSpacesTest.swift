@@ -111,4 +111,18 @@ import XCTest
         XCTAssertEqual(request?.sourceSurfaceID, tab.surfaceID)
         XCTAssertNil(request?.workspaceProfile)
     }
+
+    func testNativeDragAndDirectBindingCannotEnterPrivateSpace() throws {
+        let original = focus.workspace, tab = page()
+        receive([tab], revision: 1)
+        let target = try XCTUnwrap(Workspace.existing(byName: try XCTUnwrap(controller.workspaceName(for: tab.surfaceID))))
+        let window = TestWindow.new(id: 301, parent: original.rootTilingContainer)
+        applySidebarWorkspaceMove(sourceNode: window, sourceWindow: window, targetWorkspace: target)
+        XCTAssertTrue(window.nodeWorkspace === original)
+        window.bind(to: target.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        XCTAssertTrue(window.nodeWorkspace === original)
+        let arriving = TestWindow.new(id: 302, parent: target.rootTilingContainer)
+        XCTAssertFalse(arriving.nodeWorkspace?.isIncognito ?? true)
+        XCTAssertTrue(target.allLeafWindowsRecursive.isEmpty)
+    }
 }
