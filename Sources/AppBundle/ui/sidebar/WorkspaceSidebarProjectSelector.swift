@@ -62,6 +62,7 @@ struct WorkspaceSidebarProjectSelector: View {
                     if let activeProject {
                         Divider()
                         Menu("Manage Space") {
+                            WorkspaceSidebarBrowserProfileMenu(project: activeProject)
                             Button("Rename Space") { onRenameProject(activeProject) }
                             Button("Choose Icon…") { onChooseProjectIcon(activeProject) }
                             Menu("Color") {

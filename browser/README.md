@@ -5,6 +5,12 @@ WinMux's **Spaces → Groups → Windows** interface. The Swift helper manages s
 placement, selection, splits, stacks, pins, native page controls, and restoration;
 Chromium owns page contents, navigation, profiles, and extensions.
 
+The views trial lets each Space choose **Shared** or a named browser profile in
+**Space → Manage Space → Browser Profile**. Create profiles such as Work and
+Personal, then reuse them across Spaces. New tabs use the selected profile;
+existing tabs and pins retain their account. Chromium keeps each profile's
+history, cookies, extensions, settings, and saved passwords separately.
+
 Use **Option–Command–T** from any app to create a page in the current regular Group.
 Each Space has a pinned group for page and app icons. Closed page pins reopen their
 saved URLs; app pins focus or launch their app. Pins, order, and layouts persist.

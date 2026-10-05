@@ -14,6 +14,7 @@ struct BrowserSurfaceAction {
   uint64_t revision;
   uint64_t generation;
   std::optional<std::string> url = std::nullopt;
+  std::optional<std::string> profile_name = std::nullopt;
   bool operator==(const BrowserSurfaceAction&) const = default;
 };
 

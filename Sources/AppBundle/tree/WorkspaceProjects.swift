@@ -282,6 +282,8 @@ private func closeWindowsAndDeleteWorkspaceProject(_ projectId: WorkspaceProject
 @MainActor
 private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectId) throws {
     BrowserWorkspaceController.shared.discardPins(in: projectId)
+    // Other Spaces can share the profile. Deleting a Space never deletes data.
+    BrowserWorkspaceController.shared.browserProfileBySpace.removeValue(forKey: projectId.rawValue)
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil

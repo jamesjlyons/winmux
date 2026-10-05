@@ -67,6 +67,8 @@ source_set("workspace_bridge") {
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/common:constants",
+    "//components/prefs",
     "//components/tabs:public",
     "//components/winmux/blocking:engine",
     "//components/favicon/content",

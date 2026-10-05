@@ -88,7 +88,7 @@ extension BrowserWorkspaceController {
         if action == .focusPage { _ = select(id); return }
         if action == .close { _ = close(id); return }
         if action == .newTab, owner(of: id)?.supportsTabCreation == true {
-            _ = openBrowserTab(workspaceName: workspaceName(for: id), profileID: id.browserProfileID)
+            _ = openBrowserTab(workspaceName: workspaceName(for: id))
             return
         }
         guard let session = owner(of: id), session.supportsBrowserControls else { return }

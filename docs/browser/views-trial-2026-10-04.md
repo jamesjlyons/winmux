@@ -5,6 +5,22 @@ starts in its own view and fills the usable desktop. Splits and stacks appear
 when you explicitly combine views. Each Space has its own Pinned area. Website
 favicons follow the current page, including the selected member of a stack.
 
+The profile update adds named browser profiles that can be reused across Spaces.
+Use **Space → Manage Space → Browser Profile → New Profile…**, enter a name such
+as Work or Personal, then open a new tab. Other Spaces can select that same name,
+choose a different profile, or use **Shared**.
+
+Each named profile has Chromium's own history, cookies, site storage, extensions,
+settings, and saved-password database. Spaces that choose the same profile share
+that data. Shared uses the trial's original browser profile. New tabs from the
+sidebar, page-toolbar **+**, and **Option–Command–T** use the Space's choice.
+Pages opened by a website or Chromium's own commands retain their source browser
+profile. Existing tabs and
+pins keep their original profile when a Space's setting changes or a tab moves;
+only new tabs use the selected profile. Deleting a Space keeps the reusable
+profile and its data. Profiles are local to this trial installation and aren't
+imported from another browser or the daily alpha.
+
 The download is a complete application for **Apple Silicon Macs (M1 or newer)**.
 No source checkout, compiler, Python installation, or signing certificate is
 needed. The binaries require macOS 13 or newer; runtime testing on this machine
@@ -52,6 +68,13 @@ workspace manager.
   reopen a pin, and open a new tab while Pinned is active.
 - Navigate to another website and check the sidebar favicon. Check both the
   expanded sidebar and its narrow icon rail.
+- Create Work and Personal profiles in two Spaces. Open the same site in both
+  and check separate sign-ins and history. Install a test extension in only one
+  profile and check its availability in the other. Save a test password in one
+  profile and check the other profile's password list.
+- Assign Work to a third Space and confirm it shares Work's browser data.
+  Switch a Space back to Shared and open a new tab. Existing tabs and pins
+  should keep their original account.
 - Switch views repeatedly and immediately type in the selected page or app.
   Note any hesitation, missed keystroke, missing window, or size drift.
 - Stop the workspace, quit and reopen the trial, and start it again. Confirm
@@ -75,7 +98,7 @@ the app. Do not merge browser profile folders.
 ## Build reproduction
 
 The signed package is produced with `browser/tools/package_alpha.py --views-trial`
-using the existing qualified Chromium engine. The package manifest records exact
+using the Chromium engine with version 6 profile routing. The package manifest records exact
 native source hashes and the helper binary hash. The transfer archive is extracted
 and compared against the signed bundle, including symlinks and executable bits.
 The performance findings are recorded in

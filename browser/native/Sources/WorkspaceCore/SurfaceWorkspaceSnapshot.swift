@@ -15,17 +15,21 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
     public var browserPins: [BrowserSidebarPin]
     public var appPins: [NativeAppSidebarPin]
     public var pinnedGroups: [SpacePinnedGroup]
+    public var browserProfiles: [WorkspaceBrowserProfile]
+    public var browserProfileBySpace: [String: UUID]
 
     public init(tree: SurfaceTree, layoutWorkspaces: Set<String>, selected: SurfaceID?, closedBrowserTabs: Set<SurfaceID>,
                 browserPins: [BrowserSidebarPin] = [], appPins: [NativeAppSidebarPin] = [], pinnedGroups: [SpacePinnedGroup] = [],
-                selectedByWorkspace: [String: SurfaceID] = [:]) {
+                selectedByWorkspace: [String: SurfaceID] = [:], browserProfiles: [WorkspaceBrowserProfile] = [],
+                browserProfileBySpace: [String: UUID] = [:]) {
         self.tree = tree; self.layoutWorkspaces = layoutWorkspaces
         self.selected = selected; self.closedBrowserTabs = closedBrowserTabs
         self.selectedByWorkspace = selectedByWorkspace
         self.browserPins = browserPins; self.appPins = appPins; self.pinnedGroups = pinnedGroups
+        self.browserProfiles = browserProfiles; self.browserProfileBySpace = browserProfileBySpace
     }
 
-    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, selectedByWorkspace }
+    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, selectedByWorkspace, browserProfiles, browserProfileBySpace }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -36,10 +40,17 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                   browserPins: try values.decodeIfPresent([BrowserSidebarPin].self, forKey: .browserPins) ?? [],
                   appPins: try values.decodeIfPresent([NativeAppSidebarPin].self, forKey: .appPins) ?? [],
                   pinnedGroups: try values.decodeIfPresent([SpacePinnedGroup].self, forKey: .pinnedGroups) ?? [],
-                  selectedByWorkspace: try values.decodeIfPresent([String: SurfaceID].self, forKey: .selectedByWorkspace) ?? [:])
+                  selectedByWorkspace: try values.decodeIfPresent([String: SurfaceID].self, forKey: .selectedByWorkspace) ?? [:],
+                  browserProfiles: try values.decodeIfPresent([WorkspaceBrowserProfile].self, forKey: .browserProfiles) ?? [],
+                  browserProfileBySpace: try values.decodeIfPresent([String: UUID].self, forKey: .browserProfileBySpace) ?? [:])
     }
 
     public func validated() throws -> Self {
+        let profiles = Set(browserProfiles.map(\.id))
+        guard browserProfiles.count <= WorkspaceBrowserProfile.maximumCount, profiles.count == browserProfiles.count,
+              browserProfiles.allSatisfy(\.isValid), browserProfileBySpace.count <= 1024,
+              browserProfileBySpace.allSatisfy({ !$0.key.isEmpty && $0.key.utf8.count <= 256 && profiles.contains($0.value) })
+        else { throw SurfaceSnapshotError.invalidTree }
         let pinnedSurfaces = browserPins.compactMap(\.surfaceID) + appPins.compactMap(\.surfaceID)
         let pinIDs = browserPins.map(\.id) + appPins.map(\.id)
         guard pinIDs.count <= 10000, Set(pinIDs).count == pinIDs.count, browserPins.allSatisfy(\.isValid),

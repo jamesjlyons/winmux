@@ -30,6 +30,8 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
@@ -145,10 +147,21 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
     auto* manager = g_browser_process->profile_manager();
     if (!manager) { std::move(completion).Run("unavailable", ""); return; }
+    const bool workspace_profile = request.surface.starts_with("workspace:");
+    const std::string workspace_key = workspace_profile ? request.surface.substr(10) : "";
+    if (workspace_profile != request.profile_name.has_value() ||
+        (workspace_profile && (request.profile_name->empty() || request.profile_name->size() > 128 ||
+            (workspace_key != "shared" && !base::Uuid::ParseCaseInsensitive(workspace_key).is_valid())))) {
+      std::move(completion).Run("invalid_request", ""); return;
+    }
     base::FilePath profile_path;
     std::string lookup_uuid;
     std::vector<base::FilePath> registered_paths;
-    if (request.surface.empty()) {
+    if (workspace_profile) {
+      profile_path = manager->user_data_dir().Append(
+          workspace_key == "shared" ? ProfileManager::GetInitialProfileDir() :
+          base::FilePath("WinMux Profile " + base::Uuid::ParseCaseInsensitive(workspace_key).AsLowercaseString()));
+    } else if (request.surface.empty()) {
       profile_path = manager->GetLastUsedProfileDir();
     } else if (request.surface.starts_with("profile:")) {
       auto profile_id = base::Uuid::ParseCaseInsensitive(request.surface.substr(8));
@@ -186,7 +199,21 @@ class BrowserInventory final : public BrowserCollectionObserver,
     pending_creations_.emplace(request.operation, std::move(creation));
     // Reserve operation identity before profile loading or window callbacks.
     Remember(request, "pending");
-    if (!lookup_uuid.empty()) {
+    if (workspace_profile && workspace_key != "shared") {
+      auto& storage = manager->GetProfileAttributesStorage();
+      if (!storage.GetProfileAttributesWithPath(profile_path) &&
+          storage.GetAllProfilesAttributes().size() >= kMaximumProfileIdentityCandidates) {
+        FinishOpenTab(epoch, request.operation, nullptr);
+        return;
+      }
+      // This deterministic, installation-local path belongs only to the named
+      // profile UUID. Chromium creates all keyed services and storage itself.
+      manager->CreateProfileAsync(profile_path,
+          base::BindOnce(&BrowserInventory::WorkspaceProfileInitialized,
+                         weak_factory_.GetWeakPtr(), epoch, request.operation,
+                         base::Uuid::ParseCaseInsensitive(workspace_key).AsLowercaseString(),
+                         *request.profile_name));
+    } else if (!lookup_uuid.empty()) {
       if (!base::ThreadPool::PostTaskAndReplyWithResult(
               FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
               base::BindOnce(&FindRegisteredProfileIdentity,
@@ -369,6 +396,22 @@ class BrowserInventory final : public BrowserCollectionObserver,
     std::vector<BrowserTabCreationCallback> callbacks;
   };
 
+  void WorkspaceProfileInitialized(const std::string& epoch, const std::string& operation,
+                                   const std::string& uuid, const std::string& name, Profile* profile) {
+    // Finish assigning an asynchronously created profile even if its caller
+    // disconnected. FinishOpenTab still fences the old epoch before any page.
+    if (!InitializeWorkspaceProfileIdentity(profile, uuid)) {
+      profile = nullptr;
+    } else if (profile->IsNewProfile()) {
+      profile->GetPrefs()->SetString(prefs::kProfileName, name);
+      profile->GetPrefs()->SetBoolean(prefs::kProfileUsingDefaultName, false);
+      auto* attributes = g_browser_process->profile_manager()->GetProfileAttributesStorage()
+          .GetProfileAttributesWithPath(profile->GetPath());
+      if (attributes) attributes->SetLocalProfileName(base::UTF8ToUTF16(name), false);
+    }
+    FinishOpenTab(epoch, operation, profile);
+  }
+
   void LoadProfileForCreation(const std::string& epoch, const std::string& operation,
                               base::FilePath path) {
     if (epoch != epoch_ || !pending_creations_.contains(operation)) return;
@@ -399,7 +442,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
     pending_creations_.erase(found);
     std::string outcome = "unavailable", surface;
     std::string expected_profile;
-    if (creation.request.surface.starts_with("profile:")) {
+    if (creation.request.surface.starts_with("workspace:") && creation.request.surface != "workspace:shared") {
+      expected_profile = base::Uuid::ParseCaseInsensitive(creation.request.surface.substr(10)).AsLowercaseString();
+    } else if (creation.request.surface.starts_with("profile:")) {
       expected_profile = base::Uuid::ParseCaseInsensitive(
           creation.request.surface.substr(8)).AsLowercaseString();
     } else if (creation.request.surface.starts_with("browser:")) {

@@ -96,11 +96,20 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
               let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
                   DispatchQueue.main.async { completion(.unavailable, nil) }
               }) as? WMBrowserSurfaceOwner else { completion(.unavailable, nil); return }
-        proxy.openBrowserTab(request.sourceSurfaceID?.description, profile: request.profileID?.uuidString, url: request.url, epoch: request.epoch.uuidString,
-                             operation: request.operation.uuidString, revision: request.revision) { outcome, surface in
+        let reply: @Sendable (String, String?) -> Void = { outcome, surface in
             DispatchQueue.main.async {
                 completion(BrowserActionReply(rawValue: outcome) ?? .invalidRequest, surface.flatMap(SurfaceID.init(string:)))
             }
+        }
+        if let profile = request.workspaceProfile {
+            guard (session.version ?? 0) >= 6 else { completion(.unsupported, nil); return }
+            proxy.openBrowserTab(inWorkspaceProfile: profile.key, name: profile.name, url: request.url,
+                                 epoch: request.epoch.uuidString, operation: request.operation.uuidString,
+                                 revision: request.revision, reply: reply)
+        } else {
+            proxy.openBrowserTab(request.sourceSurfaceID?.description, profile: request.profileID?.uuidString,
+                                 url: request.url, epoch: request.epoch.uuidString,
+                                 operation: request.operation.uuidString, revision: request.revision, reply: reply)
         }
     }
 
@@ -599,7 +608,54 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         noteTest("create_global_from_empty", global.0)
         if let globalID = global.1, await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[globalID] != nil }) != nil {
             noteTest("create_global_exact_identity", "yes")
+            if (session.version ?? 0) >= 6 { await exerciseWorkspaceProfiles(epoch: epoch, remote: remote, shared: globalID) }
         } else { noteTest("create_global_exact_identity", "timed_out") }
+    }
+
+    @MainActor private func exerciseWorkspaceProfiles(epoch: String, remote: BrowserOwnerProxy, shared: SurfaceID) async {
+        // Fresh test roots only; stable fixture IDs let a second run verify data
+        // and identity survive browser restart without ever reading real profiles.
+        let work = UUID(uuidString: "502aa58c-4c74-422e-9b41-e0a2fbbfc001")!
+        let personal = UUID(uuidString: "502aa58c-4c74-422e-9b41-e0a2fbbfc002")!
+        let base = ProcessInfo.processInfo.environment["WINMUX_TEST_PROFILE_URL"] ?? "about:blank#"
+        func create(_ key: String, name: String, suffix: String, operation: String = UUID().uuidString,
+                    revision: UInt64? = nil) async -> (String, SurfaceID?) {
+            let current = revision ?? lock.withLock { inventory.revision }
+            return await withCheckedContinuation { continuation in
+                remote.value.openBrowserTab(inWorkspaceProfile: key, name: name, url: base + suffix, epoch: epoch,
+                                            operation: operation, revision: current) { outcome, surface in
+                    continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
+                }
+            }
+        }
+        noteTest("profiles_invalid_key", (await create("../escape", name: "Invalid", suffix: "invalid")).0)
+        for (index, key, name, suffix) in [(0, work.uuidString, "Work", "work"),
+                                          (1, personal.uuidString, "Personal", "personal"),
+                                          (2, work.uuidString, "Work", "work-return"),
+                                          (3, "shared", "Shared", "shared")] {
+            let operation = UUID().uuidString, revision = lock.withLock { inventory.revision }
+            let result = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+            guard result.0 == "issued", let id = result.1,
+                  case .browserTab(let profile, _) = id,
+                  let state = await waitForTestInventory({ $0.tabs[id]?.url == base + suffix && $0.tabs[id]?.isLoading == false }) else {
+                noteTest("profiles_open_\(index)", result.0); return
+            }
+            let expected: UUID
+            if index == 3, case .browserTab(let original, _) = shared { expected = original }
+            else { expected = index == 1 ? personal : work }
+            noteTest("profiles_open_\(index)", profile == expected && state.tabs.count == 2 ? "yes" : "wrong_account")
+            if index == 0 {
+                let repeated = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+                noteTest("profiles_repeat", repeated.0 == "issued" && repeated.1 == id ? "yes" : "no")
+                let conflict = await create(personal.uuidString, name: "Personal", suffix: suffix, operation: operation, revision: revision)
+                noteTest("profiles_conflict", conflict.0)
+            }
+            guard await testAction("close", surface: id, remote: remote, epoch: epoch) == "issued",
+                  await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[shared] != nil }) != nil else {
+                noteTest("profiles_cleanup", "failed"); return
+            }
+        }
+        noteTest("profiles_cleanup", "yes")
     }
 
     // Runs only in an explicitly named isolated test service. Production never

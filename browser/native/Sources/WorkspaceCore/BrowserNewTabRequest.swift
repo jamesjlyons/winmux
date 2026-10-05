@@ -7,4 +7,5 @@ public struct BrowserNewTabRequest: Equatable, Sendable {
     public let profileID: UUID?
     public let revision: UInt64
     public let url: String?
+    public var workspaceProfile: WorkspaceBrowserProfileTarget? = nil
 }

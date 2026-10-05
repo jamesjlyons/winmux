@@ -138,6 +138,17 @@ std::string ExistingProfileID(Profile* profile) {
   return id.is_valid() ? id.AsLowercaseString() : std::string();
 }
 
+bool InitializeWorkspaceProfileIdentity(Profile* profile, const std::string& uuid) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  const auto id = base::Uuid::ParseCaseInsensitive(uuid);
+  if (!profile || !profile->IsRegularProfile() || !id.is_valid()) return false;
+  const auto existing = profile->GetPrefs()->GetString(kProfileIdentityPref);
+  if (existing.empty() && profile->IsNewProfile()) {
+    profile->GetPrefs()->SetString(kProfileIdentityPref, id.AsLowercaseString());
+  }
+  return ExistingProfileID(profile) == id.AsLowercaseString();
+}
+
 std::string PersistentTabID(content::WebContents* contents) {
   auto* identity = EnsureIdentity(contents);
   return identity ? identity->id() : std::string();

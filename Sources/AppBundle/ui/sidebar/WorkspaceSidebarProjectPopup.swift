@@ -110,6 +110,7 @@ struct WorkspaceSidebarProjectPopup: View {
 extension WorkspaceSidebarProjectPopup {
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
+        WorkspaceSidebarBrowserProfileMenu(project: project)
         Button("Rename Space") {
             onRename(project)
         }

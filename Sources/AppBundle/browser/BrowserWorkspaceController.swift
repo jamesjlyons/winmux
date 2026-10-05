@@ -25,6 +25,8 @@ public final class BrowserWorkspaceController {
     var browserSidebarPins: [BrowserSidebarPin] = []
     var nativeAppSidebarPins: [NativeAppSidebarPin] = []
     var spacePinnedGroups: [SpacePinnedGroup] = []
+    var browserProfiles: [WorkspaceBrowserProfile] = []
+    var browserProfileBySpace: [String: UUID] = [:]
     var pendingNativePinLaunches: [UUID: UUID] = [:]
     var failedNativePinLaunches: Set<UUID> = []
     var pendingSidebarPinOpenings: Set<UUID> = []
@@ -64,7 +66,8 @@ public final class BrowserWorkspaceController {
         return .init(tree: surfaceTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(surfaceTree.roots.keys),
                      selected: selected.flatMap { surfaceTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs,
                      browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups,
-                     selectedByWorkspace: selectedByWorkspace.filter { surfaceTree.workspace(of: $0.value) == $0.key })
+                     selectedByWorkspace: selectedByWorkspace.filter { surfaceTree.workspace(of: $0.value) == $0.key },
+                     browserProfiles: browserProfiles, browserProfileBySpace: browserProfileBySpace)
     }
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
@@ -77,6 +80,8 @@ public final class BrowserWorkspaceController {
         browserSidebarPins = snapshot.browserPins
         nativeAppSidebarPins = snapshot.appPins
         spacePinnedGroups = snapshot.pinnedGroups
+        browserProfiles = snapshot.browserProfiles
+        browserProfileBySpace = snapshot.browserProfileBySpace
         pendingNativePinLaunches = [:]
         failedNativePinLaunches = []
         restorePinnedGroups()
@@ -155,6 +160,7 @@ public final class BrowserWorkspaceController {
         session.supportsLayout = protocolVersion >= 3
         session.supportsBrowserControls = protocolVersion >= 4
         session.supportsTabCreation = protocolVersion >= 5
+        session.supportsWorkspaceProfiles = protocolVersion >= 6
         let isInitialInventory = session.inventory.revision == 0
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
@@ -329,6 +335,10 @@ public final class BrowserWorkspaceController {
             if !matching.isEmpty { return nil }
         }
         return capable.count == 1 ? capable[0] : nil
+    }
+
+    var supportsWorkspaceProfiles: Bool {
+        tabCreationSession()?.supportsWorkspaceProfiles == true
     }
 
     func placeCreatedBrowserTab(_ id: SurfaceID, in workspaceName: String, focusAddress: Bool, selectCreated: Bool, focusGeneration: UInt64) {
