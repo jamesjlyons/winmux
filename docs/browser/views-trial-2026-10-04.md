@@ -16,8 +16,13 @@ that data. Shared uses the trial's original browser profile. New tabs from the
 sidebar, page-toolbar **+**, and **Option–Command–T** use the Space's choice.
 Pages opened by a website or Chromium's own commands retain their source browser
 profile. Existing tabs and
-pins keep their original profile when a Space's setting changes or a tab moves;
-only new tabs use the selected profile. Deleting a Space keeps the reusable
+pins keep their original profile when a Space's setting changes. Sending a tab,
+pin, or group to another Space uses the destination profile: if it differs, the
+current page reopens there, then the original is asked to close. Login state,
+back/forward history, and unsaved page contents are not copied. A closed pin
+opens in the destination profile when moved. Same-profile moves preserve the
+live tab. Failed reopens leave the originals in place; groups wait for all
+replacement tabs before moving. Deleting a Space keeps the reusable
 profile and its data. Profiles are local to this trial installation and aren't
 imported from another browser or the daily alpha.
 
@@ -72,6 +77,11 @@ workspace manager.
   and check separate sign-ins and history. Install a test extension in only one
   profile and check its availability in the other. Save a test password in one
   profile and check the other profile's password list.
+- Send a tab, a pin, and a split group from Work to Personal. Each should reopen
+  using Personal's login. Send a tab back to Shared and verify Shared's login.
+  Moving between two Spaces using Work should preserve the live page and its
+  back/forward history. A page with unsaved changes may ask before closing its
+  original tab; cancelling that close leaves the original in the source Space.
 - Assign Work to a third Space and confirm it shares Work's browser data.
   Switch a Space back to Shared and open a new tab. Existing tabs and pins
   should keep their original account.

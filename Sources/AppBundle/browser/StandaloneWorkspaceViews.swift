@@ -8,12 +8,14 @@ extension BrowserWorkspaceController {
     func newStandaloneWorkspace(in source: Workspace, excluding window: Window? = nil,
                                 reserved: Set<String> = []) -> Workspace {
         let candidates = [source] + projectWorkspaces(projectId: source.projectId).filter { $0 !== source }
+        let profileMoveDestinations = Set(pendingProfileMoves.values.map { $0.destination.name })
         if let blank = candidates.first(where: {
             !$0.isPinnedGroup && !$0.isArchived && $0.usesAutomaticDisplayName &&
                 MonitorViewportId($0.workspaceMonitor) == MonitorViewportId(source.workspaceMonitor) && !reserved.contains($0.name) &&
                 workspaceOwnedMinimizedWindows($0).isEmpty &&
                 $0.allLeafWindowsRecursive.allSatisfy { $0 === window } &&
                 (surfaceTree.roots[$0.name] ?? []).flatMap(\.surfaces).allSatisfy { $0 == window?.surfaceID } &&
+                !profileMoveDestinations.contains($0.name) &&
                 rows(in: $0.name).isEmpty
         }) { return blank }
         return createBlankWorkspace(projectId: source.projectId, monitor: source.workspaceMonitor)

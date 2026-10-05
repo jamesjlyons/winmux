@@ -20,7 +20,7 @@ struct WorkspaceSidebarBrowserProfileMenu: View {
                 DispatchQueue.main.async { createProfile() }
             }
             Divider()
-            Text("Used for new tabs. Existing tabs and pins keep their profile.")
+            Text("Used for new tabs and tabs moved into this Space.")
         }
         .disabled(!project.supportsBrowserProfiles)
     }
@@ -36,7 +36,7 @@ struct WorkspaceSidebarBrowserProfileMenu: View {
     private func createProfile() {
         let alert = NSAlert()
         alert.messageText = "New Browser Profile"
-        alert.informativeText = "Give this profile a name, such as Work or Personal. It has separate history, cookies, extensions, and saved passwords. You can use it in other Spaces too. Existing tabs and pins keep their profile."
+        alert.informativeText = "Give this profile a name, such as Work or Personal. It has separate history, cookies, extensions, and saved passwords. You can use it in other Spaces too. Changing this setting leaves existing tabs and pins unchanged; tabs moved into this Space use its profile."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
         field.placeholderString = "Profile name"
         alert.accessoryView = field

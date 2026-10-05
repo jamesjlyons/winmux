@@ -643,7 +643,8 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             let expected: UUID
             if index == 3, case .browserTab(let original, _) = shared { expected = original }
             else { expected = index == 1 ? personal : work }
-            noteTest("profiles_open_\(index)", profile == expected && state.tabs.count == 2 ? "yes" : "wrong_account")
+            noteTest("profiles_open_\(index)", profile == expected && state.tabs.count == 2 &&
+                state.tabs[id]?.isSharedProfile == (index == 3) ? "yes" : "wrong_account")
             if index == 0 {
                 let repeated = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
                 noteTest("profiles_repeat", repeated.0 == "issued" && repeated.1 == id ? "yes" : "no")

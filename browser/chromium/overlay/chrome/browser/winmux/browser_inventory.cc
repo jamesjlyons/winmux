@@ -551,6 +551,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
         }
         base::DictValue record;
         record.Set("surface_id", id);
+        record.Set("is_shared_profile", browser->GetProfile()->GetPath() ==
+            g_browser_process->profile_manager()->user_data_dir().Append(
+                ProfileManager::GetInitialProfileDir()));
         record.Set("host_id", "host:" + base::NumberToString(browser->GetSessionID().id()));
         uint32_t host_window = BrowserHostWindowID(browser->GetWindow());
         if (host_window)

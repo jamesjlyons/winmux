@@ -31,6 +31,9 @@ public final class BrowserWorkspaceController {
     var failedNativePinLaunches: Set<UUID> = []
     var pendingSidebarPinOpenings: Set<UUID> = []
     var unresolvedSidebarPinOwners: [SurfaceID: UUID] = [:]
+    var pendingProfileMoves: [UUID: BrowserProfileMove] = [:]
+    var profileMoveCopiesToClose: Set<SurfaceID> = []
+    var committingProfileMove = false
     private var sessions: [UUID: BrowserSurfaceSession] = [:]
     var pendingBrowserTabSelections: [SurfaceID: Bool] = [:]
     var pendingBrowserTabAddress: SurfaceID?
@@ -197,6 +200,7 @@ public final class BrowserWorkspaceController {
         if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
+           !isProfileMoveArrival(focused.surfaceID, session: session),
            let workspaceName = placements[focused.surfaceID],
            let workspace = Workspace.existing(byName: workspaceName),
            workspace.isVisible || (separateArrivals && !oldIDs.contains(focused.surfaceID)),
@@ -218,6 +222,7 @@ public final class BrowserWorkspaceController {
             mixedLayoutWorkspaces.formUnion(session.inventory.tabs.keys.compactMap { placements[$0] })
         }
         completePendingBrowserTabSelections()
+        completePendingProfileMoves()
         scheduleRefresh()
     }
 
@@ -230,6 +235,7 @@ public final class BrowserWorkspaceController {
             }
         }
         if let epoch = session.epoch { session.disconnect(epoch: epoch) }
+        for move in Array(pendingProfileMoves.values) where move.session === session { cancelProfileMove(move) }
         // Retain process quarantine during reconnect. Releasing it on a transient
         // XPC loss would let AX discovery tile browser hosts as ordinary windows.
         scheduleRefresh()
@@ -296,7 +302,7 @@ public final class BrowserWorkspaceController {
     func preferredSurface(in workspace: Workspace) -> SurfaceID? {
         guard usesSurfaceTree, restoredSelection == nil || isWinMuxRuntimeReady else { return nil }
         let belongs: (SurfaceID) -> Bool = { id in
-            guard self.workspaceName(for: id) == workspace.name, self.isAvailable(id) else { return false }
+            guard self.workspaceName(for: id) == workspace.name, self.isAvailable(id), !self.isProfileMoveCopy(id) else { return false }
             let browser = self.owner(of: id)?.inventory.tabs[id]
             // Automatic group activation picks a live tile. Restoring a Dock,
             // fullscreen or zoomed page remains an explicit sidebar selection.
@@ -658,10 +664,14 @@ public final class BrowserWorkspaceController {
     /// Preflight the complete subtree before synchronously moving either owner.
     /// Intermediate leaf moves would dissolve the stack and prune its metadata.
     @discardableResult
-    func moveGroup(_ id: UUID, to destination: Workspace, edit: (inout SurfaceTree) -> Bool = { _ in true }) -> Bool {
+    func moveGroup(_ id: UUID, to destination: Workspace, edit: @escaping (inout SurfaceTree) -> Bool = { _ in true }) -> Bool {
         guard !destination.isArchived, canMoveGroup(id), let group = surfaceTree.group(id),
               let sourceName = surfaceTree.workspace(ofGroup: id), sourceName != destination.name,
               let source = Workspace.existing(byName: sourceName) else { return false }
+        if let accepted = moveUsingDestinationProfile(group.surfaces, to: destination, commit: { [weak self] in
+            guard let self, self.surfaceTree.group(id) == group else { return false }
+            return self.moveGroup(id, to: destination, edit: edit)
+        }) { return accepted }
         let affected = Set([sourceName, destination.name])
         guard let reservations = organizationReservations(in: affected) else { return false }
         var candidate = surfaceTree
@@ -700,7 +710,7 @@ public final class BrowserWorkspaceController {
         mixedLayoutWorkspaces.formUnion(affected)
         restoredSelection = nil
         if movedSelection {
-            let remaining = (surfaceTree.roots[sourceName] ?? []).flatMap(\.surfaces).first(where: isAvailable)
+            let remaining = (surfaceTree.roots[sourceName] ?? []).flatMap(\.surfaces).first { isAvailable($0) && !isProfileMoveCopy($0) }
             let focusedRemaining = remaining.map { select($0) == .issued } ?? false
             if !focusedRemaining {
                 _ = source.focusWorkspace()
@@ -718,7 +728,13 @@ public final class BrowserWorkspaceController {
         if let target {
             guard isAvailable(target) else { return }
             if workspaceName(for: id) != workspaceName(for: target) {
-                guard let name = workspaceName(for: target), let destination = Workspace.existing(byName: name),
+                guard let name = workspaceName(for: target), let destination = Workspace.existing(byName: name) else { return }
+                if moveUsingDestinationProfile([id], to: destination, commit: { [weak self] in
+                    guard let self, self.isAvailable(target), self.workspaceName(for: target) == name else { return false }
+                    self.organize(id, before: target)
+                    return self.workspaceName(for: id) == name
+                }) != nil { return }
+                guard
                       moveSurfaceToWorkspace(id, destination, CmdIo(stdin: .emptyStdin),
                           focusFollowsSurface: false, failIfNoop: false, controller: self) else { return }
             }
@@ -759,10 +775,13 @@ public final class BrowserWorkspaceController {
     /// Prepare the entire cross-workspace edit before changing owner membership.
     /// This synchronous commit has no suspension between validation and binding.
     func editOrganization(of id: SurfaceID, movingTo destination: Workspace,
-                          _ edit: (inout SurfaceTree) -> Bool) -> Bool {
+                          _ edit: @escaping (inout SurfaceTree) -> Bool) -> Bool {
         guard usesSurfaceTree, isAvailable(id), let source = surfaceTree.workspace(of: id),
               workspaceName(for: id) == source else { return false }
         if source == destination.name { return editOrganization(of: id, edit) }
+        if let accepted = moveUsingDestinationProfile([id], to: destination, commit: { [weak self] in
+            self?.editOrganization(of: id, movingTo: destination, edit) ?? false
+        }) { return accepted }
         let affected = Set([source, destination.name])
         guard let reservations = organizationReservations(in: affected) else { return false }
         var candidate = surfaceTree
@@ -832,6 +851,47 @@ public final class BrowserWorkspaceController {
         scheduleRefresh()
     }
 
+    /// Commit replacements only after the whole move passed preflight. Originals
+    /// remain in their source until Chromium confirms their ordinary close.
+    func installProfileMoveReplacements(_ move: BrowserProfileMove) {
+        let selected = focusCoordinator.target
+        for (old, new) in move.replacements {
+            let destination = placements[old] ?? move.destination.name
+            surfaceTree.remove(new)
+            if !surfaceTree.replaceSurface(old, with: new) {
+                surfaceTree.reconcile((surfaceTree.roots[destination] ?? []).flatMap(\.surfaces) + [new], in: destination)
+            }
+            placements[new] = destination
+            standaloneBrowserViews.removeValue(forKey: new)
+            if let source = move.sources[old] {
+                placements[old] = source
+                surfaceTree.reconcile((surfaceTree.roots[source] ?? []).flatMap(\.surfaces) + [old], in: source)
+            }
+            for index in browserSidebarPins.indices where browserSidebarPins[index].surfaceID == old {
+                let pin = browserSidebarPins[index]
+                browserSidebarPins[index] = .init(id: pin.id, profileID: new.browserProfileID!,
+                    workspaceName: destination, title: pin.title, url: pin.url,
+                    surfaceID: new, iconPNGBase64: pin.iconPNGBase64)
+            }
+            for name in selectedByWorkspace.keys where selectedByWorkspace[name] == old && name == destination {
+                selectedByWorkspace[name] = new
+            }
+            recentSelections = recentSelections.map { $0 == old ? new : $0 }
+            if restoredSelection == old { restoredSelection = new }
+        }
+        if let pin = move.closedPin, let new = move.closedPinReplacement,
+           let index = browserSidebarPins.firstIndex(where: { $0.id == pin.id }) {
+            browserSidebarPins[index] = .init(id: pin.id, profileID: new.browserProfileID!,
+                workspaceName: move.destination.name, title: pin.title, url: pin.url,
+                surfaceID: new, iconPNGBase64: pin.iconPNGBase64)
+            placeCreatedBrowserTab(new, in: move.destination.name, focusAddress: false,
+                selectCreated: false, focusGeneration: focusCoordinator.generation)
+        }
+        if let selected, let replacement = move.replacements[selected] { _ = select(replacement) }
+        for old in move.replacements.keys { _ = close(old) }
+        scheduleRefresh()
+    }
+
     func workspaceName(for id: SurfaceID) -> String? {
         if case .browserTab = id { return placements[id] }
         return Window.get(bySurfaceID: id)?.nodeWorkspace?.name ?? surfaceTree.workspace(of: id)
@@ -897,7 +957,8 @@ public final class BrowserWorkspaceController {
     }
 
     func containsBrowserItems(in workspace: String) -> Bool {
-        usesSurfaceTree && (browserSidebarPins.contains(where: { $0.workspaceName == workspace }) || placements.values.contains(workspace) ||
+        usesSurfaceTree && (pendingProfileMoves.values.contains(where: { $0.destination.name == workspace }) ||
+            browserSidebarPins.contains(where: { $0.workspaceName == workspace }) || placements.values.contains(workspace) ||
             (surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces).contains(where: unresolvedNativeItems.contains))
     }
 

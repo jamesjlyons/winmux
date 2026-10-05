@@ -20,6 +20,8 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostFrame: SurfaceFrame?
     public let hostVisible: Bool?
     public let hostMinimumSize: SurfaceMinimumSize?
+    /// Owner-confirmed initial profile; UUIDs alone cannot identify Shared.
+    public var isSharedProfile: Bool? = nil
 
     public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, hostMinimized: Bool = false, hostFullscreen: Bool = false, hostZoomed: Bool = false, focused: Bool = false, iconPNGBase64: String? = nil) {
         self.surfaceID = surfaceID
@@ -49,6 +51,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case hostFrame = "host_frame", hostVisible = "host_visible"
         case hostMinimumSize = "host_minimum_size"
         case iconPNGBase64 = "icon_png_base64"
+        case isSharedProfile = "is_shared_profile"
         case url, canGoBack = "can_go_back", canGoForward = "can_go_forward"
         case isLoading = "is_loading", hostManaged = "host_managed", focused
         case hostMinimized = "host_minimized", hostFullscreen = "host_fullscreen", hostZoomed = "host_zoomed"
@@ -75,6 +78,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
                   hostZoomed: try values.decodeIfPresent(Bool.self, forKey: .hostZoomed) ?? false,
                   focused: try values.decodeIfPresent(Bool.self, forKey: .focused) ?? false,
                   iconPNGBase64: try values.decodeIfPresent(String.self, forKey: .iconPNGBase64))
+        isSharedProfile = try values.decodeIfPresent(Bool.self, forKey: .isSharedProfile)
     }
 }
 

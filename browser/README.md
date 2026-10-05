@@ -7,8 +7,11 @@ Chromium owns page contents, navigation, profiles, and extensions.
 
 The views trial lets each Space choose **Shared** or a named browser profile in
 **Space → Manage Space → Browser Profile**. Create profiles such as Work and
-Personal, then reuse them across Spaces. New tabs use the selected profile;
-existing tabs and pins retain their account. Chromium keeps each profile's
+Personal, then reuse them across Spaces. New tabs and tabs sent from another
+Space use the selected profile. Cross-profile moves reopen the current URL and
+close the original after every replacement is available; same-profile moves
+preserve the live page. Changing the profile setting alone leaves existing tabs
+and pins unchanged. Chromium keeps each profile's
 history, cookies, extensions, settings, and saved passwords separately.
 
 Use **Option–Command–T** from any app to create a page in the current regular Group.

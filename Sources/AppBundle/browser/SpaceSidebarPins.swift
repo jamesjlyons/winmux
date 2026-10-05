@@ -185,6 +185,11 @@ extension BrowserWorkspaceController {
         guard winMuxWorkspaceState.projectsById[space] != nil else { return false }
         let sourceName = pinWorkspaceName(id)
         let destination = pinnedGroup(for: space)
+        if let pin = browserSidebarPins.first(where: { $0.id == id }),
+           let accepted = moveUsingDestinationProfile(pin.surfaceID.map { [$0] } ?? [],
+                closedPin: pin.surfaceID == nil ? pin : nil, to: destination, commit: { [weak self] in
+                    self?.movePin(id, to: space) ?? false
+                }) { return accepted }
         var live: SurfaceID?
         if let index = browserSidebarPins.firstIndex(where: { $0.id == id }) {
             live = browserSidebarPins[index].surfaceID

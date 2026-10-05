@@ -131,6 +131,13 @@ func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
     guard controller.isAvailable(id), let sourceName = controller.workspaceName(for: id),
           let source = Workspace.existing(byName: sourceName) else { return io.err("Surface owner is unavailable") }
     if source === target { return failIfNoop ? io.err("Surface already belongs to destination workspace") : true }
+    let focusGeneration = controller.focusCoordinator.generation
+    if let accepted = controller.moveUsingDestinationProfile([id], to: target, commit: { [weak controller] in
+        guard let controller else { return false }
+        return moveSurfaceToWorkspace(id, target, io,
+                               focusFollowsSurface: focusFollowsSurface && controller.focusCoordinator.generation == focusGeneration,
+                               failIfNoop: failIfNoop, controller: controller)
+    }) { return accepted }
     switch id {
     case .browserTab:
         guard controller.usesSurfaceTree, controller.owner(of: id)?.supportsLayout == true else {
@@ -146,7 +153,7 @@ func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
     // Keep focus on the source when its selected item has moved away.
     if controller.usesSurfaceTree, controller.focusCoordinator.target == id {
         let remaining = (controller.surfaceTree.roots[source.name] ?? []).flatMap(\.surfaces)
-            .first { $0 != id && controller.isAvailable($0) }
+            .first { $0 != id && controller.isAvailable($0) && !controller.isProfileMoveCopy($0) }
         if let remaining { _ = controller.select(remaining) }
         else { _ = source.focusWorkspace(); controller.nativeSelectionChanged(nil) }
     }

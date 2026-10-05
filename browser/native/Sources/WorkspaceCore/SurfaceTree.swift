@@ -40,6 +40,18 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     public private(set) var weights: [String: Double] = [:]
     public init() {}
 
+    /// Substitute a browser-owned replacement without dissolving its containers.
+    @discardableResult public mutating func replaceSurface(_ old: SurfaceID, with new: SurfaceID) -> Bool {
+        guard old != new, let name = workspace(of: old), workspace(of: new) == nil,
+              var nodes = roots[name], Self.replace(old, in: &nodes, with: .surface(new)) else { return false }
+        roots[name] = nodes
+        for group in activeSurfaces.keys where activeSurfaces[group] == old { activeSurfaces[group] = new }
+        if let weight = weights.removeValue(forKey: SurfaceTreeNode.surface(old).weightKey) {
+            weights[SurfaceTreeNode.surface(new).weightKey] = weight
+        }
+        return true
+    }
+
     enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces, weights }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
