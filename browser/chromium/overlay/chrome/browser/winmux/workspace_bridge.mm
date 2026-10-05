@@ -215,7 +215,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:6 remote:remote generation:generation];
+  [self negotiate:7 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -226,7 +226,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 6 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 7 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -250,7 +250,7 @@ NSString* OwnTeam() {
           self->_activeGeneration.store(generation);
           if (version >= 2) {
             content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
-                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch)));
+                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch), version >= 7));
           }
           [self report:@"authenticated"
                 detail:@"Chromium browser process and packaged Swift helper exchanged an asynchronous probe"];

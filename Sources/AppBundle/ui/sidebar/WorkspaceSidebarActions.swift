@@ -232,6 +232,7 @@ func createWorkspaceFromSidebarDrag(
         )
     } ?? sidebarWorkspaceTargetMonitor(fallbackWindow: sourceWindow, fallbackPoint: mouseLocation)
     let projectId = projectId ?? activeWorkspaceProjectId(for: targetMonitor)
+    guard !projectId.isIncognito else { return false }
     let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
     let targetContainer: NonLeafTreeNodeObject
     if sourceNode is Window, sourceWindow.isFloating {
@@ -268,7 +269,7 @@ private func moveSidebarSource(_ windowId: UInt32, subject: WindowDragSubject, t
     runWorkspaceSidebarSession {
         guard let sourceWindow = Window.get(byId: windowId),
               let targetWorkspace = Workspace.existing(byName: workspaceName),
-              !targetWorkspace.isArchived,
+              !targetWorkspace.isArchived, !targetWorkspace.isIncognito,
               sourceWindow.nodeWorkspace != targetWorkspace
         else { return }
         let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
@@ -288,7 +289,7 @@ private func moveSidebarSourceToNewWorkspace(
 ) {
     runWorkspaceSidebarSession {
         guard let sourceWindow = Window.get(byId: windowId),
-              winMuxWorkspaceState.projectsById[projectId] != nil
+              !projectId.isIncognito, winMuxWorkspaceState.projectsById[projectId] != nil
         else { return }
         let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
         let targetMonitor = workspaceSidebarTargetMonitor(
@@ -494,6 +495,7 @@ func renameWorkspaceSidebarProject(_ projectId: WorkspaceProjectId, displayName:
 
 @MainActor
 func setWorkspaceSidebarProjectColor(_ project: WorkspaceSidebarProjectViewModel, colorHex: String?) {
+    guard !project.id.isIncognito else { return }
     runWorkspaceSidebarSession {
         let normalizedColorHex = colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
         if let normalizedColorHex {

@@ -67,8 +67,8 @@ struct WindowMoveMenuGroup: Identifiable, Equatable {
 /// Use only local hierarchy metadata, including when the sidebar is disabled.
 /// No window discovery or title fetching is needed to open the menu.
 @MainActor
-func windowMoveMenuDestinations() -> [WindowMoveMenuSpace] {
-    let spaces = workspaceProjects()
+func windowMoveMenuDestinations(sourceSpace: WorkspaceProjectId? = nil) -> [WindowMoveMenuSpace] {
+    let spaces = workspaceProjects().filter { sourceSpace?.isIncognito == true ? $0.id == sourceSpace : !$0.id.isIncognito }
     let workspaces = orderedWorkspacesForPresentation()
     let indices = automaticWorkspaceDisplayIndices(workspaces: workspaces, focusedWorkspace: focus.workspace)
     let controller = BrowserWorkspaceController.shared

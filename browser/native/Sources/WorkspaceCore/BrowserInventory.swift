@@ -115,8 +115,11 @@ public struct BrowserInventory: Sendable {
               Set(message.removed).count == message.removed.count,
               Set(changed).isDisjoint(with: message.removed),
               (changed + message.removed).allSatisfy({ if case .browserTab = $0 { return true }; return false }),
-              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && $0.url.utf8.count <= 16_384 && ($0.iconPNGBase64?.utf8.count ?? 0) <= 131072 && ($0.hostMinimumSize?.isValid ?? true) })
+              message.tabs.allSatisfy({ !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && $0.url.utf8.count <= 16_384 && ($0.iconPNGBase64?.utf8.count ?? 0) <= 131072 && ($0.hostMinimumSize?.isValid ?? true) })
         else { return false }
+        guard message.tabs.allSatisfy({ record in
+            tabs[record.surfaceID].map { $0.privateBrowsing == record.privateBrowsing } ?? true
+        }) else { return false }
         var next = message.full ? [:] : tabs
         for id in message.removed {
             guard next.removeValue(forKey: id) != nil else { return false }
@@ -125,7 +128,12 @@ public struct BrowserInventory: Sendable {
         guard next.count <= 10_000 else { return false }
         var hosts: [String: UInt32] = [:]
         var windows: [UInt32: String] = [:]
+        var privateProfiles: [UUID: Bool] = [:]
         for tab in next.values {
+            if case .browserTab(let profile, _) = tab.surfaceID {
+                guard privateProfiles[profile].map({ $0 == tab.privateBrowsing }) ?? true else { return false }
+                privateProfiles[profile] = tab.privateBrowsing
+            }
             if let window = tab.hostWindowID {
                 guard window > 0, hosts[tab.hostID] == nil || hosts[tab.hostID] == window,
                       windows[window] == nil || windows[window] == tab.hostID else { return false }

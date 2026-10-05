@@ -86,7 +86,7 @@ def main():
     parser.add_argument("--resume-profiles-from", type=Path,
                         help="Reuse only a previously successful, stopped synthetic fixture to verify profile restart")
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--private", action="store_true", help="Verify private tabs never enter helper inventory")
+    modes.add_argument("--private", action="store_true", help="Verify private tabs keep their off-the-record owner through creation, layout and reconnect")
     modes.add_argument("--native-window-controls", action="store_true",
                        help="Use visible isolated native windows to verify minimize, fullscreen, zoom and restoration")
     args = parser.parse_args()
@@ -189,13 +189,14 @@ def main():
                 "native_zoom_survives_layout": "yes", "native_zoom_keeps_window_ids": "yes", "native_zoom_exit": "issued",
                 "native_zoom_exit_state": "yes", "native_zoom_return_layout": "issued", "native_zoom_returns_to_tiles": "yes",
         })
-    expected_count = 0 if args.private else 1
+    expected_count = 1
     if args.private:
-        expected = {}
+        expected = {"private_create": "issued", "private_profile_retained": "yes", "private_layout": "issued",
+                    "private_managed": "yes", "private_close": "issued", "private_cleanup": "yes"}
     fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
                            "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
-    result = {"scope": ("actual_signed_browser_protocol6_native_window_controls" if args.native_window_controls else
-                        "actual_signed_browser_protocol6_page_windows_profiles"), "passed": False,
+    result = {"scope": ("actual_signed_browser_protocol7_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol7_page_windows_profiles"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
@@ -224,7 +225,7 @@ def main():
                     if actions_complete:
                         result["actions"] = report
                     if args.native_window_controls:
-                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 6
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 7
                                 and report.get("full_messages") == 1):
                             if completed_at is None:
                                 completed_at = time.monotonic()
@@ -236,9 +237,9 @@ def main():
                             raise RuntimeError("Completed native window controls did not remain stable")
                         time.sleep(.1)
                         continue
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 6
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 7
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
-                            and report.get("full_messages") == 1 and report.get("outcomes") == {}):
+                            and report.get("full_messages") == 1 and report.get("outcomes") == (expected if args.private else {})):
                         if recovered_at is None:
                             recovered_at = time.monotonic()
                         if time.monotonic() - recovered_at >= 17:
@@ -250,7 +251,7 @@ def main():
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
             if not result["passed"]:
-                result["error"] = "Expected protocol6 isolated fixture outcomes were not observed"
+                result["error"] = "Expected protocol7 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}

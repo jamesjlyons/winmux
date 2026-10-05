@@ -38,6 +38,7 @@ extension BrowserWorkspaceController {
     /// profile move was accepted; no source membership changes until commit.
     func moveUsingDestinationProfile(_ surfaces: [SurfaceID], closedPin: BrowserSidebarPin? = nil,
                                      to destination: Workspace, commit: @escaping () -> Bool) -> Bool? {
+        guard surfaces.allSatisfy({ canPlaceSurface($0, in: destination) }), closedPin == nil || !destination.isIncognito else { return false }
         guard !committingProfileMove else { return nil }
         guard !pendingProfileMoves.values.contains(where: { move in
             surfaces.contains { move.sources[$0] != nil } ||

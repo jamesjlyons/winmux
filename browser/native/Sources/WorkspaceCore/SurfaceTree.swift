@@ -247,6 +247,11 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         pruneMetadata()
     }
 
+    public mutating func removeWorkspace(_ name: String) {
+        roots.removeValue(forKey: name)
+        pruneMetadata()
+    }
+
     public mutating func remove(_ id: SurfaceID) {
         for name in Array(roots.keys) {
             roots[name] = Self.filter(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkspaceSidebarNewTabButton: View {
     let isCompact: Bool
+    var isPrivate = false
     let onOpen: () -> Void
     @State private var isHovered = false
 
@@ -11,7 +12,7 @@ struct WorkspaceSidebarNewTabButton: View {
                 Image(systemName: "plus.square")
                     .font(.system(size: 13, weight: .medium))
                 if !isCompact {
-                    Text("New Tab")
+                    Text(isPrivate ? "New Private Tab" : "New Tab")
                         .font(.system(size: 13, weight: .medium))
                     Spacer(minLength: 0)
                 }
@@ -27,7 +28,7 @@ struct WorkspaceSidebarNewTabButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .accessibilityLabel("New Tab")
-        .help("Open a browser tab in this group")
+        .accessibilityLabel(isPrivate ? "New Private Tab" : "New Tab")
+        .help(isPrivate ? "Open a private tab in this temporary Space" : "Open a browser tab in this group")
     }
 }

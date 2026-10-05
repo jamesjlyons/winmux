@@ -59,7 +59,7 @@ struct WorkspaceSidebarProjectSelector: View {
                             }
                         }
                     }
-                    if let activeProject {
+                    if let activeProject, !activeProject.id.isIncognito {
                         Divider()
                         Menu("Manage Space") {
                             WorkspaceSidebarBrowserProfileMenu(project: activeProject)
@@ -81,7 +81,7 @@ struct WorkspaceSidebarProjectSelector: View {
                             Image(nsImage: WorkspaceSidebarSymbolImages.menuImage(for: activeProject))
                                 .renderingMode(.original)
                         }
-                        Text(activeProject?.displayName ?? "Space")
+                        Text(activeProject?.id.isIncognito == true ? "Incognito · Temporary" : (activeProject?.displayName ?? "Space"))
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -90,7 +90,7 @@ struct WorkspaceSidebarProjectSelector: View {
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("Space")
                 .accessibilityValue(activeProject?.displayName ?? "Space")
-                .help("Switch space")
+                .help(activeProject?.id.isIncognito == true ? "Private browsing. This Space disappears when its last private tab closes." : "Switch space")
             }
         }
         .padding(.horizontal, 7)

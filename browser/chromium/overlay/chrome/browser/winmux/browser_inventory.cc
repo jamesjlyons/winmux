@@ -95,7 +95,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     });
   }
 
-  void BeginEpoch(std::string epoch) {
+  void BeginEpoch(std::string epoch, bool include_private) {
+    include_private_ = include_private;
     for (auto& [operation, creation] : pending_creations_) {
       for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
     }
@@ -199,7 +200,10 @@ class BrowserInventory final : public BrowserCollectionObserver,
     pending_creations_.emplace(request.operation, std::move(creation));
     // Reserve operation identity before profile loading or window callbacks.
     Remember(request, "pending");
-    if (workspace_profile && workspace_key != "shared") {
+    if (auto found = live_.find(request.surface); found != live_.end() &&
+        found->second->GetBrowserContext()->IsOffTheRecord()) {
+      FinishOpenTab(epoch, request.operation, Profile::FromBrowserContext(found->second->GetBrowserContext()));
+    } else if (workspace_profile && workspace_key != "shared") {
       auto& storage = manager->GetProfileAttributesStorage();
       if (!storage.GetProfileAttributesWithPath(profile_path) &&
           storage.GetAllProfilesAttributes().size() >= kMaximumProfileIdentityCandidates) {
@@ -364,7 +368,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
-        browser->GetProfile()->IsOffTheRecord())
+        browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile())
       return;
     RetainWorkspaceProfile(browser->GetProfile());
     // TabStripModelObserver removes itself automatically when the source dies.
@@ -451,16 +455,19 @@ class BrowserInventory final : public BrowserCollectionObserver,
       expected_profile = base::Uuid::ParseCaseInsensitive(
           creation.request.surface.substr(8, 36)).AsLowercaseString();
     }
+    auto private_source = live_.find(creation.request.surface);
+    const bool private_creation = include_private_ && profile && profile->IsOffTheRecord() &&
+        private_source != live_.end() && private_source->second->GetBrowserContext() == profile;
     // Revalidate the loaded preference: a deleted/replaced directory or a
     // changed UUID must never silently open a pin in another account.
     auto* manager = g_browser_process->profile_manager();
-    if (profile && (!manager ||
+    if (profile && !private_creation && (!manager ||
         !manager->GetProfileAttributesStorage().GetProfileAttributesWithPath(profile->GetPath()) ||
         (!expected_profile.empty() && ExistingProfileID(profile) != expected_profile))) {
       profile = nullptr;
     }
-    profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
-    if (profile && !profile->IsOffTheRecord() && !profile->IsGuestSession() &&
+    if (!private_creation) profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
+    if (profile && (!profile->IsOffTheRecord() || private_creation) && !profile->IsGuestSession() &&
         !profile->IsSystemProfile() && !(browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
       RetainWorkspaceProfile(profile);
       BrowserWindowCreateParams params(profile, true);
@@ -527,7 +534,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
-          browser->GetProfile()->IsOffTheRecord() || browser->IsDeleteScheduled())
+          (browser->GetProfile()->IsOffTheRecord() && !include_private_) ||
+          browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile() || browser->IsDeleteScheduled())
         return true;
       RetainWorkspaceProfile(browser->GetProfile());
       const int host_id = browser->GetSessionID().id();
@@ -551,7 +559,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
         }
         base::DictValue record;
         record.Set("surface_id", id);
-        record.Set("is_shared_profile", browser->GetProfile()->GetPath() ==
+        record.Set("is_shared_profile", !browser->GetProfile()->IsOffTheRecord() && browser->GetProfile()->GetPath() ==
             g_browser_process->profile_manager()->user_data_dir().Append(
                 ProfileManager::GetInitialProfileDir()));
         record.Set("host_id", "host:" + base::NumberToString(browser->GetSessionID().id()));
@@ -589,7 +597,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("can_go_back", contents->GetController().CanGoBack());
         record.Set("can_go_forward", contents->GetController().CanGoForward());
         record.Set("is_loading", contents->IsLoading());
-        record.Set("private", false);
+        record.Set("private", browser->GetProfile()->IsOffTheRecord());
         next.emplace(id, std::move(record));
         live_.emplace(id, contents);
       }
@@ -625,6 +633,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   base::RepeatingCallback<void(std::string, std::string)> publisher_;
   bool seed_test_;
+  bool include_private_ = false;
   bool pending_ = false;
   int revision_ = 0;
   uint64_t highest_focus_ = 0;
@@ -656,10 +665,10 @@ void StopBrowserInventory() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delete std::exchange(inventory, nullptr);
 }
-void BeginBrowserInventoryEpoch(std::string epoch) {
+void BeginBrowserInventoryEpoch(std::string epoch, bool include_private) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (inventory)
-    inventory->BeginEpoch(std::move(epoch));
+    inventory->BeginEpoch(std::move(epoch), include_private);
 }
 void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
                     BrowserTabCreationCallback completion) {

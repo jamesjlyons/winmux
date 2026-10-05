@@ -82,7 +82,7 @@ extension BrowserWorkspaceController {
         if let pin = nativeAppSidebarPins.first(where: {
             $0.bundleIdentifier == window.app.rawAppBundleId && pendingNativePinLaunches[$0.id] != nil
         }), adoptAppWindow(window, pinID: pin.id) { return }
-        let destination = newStandaloneWorkspace(in: source, excluding: window)
+        let destination = newStandaloneWorkspace(in: regularArrivalWorkspace(source), excluding: window)
         guard destination !== source else { return }
         window.bind(to: destination.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     }

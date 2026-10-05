@@ -96,7 +96,7 @@ struct WorkspaceSidebarPinGrid: View {
             Button(pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
             Button(pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
             Menu("Move to Space") {
-                ForEach(projects) { project in
+                ForEach(projects.filter { !$0.id.isIncognito }) { project in
                     Button(project.displayName) { actions.send(.movePin(pin.id, toSpace: project.id)) }
                         .disabled(project.id == workspace.projectId)
                 }

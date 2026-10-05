@@ -88,6 +88,7 @@ func resolveMoveTargetWorkspace(
 
 @MainActor
 func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io: CmdIo, focusFollowsWindow: Bool, failIfNoop: Bool, index: Int = INDEX_BIND_LAST) -> Bool {
+    guard !targetWorkspace.isIncognito else { return io.err("Incognito Spaces contain only private browser tabs") }
     if window.nodeWorkspace == targetWorkspace {
         if !failIfNoop {
             io.err("Window '\(window.windowId)' already belongs to workspace '\(targetWorkspace.name)'. Tip: use --fail-if-noop to exit with non-zero code")

@@ -81,7 +81,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
                 Divider()
             }
-            Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+            if Workspace.existing(byName: workspaceName)?.isIncognito != true {
+                Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+            }
             Divider()
             SurfaceMoveMenu(subject: .surface(surface.surfaceID), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)

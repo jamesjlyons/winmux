@@ -879,7 +879,7 @@ extension WorkspaceSidebarView {
                     .padding(.trailing, trailingInset)
             }
             if snapshot.configuration.showsBrowserControls {
-                WorkspaceSidebarNewTabButton(isCompact: isCompact) {
+                WorkspaceSidebarNewTabButton(isCompact: isCompact, isPrivate: projectId.isIncognito) {
                     let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
                         ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
                     actions.send(.newBrowserTab(workspaceName: workspace?.name))

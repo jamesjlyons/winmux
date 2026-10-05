@@ -202,11 +202,26 @@ func workspaceShouldSurviveReconciliation(
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
 ) -> Bool {
     guard !workspace.isArchived else { return false }
-    return workspace.isPinnedGroup || workspace.isVisible ||
+    if workspaceShouldRemoveEmptyView(workspace) { return false }
+    return (config.workspaceInteractionMode == .views && !workspace.usesAutomaticDisplayName && !workspace.hasContainedItems) ||
+        workspace.isPinnedGroup || workspace.isVisible ||
         workspaceHasLifecycleWindows(workspace) ||
         workspace.isConfiguredPersistent ||
         projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1 ||
         retainedEmptyWorkspaceIds[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
+}
+
+/// A view that lost its last member is no longer a group. Keep a single
+/// automatic blank for an empty Space, plus intentional, unused named groups.
+@MainActor
+func workspaceShouldRemoveEmptyView(_ workspace: Workspace) -> Bool {
+    guard config.workspaceInteractionMode == .views, !workspace.isPinnedGroup,
+          !workspace.isConfiguredPersistent, !workspaceHasLifecycleWindows(workspace),
+          workspace.usesAutomaticDisplayName || workspace.hasContainedItems else { return false }
+    if !workspace.usesAutomaticDisplayName { return true }
+    return projectWorkspaces(projectId: workspace.projectId).contains {
+        $0 !== workspace && !$0.isPinnedGroup && !$0.isArchived && workspaceHasLifecycleWindows($0)
+    }
 }
 
 @MainActor

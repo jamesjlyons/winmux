@@ -96,7 +96,7 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func pinSurface(_ surface: SurfaceID, in space: WorkspaceProjectId? = nil) -> Bool {
-        guard usesSurfaceTree, let sourceName = workspaceName(for: surface), let source = Workspace.existing(byName: sourceName) else { return false }
+        guard usesSurfaceTree, !isPrivateSurface(surface), space?.isIncognito != true, let sourceName = workspaceName(for: surface), let source = Workspace.existing(byName: sourceName), !source.isIncognito else { return false }
         let destination = pinnedGroup(for: space ?? source.projectId, source: source)
         if case .browserTab = surface {
             if let pin = sidebarPin(for: surface) { movePin(pin.id, to: destination.projectId); return true }
@@ -182,7 +182,7 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func movePin(_ id: UUID, to space: WorkspaceProjectId) -> Bool {
-        guard winMuxWorkspaceState.projectsById[space] != nil else { return false }
+        guard !space.isIncognito, winMuxWorkspaceState.projectsById[space] != nil else { return false }
         let sourceName = pinWorkspaceName(id)
         let destination = pinnedGroup(for: space)
         if let pin = browserSidebarPins.first(where: { $0.id == id }),

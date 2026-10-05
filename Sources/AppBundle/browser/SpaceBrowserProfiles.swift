@@ -23,6 +23,7 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func createBrowserProfile(named name: String, for space: WorkspaceProjectId) throws -> WorkspaceBrowserProfile {
+        guard !space.isIncognito else { throw SpaceBrowserProfileError.missingProfile }
         let profile = WorkspaceBrowserProfile(name: name)
         guard profile.isValid else { throw SpaceBrowserProfileError.invalidName }
         guard profile.name.caseInsensitiveCompare("Shared") != .orderedSame,
@@ -36,6 +37,7 @@ extension BrowserWorkspaceController {
     }
 
     func setBrowserProfile(_ id: UUID?, for space: WorkspaceProjectId) throws {
+        guard !space.isIncognito else { throw SpaceBrowserProfileError.missingProfile }
         guard id == nil || browserProfiles.contains(where: { $0.id == id }) else { throw SpaceBrowserProfileError.missingProfile }
         browserProfileBySpace[space.rawValue] = id
         scheduleRefresh()

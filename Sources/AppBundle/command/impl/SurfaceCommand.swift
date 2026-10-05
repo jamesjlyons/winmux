@@ -130,6 +130,7 @@ func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
                             controller: BrowserWorkspaceController = .shared) -> Bool {
     guard controller.isAvailable(id), let sourceName = controller.workspaceName(for: id),
           let source = Workspace.existing(byName: sourceName) else { return io.err("Surface owner is unavailable") }
+    guard controller.canPlaceSurface(id, in: target) else { return io.err("Private tabs stay in their temporary Incognito Space") }
     if source === target { return failIfNoop ? io.err("Surface already belongs to destination workspace") : true }
     let focusGeneration = controller.focusCoordinator.generation
     if let accepted = controller.moveUsingDestinationProfile([id], to: target, commit: { [weak controller] in

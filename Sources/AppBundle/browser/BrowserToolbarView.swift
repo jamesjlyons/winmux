@@ -32,6 +32,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         let canGoForward: Bool
         let isFocused: Bool
         let preserveAddress: Bool
+        let isPrivate: Bool
     }
 
     init() {
@@ -159,10 +160,17 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         if !preserveAddress, address.stringValue != item.url { address.stringValue = item.url }
         let state = ControlState(url: item.url, isLoading: item.isLoading,
             controlsEnabled: item.controlsEnabled, canGoBack: item.canGoBack,
-            canGoForward: item.canGoForward, isFocused: item.isFocused, preserveAddress: preserveAddress)
+            canGoForward: item.canGoForward, isFocused: item.isFocused, preserveAddress: preserveAddress, isPrivate: item.isPrivate)
         guard currentControlState != state else { return }
         let previous = currentControlState
         currentControlState = state
+        if previous?.isPrivate != item.isPrivate {
+            let label = item.isPrivate ? "Incognito · Temporary — private page actions" : "Web window actions"
+            more.image = NSImage(systemSymbolName: item.isPrivate ? "eye.slash.fill" : "ellipsis", accessibilityDescription: label)
+            more.toolTip = label
+            more.setAccessibilityLabel(label)
+            setAccessibilityLabel(item.isPrivate ? "Private web page controls" : "Web page controls")
+        }
         minimize.isEnabled = item.controlsEnabled
         zoom.isEnabled = item.controlsEnabled
         if previous?.isFocused != item.isFocused {

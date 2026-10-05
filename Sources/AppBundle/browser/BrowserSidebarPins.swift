@@ -8,7 +8,7 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func pinBrowserTab(_ surfaceID: SurfaceID) -> Bool {
-        guard usesSurfaceTree, browserSidebarPins.count + nativeAppSidebarPins.count < 10_000,
+        guard usesSurfaceTree, !isPrivateSurface(surfaceID), browserSidebarPins.count + nativeAppSidebarPins.count < 10_000,
               sidebarPin(for: surfaceID) == nil,
               let record = owner(of: surfaceID)?.inventory.tabs[surfaceID],
               let workspace = workspaceName(for: surfaceID) else { return false }

@@ -15,7 +15,7 @@ extension BrowserWorkspaceController {
         let requestedWorkspace = workspaceName.flatMap { Workspace.existing(byName: $0) } ?? focus.workspace
         let workspaceProfile: WorkspaceBrowserProfileTarget?
         do {
-            workspaceProfile = profileID == nil ? try browserProfileTarget(for: requestedWorkspace.projectId) : nil
+            workspaceProfile = profileID == nil && !requestedWorkspace.isIncognito ? try browserProfileTarget(for: requestedWorkspace.projectId) : nil
         } catch {
             if !isUnitTest { showWorkspaceSidebarError(error.localizedDescription) }
             completion?(.unavailable)
@@ -35,9 +35,15 @@ extension BrowserWorkspaceController {
         }
         let routedProfile = session.supportsWorkspaceProfiles ? workspaceProfile : nil
         let workspace = (url == nil ? regularWorkspaceForNewItem(requestedWorkspace) : requestedWorkspace).name
-        let source = routedProfile == nil ? focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
+        let source = requestedWorkspace.isIncognito ? session.inventory.tabs.values.first(where: {
+            $0.privateBrowsing && $0.surfaceID.browserProfileID.map { WorkspaceProjectId.incognito($0) == requestedWorkspace.projectId } == true
+        })?.surfaceID : (routedProfile == nil ? focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
             (profileID == nil || $0.browserProfileID == profileID) ? $0 : nil }
-            : nil
+            : nil)
+        guard !requestedWorkspace.isIncognito || source != nil else {
+            completion?(.unavailable)
+            return .unavailable
+        }
         let creation = UUID(), startingFocus = focusCoordinator.generation
         latestBrowserTabCreation = creation
         pendingBrowserTabSelections.removeAll()
@@ -47,6 +53,7 @@ extension BrowserWorkspaceController {
         return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url, workspaceProfile: routedProfile) { [weak self] reply, id in
             NSLog("WinMux new tab: %@", reply.rawValue)
             if reply == .issued, let id, let self {
+                if requestedWorkspace.isIncognito { self.privateSurfaces.insert(id) }
                 let selectCreated = self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)
                 let destination = config.workspaceInteractionMode == .views && !explicitPlacement

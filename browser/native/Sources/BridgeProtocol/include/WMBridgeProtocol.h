@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 // All methods are asynchronous and available only after mutual code-signing
 // validation. Versions 2/3 add tab ownership/layout; version 4 adds navigation;
 // version 5 adds session-owned page creation; version 6 adds named profiles.
+// Version 7 adds memory-only private tabs in ephemeral Incognito Spaces.
 @protocol WMBrowserSurfaceOwner
 // Version 6. "shared" targets the initial regular profile. A UUID selects a
 // named workspace profile, created lazily without copying any browser data.

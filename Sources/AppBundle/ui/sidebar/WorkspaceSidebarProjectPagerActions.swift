@@ -117,6 +117,10 @@ extension WorkspaceSidebarProjectPager {
 
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
+        if project.id.isIncognito {
+            Text("Temporary private Space")
+            Text("Closes with its last private tab")
+        } else {
         Button("Rename Space") {
             onBeginRenameProject(project)
         }
@@ -154,5 +158,6 @@ extension WorkspaceSidebarProjectPager {
             Text("Delete Space")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
+        }
     }
 }

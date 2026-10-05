@@ -144,6 +144,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             guard !closed, data.count <= 1_048_576,
                   session.accept(epoch: epoch, sequence: sequence, minimumVersion: 2),
                   let message = try? JSONDecoder().decode(BrowserInventoryMessage.self, from: data),
+                  (session.version ?? 0) >= 7 || !message.tabs.contains(where: \.privateBrowsing),
                   inventory.apply(message) else { return (false, inventory.revision, false) }
             if message.full { fullMessages += 1 } else { deltaMessages += 1 }
 #if canImport(AppBundle)
@@ -155,7 +156,8 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 DispatchQueue.main.async { BrowserWorkspaceController.shared.received(snapshot, epoch: epochID, connection: id, protocolVersion: version) }
             }
 #endif
-            let startTest = testReport != nil && !sidebarEnabled && !testStarted && inventory.tabs.count == 2
+            let privateTest = inventory.tabs.count == 1 && inventory.tabs.values.allSatisfy(\.privateBrowsing)
+            let startTest = testReport != nil && !sidebarEnabled && !testStarted && (inventory.tabs.count == 2 || privateTest)
             if startTest { testStarted = true }
             return (true, inventory.revision, startTest)
         }
@@ -164,11 +166,34 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             writeTestReport()
             if result.2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
+                    if self.lock.withLock({ self.inventory.tabs.values.contains(where: \.privateBrowsing) }) {
+                        Task { await self.exercisePrivateTabs(epoch: epoch) }
+                    } else if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
                     else { self.exerciseActions(epoch: epoch) }
                 }
             }
         }
+    }
+
+    @MainActor private func exercisePrivateTabs(epoch: String) async {
+        guard let connection, let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner,
+              let original = lock.withLock({ inventory.tabs.values.first }), original.privateBrowsing else { return }
+        let remote = BrowserOwnerProxy(proxy)
+        let (outcome, created) = await testCreate(remote: remote, epoch: epoch, source: original.surfaceID)
+        noteTest("private_create", outcome)
+        guard let created, let current = await waitForTestInventory({ $0.tabs.count == 2 && $0.tabs[created]?.privateBrowsing == true }),
+              case .browserTab(let profile, _) = created,
+              case .browserTab(let originalProfile, _) = original.surfaceID else { return }
+        noteTest("private_profile_retained", profile == originalProfile && current.tabs.values.allSatisfy(\.privateBrowsing) ? "yes" : "no")
+        let hosts = [original.surfaceID, created].enumerated().map { index, id in
+            BrowserHostPlacement(containerID: UUID(), surfaces: [id], selected: id,
+                frame: .init(x: index * 600, y: 100, width: 600, height: 700), visible: true, nativeControls: true)
+        }
+        noteTest("private_layout", await testLayout(hosts, remote: remote, epoch: epoch, revision: current.revision, generation: 1))
+        let managed = await waitForTestInventory { $0.tabs.count == 2 && $0.tabs.values.allSatisfy { $0.privateBrowsing && $0.hostManaged } }
+        noteTest("private_managed", managed != nil ? "yes" : "no")
+        noteTest("private_close", await testAction("close", surface: created, remote: remote, epoch: epoch))
+        noteTest("private_cleanup", await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[original.surfaceID]?.privateBrowsing == true }) != nil ? "yes" : "no")
     }
 
     @MainActor private func testLayout(_ hosts: [BrowserHostPlacement], remote: BrowserOwnerProxy,
@@ -550,12 +575,12 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         return true
     }
 
-    @MainActor private func testCreate(remote: BrowserOwnerProxy, epoch: String, profile: UUID? = nil,
+    @MainActor private func testCreate(remote: BrowserOwnerProxy, epoch: String, profile: UUID? = nil, source: SurfaceID? = nil,
                                       url: String? = nil, operation: String = UUID().uuidString,
                                       revision: UInt64? = nil) async -> (String, SurfaceID?) {
         let current = revision ?? lock.withLock { inventory.revision }
         return await withCheckedContinuation { continuation in
-            remote.value.openBrowserTab(nil, profile: profile?.uuidString, url: url, epoch: epoch,
+            remote.value.openBrowserTab(source?.description, profile: profile?.uuidString, url: url, epoch: epoch,
                                         operation: operation, revision: current) { outcome, surface in
                 continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
             }

@@ -1,9 +1,23 @@
-# WinMux Views Trial with Automatic Startup — October 4, 2026
+# WinMux Views Trial: Incognito Spaces — October 5, 2026
 
 This trial uses the new tab-style model: each ordinary app window or browser tab
 starts in its own view and fills the usable desktop. Splits and stacks appear
 when you explicitly combine views. Each Space has its own Pinned area. Website
 favicons follow the current page, including the selected member of a stack.
+
+Private windows create a temporary **Incognito** Space for their off-the-record
+browser session. Private pages have purple window chrome and an eye-slash icon;
+the Space is marked temporary and its new-tab button opens a **New Private Tab**.
+Private sessions from different browser profiles use separate temporary Spaces.
+Closing the last private tab removes its Space and returns to a regular Space.
+Private tabs cannot be pinned or sent into regular Spaces, and regular tabs and
+apps cannot be sent into Incognito. Private tabs, group arrangements, selections,
+and Space metadata are excluded from saved workspace state. Reopening the trial
+does not restore a closed private session.
+
+Used groups disappear when their last item closes or moves away. A completely
+empty Space retains one blank view. Deliberately created, unused named groups,
+configured persistent groups, and groups containing minimized windows remain.
 
 The profile update adds named browser profiles that can be reused across Spaces.
 Use **Space → Manage Space → Browser Profile → New Profile…**, enter a name such
@@ -84,6 +98,12 @@ workspace manager.
   Selecting a view should fill the desktop without entering macOS fullscreen.
 - Combine two views with **Combine with…**, or drag one onto another and choose
   a split or stack. Try **Separate into Own View** to reverse it.
+- Close or move every item out of a group. Its empty row should disappear and
+  focus should move to another view; closing the last view leaves a blank Space.
+- Open an Incognito window with **Shift–Command–N**. Check the temporary Space,
+  private icon, purple chrome, and **New Private Tab** button. Close all private
+  tabs and confirm the Space disappears. Reopen the trial and confirm none of
+  those private pages or groups returns.
 - Pin a page and an app. Select them independently, combine pins, close and
   reopen a pin, and open a new tab while Pinned is active.
 - Navigate to another website and check the sidebar favicon. Check both the
@@ -127,7 +147,7 @@ the app. Do not merge browser profile folders.
 ## Build reproduction
 
 The signed package is produced with `browser/tools/package_alpha.py --views-trial`
-using the Chromium engine with version 6 profile routing. The package manifest records exact
+using the Chromium engine with version 7 private-tab routing. The package manifest records exact
 native source hashes and the helper binary hash. The transfer archive is extracted
 and compared against the signed bundle, including symlinks and executable bits.
 The performance findings are recorded in

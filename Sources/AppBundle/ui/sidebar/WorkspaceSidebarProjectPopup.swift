@@ -74,7 +74,7 @@ struct WorkspaceSidebarProjectPopup: View {
         .disabled(disabledProjectIds.contains(project.id))
         .frame(maxWidth: .infinity, alignment: .leading)
         .contextMenu {
-            if allowsContextMenu {
+            if allowsContextMenu && !project.id.isIncognito {
                 projectContextMenuItems(for: project)
             }
         }

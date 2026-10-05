@@ -7,10 +7,54 @@ import XCTest
 @MainActor final class WorkspaceViewsTest: XCTestCase {
     override func setUp() async throws {
         setUpWorkspacesForTests()
+        for window in macosMinimizedWindowsContainer.children { window.unbindFromParent() }
         config.workspaceInteractionMode = .views
     }
 
     override func tearDown() async throws { config.workspaceInteractionMode = .tiling }
+
+    func testClosingLastWindowRemovesUsedNamedGroupAndFocusesRemainingView() throws {
+        let used = focus.workspace
+        let closed = TestWindow.new(id: 210, parent: used.rootTilingContainer)
+        let remaining = createBlankWorkspace(projectId: used.projectId, monitor: mainMonitor)
+        _ = TestWindow.new(id: 211, parent: remaining.rootTilingContainer)
+        XCTAssertTrue(used.hasContainedItems)
+        closed.unbindFromParent()
+        XCTAssertFalse(isUserFacingWorkspace(used))
+        Workspace.reconcileWorkspaceState()
+        XCTAssertNil(Workspace.existing(byName: used.name))
+        XCTAssertTrue(focus.workspace === remaining)
+    }
+
+    func testMovingLastWindowPrunesAutomaticGroupButKeepsUnusedNamedGroup() {
+        let source = focus.workspace
+        source.markAsAutomaticallyNamed()
+        let window = TestWindow.new(id: 212, parent: source.rootTilingContainer)
+        let target = createBlankWorkspace(projectId: source.projectId, monitor: mainMonitor)
+        let named = Workspace.get(byName: "Intentional empty group")
+        window.bind(to: target.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        XCTAssertTrue(workspaceShouldRemoveEmptyView(source))
+        XCTAssertFalse(workspaceShouldRemoveEmptyView(named))
+        Workspace.reconcileWorkspaceState()
+        XCTAssertNil(Workspace.existing(byName: source.name))
+        XCTAssertTrue(focus.workspace === target)
+        XCTAssertNotNil(Workspace.existing(byName: named.name))
+    }
+
+    func testMinimizedMemberKeepsGroupAndLastClosedViewLeavesBlankSpace() {
+        let used = focus.workspace
+        let window = TestWindow.new(id: 213, parent: used.rootTilingContainer)
+        window.rememberMacOsLayoutOrigin()
+        window.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+        XCTAssertFalse(workspaceShouldRemoveEmptyView(used))
+        Workspace.reconcileWorkspaceState()
+        XCTAssertNotNil(Workspace.existing(byName: used.name))
+        window.unbindFromParent()
+        Workspace.reconcileWorkspaceState()
+        XCTAssertNil(Workspace.existing(byName: used.name))
+        XCTAssertTrue(focus.workspace.usesAutomaticDisplayName)
+        XCTAssertTrue(focus.workspace.isEffectivelyEmpty)
+    }
 
     func testModeIsOptInAndRejectsUnknownValues() {
         XCTAssertEqual(parseConfig("").0.workspaceInteractionMode, .tiling)

@@ -2,10 +2,18 @@ import BridgeCore
 import XCTest
 
 final class BridgeSessionTests: XCTestCase {
+    func testVersionSevenAllowsPrivateInventoryOnlyInNewEpoch() {
+        let current = BridgeSession(), previous = BridgeSession()
+        let epoch = current.negotiate(version: 7)!
+        XCTAssertTrue(current.accept(epoch: epoch, sequence: 1, minimumVersion: 7))
+        let old = previous.negotiate(version: 6)!
+        XCTAssertFalse(previous.accept(epoch: old, sequence: 1, minimumVersion: 7))
+        XCTAssertNil(previous.negotiate(version: 7))
+    }
     func testHandshakeRequiredAndUnsupportedVersionRejected() {
         let session = BridgeSession()
         XCTAssertFalse(session.accept(epoch: "invented", sequence: 1))
-        XCTAssertNil(session.negotiate(version: 7))
+        XCTAssertNil(session.negotiate(version: 8))
         let epoch = session.negotiate(version: 1)!
         XCTAssertTrue(session.accept(epoch: epoch, sequence: 1))
     }

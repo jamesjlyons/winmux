@@ -22,7 +22,7 @@ struct BrowserSurfaceAction {
 // immutable JSON to the asynchronous authenticated transport.
 void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string)> publisher,
                            bool seed_isolated_test);
-void BeginBrowserInventoryEpoch(std::string epoch);
+void BeginBrowserInventoryEpoch(std::string epoch, bool include_private);
 void StopBrowserInventory();
 std::string PerformBrowserLayout(const std::string& epoch, const std::string& operation,
                                  uint64_t revision, uint64_t generation, const std::string& json);
