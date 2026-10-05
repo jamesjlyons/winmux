@@ -803,7 +803,7 @@ do {
         }
         let application = BrowserWorkspaceApplication.shared
         let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil, openExistingWorkspace: openWorkspace)
-        application.setActivationPolicy(.regular)
+        application.setActivationPolicy(openWorkspace ? .accessory : .regular)
         application.delegate = setup
         withExtendedLifetime(setup) { application.run() }
         exit(0)

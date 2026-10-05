@@ -65,15 +65,16 @@ uses macOS 27.0.1. Other Mac and OS combinations remain to be tested.
    the app-specific **Privacy & Security → Open Anyway** flow described in
    [Apple's instructions](https://support.apple.com/en-us/102445). If a signature
    or damaged-app error persists, keep the exact error for diagnosis.
-6. **The workspace starts automatically when you open the app.** On first
-   launch, setup guides you through any missing permissions. Enable
+6. **Opening the app goes straight into the workspace.** There is no Setup,
+   Start Workspace, or Open Browser step during normal launch. If macOS needs
+   a permission, WinMux shows a focused permission prompt. Enable
    **WinMux Workspace** in **Privacy & Security → Accessibility** using the
-   setup window's button. If a macOS prompt does not appear, the button still
-   opens the correct Settings page. Return to setup; startup continues once
-   permission is granted.
-7. If setup asks for background-item approval, use **Open Login Items Settings**
-   and allow WinMux Workspace. Setup opens the managed browser when ready.
-   You can reopen setup later from the application's **Workspace Setup…** menu.
+   prompt's **Open System Settings** button. Launch continues automatically
+   once permission is granted; there is no additional Start button.
+7. If macOS requires background-item approval, WinMux shows the matching
+   permission prompt. Allow WinMux Workspace in Login Items & Extensions;
+   launch resumes automatically. **Workspace Setup…** remains available in
+   the application menu for optional diagnostics and stopping the workspace.
 
 The new model is enabled automatically in a fresh trial. It has its own profile,
 settings, and saved layout under
@@ -90,12 +91,11 @@ workspace manager.
 
 ## What to try
 
-- Open the app on a new Mac: setup should appear without an ordinary Chromium
-  window and automatically request Accessibility. It should explain the missing
-  permission; cancelling or closing setup must not start window management.
-  Grant permission and approve the background item if requested, then confirm
-  the managed browser opens. On later launches, the workspace should open
-  automatically without clicking Start.
+- Open the app on a new Mac: it should request only missing macOS permissions,
+  without an ordinary Chromium window or Workspace Setup screen. Cancelling
+  the permission prompt must cancel pending startup. Grant permissions and
+  confirm the workspace opens automatically. On later launches, it should go
+  directly to the workspace without showing Setup or requiring Start.
 
 - With Work and Personal profiles already created, quit and reopen the trial.
   The Chromium profile chooser should not appear. Saved pages should retain
