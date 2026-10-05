@@ -4,10 +4,18 @@ The staged alpha's application menu contains **Workspace Setup…**. Opening it
 does not enroll a helper or begin managing windows. Keep the staged package in a
 stable location while its workspace is active.
 
+Double-clicking the Views Trial starts its workspace automatically, using setup
+to request missing permissions. Its empty launcher does not open an ordinary
+Chromium window or contact the workspace service. If the workspace is already
+ready, setup opens the managed browser. Opening the setup menu manually does
+not start a stopped workspace.
+
 1. Quit standalone WinMux if it is running. Setup refuses to start alongside it;
    it does not quit another manager for you.
-2. Choose **Start Workspace**. Allow WinMux Workspace in macOS Login Items if
-   requested. Accessibility approval is also required by the native manager.
+2. Choose **Start Workspace**. Setup requests Accessibility and shows a direct
+   Settings button until it is granted. It continues the explicit start request
+   once permission is available; Cancel Start or closing setup cancels that
+   pending request. Allow WinMux Workspace in macOS Login Items if requested.
 3. A separate browser profile opens after the helper is ready. The sidebar can
    combine its browser tabs and native windows. Existing browser sessions remain
    separate. This profile starts without importing accounts or extensions.
@@ -28,11 +36,18 @@ session in `daily/native-state`. Its command socket uses the existing state-path
 hash under `/tmp`; the standalone CLI endpoint is not replaced. No original
 profile, config or session is copied, reset or migrated by Setup.
 
+New Views Trial workspaces use `WinMux Browser Views Trial Workspace` under
+Application Support. Existing marked workspaces retain their legacy
+`WinMux Browser Views Trial` directory. The launcher's default Chromium
+directory is separate, preventing an unmanaged browser launch from blocking
+workspace activation. Unmarked older browser directories are never adopted or
+deleted; malformed existing activation state still fails validation.
+
 The managed service is
 `com.jameslyons.winmux.browser.alpha.workspace.managed`, registered through
 `SMAppService` by the signed embedded helper application. The existing
 transport-only helper registration has a different service name and remains
-untouched. Launching Chromium normally continues to use that transport service.
+untouched. Ordinary non-trial Chromium launches continue to use that transport service.
 Only the separate profile launched by Setup uses the managed service.
 Registration remains active until Stop Workspace; macOS can start the registered
 agent again at login. Quit the browser independently when desired. To disable

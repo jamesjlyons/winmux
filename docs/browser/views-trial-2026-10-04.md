@@ -1,4 +1,4 @@
-# WinMux Views Trial with Profiles — October 4, 2026
+# WinMux Views Trial with Automatic Startup — October 4, 2026
 
 This trial uses the new tab-style model: each ordinary app window or browser tab
 starts in its own view and fills the usable desktop. Splits and stacks appear
@@ -34,7 +34,7 @@ uses macOS 27.0.1. Other Mac and OS combinations remain to be tested.
 ## Install and start
 
 1. Download the trial ZIP, `INSTALL.md`, `trial-manifest.json`, and `SHA256SUMS`
-   from the **WinMux Views Trial with Profiles — 2026-10-04** draft on the repository's
+   from the latest **WinMux Views Trial** draft on the repository's
    [Releases page](https://github.com/jamesjlyons/winmux/releases). Sign into the
    GitHub account that can access the draft releases.
 2. In Terminal, open the download folder and run `shasum -a 256 -c SHA256SUMS`.
@@ -48,14 +48,22 @@ uses macOS 27.0.1. Other Mac and OS combinations remain to be tested.
    the app-specific **Privacy & Security → Open Anyway** flow described in
    [Apple's instructions](https://support.apple.com/en-us/102445). If a signature
    or damaged-app error persists, keep the exact error for diagnosis.
-6. From the trial's application menu, choose **Workspace Setup…**, then
-   **Start Workspace**. Allow the workspace background item and Accessibility
-   permission if macOS requests them. The trial's managed browser opens when
-   startup completes.
+6. **The workspace starts automatically when you open the app.** On first
+   launch, setup guides you through any missing permissions. Enable
+   **WinMux Workspace** in **Privacy & Security → Accessibility** using the
+   setup window's button. If a macOS prompt does not appear, the button still
+   opens the correct Settings page. Return to setup; startup continues once
+   permission is granted.
+7. If setup asks for background-item approval, use **Open Login Items Settings**
+   and allow WinMux Workspace. Setup opens the managed browser when ready.
+   You can reopen setup later from the application's **Workspace Setup…** menu.
 
 The new model is enabled automatically in a fresh trial. It has its own profile,
 settings, and saved layout under
-`~/Library/Application Support/WinMux Browser Views Trial`. The download contains
+`~/Library/Application Support/WinMux Browser Views Trial Workspace`. Existing
+marked trial workspaces continue using their original
+`WinMux Browser Views Trial` folder. An unmarked browser folder created by an
+earlier failed first launch is left untouched. The download contains
 no browser profile, accounts, passwords, or session from the build machine.
 Only one WinMux workspace can manage native windows at a time.
 
@@ -64,6 +72,13 @@ profile distinguish the experiment; it is not intended to run beside the other
 workspace manager.
 
 ## What to try
+
+- Open the app on a new Mac: setup should appear without an ordinary Chromium
+  window and automatically request Accessibility. It should explain the missing
+  permission; cancelling or closing setup must not start window management.
+  Grant permission and approve the background item if requested, then confirm
+  the managed browser opens. On later launches, the workspace should open
+  automatically without clicking Start.
 
 - Open three pages and two ordinary app windows. Each should have its own view.
   Selecting a view should fill the desktop without entering macOS fullscreen.
@@ -87,7 +102,7 @@ workspace manager.
   should keep their original account.
 - Switch views repeatedly and immediately type in the selected page or app.
   Note any hesitation, missed keystroke, missing window, or size drift.
-- Stop the workspace, quit and reopen the trial, and start it again. Confirm
+- Stop the workspace, quit and reopen the trial. Confirm it starts automatically and
   its tabs, pins, and explicit arrangements return.
 
 Useful shortcuts: **Option–Command–T** opens a tab, **Command–L** selects its

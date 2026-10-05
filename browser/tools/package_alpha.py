@@ -204,7 +204,9 @@ def package(args, identity, team, source):
         data = plistlib.loads(info.read_bytes())
         data["CFBundleIdentifier"] = part.identifier
         if part.identifier == APP_ID:
-            data.update(CFBundleDisplayName=app_name, CFBundleName=app_name, CrProductDirName=app_name)
+            data.update(CFBundleDisplayName=app_name, CFBundleName=app_name,
+                        CrProductDirName=app_name + " Launcher" if views_trial else app_name,
+                        WinMuxWorkspaceViewsTrial=views_trial)
             for scheme in data.get("CFBundleURLTypes", []):
                 name = scheme.get("CFBundleURLName", "")
                 if name.startswith("org.chromium.Chromium"):

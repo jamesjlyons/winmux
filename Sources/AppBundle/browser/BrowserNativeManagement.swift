@@ -60,7 +60,7 @@ enum NativeManagementError: LocalizedError {
             case .invalidState: "Native activation requires a new directory or an existing isolated WinMux Browser state directory."
             case .anotherManager: "Another WinMux owns native windows. Quit that manager before activating the browser workspace."
             case .invalidProcess: "The explicitly scoped native process is no longer running."
-            case .lockUnavailable: "Could not acquire exclusive native workspace ownership."
+            case .lockUnavailable: "Could not acquire native workspace ownership. Stop any other running WinMux workspace before retrying."
             case .invalidConfiguration: "The isolated browser workspace configuration could not be loaded."
         }
     }
@@ -68,13 +68,14 @@ enum NativeManagementError: LocalizedError {
 
 /// A process-lifetime lease; never unlink a flock file (that would split owners).
 final class NativeManagementLease: @unchecked Sendable {
+    static let defaultPath = "/tmp/com.jameslyons.winmux.native-management-\(getuid()).lock"
     private let descriptor: Int32
     private let mutex = NSLock()
     private var revoked = false
     var isRevoked: Bool { mutex.withLock { revoked } }
     func revoke() { mutex.withLock { revoked = true } }
 
-    init(path: String = "/tmp/com.jameslyons.winmux.native-management-\(getuid()).lock") throws {
+    init(path: String = NativeManagementLease.defaultPath) throws {
         descriptor = open(path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw NativeManagementError.lockUnavailable }
         var info = stat()
@@ -83,6 +84,13 @@ final class NativeManagementLease: @unchecked Sendable {
             Darwin.close(descriptor)
             throw NativeManagementError.lockUnavailable
         }
+    }
+
+    /// Preflight only: the background helper acquires its own lifetime lease
+    /// again at startup, so a competing launch cannot bypass ownership checks.
+    static func checkAvailable(path: String = defaultPath) throws {
+        let lease = try NativeManagementLease(path: path)
+        withExtendedLifetime(lease) {}
     }
     deinit { Darwin.close(descriptor) }
 }
@@ -130,7 +138,10 @@ enum BrowserNativeManagement {
 /// Explicit only. Normal helper enrollment remains transport-only. An optional
 /// launch-bound PID scope permits live integration tests using only fixture windows.
 @MainActor
-public func checkBrowserNativeOwnership() throws { try BrowserNativeManagement.checkOwnership() }
+public func checkBrowserNativeOwnership() throws {
+    try BrowserNativeManagement.checkOwnership()
+    try NativeManagementLease.checkAvailable()
+}
 
 @MainActor
 public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: Int32? = nil,

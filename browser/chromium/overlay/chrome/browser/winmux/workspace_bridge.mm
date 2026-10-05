@@ -20,6 +20,7 @@
 namespace {
 NSString* const kBrowserID = @"com.jameslyons.winmux.browser.alpha";
 NSString* const kHelperID = @"com.jameslyons.winmux.browser.alpha.workspace";
+bool setup_launch = false;
 
 NSString* OwnTeam() {
   SecCodeRef code = nullptr;
@@ -94,10 +95,22 @@ NSString* OwnTeam() {
       @"Contents/Helpers/WinMux Workspace.app"];
   NSWorkspaceOpenConfiguration* configuration = [NSWorkspaceOpenConfiguration configuration];
   configuration.createsNewApplicationInstance = YES;
-  configuration.arguments = @[@"--workspace-setup"];
+  configuration.arguments = setup_launch ? @[@"--workspace-setup", @"--open-workspace"] : @[@"--workspace-setup"];
   [NSWorkspace.sharedWorkspace openApplicationAtURL:helper configuration:configuration
       completionHandler:^(NSRunningApplication* app, NSError* error) {
-        if (error) NSLog(@"WinMux Workspace Setup failed: %@", error.localizedDescription);
+        dispatch_async(dispatch_get_main_queue(), ^{
+          if (error) {
+            NSAlert* alert = [[NSAlert alloc] init];
+            alert.messageText = @"WinMux setup could not open";
+            alert.informativeText = [@"Keep WinMux Browser Views Trial in Applications and try again. "
+                stringByAppendingString:error.localizedDescription];
+            [alert runModal];
+          } else if (setup_launch) {
+            // Only the empty launcher exits. A managed browser opened through
+            // its setup menu must keep all its existing pages alive.
+            [NSApp terminate:nil];
+          }
+        });
       }];
 }
 
@@ -462,6 +475,20 @@ namespace winmux {
 namespace {
 WMChromiumWorkspaceBridge* bridge = nil;
 }
+void PrepareWorkspaceLaunch() {
+  auto* command = base::CommandLine::ForCurrentProcess();
+  setup_launch = [NSBundle.mainBundle.bundleIdentifier isEqualToString:kBrowserID] &&
+      [[NSBundle.mainBundle objectForInfoDictionaryKey:@"WinMuxWorkspaceViewsTrial"] boolValue] &&
+      !command->HasSwitch("user-data-dir") && !command->HasSwitch("headless") &&
+      !command->HasSwitch("winmux-managed-workspace") &&
+      !command->HasSwitch("winmux-register-helper") &&
+      !command->HasSwitch("winmux-test-service");
+  if (setup_launch) {
+    command->AppendSwitch("no-startup-window");
+    command->AppendSwitch("no-first-run");
+    command->AppendSwitch("no-default-browser-check");
+  }
+}
 void StartWorkspaceBridge() {
   // Raw control bundles never enroll or contact the alpha helper.
   if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:kBrowserID])
@@ -469,6 +496,13 @@ void StartWorkspaceBridge() {
   if (bridge)
     return;
   bridge = [[WMChromiumWorkspaceBridge alloc] init];
+  if (setup_launch) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [bridge installWorkspaceMenu];
+      [bridge openWorkspaceSetup:nil];
+    });
+    return;  // Setup owns activation; the launcher never connects or enrolls.
+  }
   const auto* command = base::CommandLine::ForCurrentProcess();
   bridge.reportPath = base::SysUTF8ToNSString(command->GetSwitchValueNative("winmux-bridge-report"));
   // Opt-in diagnostics record only protocol metadata, never page content.

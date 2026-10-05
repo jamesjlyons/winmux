@@ -764,11 +764,12 @@ do {
 #if canImport(AppBundle)
     if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
         let args = CommandLine.arguments
-        guard args.count == 2 || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
+        let openWorkspace = args.count == 3 && args[2] == "--open-workspace"
+        guard args.count == 2 || openWorkspace || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
             throw WorkspaceActivationError.invalidRequest
         }
         let application = BrowserWorkspaceApplication.shared
-        let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil)
+        let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil, openExistingWorkspace: openWorkspace)
         application.setActivationPolicy(.regular)
         application.delegate = setup
         withExtendedLifetime(setup) { application.run() }
@@ -840,6 +841,11 @@ do {
             let request = activation
             Task { @MainActor in
                 do {
+                    if let request {
+                        try WorkspaceActivationStore().writeStatus(.init(requestID: request.id,
+                            phase: AXIsProcessTrusted() ? "starting" : "needs_accessibility",
+                            helperPID: getpid(), helperLaunch: processLaunchDate(getpid())))
+                    }
                     try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
                         expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil,
                         viewsTrial: WorkspaceActivationStore.isViewsTrial)
@@ -879,5 +885,16 @@ do {
     }
 } catch {
     FileHandle.standardError.write(Data("Helper refused to start: \(error.localizedDescription)\n".utf8))
+#if canImport(AppBundle)
+    if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
+        let application = BrowserWorkspaceApplication.shared
+        application.setActivationPolicy(.regular)
+        application.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "WinMux setup could not start"
+        alert.informativeText = "Keep the complete WinMux app in Applications and open it again.\n\n" + error.localizedDescription
+        alert.runModal()
+    }
+#endif
     exit(1)
 }

@@ -93,9 +93,17 @@ public struct WorkspaceActivationStore: Sendable {
     public static var defaultRoot: URL {
         root(forViewsTrial: isViewsTrial)
     }
-    static func root(forViewsTrial trial: Bool) -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/" + (trial ? "WinMux Browser Views Trial" : "WinMux Browser Workspace Alpha"), isDirectory: true)
+    static func root(forViewsTrial trial: Bool, applicationSupport: URL =
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)) -> URL {
+        guard trial else { return applicationSupport.appendingPathComponent("WinMux Browser Workspace Alpha", isDirectory: true) }
+        let legacy = applicationSupport.appendingPathComponent("WinMux Browser Views Trial", isDirectory: true)
+        // Earlier builds also used this directory for an unmanaged Chromium
+        // profile. Keep actual workspace state; never adopt or delete that
+        // unmarked browser directory, or relax the store's ownership checks.
+        if ["workspace-activation-v1", "request.json", "status.json"].contains(where: {
+            FileManager.default.fileExists(atPath: legacy.appendingPathComponent($0).path)
+        }) { return legacy }
+        return applicationSupport.appendingPathComponent("WinMux Browser Views Trial Workspace", isDirectory: true)
     }
     public init(root: URL = Self.defaultRoot) throws {
         guard root.isFileURL, root.path.hasPrefix("/"),

@@ -156,7 +156,12 @@ The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.
 The resulting app is a private Apple Development build, not a notarized release.
-For the integrated workspace, use the application's **Workspace Setup…** menu
+The Views Trial starts its workspace automatically on launch, without an
+ordinary browser window. On first launch, setup requests Accessibility and
+background-item approval if needed, then opens the managed browser. Existing
+trial workspaces retain their saved profiles and state.
+
+For the integrated alpha, use the application's **Workspace Setup…** menu
 and [Start/Stop workflow](../docs/browser/workspace-setup.md). It creates its own
 profile and native state. Stop the old workspace and quit its browser before
 changing packages; keep the new app at its installed path while management is active.

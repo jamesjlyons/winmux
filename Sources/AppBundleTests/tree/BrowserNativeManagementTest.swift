@@ -50,6 +50,21 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), config)
     }
 
+    func testOwnershipPreflightReleasesItsLeaseAndDoesNotStealAnExistingLease() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try NativeManagementLease.checkAvailable(path: path)
+        do {
+            let owner = try NativeManagementLease(path: path)
+            try withExtendedLifetime(owner) {
+                XCTAssertThrowsError(try NativeManagementLease.checkAvailable(path: path))
+                XCTAssertFalse(owner.isRevoked)
+                XCTAssertThrowsError(try NativeManagementLease(path: path))
+            }
+        }
+        try NativeManagementLease.checkAvailable(path: path)
+    }
+
     func testFreshManagedDefaultsUseOriginalHierarchyAndCompactNeutralSidebar() throws {
         let parsed = parseConfig(BrowserNativeState.initialConfiguration)
         XCTAssertTrue(parsed.errors.isEmpty)

@@ -1,6 +1,7 @@
 #if canImport(AppBundle)
 import AppBundle
 import AppKit
+@preconcurrency import ApplicationServices
 import BridgeCore
 import Security
 import ServiceManagement
@@ -26,7 +27,8 @@ func containingBrowser() throws -> URL {
 }
 
 /// A distinct foreground setup instance; it never exports the workspace service
-/// or becomes a window manager itself. Opening this window does not activate anything.
+/// or becomes a window manager itself. The menu opens it for inspection; the
+/// normal app launcher additionally supplies an explicit startup request.
 @MainActor
 final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let browser: URL
@@ -39,6 +41,10 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let stopButton = NSButton(title: "Stop Workspace", target: nil, action: nil)
     let openButton = NSButton(title: "Open Browser", target: nil, action: nil)
     let approvalButton = NSButton(title: "Open Login Items Settings", target: nil, action: nil)
+    let accessibilityStatus = NSTextField(wrappingLabelWithString: "")
+    let accessibilityButton = NSButton(title: "Open Accessibility Settings", target: nil, action: nil)
+    var startIntent = WorkspaceSetupStartIntent()
+    var openExistingWorkspace: Bool
     var window: NSWindow!
     var timer: Timer?
     var busy = false
@@ -49,7 +55,8 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var isClosing = false
     var message: String?
 
-    init(fixturePID: Int32?) throws {
+    init(fixturePID: Int32?, openExistingWorkspace: Bool = false) throws {
+        self.openExistingWorkspace = openExistingWorkspace
         browser = try containingBrowser()
         store = try WorkspaceActivationStore()
         if let pid = fixturePID {
@@ -66,7 +73,7 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 330),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 590, height: 445),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         let viewsTrial = WorkspaceActivationStore.isViewsTrial
         window.title = fixture == nil ? (viewsTrial ? "WinMux Views Trial Setup" : "WinMux Workspace Setup") : "WinMux Workspace Setup — Fixture Validation"
@@ -76,17 +83,19 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         title.font = .boldSystemFont(ofSize: 20)
         let explanation = NSTextField(wrappingLabelWithString: fixture == nil
             ? (viewsTrial
-                ? "Each tab or app starts in its own view. Combine views when you want a split or stack. This trial uses a separate profile and settings. Stop any other WinMux workspace before starting."
+                ? "Each tab or app starts in its own view. WinMux starts automatically when you open the app. Complete the permissions below to continue. Stop any other WinMux workspace before starting."
                 : "Start a separate browser workspace with its own profile and settings. Quit standalone WinMux first. Your existing browser sessions stay open.")
             : "Validation manages only the two synthetic fixture windows, with a fresh browser profile. Your app windows stay outside this workspace.")
         let shortcuts = NSTextField(wrappingLabelWithString:
             "Option–J / K switches items. Option–Space changes the layout.\nStop Workspace restores native windows and leaves the browser open. You can then reopen standalone WinMux.")
-        for button in [startButton, stopButton, openButton, approvalButton] { button.target = self; button.bezelStyle = .rounded }
+        for button in [startButton, stopButton, openButton, approvalButton, accessibilityButton] { button.target = self; button.bezelStyle = .rounded }
         startButton.action = #selector(start); stopButton.action = #selector(stop)
         openButton.action = #selector(openBrowser); approvalButton.action = #selector(openApproval)
+        accessibilityButton.action = #selector(openAccessibility)
         let buttons = NSStackView(views: [startButton, openButton, stopButton])
         buttons.orientation = .horizontal; buttons.spacing = 10
-        let stack = NSStackView(views: [title, explanation, shortcuts, status, buttons, approvalButton])
+        let stack = NSStackView(views: [title, explanation, accessibilityStatus, accessibilityButton,
+                                      status, buttons, approvalButton, shortcuts])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)
@@ -97,6 +106,14 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ])
         refresh()
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        // A normal app launch is the user's start request. Opening the setup
+        // menu alone remains read-only, so stopping or inspecting is safe.
+        if openExistingWorkspace, startButton.isEnabled {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.isClosing, self.openExistingWorkspace, self.startButton.isEnabled else { return }
+                self.start()
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -110,6 +127,8 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func stopPolling() {
         isClosing = true
+        startIntent.cancel()
+        openExistingWorkspace = false
         automaticOpen = nil
         timer?.invalidate()
         timer = nil
@@ -159,6 +178,10 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         timer = nil
         guard !busy, !isClosing else { return }
         defer { scheduleNextRefresh() }
+        if startIntent.consumePermissionGrant(accessibilityGranted: AXIsProcessTrusted()) {
+            start()
+            return
+        }
         do {
             let request = try store.readRequest()
             let state = try store.readStatus()
@@ -169,29 +192,53 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let existingService = request.map { SMAppService.agent(plistName: $0.machService + ".plist") } ?? service
             let activeProcess = state.map { liveHelper($0, browserPath: request?.browserPath) != nil } ?? false
             let registered = existingService.status == .enabled || existingService.status == .requiresApproval || activeProcess
-            let ours = request == nil || (request?.browserPath == browser.path && request?.machService == serviceName)
+            let ours = request.map { $0.browserPath == browser.path && $0.machService == serviceName } ?? !registered
             let running = try ours && (request.map { try ready($0) } ?? false)
-            startButton.isEnabled = !registered
-            stopButton.isEnabled = registered && ours
+            let waitingForAccessibility = startIntent.awaitingAccessibility
+            let needsAccessibility = !running && (!AXIsProcessTrusted() ||
+                (state?.requestID == request?.id && state?.phase == "needs_accessibility"))
+            accessibilityStatus.stringValue = needsAccessibility
+                ? "Accessibility: required to arrange app windows. Enable WinMux Workspace in Privacy & Security → Accessibility."
+                : "Accessibility: allowed."
+            accessibilityButton.isHidden = !needsAccessibility
+            startButton.title = waitingForAccessibility ? "Waiting for Accessibility…" : "Start Workspace"
+            startButton.isEnabled = !registered && !waitingForAccessibility
+            stopButton.title = waitingForAccessibility ? "Cancel Start" : "Stop Workspace"
+            stopButton.isEnabled = waitingForAccessibility || (registered && ours)
             openButton.isEnabled = running
             approvalButton.isHidden = service.status != .requiresApproval
             if let message { status.stringValue = message }
             else if !ours && registered { status.stringValue = WorkspaceActivationError.differentPackage.localizedDescription }
+            else if waitingForAccessibility { status.stringValue = "Enable Accessibility, then return here. Startup will continue automatically." }
             else if service.status == .requiresApproval { status.stringValue = "Allow WinMux Workspace in Login Items, then return here." }
             else if running { status.stringValue = "Workspace is running. Its browser and saved layout are ready." }
             else if registered, let state, state.requestID == request?.id, state.phase == "failed" {
                 status.stringValue = "Workspace could not start: " + state.detail + " Stop Workspace before retrying."
+            } else if registered, needsAccessibility {
+                status.stringValue = "The workspace is waiting for Accessibility permission. Open Accessibility Settings to continue."
             } else { status.stringValue = registered ? "Waiting for workspace startup and macOS permissions…" : "Workspace is stopped. Existing apps and profiles are unchanged." }
-            if running, let request, automaticOpen == request.id {
+            if running, let request, automaticOpen == request.id || openExistingWorkspace {
                 automaticOpen = nil
-                try launchBrowser(request)
+                openExistingWorkspace = false
+                try launchBrowser(request, closeSetupWhenOpened: true)
             }
         } catch { status.stringValue = error.localizedDescription; startButton.isEnabled = false; openButton.isEnabled = false }
     }
 
     @objc func openApproval() { SMAppService.openSystemSettingsLoginItems() }
 
+    private func requestAccessibility() {
+        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+    }
+
+    @objc func openAccessibility() {
+        requestAccessibility()
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+    }
+
     @objc func start() {
+        defer { refresh() }
         do {
             let lock = try store.lock()
             defer { withExtendedLifetime(lock) {} }
@@ -204,6 +251,11 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
             try checkBrowserNativeOwnership()
+            guard startIntent.request(accessibilityGranted: AXIsProcessTrusted()) else {
+                requestAccessibility()
+                message = nil
+                return
+            }
             if let fixture {
                 guard let app = NSRunningApplication(processIdentifier: fixture.pid), !app.isTerminated,
                       processLaunchDate(fixture.pid) == fixture.launch else { throw WorkspaceActivationError.invalidRequest }
@@ -218,11 +270,17 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             automaticOpenStartedAt = ProcessInfo.processInfo.systemUptime
             message = nil
         } catch { message = error.localizedDescription }
-        refresh()
     }
 
     @objc func stop() {
         guard !busy else { return }
+        openExistingWorkspace = false
+        if startIntent.awaitingAccessibility {
+            startIntent.cancel()
+            message = nil
+            refresh()
+            return
+        }
         busy = true; automaticOpen = nil
         timer?.invalidate()
         timer = nil
@@ -258,7 +316,7 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } catch { message = error.localizedDescription }
     }
 
-    func launchBrowser(_ request: WorkspaceActivation) throws {
+    func launchBrowser(_ request: WorkspaceActivation, closeSetupWhenOpened: Bool = false) throws {
         guard try ready(request) else { throw WorkspaceActivationError.unavailable }
         try store.prepareDirectories(for: request)
         let configuration = NSWorkspace.OpenConfiguration()
@@ -278,8 +336,16 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             try Data("<!doctype html><title>WinMux Workspace Validation</title><h1>Workspace validation</h1><input aria-label='Retained input'>".utf8).write(to: page, options: .atomic)
             configuration.arguments.append(page.absoluteString)
         } else { configuration.arguments.append("--winmux-managed-workspace") }
+        busy = true
+        startButton.isEnabled = false; stopButton.isEnabled = false; openButton.isEnabled = false
         NSWorkspace.shared.openApplication(at: browser, configuration: configuration) { [weak self] _, error in
-            if let error { Task { @MainActor in self?.message = error.localizedDescription; self?.refresh() } }
+            Task { @MainActor in
+                guard let self else { return }
+                self.busy = false
+                if let error { self.message = error.localizedDescription; self.refresh() }
+                else if closeSetupWhenOpened { self.window.close() }
+                else { self.refresh() }
+            }
         }
     }
 }
