@@ -70,8 +70,11 @@ def verify_profile_storage(profile_root, observations, resumed):
         preferences = json.loads((root / "Preferences").read_text())
         if name != "shared":
             assert preferences["winmux"]["profile_uuid"] == directory.removeprefix("WinMux Profile ")
+            assert preferences["profile"]["name"] == name.title()
+            assert preferences["profile"]["using_default_name"] is False
         history[name] = len(fixture_urls)
-    return {"cookies_isolated": True, "history_isolated": True, "history_entries": history, "resumed": resumed}
+    return {"cookies_isolated": True, "history_isolated": True, "names_and_identities_preserved": True,
+            "history_entries": history, "resumed": resumed}
 
 
 def main():

@@ -1,4 +1,4 @@
-# WinMux Views Trial — October 4, 2026
+# WinMux Views Trial with Profiles — October 4, 2026
 
 This trial uses the new tab-style model: each ordinary app window or browser tab
 starts in its own view and fills the usable desktop. Splits and stacks appear
@@ -29,7 +29,7 @@ uses macOS 27.0.1. Other Mac and OS combinations remain to be tested.
 ## Install and start
 
 1. Download the trial ZIP, `INSTALL.md`, `trial-manifest.json`, and `SHA256SUMS`
-   from the **WinMux Views Trial — 2026-10-04** draft on the repository's
+   from the **WinMux Views Trial with Profiles — 2026-10-04** draft on the repository's
    [Releases page](https://github.com/jamesjlyons/winmux/releases). Sign into the
    GitHub account that can access the draft releases.
 2. In Terminal, open the download folder and run `shasum -a 256 -c SHA256SUMS`.
