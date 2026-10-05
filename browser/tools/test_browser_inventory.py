@@ -143,6 +143,8 @@ def main():
     command += (["--winmux-sidebar-preview"] if args.native_window_controls else
                 ["--headless=new", "--winmux-bridge-test-disconnect-once"])
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
+    if args.private:
+        command += ["--winmux-tab-report=" + str(output / "private-identities.jsonl")]
     command += ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
                 "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
@@ -283,6 +285,10 @@ def main():
             server.shutdown()
             server.server_close()
             result["profile_cookie_observations"] = server.observations
+            if args.private:
+                identities = output / "private-identities.jsonl"
+                result["private_identity_diagnostics_empty"] = not identities.exists() or identities.stat().st_size == 0
+                result["passed"] = result["passed"] and result["private_identity_diagnostics_empty"]
             if result["passed"] and not args.private:
                 try:
                     result["profile_isolation"] = verify_profile_storage(profile_root, server.observations, bool(args.resume_profiles_from))
