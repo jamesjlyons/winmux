@@ -534,7 +534,12 @@ public final class BrowserWorkspaceController {
         func collect(_ item: WorkspaceSidebarItemViewModel) {
             switch item.kind {
             case .window(let window):
-                if let owner = Window.get(bySurfaceID: window.surfaceID), !participatesInSharedTiling(owner) {
+                // Title reads suspend. A window may have moved into Pinned
+                // since this row was captured; never reconcile it back into
+                // the old workspace using that stale snapshot.
+                guard let owner = Window.get(bySurfaceID: window.surfaceID),
+                      owner.nodeWorkspace?.name == workspace else { return }
+                if !participatesInSharedTiling(owner) {
                     nativeOnlyRows.append(item)
                     return
                 }

@@ -1,9 +1,45 @@
 @testable import AppBundle
 import XCTest
+import WorkspaceCore
 
 @MainActor
 final class WindowMoveMenuTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
+
+    func testViewsDestinationsExcludeStandaloneAppsAndTabsButKeepCombinedAndEmptyNamedGroups() throws {
+        let controller = BrowserWorkspaceController.shared
+        controller.usesSurfaceTree = true
+        config.workspaceInteractionMode = .views
+        defer {
+            controller.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+            controller.usesSurfaceTree = false
+            config.workspaceInteractionMode = .tiling
+        }
+        let singleApp = Workspace.get(byName: "single-app")
+        let window = TestWindow.new(id: 82005, parent: singleApp.rootTilingContainer)
+        let singleTab = Workspace.get(byName: "single-tab")
+        let tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let combined = Workspace.get(byName: "combined")
+        let first = TestWindow.new(id: 82006, parent: combined.rootTilingContainer)
+        let second = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let empty = Workspace.get(byName: "empty-group")
+        var tree = SurfaceTree()
+        tree.reconcile([window.surfaceID], in: singleApp.name)
+        tree.reconcile([tab], in: singleTab.name)
+        tree.reconcile([first.surfaceID, second], in: combined.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+
+        let groups = Set(windowMoveMenuDestinations().flatMap(\.groups).map(\.id))
+        XCTAssertFalse(groups.contains(singleApp.name))
+        XCTAssertFalse(groups.contains(singleTab.name))
+        XCTAssertTrue(groups.contains(combined.name))
+        XCTAssertTrue(groups.contains(empty.name))
+
+        config.workspaceInteractionMode = .tiling
+        let traditional = Set(windowMoveMenuDestinations().flatMap(\.groups).map(\.id))
+        XCTAssertTrue(traditional.contains(singleApp.name))
+        XCTAssertTrue(traditional.contains(singleTab.name))
+    }
 
     func testDestinationsIncludeInactiveAndEmptySpacesInSavedOrderWithoutSidebar() throws {
         config.workspaceSidebar.enabled = false
