@@ -372,7 +372,7 @@ public final class BrowserWorkspaceController {
             .map { record in .init(kind: .browserTab(.init(
                 surfaceID: record.surfaceID, workspaceName: workspace,
                 title: record.title.isEmpty ? "New tab" : record.title,
-                isFocused: focusCoordinator.target == record.surfaceID))) }
+                isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64))) }
     }
 
     @discardableResult
@@ -494,7 +494,7 @@ public final class BrowserWorkspaceController {
                 let path = browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
                 available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
                     title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path)))
+                    appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path, iconPNGBase64: tab.iconPNGBase64)))
             case .tabGroup(let group):
                 nativeGroups.append(group.tabs.map(\.surfaceID))
                 group.tabs.forEach { collect(.init(kind: .window($0))) }

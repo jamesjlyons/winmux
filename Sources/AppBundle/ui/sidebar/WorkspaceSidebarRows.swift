@@ -22,6 +22,7 @@ struct WorkspaceSidebarWindowRow: View {
     let style: Style
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
+    var favicons: [String?] = []
     var fallbackSystemImage: String = "app"
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
@@ -77,13 +78,16 @@ struct WorkspaceSidebarWindowRow: View {
         }
     }
 
-    private var appIconInputs: [(String?, String?)] {
-        Array(zip(appBundleIds, appBundlePaths)).filter { $0.0 != nil || $0.1 != nil }
+    private var appIconInputs: [(String?, String?, String?)] {
+        (0..<max(appBundleIds.count, appBundlePaths.count, favicons.count)).map { index in
+            (appBundleIds.getOrNil(atIndex: index) ?? nil, appBundlePaths.getOrNil(atIndex: index) ?? nil,
+             favicons.getOrNil(atIndex: index) ?? nil)
+        }.filter { $0.0 != nil || $0.1 != nil || $0.2 != nil }
     }
 
-    private func appIcon(_ input: (String?, String?)) -> some View {
+    private func appIcon(_ input: (String?, String?, String?)) -> some View {
         Group {
-            if let icon = appIconImage(bundleIdentifier: input.0, bundlePath: input.1) {
+            if let icon = workspaceSidebarIconImage(favicon: input.2, bundleIdentifier: input.0, bundlePath: input.1) {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)

@@ -323,7 +323,7 @@ extension BrowserWorkspaceController {
         var tiles = browserPins.map { pin in
             let record = pin.surfaceID.flatMap { owner(of: $0)?.inventory.tabs[$0] }
             return WorkspaceSidebarPinViewModel(id: pin.id, workspaceName: workspace, title: record?.title ?? pin.title,
-                bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: pin.iconPNGBase64,
+                bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: record != nil ? record?.iconPNGBase64 : pin.iconPNGBase64,
                 surfaceID: pin.surfaceID, isFocused: pin.surfaceID.map { focusCoordinator.target == $0 && record != nil } ?? false,
                 isOpen: record != nil, isLoading: pendingSidebarPinOpenings.contains(pin.id), isUnavailable: false, isBrowser: true, url: pin.url)
         }

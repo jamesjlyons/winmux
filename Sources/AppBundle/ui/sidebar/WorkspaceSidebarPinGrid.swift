@@ -110,34 +110,12 @@ struct WorkspaceSidebarPinGrid: View {
 
     @ViewBuilder
     private func pinIcon(_ pin: WorkspaceSidebarPinViewModel) -> some View {
-        if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarPinImageCache.shared.image(for: encoded) {
+        if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarFaviconCache.shared.image(for: encoded) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else if !pin.isBrowser, let icon = appIconImage(bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else {
             Image(systemName: pin.isBrowser ? "globe" : "app.dashed").font(.system(size: 20))
         }
-    }
-}
-
-/// Hover and focus changes redraw the grid frequently. Decode each favicon once,
-/// with bounded storage, instead of allocating an image for every tile render.
-@MainActor
-final class WorkspaceSidebarPinImageCache {
-    static let shared = WorkspaceSidebarPinImageCache()
-    private let images = NSCache<NSString, NSImage>()
-
-    init() {
-        images.countLimit = 256
-        images.totalCostLimit = 8 * 1024 * 1024
-    }
-
-    func image(for encoded: String) -> NSImage? {
-        let key = encoded as NSString
-        if let cached = images.object(forKey: key) { return cached }
-        guard let data = Data(base64Encoded: encoded), let image = NSImage(data: data) else { return nil }
-        let decodedBytes = image.representations.reduce(0) { $0 + $1.pixelsWide * $1.pixelsHigh * 4 }
-        images.setObject(image, forKey: key, cost: max(data.count, decodedBytes))
-        return image
     }
 }

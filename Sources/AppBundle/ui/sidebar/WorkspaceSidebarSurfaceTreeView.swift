@@ -59,6 +59,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 isHovered: isHovered || selectedSearchTarget == .surface(surface.surfaceID),
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [surface.appBundleId], appBundlePaths: [surface.appBundlePath],
+                favicons: [surface.iconPNGBase64],
                 fallbackSystemImage: surface.isBrowser ? "globe" : "app"
             )
             .padding(.leading, leadingHitInset)
@@ -111,8 +112,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 isFocused: surfaces.contains(where: \.isFocused), suppressFocusedStyle: isSearchFiltering,
                 rowHeight: workspaceSidebarWorkspaceRowHeight,
                 isHovered: isHovered || representative.map { selectedSearchTarget == .surface($0.surfaceID) } == true,
-                style: .tabGroupHeader, appBundleIds: surfaces.map(\.appBundleId),
-                appBundlePaths: surfaces.map(\.appBundlePath), fallbackSystemImage: "square.stack"
+                style: .tabGroupHeader, appBundleIds: [representative?.appBundleId],
+                appBundlePaths: [representative?.appBundlePath], favicons: [representative?.iconPNGBase64],
+                fallbackSystemImage: "square.stack"
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)

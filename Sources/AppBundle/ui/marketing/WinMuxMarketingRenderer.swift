@@ -10,6 +10,15 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
     let previousMode = config.workspaceInteractionMode
     config.workspaceInteractionMode = .views
     defer { config.workspaceInteractionMode = previousMode }
+    let websiteIcon = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
+        NSColor.systemTeal.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+        ("W" as NSString).draw(at: NSPoint(x: 5, y: 4), withAttributes: [
+            .font: NSFont.boldSystemFont(ofSize: 23), .foregroundColor: NSColor.white,
+        ])
+        return true
+    }
+    let favicon = websiteIcon.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) }?.base64EncodedString()
     for light in [false, true] {
         for width: CGFloat in [240, 140, 40] {
             var snapshot = MarketingFixtures.sidebarSnapshot
@@ -21,6 +30,9 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
             let items = [surface("Project notes", app: "Notes", bundle: "com.apple.Notes"),
                 surface("Implementation", app: "Xcode", bundle: "com.apple.dt.Xcode"),
                 surface("Reference documentation", app: "Safari", bundle: "com.apple.Safari")]
+            let website = WorkspaceSidebarItemViewModel(kind: .surface(.init(
+                surfaceID: .browserTab(profile: UUID(), tab: UUID()), title: "Website reference", appName: "WinMux Browser",
+                isFocused: false, appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: favicon)))
             func workspace(_ name: String, title: String, items: [WorkspaceSidebarItemViewModel], focused: Bool) -> WorkspaceSidebarWorkspaceViewModel {
                 .init(name: name, projectId: snapshot.activeProjectId, displayName: title, sidebarLabel: "", isGeneratedName: true,
                     monitorScopeId: original.monitorScopeId, monitorName: nil, isFocused: focused, isVisible: focused,
@@ -33,6 +45,7 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
                 isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: false)]
             snapshot.workspaces = [pins,
                 workspace("proof-notes", title: "Project notes", items: [items[0]], focused: false),
+                workspace("proof-web", title: "Website reference", items: [website], focused: false),
                 workspace("proof-build", title: "Implementation + Reference documentation", items: Array(items.dropFirst()), focused: true)]
             snapshot.configuration.expandedWidth = width < 120 ? 240 : width
             snapshot.configuration.collapsedWidth = 40

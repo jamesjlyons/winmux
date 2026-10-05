@@ -431,7 +431,7 @@ extension WorkspaceSidebarWorkspaceSection {
             case .browserTab(let tab):
                 sharedSurfaceItemView(.init(kind: .surface(.init(
                     surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha"
+                    appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64
                 ))))
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
@@ -547,8 +547,9 @@ extension WorkspaceSidebarWorkspaceSection {
             Button(action: handleSectionClick) {
                 if isCompact {
                     Group {
-                        if workspace.isSingleWindowView, let surface = workspace.viewSurfaces.first,
-                           let icon = appIconImage(bundleIdentifier: surface.appBundleId, bundlePath: surface.appBundlePath) {
+                        if let surface = viewIconSurface,
+                           let icon = workspaceSidebarIconImage(favicon: surface.iconPNGBase64,
+                                bundleIdentifier: surface.appBundleId, bundlePath: surface.appBundlePath) {
                             Image(nsImage: icon).resizable().scaledToFit().frame(width: 18, height: 18)
                         } else {
                             Image(systemName: workspace.isSingleWindowView ? "globe" : "rectangle.split.2x1")
@@ -561,8 +562,9 @@ extension WorkspaceSidebarWorkspaceSection {
                         rowHeight: workspaceSidebarWorkspaceRowHeight,
                         isHovered: isHovered || isSearchSelectedWorkspace,
                         style: workspace.isSingleWindowView ? .window : .tabGroupHeader,
-                        appBundleIds: workspace.viewSurfaces.map(\.appBundleId),
-                        appBundlePaths: workspace.viewSurfaces.map(\.appBundlePath), fallbackSystemImage: "globe")
+                        appBundleIds: viewIconSurfaces.map(\.appBundleId),
+                        appBundlePaths: viewIconSurfaces.map(\.appBundlePath),
+                        favicons: viewIconSurfaces.map(\.iconPNGBase64), fallbackSystemImage: "globe")
                 }
             }
             .buttonStyle(.plain)
@@ -592,6 +594,18 @@ extension WorkspaceSidebarWorkspaceSection {
                         isEnabled: allowsWorkspaceReordering, actions: actions))
             }
         }
+    }
+
+    private var viewIconSurface: WorkspaceSidebarSurfaceItem? {
+        let complete = TrayMenuModel.shared.workspaceSidebarWorkspaces.first { $0.name == workspace.name } ?? workspace
+        if complete.isSingleWindowView { return complete.viewSurfaces.first }
+        guard complete.items.count == 1, case .surfaceGroup(let id, _) = complete.items[0].kind else { return nil }
+        return workspaceSidebarSurfaceStackRepresentative(complete.viewSurfaces,
+            activeSurfaceID: BrowserWorkspaceController.shared.surfaceTree.activeSurfaces[id])
+    }
+
+    private var viewIconSurfaces: [WorkspaceSidebarSurfaceItem] {
+        viewIconSurface.map { [$0] } ?? workspace.viewSurfaces
     }
 
     @ViewBuilder
