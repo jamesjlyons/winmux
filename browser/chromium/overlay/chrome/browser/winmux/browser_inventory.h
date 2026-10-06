@@ -23,6 +23,7 @@ void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string
                            bool seed_isolated_test);
 void BeginBrowserInventoryEpoch(std::string epoch);
 void StopBrowserInventory();
+void RefreshBrowserInventory();
 std::string PerformBrowserLayout(const std::string& epoch, const std::string& operation,
                                  uint64_t revision, uint64_t generation, const std::string& json);
 void ReleaseBrowserLayout();
@@ -31,6 +32,8 @@ void ReleaseBrowserLayout();
 using BrowserTabCreationCallback = base::OnceCallback<void(std::string, std::string)>;
 void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
                     BrowserTabCreationCallback completion);
+using BrowserActionCallback = base::OnceCallback<void(std::string)>;
+void PerformBrowserSurfaceActionAsync(const std::string& epoch, BrowserSurfaceAction request, BrowserActionCallback completion);
 std::string PerformBrowserSurfaceAction(const std::string& epoch,
                                         BrowserSurfaceAction request);
 }  // namespace winmux

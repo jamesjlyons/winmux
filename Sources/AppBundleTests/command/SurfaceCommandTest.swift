@@ -107,6 +107,41 @@ import XCTest
         XCTAssertEqual(malformed.exitCode, 1)
     }
 
+    func testPinCommandCreatesDedicatedDesktopAndUnpinRetainsItsLayout() async throws {
+        let regular = focus.workspace.name
+        try await checkCommand(["surface", "pin", tab.description])
+        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        XCTAssertNotEqual(desktop.workspaceName, regular)
+        XCTAssertEqual(controller.workspaceName(for: tab), desktop.workspaceName)
+        XCTAssertEqual(Window.get(byId: 71)?.nodeWorkspace?.name, regular)
+        let tree = controller.surfaceTree
+        let result = try await run(["surface", "list"])
+        let rows = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(result.stdout.joined().utf8)) as? [[String: Any]])
+        let row = try XCTUnwrap(rows.first { $0["id"] as? String == tab.description })
+        XCTAssertEqual(row["pinnedDesktopID"] as? String, desktop.id.uuidString)
+        XCTAssertEqual((row["browser"] as? [String: Any])?["lifecycle"] as? String, "active")
+        try await checkCommand(["surface", "unpin", tab.description])
+        XCTAssertTrue(controller.pinnedDesktops.isEmpty)
+        XCTAssertEqual(controller.surfaceTree, tree)
+        XCTAssertTrue(controller.isAvailable(tab))
+        try await checkCommand(["surface", "unpin", tab.description], exit: 1)
+    }
+
+    func testPinCommandKeepsExplicitGroupAndExcludesOtherRoots() async throws {
+        let other = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        controller.received(.init(revision: 2, full: false, tabs: [.init(surfaceID: other, hostID: "other", title: "Other", selected: false)]),
+                            epoch: try XCTUnwrap(controller.owner(of: tab)?.epoch), connection: connection, protocolVersion: 3)
+        _ = controller.organizedRows(native: [], in: focus.workspace.name)
+        try await checkCommand(["surface", "group", tab.description, other.description, "horizontal"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        try await checkCommand(["surface", "pin", tab.description])
+        XCTAssertEqual(controller.pinnedDesktops.first?.memberIDs.count, 2)
+        XCTAssertEqual(controller.workspaceName(for: tab), controller.workspaceName(for: other))
+        XCTAssertEqual(controller.surfaceTree.containingGroup(of: other), group)
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .horizontal)
+        XCTAssertNotEqual(controller.workspaceName(for: tab), Window.get(byId: 71)?.nodeWorkspace?.name)
+    }
+
     func testSocketListingPreservesBrowserSelectionWithoutLayoutOrDiscovery() async throws {
         appForTests = nil
         TrayMenuModel.shared.isEnabled = true

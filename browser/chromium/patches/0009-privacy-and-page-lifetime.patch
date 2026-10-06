@@ -1,0 +1,911 @@
+diff --git a/chrome/app/chrome_crash_reporter_client.cc b/chrome/app/chrome_crash_reporter_client.cc
+index f0c0ff0871ee92a9ae7f4c634372cf0a550321d0..fb272caf262e817c50893564b04ef11ea6ef1087 100644
+--- a/chrome/app/chrome_crash_reporter_client.cc
++++ b/chrome/app/chrome_crash_reporter_client.cc
+@@ -169,6 +169,9 @@ bool ChromeCrashReporterClient::IsRunningUnattended() {
+ }
+ 
+ bool ChromeCrashReporterClient::GetCollectStatsConsent() {
++#if BUILDFLAG(IS_MAC)
++  return false;
++#else
+ #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+   bool is_official_chrome_build = true;
+ #else
+@@ -205,6 +208,7 @@ bool ChromeCrashReporterClient::GetCollectStatsConsent() {
+           << " so returning that";
+   return settings_consent;
+ #endif  // BUILDFLAG(IS_ANDROID)
++#endif  // BUILDFLAG(IS_MAC)
+ }
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+diff --git a/chrome/app/chrome_crash_reporter_client_mac.mm b/chrome/app/chrome_crash_reporter_client_mac.mm
+index fd615c86084730bee69c4db74e4ea52c02397e72..f06c58b85fac259fc07f411cf7004784ac7c1f4e 100644
+--- a/chrome/app/chrome_crash_reporter_client_mac.mm
++++ b/chrome/app/chrome_crash_reporter_client_mac.mm
+@@ -17,17 +17,9 @@
+ 
+ bool ChromeCrashReporterClient::ReportingIsEnforcedByPolicy(
+     bool* breakpad_enabled) {
+-  base::apple::ScopedCFTypeRef<CFStringRef> key =
+-      base::SysUTF8ToCFStringRef(policy::key::kMetricsReportingEnabled);
+-  Boolean key_valid;
+-  Boolean metrics_reporting_enabled = CFPreferencesGetAppBooleanValue(
+-      key.get(), kCFPreferencesCurrentApplication, &key_valid);
+-  if (key_valid && CFPreferencesAppValueIsForced(
+-                       key.get(), kCFPreferencesCurrentApplication)) {
+-    *breakpad_enabled = metrics_reporting_enabled;
+-    return true;
+-  }
+-  return false;
++  // Never inherit an OS-level Chrome upload policy or previous database consent.
++  *breakpad_enabled = false;
++  return true;
+ }
+ 
+ bool ChromeCrashReporterClient::ShouldMonitorCrashHandlerExpensively() {
+diff --git a/chrome/app/chrome_main_delegate.cc b/chrome/app/chrome_main_delegate.cc
+index 5655d73273aa361b224cc4e5efd74a22e80413ab..9d058a31d2f0b3f88eec16ee30e0f8a7f778d6a1 100644
+--- a/chrome/app/chrome_main_delegate.cc
++++ b/chrome/app/chrome_main_delegate.cc
+@@ -1101,6 +1101,11 @@ void ChromeMainDelegate::SetupTracing() {
+ }
+ 
+ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
++#if BUILDFLAG(IS_MAC)
++  // Before crash reporting and metrics service construction, including direct launches.
++  for (const char* flag : {"disable-breakpad", "metrics-recording-only", "disable-domain-reliability", "disable-sync", "disable-background-networking"})
++    base::CommandLine::ForCurrentProcess()->AppendSwitch(flag);
++#endif
+ #if BUILDFLAG(IS_CHROMEOS)
+   ash::BootTimesRecorder::Get()->SaveChromeMainStats();
+ #endif
+diff --git a/chrome/browser/chrome_browser_main_mac.mm b/chrome/browser/chrome_browser_main_mac.mm
+index 3dc042cd7c9937a0e637b0ece95769ac5879637c..634c470c0ef2c2eb53584dd47246392f606c59df 100644
+--- a/chrome/browser/chrome_browser_main_mac.mm
++++ b/chrome/browser/chrome_browser_main_mac.mm
+@@ -29,6 +29,7 @@
+ #import "chrome/browser/chrome_browser_application_mac.h"
+ #include "chrome/browser/first_run/first_run.h"
+ #include "chrome/browser/winmux/workspace_bridge.h"
++#include "chrome/browser/winmux/privacy_settings.h"
+ #include "chrome/browser/mac/install_from_dmg.h"
+ #include "chrome/browser/mac/metrics.h"
+ #include "chrome/browser/ui/cocoa/main_menu_builder.h"
+@@ -81,6 +82,7 @@
+ ChromeBrowserMainPartsMac::~ChromeBrowserMainPartsMac() = default;
+ 
+ int ChromeBrowserMainPartsMac::PreEarlyInitialization() {
++  winmux::PreparePrivacyStartup();
+   if (base::mac::WasLaunchedAsLoginItemRestoreState()) {
+     base::CommandLine* singleton_command_line =
+         base::CommandLine::ForCurrentProcess();
+@@ -180,6 +182,7 @@
+ void ChromeBrowserMainPartsMac::PostProfileInit(Profile* profile,
+                                                 bool is_initial_profile) {
+   ChromeBrowserMainPartsPosix::PostProfileInit(profile, is_initial_profile);
++  winmux::ApplyPrivacyProfile(profile);
+   if (is_initial_profile)
+     winmux::StartWorkspaceBridge();
+ }
+diff --git a/chrome/browser/extensions/chrome_extensions_browser_client.cc b/chrome/browser/extensions/chrome_extensions_browser_client.cc
+index 0f89eff01970621556641ffd4647c0769bf57ddf..21b2564dd75efed57ea4807f826483296d30783d 100644
+--- a/chrome/browser/extensions/chrome_extensions_browser_client.cc
++++ b/chrome/browser/extensions/chrome_extensions_browser_client.cc
+@@ -607,8 +607,12 @@ ExtensionCache* ChromeExtensionsBrowserClient::GetExtensionCache() {
+ }
+ 
+ bool ChromeExtensionsBrowserClient::IsBackgroundUpdateAllowed() {
++#if BUILDFLAG(IS_MAC)
++  return !base::CommandLine::ForCurrentProcess()->HasSwitch("winmux-disable-extension-updates");
++#else
+   return !base::CommandLine::ForCurrentProcess()->HasSwitch(
+       ::switches::kDisableBackgroundNetworking);
++#endif
+ }
+ 
+ bool ChromeExtensionsBrowserClient::IsMinBrowserVersionSupported(
+diff --git a/chrome/browser/net/BUILD.gn b/chrome/browser/net/BUILD.gn
+index 04ca8424ae65cbd228cb445e36b86eb23271173d..6e242fceb1d6c0827d8452fdbc820a45d9f8e3a9 100644
+--- a/chrome/browser/net/BUILD.gn
++++ b/chrome/browser/net/BUILD.gn
+@@ -166,6 +166,7 @@ source_set("impl") {
+   ]
+ 
+   deps = [
++    "//components/winmux/blocking:engine",
+     ":key_pinning_proto",
+     "//base:build_time",
+     "//chrome/browser:browser_features",
+diff --git a/chrome/browser/net/profile_network_context_service.cc b/chrome/browser/net/profile_network_context_service.cc
+index c9ae7f58abdc9e650501363db9da48231ffecc15..591468b9ab45e9fa6cd8b35fcbd735d9708b7b89 100644
+--- a/chrome/browser/net/profile_network_context_service.cc
++++ b/chrome/browser/net/profile_network_context_service.cc
+@@ -3,6 +3,9 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/net/profile_network_context_service.h"
++#if BUILDFLAG(IS_MAC)
++#include "components/winmux/blocking/engine.h"
++#endif
+ 
+ #include <memory>
+ #include <string>
+@@ -1354,6 +1357,11 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
+       ->ConfigureDefaultNetworkContextParams(network_context_params);
+ 
+   network_context_params->accept_language = ComputeAcceptLanguage();
++#if BUILDFLAG(IS_MAC)
++  for (const auto& site : profile_->GetPrefs()->GetList("winmux.blocking_disabled_sites"))
++    if (site.is_string()) network_context_params->winmux_disabled_sites.push_back(site.GetString());
++  network_context_params->winmux_filter_rules = winmux::CurrentBlockingRules();
++#endif
+   network_context_params->enable_referrers = enable_referrers_.GetValue();
+ 
+   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+diff --git a/chrome/browser/policy/cloud/fm_registration_token_uploader.cc b/chrome/browser/policy/cloud/fm_registration_token_uploader.cc
+index eeebc172dd81eef8c4e31ddcda504ae997e44b78..14b8fc2bf5fa89a4f7726c5d80d92f61b2be0ff1 100644
+--- a/chrome/browser/policy/cloud/fm_registration_token_uploader.cc
++++ b/chrome/browser/policy/cloud/fm_registration_token_uploader.cc
+@@ -8,6 +8,8 @@
+ #include "base/functional/callback.h"
+ #include "base/notreached.h"
+ #include "base/scoped_observation.h"
++#include "base/task/sequenced_task_runner.h"
++#include "build/build_config.h"
+ #include "components/policy/core/common/cloud/policy_invalidation_scope.h"
+ #include "components/policy/core/common/cloud/signing_service.h"
+ #include "components/policy/core/common/policy_logger.h"
+@@ -162,13 +164,67 @@ FmRegistrationTokenUploader::FmRegistrationTokenUploader(
+   CHECK_NE(scope_, PolicyInvalidationScope::kDeviceLocalAccount)
+       << "Registration token is not expected for device local "
+          "accounts";
++#if BUILDFLAG(IS_MAC)
++  // WinMux does not enroll a fresh profile in Google's push service merely
++  // because a policy manager exists. Enterprise enrollment authorizes it.
++  MaybeStartInvalidationListener();
++#else
++  listener_started_ = true;
+   invalidation_listener_->Start(this);
++#endif
+ }
+ 
+ FmRegistrationTokenUploader::~FmRegistrationTokenUploader() {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
+-  invalidation_listener_->Shutdown();
++  if (listener_started_) {
++    invalidation_listener_->Shutdown();
++  }
++}
++
++void FmRegistrationTokenUploader::MaybeStartInvalidationListener() {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (listener_started_) {
++    return;
++  }
++  StopOngoingUpload();
++  auto* client = core_->client();
++  if (!client) {
++    core_observer_ = std::make_unique<CloudPolicyCoreConnectionObserver>(
++        core_, base::BindOnce(
++                   &FmRegistrationTokenUploader::ScheduleInvalidationListenerStart,
++                   weak_factory_.GetWeakPtr()),
++        base::OnceClosure());
++    return;
++  }
++  if (!client->is_registered()) {
++    client_observer_ = std::make_unique<CloudPolicyClientRegistrationObserver>(
++        client, base::BindOnce(
++                    &FmRegistrationTokenUploader::ScheduleInvalidationListenerStart,
++                    weak_factory_.GetWeakPtr()));
++    core_observer_ = std::make_unique<CloudPolicyCoreConnectionObserver>(
++        core_, base::OnceClosure(),
++        base::BindOnce(
++            &FmRegistrationTokenUploader::OnCoreDisconnectedBeforeStart,
++            weak_factory_.GetWeakPtr()));
++    return;
++  }
++  listener_started_ = true;
++  invalidation_listener_->Start(this);
++}
++
++void FmRegistrationTokenUploader::ScheduleInvalidationListenerStart() {
++  // Defer replacing the observer until its callback has returned.
++  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
++      FROM_HERE,
++      base::BindOnce(&FmRegistrationTokenUploader::MaybeStartInvalidationListener,
++                     weak_factory_.GetWeakPtr()));
++}
++
++void FmRegistrationTokenUploader::OnCoreDisconnectedBeforeStart() {
++  // The old client is about to be destroyed; stop observing it synchronously.
++  client_observer_.reset();
++  ScheduleInvalidationListenerStart();
+ }
+ 
+ void FmRegistrationTokenUploader::OnRegistrationTokenReceived(
+diff --git a/chrome/browser/policy/cloud/fm_registration_token_uploader.h b/chrome/browser/policy/cloud/fm_registration_token_uploader.h
+index bdbe90e3d3939c791ae95f9ec82cb454e7aec955..d0d38b9de50ec7d91a5672fddfc8a1fed3287cb5 100644
+--- a/chrome/browser/policy/cloud/fm_registration_token_uploader.h
++++ b/chrome/browser/policy/cloud/fm_registration_token_uploader.h
+@@ -49,6 +49,11 @@ class FmRegistrationTokenUploader
+     base::Time token_end_of_life;
+   };
+ 
++  void MaybeStartInvalidationListener();
++  void ScheduleInvalidationListenerStart();
++  void OnCoreDisconnectedBeforeStart();
++  bool listener_started_ = false;
++
+   void DoUploadRegistrationToken(TokenData token_data);
+   void DoAsyncUploadRegistrationToken(TokenData token_data,
+                                       base::TimeDelta delay);
+diff --git a/chrome/browser/policy/cloud/fm_registration_token_uploader_unittest.cc b/chrome/browser/policy/cloud/fm_registration_token_uploader_unittest.cc
+index 1ba8638d570d9128ecf3fc9db7464aeacdae5786..6f2829bb60efc78c10bce4750ab72083aaabc565 100644
+--- a/chrome/browser/policy/cloud/fm_registration_token_uploader_unittest.cc
++++ b/chrome/browser/policy/cloud/fm_registration_token_uploader_unittest.cc
+@@ -8,6 +8,7 @@
+ 
+ #include "base/test/protobuf_matchers.h"
+ #include "base/test/task_environment.h"
++#include "build/build_config.h"
+ #include "components/invalidation/invalidation_listener.h"
+ #include "components/policy/core/common/cloud/cloud_policy_client.h"
+ #include "components/policy/core/common/cloud/cloud_policy_constants.h"
+@@ -80,6 +81,62 @@ class FmRegistrationTokenUploaderTest : public testing::Test {
+   CloudPolicyCore core_;
+ };
+ 
++#if BUILDFLAG(IS_MAC)
++TEST_F(FmRegistrationTokenUploaderTest, DoesNotRegisterUnmanagedProfile) {
++  EXPECT_CALL(mock_invalidation_listener_, Start(_)).Times(0);
++  EXPECT_CALL(mock_invalidation_listener_, Shutdown()).Times(0);
++  FmRegistrationTokenUploader uploader(PolicyInvalidationScope::kUser,
++                                      &mock_invalidation_listener_, &core_);
++  task_environment_.FastForwardBy(base::Days(1));
++}
++
++TEST_F(FmRegistrationTokenUploaderTest, StartsAfterClientRegistration) {
++  auto client = std::make_unique<MockCloudPolicyClient>();
++  auto* client_ptr = client.get();
++  core_.Connect(std::move(client));
++  EXPECT_CALL(mock_invalidation_listener_, Start(_)).Times(0);
++  FmRegistrationTokenUploader uploader(PolicyInvalidationScope::kUser,
++                                      &mock_invalidation_listener_, &core_);
++  task_environment_.RunUntilIdle();
++  testing::Mock::VerifyAndClearExpectations(&mock_invalidation_listener_);
++  EXPECT_CALL(mock_invalidation_listener_, Start(&uploader)).Times(1);
++  client_ptr->SetDMToken(kFakeDMToken);
++  client_ptr->NotifyRegistrationStateChanged();
++  task_environment_.RunUntilIdle();
++  EXPECT_CALL(mock_invalidation_listener_, Shutdown()).Times(1);
++}
++
++TEST_F(FmRegistrationTokenUploaderTest, ReconnectsBeforeRegistration) {
++  EXPECT_CALL(mock_invalidation_listener_, Start(_)).Times(0);
++  FmRegistrationTokenUploader uploader(PolicyInvalidationScope::kUser,
++                                      &mock_invalidation_listener_, &core_);
++  core_.Connect(std::make_unique<MockCloudPolicyClient>());
++  task_environment_.RunUntilIdle();
++  core_.Disconnect();
++  task_environment_.RunUntilIdle();
++  testing::Mock::VerifyAndClearExpectations(&mock_invalidation_listener_);
++  EXPECT_CALL(mock_invalidation_listener_, Start(&uploader)).Times(1);
++  auto registered_client = std::make_unique<MockCloudPolicyClient>();
++  registered_client->SetDMToken(kFakeDMToken);
++  core_.Connect(std::move(registered_client));
++  task_environment_.RunUntilIdle();
++  EXPECT_CALL(mock_invalidation_listener_, Shutdown()).Times(1);
++}
++
++TEST_F(FmRegistrationTokenUploaderTest, DestructionCancelsDeferredStart) {
++  EXPECT_CALL(mock_invalidation_listener_, Start(_)).Times(0);
++  EXPECT_CALL(mock_invalidation_listener_, Shutdown()).Times(0);
++  {
++    FmRegistrationTokenUploader uploader(PolicyInvalidationScope::kUser,
++                                        &mock_invalidation_listener_, &core_);
++    auto client = std::make_unique<MockCloudPolicyClient>();
++    client->SetDMToken(kFakeDMToken);
++    core_.Connect(std::move(client));
++  }
++  task_environment_.RunUntilIdle();
++}
++#endif
++
+ TEST_F(FmRegistrationTokenUploaderTest,
+        OnRegistrationTokenReceivedSuccessfullyUploads) {
+   auto client = std::make_unique<MockCloudPolicyClient>();
+diff --git a/chrome/browser/profiles/BUILD.gn b/chrome/browser/profiles/BUILD.gn
+index f01dcbb6ab11052e2588125225a63708b97e7695..3f3824bbd34ca302c78bc85e2881e5f8375e6fa0 100644
+--- a/chrome/browser/profiles/BUILD.gn
++++ b/chrome/browser/profiles/BUILD.gn
+@@ -678,6 +678,10 @@ source_set("profile_util_impl") {
+     "//url",
+   ]
+ 
++  if (is_mac) {
++    deps += [ "//chrome/browser/winmux:tab_identity" ]
++  }
++
+   if (!is_android) {
+     deps += [ "//chrome/browser/ui/browser_window" ]
+   }
+diff --git a/chrome/browser/profiles/pref_service_builder_utils.cc b/chrome/browser/profiles/pref_service_builder_utils.cc
+index 8986f4d47cc58ab13493cbafea52e91673e25144..4aeb04264549dd677d9e8878c0721204daf19552 100644
+--- a/chrome/browser/profiles/pref_service_builder_utils.cc
++++ b/chrome/browser/profiles/pref_service_builder_utils.cc
+@@ -15,6 +15,7 @@
+ #include "base/strings/stringprintf.h"
+ #include "base/task/sequenced_task_runner.h"
+ #include "base/threading/scoped_blocking_call.h"
++#include "build/build_config.h"
+ #include "build/chromeos_buildflags.h"
+ #include "chrome/browser/browser_process.h"
+ #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+@@ -39,6 +40,10 @@
+ #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
+ #include "ui/base/l10n/l10n_util.h"
+ 
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/winmux/tab_identity.h"
++#endif
++
+ namespace {
+ 
+ // Text content of README file created in each profile directory. Both %s
+@@ -77,6 +82,11 @@ void RegisterProfilePrefs(bool is_signin_profile,
+       pref_registry);
+   BrowserContextDependencyManager::GetInstance()
+       ->RegisterProfilePrefsForServices(pref_registry);
++#if BUILDFLAG(IS_MAC)
++  // Search and other keyed-service preferences are registered by the factories
++  // above. Apply defaults only after the complete registry exists.
++  winmux::ApplyWorkspacePrivacyDefaults(pref_registry);
++#endif
+ }
+ 
+ std::unique_ptr<sync_preferences::PrefServiceSyncable> CreateProfilePrefService(
+diff --git a/chrome/browser/search/search.cc b/chrome/browser/search/search.cc
+index 621d90a7410a4be975d3a8ff936f495b310670cf..57d3d0a0d76560c68f36ca01a7db975bc097768f 100644
+--- a/chrome/browser/search/search.cc
++++ b/chrome/browser/search/search.cc
+@@ -320,7 +320,11 @@ bool IsSplitViewNewTabPage(const GURL& url) {
+ }
+ 
+ GURL GetNewTabPageURL(Profile* profile) {
++#if BUILDFLAG(IS_MAC)
++  return GURL("about:blank");
++#else
+   return NewTabURLDetails::ForProfile(profile).url;
++#endif
+ }
+ 
+ #if !BUILDFLAG(IS_ANDROID)
+diff --git a/chrome/common/chrome_isolated_world_ids.h b/chrome/common/chrome_isolated_world_ids.h
+index 846e4777c4d2e983078ad629621a3eb3acf780e4..b18b287b42fd97d0305b6abf2bf551aa5d5b354d 100644
+--- a/chrome/common/chrome_isolated_world_ids.h
++++ b/chrome/common/chrome_isolated_world_ids.h
+@@ -20,6 +20,9 @@ enum ChromeIsolatedWorldIDs {
+   ISOLATED_WORLD_ID_CHROME_INTERNAL,
+ 
+ #if BUILDFLAG(IS_MAC)
++  // Browser-authored DOM token collector, separate from page and extension worlds.
++  ISOLATED_WORLD_ID_WINMUX_COSMETICS,
++
+   // Isolated world ID for AppleScript.
+   ISOLATED_WORLD_ID_APPLESCRIPT,
+ #endif  // BUILDFLAG(IS_MAC)
+diff --git a/components/component_updater/component_updater_service.cc b/components/component_updater/component_updater_service.cc
+index a1daf3154fa11842d7b92a42215788759cde6f7f..bec2dbb2c17b29479fc3124377fbc71a35196110 100644
+--- a/components/component_updater/component_updater_service.cc
++++ b/components/component_updater/component_updater_service.cc
+@@ -13,6 +13,7 @@
+ #include <vector>
+ 
+ #include "base/check.h"
++#include "base/command_line.h"
+ #include "base/files/file_path.h"
+ #include "base/functional/bind.h"
+ #include "base/functional/callback.h"
+@@ -26,6 +27,7 @@
+ #include "base/task/sequenced_task_runner.h"
+ #include "base/time/time.h"
+ #include "base/timer/timer.h"
++#include "build/build_config.h"
+ #include "components/component_updater/component_installer.h"
+ #include "components/component_updater/component_updater_service_internal.h"
+ #include "components/component_updater/component_updater_utils.h"
+@@ -46,6 +48,17 @@ namespace {
+ using CrxInstaller = ::update_client::CrxInstaller;
+ using UpdateClient = ::update_client::UpdateClient;
+ 
++bool WinMuxComponentUpdatesDisabled() {
++#if BUILDFLAG(IS_MAC)
++  // Registration outside RegisterComponentsForUpdate() and on-demand callers
++  // must honor the same startup consent as the regular update path.
++  return base::CommandLine::ForCurrentProcess()->HasSwitch(
++      "disable-component-update");
++#else
++  return false;
++#endif
++}
++
+ enum UpdateType {
+   UPDATE_TYPE_MANUAL = 0,
+   UPDATE_TYPE_AUTOMATIC,
+@@ -174,6 +187,9 @@ base::Version CrxUpdateService::GetMaxPreviousProductVersion(
+ 
+ void CrxUpdateService::Start() {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (WinMuxComponentUpdatesDisabled()) {
++    return;
++  }
+   VLOG(1) << "CrxUpdateService starting up. "
+           << "First update attempt will take place in "
+           << config_->InitialDelay() << " seconds. "
+@@ -398,6 +414,9 @@ void CrxUpdateService::OnDemandUpdate(const std::string& id,
+ }
+ 
+ bool CrxUpdateService::OnDemandUpdateWithCooldown(const std::string& id) {
++  if (WinMuxComponentUpdatesDisabled()) {
++    return false;
++  }
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
+   // Check if the request is too soon.
+@@ -419,6 +438,15 @@ void CrxUpdateService::OnDemandUpdateInternal(const std::string& id,
+                                               Callback callback) {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
++  if (WinMuxComponentUpdatesDisabled()) {
++    if (callback) {
++      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
++          FROM_HERE, base::BindOnce(std::move(callback),
++                                   update_client::Error::UPDATE_CANCELED));
++    }
++    return;
++  }
++
+   UMA_HISTOGRAM_ENUMERATION("ComponentUpdater.Calls", UPDATE_TYPE_MANUAL,
+                             UPDATE_TYPE_COUNT);
+ 
+@@ -440,7 +468,7 @@ bool CrxUpdateService::CheckForUpdates(
+   UMA_HISTOGRAM_ENUMERATION("ComponentUpdater.Calls", UPDATE_TYPE_AUTOMATIC,
+                             UPDATE_TYPE_COUNT);
+ 
+-  if (components_order_.empty()) {
++  if (WinMuxComponentUpdatesDisabled() || components_order_.empty()) {
+     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+         FROM_HERE, std::move(on_finished));
+     return true;
+diff --git a/components/network_time/network_time_tracker.cc b/components/network_time/network_time_tracker.cc
+index ada56340053a010e8cd88045ae96ce3695b51619..f56f153cabc301513051d3d6a49374a6cdbece04 100644
+--- a/components/network_time/network_time_tracker.cc
++++ b/components/network_time/network_time_tracker.cc
+@@ -58,8 +58,9 @@
+ namespace network_time {
+ 
+ // Network time queries are enabled on Android and all desktop platforms except
+-// Chrome OS, which uses tlsdated to set the system time.
+-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
++// Chrome OS, which uses tlsdated to set the system time, and WinMux on macOS,
++// which uses the system clock without contacting Google's time endpoint.
++#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS) || BUILDFLAG(IS_MAC)
+ BASE_FEATURE(kNetworkTimeServiceQuerying, base::FEATURE_DISABLED_BY_DEFAULT);
+ #else
+ BASE_FEATURE(kNetworkTimeServiceQuerying, base::FEATURE_ENABLED_BY_DEFAULT);
+diff --git a/components/performance_manager/freezing/freezing.cc b/components/performance_manager/freezing/freezing.cc
+index 8c23254426f575231817a775c3b72fa302c20e5c..9e6ed8ff776da3879df1046e6f3c3c9da0f00962 100644
+--- a/components/performance_manager/freezing/freezing.cc
++++ b/components/performance_manager/freezing/freezing.cc
+@@ -10,14 +10,17 @@
+ 
+ namespace performance_manager::freezing {
+ 
+-FreezingVote::FreezingVote(content::WebContents* web_contents)
++FreezingVote::FreezingVote(content::WebContents* web_contents,
++                           bool ignore_recent_visibility)
+     : page_node_(
+-          PerformanceManager::GetPrimaryPageNodeForWebContents(web_contents)) {
++          PerformanceManager::GetPrimaryPageNodeForWebContents(web_contents)),
++      ignore_recent_visibility_(ignore_recent_visibility) {
+   CHECK(page_node_);
+   // Balanced with `RemoveFreezeVote()` in destructor.
+   auto* freezing_policy =
+       PerformanceManager::GetGraph()->GetRegisteredObjectAs<FreezingPolicy>();
+-  CHECK_DEREF(freezing_policy).AddFreezeVote(page_node_.get());
++  CHECK_DEREF(freezing_policy).AddFreezeVote(page_node_.get(),
++                                           ignore_recent_visibility_);
+ }
+ 
+ FreezingVote::~FreezingVote() {
+@@ -28,7 +31,8 @@ FreezingVote::~FreezingVote() {
+ 
+   auto* freezing_policy =
+       PerformanceManager::GetGraph()->GetRegisteredObjectAs<FreezingPolicy>();
+-  CHECK_DEREF(freezing_policy).RemoveFreezeVote(page_node_.get());
++  CHECK_DEREF(freezing_policy).RemoveFreezeVote(page_node_.get(),
++                                              ignore_recent_visibility_);
+ }
+ 
+ CanFreezeDetails::CanFreezeDetails() = default;
+diff --git a/components/performance_manager/freezing/freezing_policy.cc b/components/performance_manager/freezing/freezing_policy.cc
+index 280bad862574bdfc82d309ccf6a464e45d9be9c4..68c8fe3e9279468bb31f29ec88e9b8bec3bf0e1d 100644
+--- a/components/performance_manager/freezing/freezing_policy.cc
++++ b/components/performance_manager/freezing/freezing_policy.cc
+@@ -172,6 +172,7 @@ struct FreezingPolicy::PageFreezingState
+ 
+   // Number of votes to freeze the page.
+   int num_freeze_votes = 0;
++  int num_votes_ignoring_recent_visibility = 0;
+ 
+   // Phase for periodic unfreezing. Use a random value so that different tabs
+   // are unfrozen at different tabs as much as possible, but also cannot learn
+@@ -201,8 +202,12 @@ class FreezingPolicy::CanFreezePerTypeTracker {
+ 
+   void PopulateWithPageFreezingState(const PageFreezingState& state) {
+     for (auto freezing_type : FreezingTypeSet::All()) {
+-      if (HasCannotFreezeReasonForType(state.cannot_freeze_reasons,
+-                                       freezing_type)) {
++      auto reasons = state.cannot_freeze_reasons;
++      if (freezing_type == FreezingType::kVoting &&
++          state.num_votes_ignoring_recent_visibility > 0) {
++        reasons.Remove(CannotFreezeReason::kRecentlyVisible);
++      }
++      if (HasCannotFreezeReasonForType(reasons, freezing_type)) {
+         can_freeze_.Remove(freezing_type);
+       }
+     }
+@@ -280,22 +285,36 @@ void FreezingPolicy::ToggleFreezingOnBatterySaverMode(bool is_enabled) {
+   UpdateAllPagesFrozenState();
+ }
+ 
+-void FreezingPolicy::AddFreezeVote(PageNode* page_node) {
+-  int prev_num_freeze_votes = GetFreezingState(page_node).num_freeze_votes++;
++void FreezingPolicy::AddFreezeVote(PageNode* page_node,
++                                   bool ignore_recent_visibility) {
++  auto& state = GetFreezingState(page_node);
++  int prev_num_freeze_votes = state.num_freeze_votes++;
++  if (ignore_recent_visibility) {
++    ++state.num_votes_ignoring_recent_visibility;
++  }
+   // A browsing instance may be frozen if there is at least one freeze vote.
+   // Therefore, it's only necessary to update the frozen state when adding the
+-  // first freeze vote.
+-  if (prev_num_freeze_votes == 0) {
++  // first freeze vote or changing its visibility exemption.
++  if (prev_num_freeze_votes == 0 ||
++      (ignore_recent_visibility && state.num_votes_ignoring_recent_visibility == 1)) {
+     UpdateFrozenState(page_node);
+   }
+ }
+ 
+-void FreezingPolicy::RemoveFreezeVote(PageNode* page_node) {
+-  int num_freeze_votes = --GetFreezingState(page_node).num_freeze_votes;
++void FreezingPolicy::RemoveFreezeVote(PageNode* page_node,
++                                      bool ignore_recent_visibility) {
++  auto& state = GetFreezingState(page_node);
++  CHECK_GT(state.num_freeze_votes, 0);
++  int num_freeze_votes = --state.num_freeze_votes;
++  if (ignore_recent_visibility) {
++    CHECK_GT(state.num_votes_ignoring_recent_visibility, 0);
++    --state.num_votes_ignoring_recent_visibility;
++  }
+   // A browsing instance may be frozen if there is at least one freeze vote.
+   // Therefore, it's only necessary to update the frozen state when removing the
+-  // last freeze vote.
+-  if (num_freeze_votes == 0) {
++  // last freeze vote or changing its visibility exemption.
++  if (num_freeze_votes == 0 ||
++      (ignore_recent_visibility && state.num_votes_ignoring_recent_visibility == 0)) {
+     UpdateFrozenState(page_node);
+   }
+ }
+diff --git a/components/performance_manager/freezing/freezing_policy.h b/components/performance_manager/freezing/freezing_policy.h
+index 86f5034d047aac41b6520dbf3bab0aae0a902396..57539c5d423a4e618d041c9a16a632294618a1d8 100644
+--- a/components/performance_manager/freezing/freezing_policy.h
++++ b/components/performance_manager/freezing/freezing_policy.h
+@@ -90,8 +90,10 @@ class FreezingPolicy : public PageNodeObserver,
+   // Add or remove a freezing vote for `page_node`. A browsing instance is
+   // frozen if all its pages have a freezing vote and none have a
+   // `CannotFreezeReason`.
+-  void AddFreezeVote(PageNode* page_node);
+-  void RemoveFreezeVote(PageNode* page_node);
++  // Match the flag when removing the vote; it never exempts connected pages.
++  void AddFreezeVote(PageNode* page_node, bool ignore_recent_visibility = false);
++  void RemoveFreezeVote(PageNode* page_node,
++                        bool ignore_recent_visibility = false);
+ 
+   // Returns details about whether a page can be frozen.
+   freezing::CanFreezeDetails GetCanFreezeDetails(const PageNode* page_node);
+diff --git a/components/performance_manager/freezing/freezing_policy_unittest.cc b/components/performance_manager/freezing/freezing_policy_unittest.cc
+index 605141028919d5e4157901ae5c9de46917ee6441..fe88da3aad2326be1436da11c4f2efc8de9cb3ed 100644
+--- a/components/performance_manager/freezing/freezing_policy_unittest.cc
++++ b/components/performance_manager/freezing/freezing_policy_unittest.cc
+@@ -657,6 +657,55 @@ TEST_F(FreezingPolicyTest, FreezeVoteWhenRecentlyVisible) {
+   VerifyFreezerExpectations();
+ }
+ 
++TEST_F(FreezingPolicyTest, EmbedderVisibilityVotesAreScopedAndReferenceCounted) {
++  page_node()->SetIsVisible(true);
++  page_node()->SetIsVisible(false);
++  policy()->AddFreezeVote(page_node());
++  task_env().FastForwardBy(base::Minutes(2));
++
++  EXPECT_CALL(*freezer(), MaybeFreezePageNode(page_node()));
++  policy()->AddFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++  VerifyFreezerExpectations();
++  policy()->AddFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++  policy()->RemoveFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++
++  // The ordinary vote remains, with its original visibility grace period.
++  EXPECT_CALL(*freezer(), UnfreezePageNode(page_node()));
++  policy()->RemoveFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++  VerifyFreezerExpectations();
++  EXPECT_CALL(*freezer(), MaybeFreezePageNode(page_node()));
++  task_env().FastForwardBy(features::kFreezingVisibleProtectionTime.Get());
++  VerifyFreezerExpectations();
++}
++
++TEST_F(FreezingPolicyTest, EmbedderVisibilityVoteKeepsOtherProtections) {
++  page_node()->SetIsVisible(true);
++  policy()->AddFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++  page_node()->SetIsHoldingWebLockForTesting(true);
++  page_node()->SetIsVisible(false);
++  // Neither actual visibility nor a held web lock is exempted.
++  EXPECT_CALL(*freezer(), MaybeFreezePageNode(page_node()));
++  page_node()->SetIsHoldingWebLockForTesting(false);
++  VerifyFreezerExpectations();
++  EXPECT_CALL(*freezer(), UnfreezePageNode(page_node()));
++  page_node()->SetIsAudible(true);
++  VerifyFreezerExpectations();
++}
++
++TEST_F(FreezingPolicyTest, EmbedderVisibilityVoteDoesNotExemptConnectedPages) {
++  auto [page2, frame2] =
++      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
++  page2->SetIsVisible(true);
++  page2->SetIsVisible(false);
++  policy()->AddFreezeVote(page_node(), /*ignore_recent_visibility=*/true);
++  policy()->AddFreezeVote(page2.get());
++  task_env().FastForwardBy(base::Minutes(2));
++  EXPECT_CALL(*freezer(), MaybeFreezePageNode(page_node()));
++  EXPECT_CALL(*freezer(), MaybeFreezePageNode(page2.get()));
++  policy()->AddFreezeVote(page2.get(), /*ignore_recent_visibility=*/true);
++  VerifyFreezerExpectations();
++}
++
+ TEST_F(FreezingPolicyTest, BecomesRecentlyVisibleWhenFrozen) {
+   EXPECT_CALL(*freezer(), MaybeFreezePageNode(page_node()));
+   policy()->AddFreezeVote(page_node());
+diff --git a/components/performance_manager/public/freezing/freezing.h b/components/performance_manager/public/freezing/freezing.h
+index 686c300a30ef2e2bb5b52795f851186029fe6f6f..a30e0cd11c7403be6797d5ae637a32d314eb1d47 100644
+--- a/components/performance_manager/public/freezing/freezing.h
++++ b/components/performance_manager/public/freezing/freezing.h
+@@ -30,7 +30,10 @@ namespace performance_manager::freezing {
+ // and no `CannotFreezeReason` applies.
+ class FreezingVote {
+  public:
+-  explicit FreezingVote(content::WebContents* web_contents);
++  // An embedder that has enforced its own hidden-page deadline may bypass only
++  // the recent-visibility grace period. All other protections still apply.
++  explicit FreezingVote(content::WebContents* web_contents,
++                        bool ignore_recent_visibility = false);
+   ~FreezingVote();
+ 
+   FreezingVote(const FreezingVote& other) = delete;
+@@ -38,6 +41,7 @@ class FreezingVote {
+ 
+  private:
+   const base::WeakPtr<performance_manager::PageNode> page_node_;
++  const bool ignore_recent_visibility_;
+ };
+ 
+ // Used to discard frozen pages with growing private memory footprint.
+diff --git a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
+index db2e0266aa2200f23d47eba563dac73e96fef1c7..98e71a4f33859364928b23cf807861605b211d42 100644
+--- a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
++++ b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
+@@ -14,6 +14,7 @@
+ #include <utility>
+ #include <vector>
+ 
++#include "base/command_line.h"
+ #include "base/feature_list.h"
+ #include "base/functional/bind.h"
+ #include "base/functional/callback.h"
+@@ -525,6 +526,13 @@ GaiaCookieManagerService::GetCachedListAccounts() {
+ }
+ 
+ void GaiaCookieManagerService::TriggerListAccounts() {
++#if BUILDFLAG(IS_MAC)
++  // Browser account discovery remains local while WinMux disables browser
++  // sync. This does not affect websites' own sign-in requests or cookies.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch("disable-sync")) {
++    return;
++  }
++#endif
+   // Callers suspect that a check to Gaia needs to be done, don't rely on the
+   // in progress request, conditions might have changed while the request is
+   // in-flight.
+diff --git a/services/network/network_context.cc b/services/network/network_context.cc
+index 69ff1213e2ab032ce60d9b0be86b7a6eef5099bc..883c582a06fa70508e3a609060775f0a947b7116 100644
+--- a/services/network/network_context.cc
++++ b/services/network/network_context.cc
+@@ -3,6 +3,10 @@
+ // found in the LICENSE file.
+ 
+ #include "services/network/network_context.h"
++#if BUILDFLAG(IS_MAC)
++#include "services/network/winmux/url_filter.h"
++#include "components/winmux/blocking/engine.h"
++#endif
+ 
+ #include <algorithm>
+ #include <memory>
+@@ -821,6 +825,11 @@ NetworkContext::NetworkContext(
+       std::move(on_url_request_context_builder_configured),
+       params_->bound_network);
+   url_request_context_ = url_request_context_owner_.url_request_context.get();
++  SetWinMuxBlockingSettings(params_->winmux_disabled_sites);
++#if BUILDFLAG(IS_MAC)
++  if (!params_->winmux_filter_rules.empty())
++    winmux::ReplaceBlockingRules(params_->winmux_filter_rules, base::DoNothing());
++#endif
+ 
+   cookie_manager_ = std::make_unique<CookieManager>(
+       url_request_context_, &first_party_sets_access_delegate_,
+@@ -1000,6 +1009,9 @@ void NetworkContext::CreateNetLogEntriesForActiveWebSockets(
+ #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
+ 
+ NetworkContext::~NetworkContext() {
++#if BUILDFLAG(IS_MAC)
++  winmux_filter::ForgetContext(url_request_context_);
++#endif
+   is_destructing_ = true;
+ 
+   // Clear pending HttpCacheDataRemovers and counters explicitly to cancel
+@@ -1950,6 +1962,26 @@ void NetworkContext::SetNetworkConditions(
+                                       std::move(network_conditions));
+ }
+ 
++void NetworkContext::SetWinMuxBlockingSettings(const std::vector<std::string>& sites) {
++#if BUILDFLAG(IS_MAC)
++  winmux_filter::SetDisabledSites(url_request_context_, sites);
++#endif
++}
++void NetworkContext::GetWinMuxBlockedCount(const GURL& site, GetWinMuxBlockedCountCallback callback) {
++#if BUILDFLAG(IS_MAC)
++  std::move(callback).Run(winmux_filter::BlockedCount(url_request_context_, site));
++#else
++  std::move(callback).Run(0);
++#endif
++}
++void NetworkContext::SetWinMuxBlockingRules(const std::string& rules, SetWinMuxBlockingRulesCallback callback) {
++#if BUILDFLAG(IS_MAC)
++  winmux::ReplaceBlockingRules(rules, std::move(callback));
++#else
++  std::move(callback).Run(false);
++#endif
++}
++
+ void NetworkContext::SetAcceptLanguage(const std::string& new_accept_language) {
+   // This may only be called on NetworkContexts created with the constructor
+   // that calls MakeURLRequestContext().
+diff --git a/services/network/network_context.h b/services/network/network_context.h
+index 545fdf6763a1c9fd6040e271f0c1bdba9c989603..b86dba370878d424f106a038d9060cffbe3f3392 100644
+--- a/services/network/network_context.h
++++ b/services/network/network_context.h
+@@ -355,6 +355,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
+       const base::UnguessableToken& throttling_client_id,
+       std::vector<mojom::MatchedNetworkConditionsPtr> conditions) override;
+   void SetAcceptLanguage(const std::string& new_accept_language) override;
++  void SetWinMuxBlockingSettings(const std::vector<std::string>& sites) override;
++  void GetWinMuxBlockedCount(const GURL& site, GetWinMuxBlockedCountCallback callback) override;
++  void SetWinMuxBlockingRules(const std::string& rules, SetWinMuxBlockingRulesCallback callback) override;
+   void SetEnableReferrers(bool enable_referrers) override;
+ #if BUILDFLAG(IS_CT_SUPPORTED)
+   void SetCTPolicy(mojom::CTPolicyPtr ct_policy) override;
+diff --git a/services/network/public/mojom/network_context.mojom b/services/network/public/mojom/network_context.mojom
+index 6ea8a820d0866d25b773c4fce136f9730ebf6e2e..cdae7ed2e0ce829472a5d14dc9595cb4fd1d6d9c 100644
+--- a/services/network/public/mojom/network_context.mojom
++++ b/services/network/public/mojom/network_context.mojom
+@@ -356,6 +356,9 @@ struct NetworkContextParams {
+   // by calling SetAcceptLanguage on the NetworkContext. If empty, the header
+   // will not be added.
+   string accept_language;
++  // Browser-owned per-profile site exceptions and a validated filter snapshot.
++  array<string> winmux_disabled_sites;
++  string winmux_filter_rules;
+ 
+   // Whether Brotli content-encoding should be enabled for HTTPS responses.
+   bool enable_brotli = true;
+@@ -1374,6 +1377,9 @@ interface NetworkContext {
+ 
+   // Updates the Accept-Language header to be used for requests.
+   SetAcceptLanguage(string new_accept_language);
++  SetWinMuxBlockingSettings(array<string> disabled_sites);
++  GetWinMuxBlockedCount(url.mojom.Url site) => (uint64 count);
++  SetWinMuxBlockingRules(string rules) => (bool accepted);
+ 
+   // If false, the referrer of requests is never populated.
+   SetEnableReferrers(bool enable_referrers);
+diff --git a/services/network/test/test_network_context.h b/services/network/test/test_network_context.h
+index 4fb67efbd5e791b7c707f42e6e57f3501295c5f6..e130f7ecfa764419061e81520a43eae2cb8cf3cd 100644
+--- a/services/network/test/test_network_context.h
++++ b/services/network/test/test_network_context.h
+@@ -165,6 +165,13 @@ class TestNetworkContext : public mojom::NetworkContext {
+       const base::UnguessableToken& throttling_client_id,
+       std::vector<mojom::MatchedNetworkConditionsPtr>) override {}
+   void SetAcceptLanguage(const std::string& new_accept_language) override {}
++  void SetWinMuxBlockingSettings(const std::vector<std::string>& sites) override {}
++  void GetWinMuxBlockedCount(const GURL& site, GetWinMuxBlockedCountCallback callback) override {
++    std::move(callback).Run(0);
++  }
++  void SetWinMuxBlockingRules(const std::string& rules, SetWinMuxBlockingRulesCallback callback) override {
++    std::move(callback).Run(false);
++  }
+   void SetEnableReferrers(bool enable_referrers) override {}
+ #if BUILDFLAG(IS_CT_SUPPORTED)
+   void SetCTPolicy(mojom::CTPolicyPtr ct_policy) override {}
+diff --git a/services/network/url_loader.cc b/services/network/url_loader.cc
+index 7dd14265e28f384105bd65383bbbe767795ebb8e..980847aa4c9f710dfedbf0d638586b192cc5e231 100644
+--- a/services/network/url_loader.cc
++++ b/services/network/url_loader.cc
+@@ -744,14 +744,40 @@ void URLLoader::OnDoneBeginningTrustTokenOperation(
+   ScheduleStart();
+ }
+ 
++void URLLoader::ServeWinMuxEmptyScript() {
++  mojo::ScopedDataPipeProducerHandle producer;
++  mojo::ScopedDataPipeConsumerHandle consumer;
++  if (mojo::CreateDataPipe(nullptr, producer, consumer) != MOJO_RESULT_OK) {
++    NotifyCompleted(net::ERR_INSUFFICIENT_RESOURCES); return;
++  }
++  producer.reset();
++  auto head = mojom::URLResponseHead::New();
++  head->mime_type = "application/javascript";
++  head->charset = "utf-8";
++  head->content_length = 0;
++  head->headers = net::HttpResponseHeaders::Builder(net::HttpVersion(1, 1), "200 OK")
++      .AddHeader("Content-Type", "application/javascript")
++      .AddHeader("Content-Length", "0")
++      .AddHeader("Cache-Control", "no-store")
++      .AddHeader("X-Content-Type-Options", "nosniff")
++      .Build();
++  url_loader_client_.Get()->OnReceiveResponse(std::move(head), std::move(consumer), std::nullopt);
++  NotifyCompleted(net::OK);
++}
++
+ void URLLoader::ScheduleStart() {
+ #if BUILDFLAG(IS_MAC)
+   if (winmux::DeferUntilBlockingReady(base::BindOnce(
+           &URLLoader::ScheduleStart, weak_ptr_factory_.GetWeakPtr()))) {
+     return;
+   }
+-  if (winmux_filter::ShouldBlock(*url_request_, request_destination_,
+-                                 url_request_->url(), url_request_->method())) {
++  auto decision = winmux_filter::Check(*url_request_, request_destination_, url_request_->url(), url_request_->method());
++  if (decision.empty_script) {
++    TaskRunner(url_request_->priority())->PostTask(FROM_HERE,
++        base::BindOnce(&URLLoader::ServeWinMuxEmptyScript, weak_ptr_factory_.GetWeakPtr()));
++    return;
++  }
++  if (decision.blocked) {
+     TaskRunner(url_request_->priority())->PostTask(
+         FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
+                                  weak_ptr_factory_.GetWeakPtr(),
+diff --git a/services/network/url_loader.h b/services/network/url_loader.h
+index c74d6fa891364307499789eda7098679069e8ef0..275ac85d2d3cbc28aff00a35df902a949af4a4fb 100644
+--- a/services/network/url_loader.h
++++ b/services/network/url_loader.h
+@@ -375,6 +375,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
+   void ContinueOnResponseStarted();
+ 
+   void ScheduleStart();
++  void ServeWinMuxEmptyScript();
+   void ReadMore();
+   void ReadMoreAsync();
+   void DidRead(int num_bytes,

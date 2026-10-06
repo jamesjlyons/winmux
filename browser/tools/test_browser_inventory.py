@@ -92,6 +92,10 @@ def main():
                 "back": "issued", "back_state": "yes", "forward": "issued", "forward_state": "yes",
                 "reload": "issued", "stop": "issued", "navigation_keeps_native_windows": "yes",
                 "new_tab": "issued", "new_tab_independent_native_window": "yes", "new_tab_close": "issued"}
+    expected.update({"privacy_defaults": "yes", "keep_active_on": "issued", "keep_active_off": "issued",
+                     "keep_active_round_trip": "yes", "privacy_invalid": "invalid_request",
+                     "privacy_save": "issued", "privacy_repeat": "issued", "privacy_search_cookie_state": "yes",
+                     "privacy_restore": "issued", "privacy_round_trip": "yes"})
     expected.update({"create_close_last": "issued", "create_empty_inventory": "yes",
                      "create_foreign_epoch": "stale_epoch", "create_stale_revision": "stale_revision",
                      "create_invalid_url": "invalid_request", "create_unknown_profile": "unavailable",
@@ -120,8 +124,8 @@ def main():
         expected = {}
     fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
                            "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
-    result = {"scope": ("actual_signed_browser_protocol5_native_window_controls" if args.native_window_controls else
-                        "actual_signed_browser_protocol5_page_windows_navigation"), "passed": False,
+    result = {"scope": ("actual_signed_browser_protocol6_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol6_page_windows_navigation"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
@@ -150,7 +154,7 @@ def main():
                     if actions_complete:
                         result["actions"] = report
                     if args.native_window_controls:
-                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 5
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 6
                                 and report.get("full_messages") == 1):
                             if completed_at is None:
                                 completed_at = time.monotonic()
@@ -162,7 +166,7 @@ def main():
                             raise RuntimeError("Completed native window controls did not remain stable")
                         time.sleep(.1)
                         continue
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 5
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 6
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == {}):
                         if recovered_at is None:
@@ -175,14 +179,22 @@ def main():
                     elif recovered_at is not None:
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
+            if result["passed"] and not args.private:
+                consent = json.loads((output / "profile/winmux-services.json").read_text())
+                result["privacy_consent_persisted"] = consent == {
+                    "version": 1, "security_updates": False,
+                    "extension_updates": False, "filter_updates": False,
+                }
+                result["passed"] = result["privacy_consent_persisted"]
             if not result["passed"]:
-                result["error"] = "Expected protocol5 isolated fixture outcomes were not observed"
+                result["error"] = "Expected protocol6 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}
                     for key, value in expected.items() if observed.get(key) != value
                 }
         except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+            result["passed"] = False
             result["error"] = str(error)
         finally:
             if process is not None:

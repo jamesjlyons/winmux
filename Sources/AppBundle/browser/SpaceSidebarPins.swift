@@ -4,7 +4,7 @@ import WorkspaceCore
 
 extension BrowserWorkspaceController {
     func pinWorkspaceName(_ id: UUID) -> String? {
-        browserSidebarPins.first { $0.id == id }?.workspaceName ?? nativeAppSidebarPins.first { $0.id == id }?.workspaceName
+        pinnedDesktops.first { $0.id == id }?.workspaceName ?? browserSidebarPins.first { $0.id == id }?.workspaceName ?? nativeAppSidebarPins.first { $0.id == id }?.workspaceName
     }
 
     func pinnedGroup(for space: WorkspaceProjectId, source: Workspace? = nil) -> Workspace {
@@ -45,17 +45,7 @@ extension BrowserWorkspaceController {
         }
     }
 
-    func migrateSidebarPinsToSpaceGroups() {
-        for index in browserSidebarPins.indices {
-            let pin = browserSidebarPins[index]
-            guard let source = Workspace.existing(byName: pin.workspaceName) else { continue }
-            let group = pinnedGroup(for: source.projectId, source: source)
-            browserSidebarPins[index].workspaceName = group.name
-            appendPinOrder(pin.id, workspace: group.name)
-            if let surface = pin.surfaceID { adoptPinnedSurface(surface, into: group.name) }
-        }
-        for pin in nativeAppSidebarPins { appendPinOrder(pin.id, workspace: pin.workspaceName) }
-    }
+    func migrateSidebarPinsToSpaceGroups() { migratePinnedDesktops() }
 
     func appendPinOrder(_ id: UUID, workspace: String) {
         guard let index = spacePinnedGroups.firstIndex(where: { $0.workspaceName == workspace }) else { return }
@@ -67,14 +57,19 @@ extension BrowserWorkspaceController {
     }
 
     func rememberRegularWorkspace(_ workspace: Workspace) {
-        guard !workspace.isPinnedGroup,
-              let index = spacePinnedGroups.firstIndex(where: { $0.spaceID == workspace.projectId.rawValue }) else { return }
+        guard !workspace.isPinnedGroup else { return }
+        ensurePinShelf(workspace.projectId, source: workspace)
+        if let shelf = pinShelves.firstIndex(where: { $0.spaceID == workspace.projectId.rawValue }) {
+            pinShelves[shelf].lastRegularWorkspaceName = workspace.name
+        }
+        guard let index = spacePinnedGroups.firstIndex(where: { $0.spaceID == workspace.projectId.rawValue }) else { return }
         spacePinnedGroups[index].lastRegularWorkspaceName = workspace.name
     }
 
     func regularWorkspaceForNewItem(_ workspace: Workspace) -> Workspace {
         guard workspace.isPinnedGroup else { return workspace }
-        if let name = spacePinnedGroups.first(where: { $0.workspaceName == workspace.name })?.lastRegularWorkspaceName,
+        if let name = pinShelves.first(where: { $0.spaceID == workspace.projectId.rawValue })?.lastRegularWorkspaceName
+            ?? spacePinnedGroups.first(where: { $0.spaceID == workspace.projectId.rawValue })?.lastRegularWorkspaceName,
            let remembered = Workspace.existing(byName: name), remembered.projectId == workspace.projectId,
            !remembered.isPinnedGroup, !remembered.isArchived,
            workspaceIsAvailableForMonitor(remembered, monitor: workspace.workspaceMonitor) { return remembered }
@@ -85,7 +80,7 @@ extension BrowserWorkspaceController {
     }
 
     func hasPins(in workspace: String) -> Bool {
-        browserSidebarPins.contains { $0.workspaceName == workspace } || nativeAppSidebarPins.contains { $0.workspaceName == workspace }
+        pinnedDesktops.contains { $0.workspaceName == workspace } || browserSidebarPins.contains { $0.workspaceName == workspace } || nativeAppSidebarPins.contains { $0.workspaceName == workspace }
     }
 
     func canAdoptNativePinWindow(_ window: Window) -> Bool {
@@ -95,7 +90,7 @@ extension BrowserWorkspaceController {
     }
 
     @discardableResult
-    func pinSurface(_ surface: SurfaceID, in space: WorkspaceProjectId? = nil) -> Bool {
+    func legacyPinSurface(_ surface: SurfaceID, in space: WorkspaceProjectId? = nil) -> Bool {
         guard usesSurfaceTree, let sourceName = workspaceName(for: surface), let source = Workspace.existing(byName: sourceName) else { return false }
         let destination = pinnedGroup(for: space ?? source.projectId, source: source)
         if case .browserTab = surface {
@@ -150,7 +145,7 @@ extension BrowserWorkspaceController {
     }
 
     @discardableResult
-    func unpin(_ id: UUID, to destination: Workspace? = nil) -> Bool {
+    func legacyUnpin(_ id: UUID, to destination: Workspace? = nil) -> Bool {
         let browser = browserSidebarPins.first { $0.id == id }
         let app = nativeAppSidebarPins.first { $0.id == id }
         let workspace = browser?.workspaceName ?? app?.workspaceName
@@ -179,7 +174,7 @@ extension BrowserWorkspaceController {
     }
 
     @discardableResult
-    func movePin(_ id: UUID, to space: WorkspaceProjectId) -> Bool {
+    func legacyMovePin(_ id: UUID, to space: WorkspaceProjectId) -> Bool {
         guard winMuxWorkspaceState.projectsById[space] != nil else { return false }
         let sourceName = pinWorkspaceName(id)
         let destination = pinnedGroup(for: space)
@@ -210,14 +205,14 @@ extension BrowserWorkspaceController {
         return true
     }
 
-    func reorderPin(_ id: UUID, before target: UUID) {
+    func legacyReorderPin(_ id: UUID, before target: UUID) {
         guard let index = spacePinnedGroups.firstIndex(where: { $0.pinOrder.contains(id) && $0.pinOrder.contains(target) }), id != target else { return }
         spacePinnedGroups[index].pinOrder.removeAll { $0 == id }
         if let at = spacePinnedGroups[index].pinOrder.firstIndex(of: target) { spacePinnedGroups[index].pinOrder.insert(id, at: at) }
         scheduleRefresh()
     }
 
-    func discardPins(in space: WorkspaceProjectId) {
+    func legacyDiscardPins(in space: WorkspaceProjectId) {
         let groups = spacePinnedGroups.filter { $0.spaceID == space.rawValue }
         let names = Set(groups.map(\.workspaceName))
         let ids = browserSidebarPins.filter { names.contains($0.workspaceName) }.map(\.id)
@@ -227,7 +222,7 @@ extension BrowserWorkspaceController {
         scheduleRefresh()
     }
 
-    func movePins(in space: WorkspaceProjectId, to destination: WorkspaceProjectId) {
+    func legacyMovePins(in space: WorkspaceProjectId, to destination: WorkspaceProjectId) {
         guard let source = spacePinnedGroups.first(where: { $0.spaceID == space.rawValue }) else { return }
         for id in source.pinOrder {
             if !movePin(id, to: destination) {
@@ -246,16 +241,14 @@ extension BrowserWorkspaceController {
     }
 
     func appWindow(for pin: NativeAppSidebarPin) -> Window? {
-        let candidates = MacWindow.allWindows.filter { $0.app.rawAppBundleId == pin.bundleIdentifier && $0.toLiveFocusOrNil() != nil }
-        let recent = candidates.first { window in
-            (window.app as? MacApp)?.lastNativeFocusedWindowId == window.windowId
-        }
-        return recent ?? pin.surfaceID.flatMap { id in candidates.first { $0.surfaceID == id } } ?? candidates.max { $0.windowId < $1.windowId }
+        guard let id = pin.surfaceID, let window = Window.get(bySurfaceID: id),
+              window.app.rawAppBundleId == pin.bundleIdentifier, window.toLiveFocusOrNil() != nil else { return nil }
+        return window
     }
 
     @discardableResult
-    func selectPin(_ id: UUID) -> SurfaceActionOutcome {
-        if browserSidebarPins.contains(where: { $0.id == id }) { return selectPinnedBrowserTab(id) }
+    func legacySelectPin(_ id: UUID, selectAfterOpening: Bool = true) -> SurfaceActionOutcome {
+        if browserSidebarPins.contains(where: { $0.id == id }) { return selectPinnedBrowserTab(id, selectAfterOpening: selectAfterOpening) }
         guard let pin = nativeAppSidebarPins.first(where: { $0.id == id }) else { return .unavailable }
         if let window = appWindow(for: pin) {
             guard adoptAppWindow(window, pinID: id) else { return .unavailable }
@@ -263,7 +256,8 @@ extension BrowserWorkspaceController {
         }
         guard pendingNativePinLaunches[id] == nil else { return .issued }
         guard let url = appBundleURL(for: pin) else { failedNativePinLaunches.insert(id); scheduleRefresh(); return .unavailable }
-        _ = Workspace.existing(byName: pin.workspaceName)?.focusWorkspace()
+        if selectAfterOpening { _ = Workspace.existing(byName: pin.workspaceName)?.focusWorkspace() }
+        let existingWindows = Set(MacWindow.allWindows.map(\.surfaceID))
         let operation = UUID(), generation = focusCoordinator.generation
         pendingNativePinLaunches[id] = operation
         failedNativePinLaunches.remove(id)
@@ -281,10 +275,11 @@ extension BrowserWorkspaceController {
                 for _ in 0..<75 {
                     guard self.pendingNativePinLaunches[id] == operation,
                           let current = self.nativeAppSidebarPins.first(where: { $0.id == id }) else { return }
-                    if let window = self.appWindow(for: current) {
+                    if let window = MacWindow.allWindows.first(where: { candidate in !existingWindows.contains(candidate.surfaceID) && candidate.app.rawAppBundleId == current.bundleIdentifier && self.canAdoptNativePinWindow(candidate) && !self.nativeAppSidebarPins.contains(where: { pin in pin.id != id && pin.surfaceID == candidate.surfaceID }) }) {
                         guard self.adoptAppWindow(window, pinID: id) else { break }
+                        self.restorePinnedDesktopLayout(workspace: current.workspaceName)
                         self.pendingNativePinLaunches.removeValue(forKey: id)
-                        if self.focusCoordinator.generation == generation { _ = self.select(window.surfaceID) }
+                        if selectAfterOpening && self.focusCoordinator.generation == generation { _ = self.select(window.surfaceID) }
                         self.scheduleRefresh()
                         return
                     }
@@ -299,25 +294,25 @@ extension BrowserWorkspaceController {
         return .issued
     }
 
-    func pinTiles(in workspace: String) -> [WorkspaceSidebarPinViewModel] {
+    func legacyPinTiles(in workspace: String) -> [WorkspaceSidebarPinViewModel] {
         syncSidebarPins()
-        return makePinTiles(in: workspace,
+        return makeMemberPinTiles(in: workspace,
             browserPins: browserSidebarPins.filter { $0.workspaceName == workspace },
             nativePins: nativeAppSidebarPins.filter { $0.workspaceName == workspace })
     }
 
     /// A sidebar refresh covers every workspace. Reconcile and partition the pins
     /// once so ordinary groups do not each scan every pin in every space.
-    func pinTilesByWorkspace() -> [String: [WorkspaceSidebarPinViewModel]] {
+    func legacyPinTilesByWorkspace() -> [String: [WorkspaceSidebarPinViewModel]] {
         syncSidebarPins()
         let browser = Dictionary(grouping: browserSidebarPins, by: \.workspaceName)
         let native = Dictionary(grouping: nativeAppSidebarPins, by: \.workspaceName)
         return Dictionary(uniqueKeysWithValues: Set(browser.keys).union(native.keys).map { workspace in
-            (workspace, makePinTiles(in: workspace, browserPins: browser[workspace] ?? [], nativePins: native[workspace] ?? []))
+            (workspace, makeMemberPinTiles(in: workspace, browserPins: browser[workspace] ?? [], nativePins: native[workspace] ?? []))
         })
     }
 
-    private func makePinTiles(in workspace: String, browserPins: [BrowserSidebarPin], nativePins: [NativeAppSidebarPin]) -> [WorkspaceSidebarPinViewModel] {
+    func makeMemberPinTiles(in workspace: String, browserPins: [BrowserSidebarPin], nativePins: [NativeAppSidebarPin]) -> [WorkspaceSidebarPinViewModel] {
         var tiles = browserPins.map { pin in
             let record = pin.surfaceID.flatMap { owner(of: $0)?.inventory.tabs[$0] }
             return WorkspaceSidebarPinViewModel(id: pin.id, workspaceName: workspace, title: record?.title ?? pin.title,

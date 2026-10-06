@@ -76,30 +76,65 @@ under Settings → Shortcuts → Browser. Chromium keeps its usual **Command–T
 the global default avoids taking that shortcut from other apps. The CLI action
 is `browser-new-tab`.
 
-Each Space has one pinned group above its regular groups. It uses icon-only
-tiles, with cached website favicons and native app icons. Right-click a page and
-choose **Pin Tab**, or an app window and choose **Pin App**; dragging an item into
-the icon area also pins it. The item moves into the pinned group. Selecting its
-icon activates that group's saved layout. Expanded tiles wrap across the sidebar;
-compact mode uses one column, with scrolling after three rows.
+Each Space has one ordered pin shelf above its regular Groups. Right-click a
+page and choose **Pin Tab**, or an app window and choose **Pin App**; dragging
+into the shelf also pins it. Each independent pin gets a full desktop. Pinning
+a member of an existing split or stack preserves its outermost explicit group,
+without including unrelated root siblings. **Pin Group** in a Group's menu keeps
+the whole Group together. Group tiles combine member icons and show a count.
 
-Closing a page leaves its pin available. Clicking the closed pin opens its saved
-URL in the original browser profile. The saved destination is the URL at pin
-time; subsequent navigation does not change where it reopens. An app pin focuses
-the app's last used window, or launches the app if none remain. One app launcher
-is kept per Space. **Unpin** keeps the current window or page open and moves it
-to the last regular group. Icons can be reordered by dragging and moved to
-another Space from their context menu. New tabs and ordinary app windows created
-while the pinned group is active go to that Space's last regular group.
+An app pin binds the exact selected native window. Two windows of the same app
+can have separate pins. Closing a member retains its launch descriptor and layout
+slot. A browser member reopens the URL saved at pin time in its original profile.
+An app member launches its saved app and binds only a newly created window; it
+does not restore an arbitrary document or adopt another existing window.
 
-Pins, order and layouts persist across restarts. Existing browser pins migrate
-into their Space's pinned group without reopening closed pages. Empty pinned
-groups stay hidden; regular group numbering is unchanged. Pinned groups cannot
-be renamed, deleted or reordered with the regular groups.
+Selecting a partially open group focuses its remembered live member. Use
+**Reopen Closed Items** to restore the missing members. Selecting a completely
+closed pin reopens its saved members. Reopening a partial group preserves live
+focus. **Unpin** converts the desktop to a regular Group, retaining its live
+contents, layout, and former position when available. Icons can be reordered
+and moved between Spaces. New ordinary pages and app windows go to the Space's
+last regular Group while a pin is selected.
+
+Session version 5 saves the shelf order, desktop identities, member launch
+descriptors, and complete layout templates, including closed slots. Versions
+2–4 remain readable. Legacy pins migrate without opening closed pages.
+
+## Privacy and background pages
+
+Workspace Setup saves three separate choices before starting Chromium:
+component updates, extension updates, and daily ad/tracker filter updates.
+All are off until enabled. Direct browser launches read the same bootstrap file
+before constructing services. Telemetry uploads, crash uploads, search
+suggestions, and network prediction remain disabled. New tabs are local blank
+pages. New profiles default to Kagi; **Privacy Settings** changes the search URL
+used by both the native address field and Chromium. Third-party cookies are
+blocked by default, with Chromium's ordinary site exceptions available in Settings.
+
+The page menu shows the site's blocked-request count and a per-profile blocking
+switch. Filtering uses bundled rules offline. Consented daily updates compile
+before replacing the current rules, retain a previous valid cache, and cannot
+install executable replacement resources. Dynamic cosmetic filtering receives
+bounded DOM-token changes through an isolated, browser-authored collector.
+
+The Performance Manager policy keeps twelve recent eligible background pages
+warm. Older eligible pages freeze after two minutes and become discardable after
+fifteen. An 8 GiB soft process-footprint budget or OS memory pressure can discard
+older eligible pages sooner, one at a time. Visible/focused pages, media, calls,
+capture, uploads, edited forms, before-unload handlers, DevTools, extension
+protections, and **Keep Active** exclude pages from this policy. Every visible
+split pane wakes on selection. Native apps are outside the policy.
+
+The warm/frozen/Space switching targets of 50/100/150 ms require live browser
+qualification; unit tests and blocker microbenchmarks do not establish them.
 
 ## Implementation
 
-Protocol 5 adds an authenticated browser-level page-creation request with an
+Protocol 6 adds privacy, search, site-blocking, and Keep Active actions, plus
+lifecycle and blocking state in inventory. These actions are gated on the
+negotiated version. Privacy changes acknowledge an atomic consent write before
+updating displayed state. Protocol 5 adds a browser-level page-creation request with an
 optional source page and the exact created page identity in its reply. It can
 create a page from the loaded browser profile when no windows remain. Protocol 4
 adds typed navigation actions and an optional URL payload alongside

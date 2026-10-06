@@ -12,6 +12,13 @@ namespace winmux {
 // sequence after background initialization, including initialization failure.
 bool DeferUntilBlockingReady(base::OnceClosure resume);
 
+// Compile off the caller sequence; a failed update retains the active snapshot.
+void ReplaceBlockingRules(std::string rules, base::OnceCallback<void(bool)> completion);
+std::string CurrentBlockingRules();
+struct RequestDecision { bool blocked = false; bool empty_script = false; };
+RequestDecision CheckRequest(const GURL& url, const GURL& initiator,
+                             std::string_view type, std::string_view method);
+
 // Call only after readiness, on the native network sequence. No disk or IPC.
 bool ShouldBlockRequest(const GURL& url,
                         const GURL& initiator,

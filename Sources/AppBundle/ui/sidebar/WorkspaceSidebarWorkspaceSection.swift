@@ -81,6 +81,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .opacity(compactFocusOpacity)
             .contentShape(Rectangle())
             .contextMenu {
+                if BrowserWorkspaceController.shared.usesSurfaceTree {
+                    Button("Pin Group") { actions.send(.pinWorkspace(workspace.name)) }
+                }
                 Button {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()

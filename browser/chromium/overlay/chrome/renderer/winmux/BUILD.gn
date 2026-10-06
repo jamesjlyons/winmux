@@ -5,6 +5,9 @@ source_set("cosmetics_agent") {
   ]
   deps = [
     "//base",
+    "//chrome/common",
+    "//gin",
+    "//v8",
     "//components/winmux/blocking:mojom",
     "//content/public/renderer",
     "//mojo/public/cpp/bindings",

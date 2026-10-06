@@ -871,7 +871,7 @@ extension WorkspaceSidebarView {
     ) -> some View {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         return VStack(alignment: .leading, spacing: 0) {
-            if let pins = workspaces.first(where: \.isPinnedGroup) {
+            if let pins = workspaceSidebarCombinedPins(workspaces) {
                 WorkspaceSidebarPinGrid(workspace: pins, projects: snapshot.projects, isCompact: isCompact,
                     availableWidth: max(32, (isOrganizing ? workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration) : snapshot.visibleWidth) - leadingInset - trailingInset - 4),
                     showsDropWell: isPinDropActive, actions: actions)

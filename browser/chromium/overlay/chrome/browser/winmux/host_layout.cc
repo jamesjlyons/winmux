@@ -1,4 +1,5 @@
 #include "chrome/browser/winmux/host_layout.h"
+#include "chrome/browser/winmux/page_lifetime.h"
 
 #include <map>
 #include <memory>
@@ -121,6 +122,8 @@ struct Placement {
 void Release(ManagedHost& host) {
   host.observer.reset();
   if (host.browser && !host.browser->IsDeleteScheduled()) {
+    auto* strip = host.browser->GetTabStripModel();
+    for (int i = 0; i < strip->count(); ++i) SetWorkspacePageVisibility(strip->GetWebContentsAt(i), false, true);
     SetBrowserHostManaged(host.browser.get(), false);
     if (!IsBrowserHostSuspended(host.browser.get()))
       host.browser->GetWindow()->ShowInactive();
@@ -269,6 +272,7 @@ std::string ApplyHostLayout(const std::string& json) {
     // already visible peer. Both operations can trigger Cocoa/renderer layout
     // and produce movement even though the workspace geometry is unchanged.
     if (window->GetBounds() != p.bounds) window->SetBounds(p.bounds);
+    SetWorkspacePageVisibility(host->GetTabStripModel()->GetWebContentsAt(0), p.managed, p.visible);
     if (p.visible) {
       if (!window->IsVisible()) window->ShowInactive();
     } else if (window->IsVisible()) {

@@ -61,7 +61,7 @@ struct RestartSessionSnapshot: Codable, Sendable {
         let world = FrozenWorld(workspaces: workspaces.map(FrozenWorkspace.init), monitors: monitors.map(FrozenMonitor.init),
                                 windowIds: workspaces.flatMap(collectAllWindowIds).toSet())
         return RestartSessionSnapshot(
-            version: BrowserWorkspaceController.shared.usesSurfaceTree ? 4 : 3,
+            version: BrowserWorkspaceController.shared.usesSurfaceTree ? 5 : 3,
             savedAt: now, bootSession: currentBootSession(), world: world,
             windows: world.windowIds.sorted().compactMap { id in
                 guard let window = Window.get(byId: id) else { return nil }

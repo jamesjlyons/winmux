@@ -11,6 +11,10 @@ struct BrowserToolbarItem {
     let canGoForward: Bool
     let isLoading: Bool
     let isFocused: Bool
+    var supportsPrivacy = false
+    var keepActive = false
+    var blockingEnabled = true
+    var blockedRequests = 0
     var controlsEnabled = true
     var hostWindowID: UInt32? = nil
     var pageFrame: CGRect? = nil
@@ -24,6 +28,7 @@ struct BrowserToolbarItem {
 enum BrowserToolbarAction: Equatable {
     case back, forward, reload, stop, extensions, newTab, close, minimize, fullscreen, zoom, focusPage
     case navigate(String)
+    case toggleKeepActive, toggleSiteBlocking, privacySettings
     case resizeWidth(Int), resizeHeight(Int)
     case resize(width: Int, height: Int)
 }

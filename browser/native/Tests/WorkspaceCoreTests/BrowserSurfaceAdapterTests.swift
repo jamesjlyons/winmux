@@ -60,6 +60,24 @@ final class BrowserSurfaceAdapterTests: XCTestCase {
         XCTAssertEqual(BrowserTabSurfaceAdapter(surfaceID: .nativeWindow(tab), session: session).requestClose(), .unavailable)
     }
 
+    func testPrivacyControlsRequireProtocolSixAndStayBoundToTheirPage() {
+        var requests: [BrowserActionRequest] = []
+        let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(.issued) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch); session.supportsBrowserControls = true
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        for action: BrowserSurfaceAction in [.search, .privacy, .keepActive, .siteBlocking] {
+            XCTAssertEqual(session.request(action, surfaceID: id, url: "true"), .unsupported)
+        }
+        session.supportsPrivacy = true
+        XCTAssertEqual(session.request(.keepActive, surfaceID: id, url: "true"), .issued)
+        XCTAssertEqual(session.request(.siteBlocking, surfaceID: id, url: "false"), .issued)
+        XCTAssertEqual(session.request(.search, surfaceID: id, url: "local query"), .issued)
+        XCTAssertEqual(requests.map(\.surfaceID), [id, id, id])
+        XCTAssertEqual(requests.map(\.url), ["true", "false", "local query"])
+        XCTAssertNil(session.focusIntent)
+    }
+
     func testBrowserControlsRequireCapabilityAndDoNotChangeFocusOrRemoveTab() {
         var requests: [BrowserActionRequest] = []
         let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(.issued) }
@@ -152,6 +170,150 @@ final class BrowserSurfaceAdapterTests: XCTestCase {
         replies[1](.issued)
         XCTAssertEqual(requests.count, 2)
         XCTAssertEqual(outcomes, [.unavailable])
+    }
+
+    func testStaleFocusRetriesOnceWithFreshRevisionAndGeneration() {
+        var requests: [BrowserActionRequest] = []
+        var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        var outcomes: [BrowserActionReply] = []
+        let session = BrowserSurfaceSession { requests.append($0); replies.append($1) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        session.request(.focus, surfaceID: id) { outcomes.append($0) }
+        replies[0](.staleRevision)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertTrue(outcomes.isEmpty)
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.map(\.generation), [1, 2])
+        XCTAssertEqual(requests[1].revision, 2)
+        XCTAssertEqual(requests[1].surfaceID, id)
+        XCTAssertNotEqual(requests[1].operation, requests[0].operation)
+        XCTAssertEqual(session.focusIntent?.request.operation, requests[1].operation)
+        replies[1](.staleRevision)
+        XCTAssertTrue(session.reconcile(.init(revision: 3, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(outcomes, [.staleRevision])
+    }
+
+    func testStaleFocusUsesInventoryThatArrivedBeforeItsReply() {
+        var requests: [BrowserActionRequest] = []
+        var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        let session = BrowserSurfaceSession { requests.append($0); replies.append($1) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        session.request(.focus, surfaceID: id)
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        replies[0](.staleRevision)
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests[1].revision, 2)
+        replies[1](.issued)
+        XCTAssertEqual(session.focusIntent?.reply, .issued)
+    }
+
+    func testPendingStaleFocusCannotReplaceNewerBrowserSelection() {
+        for replyBeforeSelection in [false, true] {
+            var requests: [BrowserActionRequest] = []
+            var replies: [@MainActor (BrowserActionReply) -> Void] = []
+            var outcomes: [BrowserActionReply] = []
+            let session = BrowserSurfaceSession { requests.append($0); replies.append($1) }
+            let epoch = UUID(), profile = UUID()
+            let a = SurfaceID.browserTab(profile: profile, tab: UUID()), b = SurfaceID.browserTab(profile: profile, tab: UUID())
+            session.connect(epoch: epoch)
+            XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(a), record(b)]), epoch: epoch))
+            session.request(.focus, surfaceID: a) { outcomes.append($0) }
+            if replyBeforeSelection { replies[0](.staleRevision) }
+            session.request(.focus, surfaceID: b)
+            if !replyBeforeSelection { replies[0](.staleRevision) }
+            XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+            XCTAssertEqual(requests.count, 2)
+            XCTAssertEqual(session.focusIntent?.request.surfaceID, b)
+            XCTAssertEqual(outcomes, [.staleFocus])
+        }
+    }
+
+    func testPendingStaleFocusCannotCrossNativeFocusFence() {
+        var requests: [BrowserActionRequest] = []
+        var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        let session = BrowserSurfaceSession { requests.append($0); replies.append($1) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID()), native = SurfaceID.nativeWindow(UUID())
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        session.request(.focus, surfaceID: id)
+        replies[0](.staleRevision)
+        let generation = session.focusCoordinator.select(native)!
+        session.supersedeFocus(generation: generation, target: native) { _ in }
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.map(\.action), [.focus, .cancelFocus])
+        XCTAssertNil(session.focusIntent)
+        XCTAssertEqual(session.focusCoordinator.target, native)
+    }
+
+    func testPendingStaleFocusCannotCrossAnotherBrowserConnection() {
+        let clock = SurfaceFocusCoordinator()
+        var requests: [BrowserActionRequest] = []
+        var reply: (@MainActor (BrowserActionReply) -> Void)?
+        let session = BrowserSurfaceSession(focusCoordinator: clock) { requests.append($0); reply = $1 }
+        let other = BrowserSurfaceSession(focusCoordinator: clock) { _, done in done(.issued) }
+        let epoch = UUID(), a = SurfaceID.browserTab(profile: UUID(), tab: UUID()), b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch); other.connect(epoch: UUID())
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(a)]), epoch: epoch))
+        XCTAssertTrue(other.reconcile(.init(revision: 1, full: true, tabs: [record(b)]), epoch: other.epoch!))
+        session.request(.focus, surfaceID: a)
+        reply?(.staleRevision)
+        other.request(.focus, surfaceID: b)
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(clock.target, b)
+    }
+
+    func testPendingStaleFocusCannotSurviveRemovalOrReconnect() {
+        for reconnect in [false, true] {
+            var requests: [BrowserActionRequest] = []
+            var reply: (@MainActor (BrowserActionReply) -> Void)?
+            let session = BrowserSurfaceSession { requests.append($0); reply = $1 }
+            let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+            session.connect(epoch: epoch)
+            XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+            session.request(.focus, surfaceID: id)
+            reply?(.staleRevision)
+            if reconnect { session.connect(epoch: UUID()) }
+            XCTAssertTrue(session.reconcile(.init(revision: 2, full: true, tabs: reconnect ? [record(id)] : []), epoch: session.epoch!))
+            XCTAssertEqual(requests.count, 1)
+            XCTAssertNil(session.focusIntent)
+        }
+    }
+
+    func testIssuedOrUncertainFocusIsNeverReplayed() {
+        for outcome in [BrowserActionReply.issued, .unavailable] {
+            var requests: [BrowserActionRequest] = []
+            let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(outcome) }
+            let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+            session.connect(epoch: epoch)
+            XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+            session.request(.focus, surfaceID: id)
+            XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+            XCTAssertEqual(requests.count, 1)
+            XCTAssertEqual(session.focusIntent?.reply, outcome)
+        }
+    }
+
+    func testPendingStaleFocusRespectsShellInputOwnership() {
+        var requests: [BrowserActionRequest] = []
+        var reply: (@MainActor (BrowserActionReply) -> Void)?
+        var shellAllowsRetry = true
+        let session = BrowserSurfaceSession(canRetryFocus: { shellAllowsRetry }) { requests.append($0); reply = $1 }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        session.request(.focus, surfaceID: id)
+        reply?(.staleRevision)
+        // Editing the Swift address field or dragging a pane owns input even
+        // though the selected browser surface itself has not changed.
+        shellAllowsRetry = false
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 1)
     }
 
     private func record(_ id: SurfaceID) -> BrowserTabRecord {

@@ -5,6 +5,8 @@
 #include "base/task/thread_pool.h"
 #include "components/winmux/blocking/engine.h"
 #include "content/public/browser/render_frame_host.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/winmux/privacy_settings.h"
 
 namespace winmux {
 void CosmeticsHost::Create(content::RenderFrameHost* frame,
@@ -24,7 +26,9 @@ void CosmeticsHost::GetSelectors(const std::string& tokens_json,
                                  GetSelectorsCallback callback) {
   // Bounds apply even to a compromised renderer. The document-scoped service
   // and weak callbacks prevent a stale result from crossing a navigation.
-  if (in_flight_ || queries_ >= 64 || tokens_json.size() > 64 * 1024 ||
+  if (!WorkspaceSiteBlockingEnabled(Profile::FromBrowserContext(render_frame_host().GetBrowserContext()),
+          render_frame_host().GetOutermostMainFrame()->GetLastCommittedURL()) ||
+      in_flight_ || queries_ >= 256 || tokens_json.size() > 64 * 1024 ||
       !render_frame_host().GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
     std::move(callback).Run("[]");
     return;

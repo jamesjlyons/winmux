@@ -54,9 +54,9 @@ struct RestartSessionFile: Sendable {
                 }
                 return RestartSessionSnapshot(version: 1, savedAt: modified, bootSession: currentBootSession(), world: legacy.world,
                                               windows: nil, projects: nil, focusedWindowId: nil, focusedWorkspace: nil)
-            case 2, 3, 4:
+            case 2, 3, 4, 5:
                 let snapshot = try decoder.decode(RestartSessionSnapshot.self, from: data)
-                guard version == 4 || snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
+                guard version >= 4 || snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
                 if version >= 3 {
                     guard let windows = snapshot.windows else { throw RestartSessionFileError.invalidSurfaceIdentities }
                     let ids = windows.compactMap(\.surfaceID)
@@ -65,7 +65,7 @@ struct RestartSessionFile: Sendable {
                           ids.allSatisfy({ if case .nativeWindow = $0 { return true }; return false })
                     else { throw RestartSessionFileError.invalidSurfaceIdentities }
                 }
-                if version == 4 {
+                if version >= 4 {
                     guard let surfaces = snapshot.surfaces else { throw SurfaceSnapshotError.invalidTree }
                     _ = try surfaces.validated()
                 }

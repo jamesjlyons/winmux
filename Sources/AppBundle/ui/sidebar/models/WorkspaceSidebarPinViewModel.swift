@@ -1,18 +1,22 @@
 import Foundation
 import WorkspaceCore
 
-struct WorkspaceSidebarPinViewModel: Hashable, Identifiable {
-    let id: UUID
-    let workspaceName: String
-    let title: String
-    let bundleIdentifier: String?
-    let bundlePath: String?
-    let iconPNGBase64: String?
-    let surfaceID: SurfaceID?
-    let isFocused: Bool
-    let isOpen: Bool
-    let isLoading: Bool
-    let isUnavailable: Bool
-    let isBrowser: Bool
+struct WorkspaceSidebarPinViewModel: Hashable, Identifiable, Sendable {
+    var id: UUID
+    var workspaceName: String
+    var title: String
+    var bundleIdentifier: String?
+    var bundlePath: String?
+    var iconPNGBase64: String?
+    var surfaceID: SurfaceID?
+    var isFocused: Bool
+    var isOpen: Bool
+    var isLoading: Bool
+    var isUnavailable: Bool
+    var isBrowser: Bool
+    var sortOrder = 0
+    var members: [WorkspaceSidebarPinViewModel] = []
+    var isGroup = false
+    var memberCount = 1
     var url: String? = nil
 }

@@ -40,14 +40,31 @@ class EngineState {
         {base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback)});
     if (!started_) {
       started_ = true;
-      base::ThreadPool::PostTask(
-          FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+      worker_->PostTask(
+          FROM_HERE,
           base::BindOnce(&EngineState::Initialize, base::Unretained(this)));
     }
     return true;
   }
 
-  WMBlocker* Get() { return published_.load(std::memory_order_acquire); }
+  std::shared_ptr<WMBlocker> Get() { base::AutoLock guard(lock_); return engine_; }
+  std::string Rules() { base::AutoLock guard(lock_); return rules_; }
+  void Replace(std::string rules, base::OnceCallback<void(bool)> completion) {
+    if (rules.empty() || rules.size() > 16 * 1024 * 1024) { std::move(completion).Run(false); return; }
+    auto caller = base::SequencedTaskRunner::GetCurrentDefault();
+    worker_->PostTask(FROM_HERE, base::BindOnce(
+        [](EngineState* state, std::string rules, scoped_refptr<base::SequencedTaskRunner> caller,
+           base::OnceCallback<void(bool)> done) {
+          std::shared_ptr<WMBlocker> next(wm_blocker_create(View(rules)), &wm_blocker_free);
+          bool accepted = next != nullptr;
+          if (accepted) {
+            base::AutoLock guard(state->lock_);
+            state->engine_ = std::move(next);
+            state->rules_ = std::move(rules);
+          }
+          caller->PostTask(FROM_HERE, base::BindOnce(std::move(done), accepted));
+        }, base::Unretained(this), std::move(rules), std::move(caller), std::move(completion)));
+  }
 
  private:
   void Initialize() {
@@ -59,8 +76,7 @@ class EngineState {
     std::vector<Pending> pending;
     {
       base::AutoLock guard(lock_);
-      engine_ = std::move(engine);
-      published_.store(engine_.get(), std::memory_order_release);
+      if (!engine_) engine_ = std::move(engine);
       finished_ = true;
       pending.swap(pending_);
     }
@@ -72,9 +88,9 @@ class EngineState {
   bool started_ = false;
   bool finished_ = false;
   std::vector<Pending> pending_;
-  std::unique_ptr<WMBlocker, decltype(&wm_blocker_free)> engine_{
-      nullptr, &wm_blocker_free};
-  std::atomic<WMBlocker*> published_{nullptr};
+  std::shared_ptr<WMBlocker> engine_;
+  std::string rules_;
+  scoped_refptr<base::SequencedTaskRunner> worker_ = base::ThreadPool::CreateSequencedTaskRunner({base::TaskPriority::USER_VISIBLE});
 };
 
 EngineState& State() {
@@ -88,32 +104,38 @@ bool DeferUntilBlockingReady(base::OnceClosure resume) {
   return State().Defer(std::move(resume));
 }
 
-bool ShouldBlockRequest(const GURL& url,
-                        const GURL& initiator,
-                        std::string_view type,
-                        std::string_view method) {
-  if (!url.SchemeIsHTTPOrHTTPS() || !State().Get())
-    return false;
-  WMDecision decision = wm_blocker_check(
-      State().Get(), View(url.spec()), View(initiator.spec()), View(type),
-      View(method), true);
-  bool blocked = decision.status == WM_OK && decision.blocked;
-  // M0 proves block/exception decisions. Replacement bodies and URL rewriting
-  // require their own loader response integration and are not applied here.
+void ReplaceBlockingRules(std::string rules, base::OnceCallback<void(bool)> completion) { State().Replace(std::move(rules), std::move(completion)); }
+std::string CurrentBlockingRules() { return State().Rules(); }
+
+RequestDecision CheckRequest(const GURL& url, const GURL& initiator, std::string_view type, std::string_view method) {
+  auto engine = State().Get();
+  if (!url.SchemeIsHTTPOrHTTPS() || !engine) return {};
+  WMDecision decision = wm_blocker_check(engine.get(), View(url.spec()), View(initiator.spec()), View(type), View(method), true);
+  RequestDecision result;
+  result.blocked = decision.status == WM_OK && decision.blocked;
+  // Only the locally authored empty.js resource is executable. Downloaded
+  // filter lists cannot introduce remote redirects or JavaScript bodies.
+  if (result.blocked && decision.redirect && type == "script" && method == "GET") {
+    std::string_view redirect(decision.redirect);
+    result.empty_script = redirect == "data:application/javascript;base64," || redirect == "data:text/javascript;base64,";
+  }
   wm_string_free(decision.redirect);
   wm_string_free(decision.rewritten_url);
-  TRACE_EVENT("loading", "WinMux.RequestDecision", "blocked", blocked);
-  return blocked;
+  TRACE_EVENT("loading", "WinMux.RequestDecision", "blocked", result.blocked);
+  return result;
+}
+bool ShouldBlockRequest(const GURL& url, const GURL& initiator, std::string_view type, std::string_view method) {
+  return CheckRequest(url, initiator, type, method).blocked;
 }
 
 std::string CosmeticSelectors(const GURL& url, std::string_view tokens_json) {
-  WMBlocker* engine = State().Get();
+  auto engine = State().Get();
   if (!engine || !url.SchemeIsHTTPOrHTTPS())
     return "[]";
   std::unique_ptr<char, decltype(&wm_string_free)> initial(
-      wm_blocker_cosmetics(engine, View(url.spec()), true), &wm_string_free);
+      wm_blocker_cosmetics(engine.get(), View(url.spec()), true), &wm_string_free);
   std::unique_ptr<char, decltype(&wm_string_free)> dynamic(
-      wm_blocker_dynamic_cosmetics(engine, View(url.spec()), View(tokens_json),
+      wm_blocker_dynamic_cosmetics(engine.get(), View(url.spec()), View(tokens_json),
                                   true), &wm_string_free);
   base::ListValue selectors;
   if (initial) {

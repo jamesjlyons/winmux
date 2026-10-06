@@ -3,9 +3,15 @@
 #include "components/winmux/blocking/engine.h"
 #include "net/url_request/url_request.h"
 #include "url/origin.h"
+#include "net/base/schemeful_site.h"
+#include "base/no_destructor.h"
+#include <map>
+#include <set>
 
 namespace network::winmux_filter {
 namespace {
+struct Context { std::set<std::string> disabled; std::map<std::string, uint64_t> counts; };
+auto& Contexts() { static base::NoDestructor<std::map<const net::URLRequestContext*, Context>> contexts; return *contexts; }
 std::string_view Type(mojom::RequestDestination destination) {
   using D = mojom::RequestDestination;
   switch (destination) {
@@ -34,7 +40,7 @@ std::string_view Type(mojom::RequestDestination destination) {
 }
 }  // namespace
 
-bool ShouldBlock(const net::URLRequest& request,
+winmux::RequestDecision Check(const net::URLRequest& request,
                  mojom::RequestDestination destination,
                  const GURL& target,
                  std::string_view method) {
@@ -49,7 +55,35 @@ bool ShouldBlock(const net::URLRequest& request,
   else if (destination == mojom::RequestDestination::kDocument)
     source = target;
   if (!source.SchemeIsHTTPOrHTTPS())
-    return false;
-  return winmux::ShouldBlockRequest(target, source, Type(destination), method);
+    return {};
+  GURL top = source;
+  if (request.isolation_info().top_frame_origin() && !request.isolation_info().top_frame_origin()->opaque())
+    top = request.isolation_info().top_frame_origin()->GetURL();
+  if (destination == mojom::RequestDestination::kDocument) top = target;
+  const auto site = net::SchemefulSite(top).Serialize();
+  auto& context = Contexts()[request.context()];
+  if (context.disabled.contains(site)) return {};
+  auto decision = winmux::CheckRequest(target, source, Type(destination), method);
+  if (decision.blocked) {
+    if (context.counts.size() >= 1024 && !context.counts.contains(site)) context.counts.erase(context.counts.begin());
+    auto& count = context.counts[site]; if (count < uint64_t{2147483647}) ++count;
+  }
+  return decision;
+}
+bool ShouldBlock(const net::URLRequest& request, mojom::RequestDestination destination, const GURL& target, std::string_view method) {
+  return Check(request, destination, target, method).blocked;
+}
+void SetDisabledSites(const net::URLRequestContext* context, const std::vector<std::string>& sites) {
+  auto& state = Contexts()[context]; state.disabled.clear();
+  for (const auto& site : sites) {
+    if (state.disabled.size() >= 1024) break;
+    if (GURL(site).SchemeIsHTTPOrHTTPS()) state.disabled.insert(net::SchemefulSite(GURL(site)).Serialize());
+  }
+}
+void ForgetContext(const net::URLRequestContext* context) { Contexts().erase(context); }
+uint64_t BlockedCount(const net::URLRequestContext* context, const GURL& site) {
+  auto found = Contexts().find(context); if (found == Contexts().end()) return 0;
+  auto count = found->second.counts.find(net::SchemefulSite(site).Serialize());
+  return count == found->second.counts.end() ? 0 : count->second;
 }
 }  // namespace network::winmux_filter

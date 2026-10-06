@@ -1,6 +1,11 @@
 import Foundation
 
 public struct BrowserTabRecord: Codable, Equatable, Sendable {
+    public let lifecycle: BrowserPageLifecycle
+    public let keepActive: Bool
+    public let blockingEnabled: Bool
+    public let blockedRequests: Int
+    public let privacy: BrowserPrivacySettings?
     public let surfaceID: SurfaceID
     public let hostID: String
     public let title: String
@@ -21,7 +26,8 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostVisible: Bool?
     public let hostMinimumSize: SurfaceMinimumSize?
 
-    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, hostMinimized: Bool = false, hostFullscreen: Bool = false, hostZoomed: Bool = false, focused: Bool = false, iconPNGBase64: String? = nil) {
+    public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, hostMinimized: Bool = false, hostFullscreen: Bool = false, hostZoomed: Bool = false, focused: Bool = false, iconPNGBase64: String? = nil, lifecycle: BrowserPageLifecycle = .active, keepActive: Bool = false, blockingEnabled: Bool = true, blockedRequests: Int = 0, privacy: BrowserPrivacySettings? = nil) {
+        self.lifecycle = lifecycle; self.keepActive = keepActive; self.blockingEnabled = blockingEnabled; self.blockedRequests = max(0, blockedRequests); self.privacy = privacy
         self.surfaceID = surfaceID
         self.hostID = hostID
         self.title = title
@@ -43,6 +49,8 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case lifecycle, keepActive = "keep_active", blockingEnabled = "blocking_enabled", privacy
+        case blockedRequests = "blocked_requests"
         case surfaceID = "surface_id", hostID = "host_id", title, selected
         case privateBrowsing = "private"
         case hostWindowID = "host_window_id"
@@ -74,7 +82,12 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
                   hostFullscreen: try values.decodeIfPresent(Bool.self, forKey: .hostFullscreen) ?? false,
                   hostZoomed: try values.decodeIfPresent(Bool.self, forKey: .hostZoomed) ?? false,
                   focused: try values.decodeIfPresent(Bool.self, forKey: .focused) ?? false,
-                  iconPNGBase64: try values.decodeIfPresent(String.self, forKey: .iconPNGBase64))
+                  iconPNGBase64: try values.decodeIfPresent(String.self, forKey: .iconPNGBase64),
+                  lifecycle: try values.decodeIfPresent(BrowserPageLifecycle.self, forKey: .lifecycle) ?? .active,
+                  keepActive: try values.decodeIfPresent(Bool.self, forKey: .keepActive) ?? false,
+                  blockingEnabled: try values.decodeIfPresent(Bool.self, forKey: .blockingEnabled) ?? true,
+                  blockedRequests: try values.decodeIfPresent(Int.self, forKey: .blockedRequests) ?? 0,
+                  privacy: try values.decodeIfPresent(BrowserPrivacySettings.self, forKey: .privacy))
     }
 }
 

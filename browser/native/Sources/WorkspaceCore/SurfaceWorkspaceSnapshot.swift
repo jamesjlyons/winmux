@@ -14,15 +14,19 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
     public var browserPins: [BrowserSidebarPin]
     public var appPins: [NativeAppSidebarPin]
     public var pinnedGroups: [SpacePinnedGroup]
+    public var pinnedDesktops: [PinnedDesktop]
+    public var pinShelves: [SpacePinShelf]
 
     public init(tree: SurfaceTree, layoutWorkspaces: Set<String>, selected: SurfaceID?, closedBrowserTabs: Set<SurfaceID>,
-                browserPins: [BrowserSidebarPin] = [], appPins: [NativeAppSidebarPin] = [], pinnedGroups: [SpacePinnedGroup] = []) {
+                browserPins: [BrowserSidebarPin] = [], appPins: [NativeAppSidebarPin] = [], pinnedGroups: [SpacePinnedGroup] = [],
+                pinnedDesktops: [PinnedDesktop] = [], pinShelves: [SpacePinShelf] = []) {
         self.tree = tree; self.layoutWorkspaces = layoutWorkspaces
         self.selected = selected; self.closedBrowserTabs = closedBrowserTabs
         self.browserPins = browserPins; self.appPins = appPins; self.pinnedGroups = pinnedGroups
+        self.pinnedDesktops = pinnedDesktops; self.pinShelves = pinShelves
     }
 
-    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups }
+    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, pinnedDesktops, pinShelves }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -32,7 +36,9 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                   closedBrowserTabs: try values.decode(Set<SurfaceID>.self, forKey: .closedBrowserTabs),
                   browserPins: try values.decodeIfPresent([BrowserSidebarPin].self, forKey: .browserPins) ?? [],
                   appPins: try values.decodeIfPresent([NativeAppSidebarPin].self, forKey: .appPins) ?? [],
-                  pinnedGroups: try values.decodeIfPresent([SpacePinnedGroup].self, forKey: .pinnedGroups) ?? [])
+                  pinnedGroups: try values.decodeIfPresent([SpacePinnedGroup].self, forKey: .pinnedGroups) ?? [],
+                  pinnedDesktops: try values.decodeIfPresent([PinnedDesktop].self, forKey: .pinnedDesktops) ?? [],
+                  pinShelves: try values.decodeIfPresent([SpacePinShelf].self, forKey: .pinShelves) ?? [])
     }
 
     public func validated() throws -> Self {
@@ -40,12 +46,12 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
         let pinIDs = browserPins.map(\.id) + appPins.map(\.id)
         guard pinIDs.count <= 10000, Set(pinIDs).count == pinIDs.count, browserPins.allSatisfy(\.isValid),
               appPins.allSatisfy(\.isValid), pinnedGroups.allSatisfy(\.isValid),
-              Dictionary(grouping: appPins, by: \.workspaceName).values.allSatisfy({ pins in
+              (!pinnedDesktops.isEmpty || Dictionary(grouping: appPins, by: \.workspaceName).values.allSatisfy({ pins in
                   Set(pins.map(\.bundleIdentifier)).count == pins.count
-              }),
+              })),
               Set(pinnedGroups.map(\.spaceID)).count == pinnedGroups.count,
               Set(pinnedGroups.map(\.workspaceName)).count == pinnedGroups.count,
-              appPins.allSatisfy({ pin in pinnedGroups.contains { $0.workspaceName == pin.workspaceName } }),
+              appPins.allSatisfy({ pin in pinnedGroups.contains { $0.workspaceName == pin.workspaceName } || pinnedDesktops.contains { $0.workspaceName == pin.workspaceName } }),
               Set(browserPins.map(\.id)).count == browserPins.count,
               Set(pinnedSurfaces).count == pinnedSurfaces.count,
               Set(pinnedSurfaces).isDisjoint(with: closedBrowserTabs),
@@ -63,6 +69,25 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
               selected.map({ tree.workspace(of: $0) != nil }) ?? true,
               Set(tree.roots.values.flatMap { $0.flatMap(\.surfaces) }).isDisjoint(with: closedBrowserTabs)
         else { throw SurfaceSnapshotError.invalidTree }
+        var templateGroups = Set<UUID>()
+        guard pinnedDesktops.flatMap(\.layout).allSatisfy({ $0.validate(depth: 0, groups: &templateGroups) }) else { throw SurfaceSnapshotError.invalidTree }
+        let desktopIDs = pinnedDesktops.map(\.id)
+        let members = pinnedDesktops.flatMap(\.memberIDs)
+        guard pinnedDesktops.allSatisfy(\.isValid), Set(desktopIDs).count == desktopIDs.count,
+              Set(pinnedDesktops.map(\.workspaceName)).count == pinnedDesktops.count,
+              Set(members).count == members.count, Set(members).isSubset(of: Set(pinIDs)),
+              Set(pinShelves.map(\.spaceID)).count == pinShelves.count,
+              Set(pinShelves.flatMap(\.desktopOrder)) == Set(desktopIDs),
+              pinShelves.allSatisfy({ shelf in
+                  !shelf.spaceID.isEmpty && shelf.spaceID.utf8.count <= 1024 &&
+                  (shelf.lastRegularWorkspaceName.map { $0.utf8.count <= 1024 } ?? true) &&
+                  Set(shelf.desktopOrder).count == shelf.desktopOrder.count &&
+                  shelf.desktopOrder.allSatisfy { id in pinnedDesktops.contains { $0.id == id && $0.spaceID == shelf.spaceID } }
+              }),
+              pinnedDesktops.allSatisfy({ desktop in desktop.memberIDs.allSatisfy { id in
+                  browserPins.contains { $0.id == id && $0.workspaceName == desktop.workspaceName } ||
+                  appPins.contains { $0.id == id && $0.workspaceName == desktop.workspaceName }
+              } }) else { throw SurfaceSnapshotError.invalidTree }
         return self
     }
 }

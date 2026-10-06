@@ -127,6 +127,21 @@ TabIdentity* EnsureIdentity(content::WebContents* contents,
 
 void RegisterWorkspaceProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kProfileIdentityPref, "");
+  registry->RegisterListPref("winmux.keep_active_pages");
+  registry->RegisterListPref("winmux.blocking_disabled_sites");
+  registry->RegisterStringPref("winmux.search_template", "https://kagi.com/search?q={searchTerms}");
+}
+
+void ApplyWorkspacePrivacyDefaults(PrefRegistrySimple* registry) {
+  base::DictValue search;
+  search.Set("short_name", "Kagi"); search.Set("keyword", "kagi.com");
+  search.Set("url", "https://kagi.com/search?q={searchTerms}");
+  registry->SetDefaultPrefValue("default_search_provider_data.template_url_data", base::Value(std::move(search)));
+  registry->SetDefaultPrefValue("search.suggest_enabled", base::Value(false));
+  registry->SetDefaultPrefValue("net.network_prediction_options", base::Value(2));
+  registry->SetDefaultPrefValue("profile.cookie_controls_mode", base::Value(1));
+  registry->SetDefaultPrefValue("safebrowsing.enabled", base::Value(false));
+  registry->SetDefaultPrefValue("safebrowsing.enhanced", base::Value(false));
 }
 
 std::string ExistingProfileID(Profile* profile) {

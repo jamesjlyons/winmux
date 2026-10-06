@@ -45,6 +45,14 @@ PAGE = r'''<!doctype html><meta charset="utf-8"><title>WinMux blocking integrati
  const later=document.createElement('div');later.className='ADBAR';later.textContent='Later matching ad';document.body.append(later);
  await new Promise(r=>requestAnimationFrame(r));
  result.later_matching_selector_hidden=getComputedStyle(later).display==='none';
+ // Introduce a token absent from the initial document so this also exercises
+ // the renderer's bounded mutation queries, not only an existing stylesheet.
+ const dynamic=document.createElement('div');dynamic.className='ADBox';dynamic.textContent='New cosmetic token';document.body.append(dynamic);
+ for(let i=0;i<100;i++){
+   if(getComputedStyle(dynamic).display==='none')break;
+   await new Promise(r=>setTimeout(r,50));
+ }
+ result.new_token_cosmetic_hidden=getComputedStyle(dynamic).display==='none';
  result.normal_content_visible=getComputedStyle(document.getElementById('content')).display!=='none';
  document.getElementById('status').textContent=JSON.stringify(result,null,2);
  await fetch('/report/TOKEN',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(result)});
@@ -105,13 +113,12 @@ def main():
                 traffic = dict(counts)
             blocked_paths = ("/direct-ad.txt", "/redirect-ad.txt", "/worker-ad.txt")
             absent = all(traffic.get(path, 0) == 0 for path in blocked_paths)
-            report = {"scope": "local_chromium_network_and_initial_cosmetic_integration",
+            report = {"scope": "local_chromium_network_and_dynamic_cosmetic_integration",
                       "recorded_utc": datetime.now(timezone.utc).isoformat(),
                       "page_checks": result, "server_requests": traffic,
                       "blocked_targets_never_reached_server": absent,
                       "passed": bool(result) and all(v is True for v in result.values()) and absent,
-                      "limits": ["No new-token mutation observer yet; later node uses an already matched selector",
-                                 "No performance qualification, profile/site switches, replacements or WebSocket coverage"]}
+                      "limits": ["No performance qualification, profile/site switches, replacements or WebSocket coverage"]}
             args.report.write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report), flush=True)
             self.reply(200, b"recorded")

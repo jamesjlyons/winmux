@@ -8,37 +8,19 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func pinBrowserTab(_ surfaceID: SurfaceID) -> Bool {
-        guard usesSurfaceTree, browserSidebarPins.count + nativeAppSidebarPins.count < 10_000,
-              sidebarPin(for: surfaceID) == nil,
-              let record = owner(of: surfaceID)?.inventory.tabs[surfaceID],
-              let workspace = workspaceName(for: surfaceID) else { return false }
-        guard case .browserTab(let profile, _) = surfaceID else { return false }
-        guard let source = Workspace.existing(byName: workspace) else { return false }
-        let wasFocused = focusCoordinator.target == surfaceID || (record.focused && focus.workspace == source)
-        let group = pinnedGroup(for: source.projectId, source: source)
-        let pin = BrowserSidebarPin(profileID: profile, workspaceName: group.name,
-                                   title: record.title.isEmpty ? "New tab" : record.title,
-                                   url: record.url.isEmpty ? "chrome://newtab/" : record.url,
-                                   surfaceID: surfaceID, iconPNGBase64: record.iconPNGBase64)
-        guard pin.isValid else { return false }
-        browserSidebarPins.append(pin)
-        appendPinOrder(pin.id, workspace: group.name)
-        adoptPinnedSurface(surfaceID, into: group.name)
-        if wasFocused { _ = select(surfaceID) }
-        scheduleRefresh()
-        return true
+        pinSurface(surfaceID)
     }
 
     func unpinBrowserTab(_ id: UUID) { unpin(id) }
 
     @discardableResult
-    func selectPinnedBrowserTab(_ id: UUID) -> SurfaceActionOutcome {
+    func selectPinnedBrowserTab(_ id: UUID, selectAfterOpening: Bool = true) -> SurfaceActionOutcome {
         guard let pin = browserSidebarPins.first(where: { $0.id == id }) else { return .unavailable }
         if let surfaceID = pin.surfaceID, isAvailable(surfaceID) { return select(surfaceID) }
         // A lost helper connection is not confirmation that a live page closed.
         if let surfaceID = pin.surfaceID, unresolvedSidebarPinOwners[surfaceID] != nil { return .unavailable }
         guard pendingSidebarPinOpenings.insert(id).inserted else { return .issued }
-        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, created: { [weak self] surfaceID in
+        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, selectNewPage: selectAfterOpening, created: { [weak self] surfaceID in
             guard let self else { return }
             guard let index = self.browserSidebarPins.firstIndex(where: { $0.id == id }) else {
                 if let group = Workspace.existing(byName: pin.workspaceName) {
@@ -64,6 +46,7 @@ extension BrowserWorkspaceController {
             // A reply can precede the inventory delta. Keep the operation pending
             // until its exact created ID is available, preventing duplicate opens.
             if self.isAvailable(surfaceID) { self.pendingSidebarPinOpenings.remove(id) }
+            self.restorePinnedDesktopLayout(workspace: destination)
             self.scheduleRefresh()
         }, completion: { [weak self] reply in
             if reply != .issued { self?.pendingSidebarPinOpenings.remove(id) }
@@ -81,12 +64,16 @@ extension BrowserWorkspaceController {
     /// A closed page keeps its saved shortcut; it is absent from the layout tree.
     func syncSidebarPins() {
         var removed: [UUID] = []
+        var changedOwnership = false
         for index in browserSidebarPins.indices {
             guard let id = browserSidebarPins[index].surfaceID else { continue }
             if let record = owner(of: id)?.inventory.tabs[id], record.url == browserSidebarPins[index].url,
                let icon = record.iconPNGBase64 { browserSidebarPins[index].iconPNGBase64 = icon }
             if let workspace = workspaceName(for: id), workspace != browserSidebarPins[index].workspaceName {
-                if let group = spacePinnedGroups.first(where: { $0.workspaceName == workspace }) {
+                if pinnedDesktops.contains(where: { $0.workspaceName == workspace }) {
+                    browserSidebarPins[index].workspaceName = workspace
+                    changedOwnership = true
+                } else if let group = spacePinnedGroups.first(where: { $0.workspaceName == workspace }) {
                     browserSidebarPins[index].workspaceName = group.workspaceName
                     removePinOrder(browserSidebarPins[index].id)
                     appendPinOrder(browserSidebarPins[index].id, workspace: workspace)
@@ -100,7 +87,10 @@ extension BrowserWorkspaceController {
                 continue
             }
             if let workspace = window.nodeWorkspace?.name, workspace != nativeAppSidebarPins[index].workspaceName {
-                removed.append(nativeAppSidebarPins[index].id)
+                if pinnedDesktops.contains(where: { $0.workspaceName == workspace }) {
+                    nativeAppSidebarPins[index].workspaceName = workspace
+                    changedOwnership = true
+                } else { removed.append(nativeAppSidebarPins[index].id) }
             }
         }
         for id in removed {
@@ -110,9 +100,30 @@ extension BrowserWorkspaceController {
             pendingSidebarPinOpenings.remove(id)
             pendingNativePinLaunches.removeValue(forKey: id)
         }
+        if changedOwnership || !removed.isEmpty {
+            prunePinnedMembers()
+            for index in pinnedDesktops.indices {
+                let workspace = pinnedDesktops[index].workspaceName
+                let owned = browserSidebarPins.filter { $0.workspaceName == workspace }.map(\.id) +
+                    nativeAppSidebarPins.filter { $0.workspaceName == workspace }.map(\.id)
+                let added = Set(owned).subtracting(pinnedDesktops[index].memberIDs)
+                guard !added.isEmpty else { continue }
+                pinnedDesktops[index].memberIDs += owned.filter { added.contains($0) }
+                pinnedDesktops[index].kind = .group
+                // Keep closed slots while recording the newly joined members.
+                // A complete live group is captured with its current layout below.
+                let bindings = pinBindings(in: workspace)
+                pinnedDesktops[index].layout += owned.filter { added.contains($0) }.map { member in
+                    bindings[member].flatMap { PinnedLayoutNode.capture(.surface($0), tree: surfaceTree, members: [$0: member]) }
+                        ?? .member(member, 1)
+                }
+            }
+            capturePinnedLayouts()
+        }
     }
 
     func browserPinDidClose(_ surfaceID: SurfaceID) {
+        capturePinnedLayouts()
         for index in browserSidebarPins.indices where browserSidebarPins[index].surfaceID == surfaceID {
             pendingSidebarPinOpenings.remove(browserSidebarPins[index].id)
             browserSidebarPins[index].surfaceID = nil

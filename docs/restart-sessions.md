@@ -15,6 +15,12 @@ discovery retries for up to ten seconds. Editing a workspace cancels any pending
 restore for that workspace. A missing display falls back to the main display,
 with floating frames clamped to its visible bounds.
 
+In the browser workspace, pending native references stay out of the sidebar and
+are removed when discovery finishes, including orphaned references left by older
+checkpoints. Full browser inventories retire absent saved tabs for the profiles
+they report. Profiles that have not connected keep their placement without showing
+empty sidebar groups.
+
 Session files are atomically replaced with a last-good `.backup` alongside them.
 The live tree is captured on the main actor; a separate serial writer compares and saves the
 snapshot. Quit captures the final state before yielding and waits for its write before window

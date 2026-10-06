@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import WorkspaceCore
 
 /// An explicit, local activation request. This never imports a browser profile
 /// or the standalone manager's configuration. Validation cannot widen to all apps.
@@ -131,14 +132,35 @@ public struct WorkspaceActivationStore: Sendable {
 
     public func prepareDirectories(for request: WorkspaceActivation) throws {
         try request.validate(); try prepare()
-        let fm = FileManager.default
         // The native state creates its own marker. A profile is only created
         // inside this marked activation root, never from a caller-supplied path.
         for url in [root.appendingPathComponent("validation"), request.directory(in: root), request.profile(in: root)] {
-            try check(url)
-            try fm.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try preparePrivateDirectory(url)
         }
         try check(request.nativeState(in: root))
+    }
+
+    private func preparePrivateDirectory(_ url: URL) throws {
+        guard url.resolvingSymlinksInPath().path == url.path else { throw WorkspaceActivationError.unsafeDirectory }
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: url.path) {
+            try fm.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        }
+        let descriptor = open(url.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else { throw WorkspaceActivationError.unsafeDirectory }
+        defer { close(descriptor) }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_uid == getuid(), (info.st_mode & S_IFMT) == S_IFDIR,
+              info.st_mode & 0o700 == 0o700, info.st_mode & 0o7022 == 0 else {
+            throw WorkspaceActivationError.unsafeDirectory
+        }
+        // RC1 saved consent before preparing these directories, leaving 0755
+        // permissions on fresh installs. Under our verified private, marked
+        // root, tighten owned directories without replacing their contents.
+        // Symlinks, foreign owners and externally writable directories fail.
+        if info.st_mode & 0o077 != 0, fchmod(descriptor, 0o700) != 0 {
+            throw WorkspaceActivationError.unsafeDirectory
+        }
     }
 
     public func readRequest() throws -> WorkspaceActivation? {
@@ -146,8 +168,9 @@ public struct WorkspaceActivationStore: Sendable {
         try request?.validate()
         return request
     }
-    public func writeRequest(_ request: WorkspaceActivation) throws {
+    public func writeRequest(_ request: WorkspaceActivation, consent: BrowserServiceConsent? = nil) throws {
         try prepareDirectories(for: request)
+        try consent?.write(profile: request.profile(in: root))
         try write(request, name: "request.json")
     }
     public func readStatus() throws -> WorkspaceActivationStatus? { try read("status.json") }

@@ -24,13 +24,15 @@ final class RestartSessionController {
     private var sessionObservers: [NSObjectProtocol] = []
     private let fileOverride: RestartSessionFile?
     private let isAppStillRunning: (RestartWindowIdentity) -> Bool
+    private let now: () -> Date
 
     init(file: RestartSessionFile? = nil, isAppStillRunning: @escaping (RestartWindowIdentity) -> Bool = { identity in
         guard let app = NSRunningApplication(processIdentifier: identity.pid) else { return false }
         return app.bundleIdentifier == identity.bundleId && app.launchDate == identity.launchDate
-    }) {
+    }, now: @escaping () -> Date = { .now }) {
         fileOverride = file
         self.isAppStillRunning = isAppStillRunning
+        self.now = now
     }
 
     var file: RestartSessionFile {
@@ -58,7 +60,7 @@ final class RestartSessionController {
                 Task { @MainActor in
                     self?.sessionIsActive = active
                     if active {
-                        self?.retryDeadline = .now.addingTimeInterval(10)
+                        if let self { self.retryDeadline = self.now().addingTimeInterval(10) }
                         scheduleRefreshSession(.globalObserver("sessionUnlocked"))
                     }
                 }
@@ -84,7 +86,7 @@ final class RestartSessionController {
 
     func prepare(_ snapshot: RestartSessionSnapshot) {
         pending = snapshot
-        retryDeadline = .now.addingTimeInterval(10)
+        retryDeadline = now().addingTimeInterval(10)
         restoredIds = []
         restoredWorkspaces = []
         cancelledWorkspaces = []
@@ -108,7 +110,7 @@ final class RestartSessionController {
     func restoreAfterDiscovery() async throws {
         guard let snapshot = pending, !restoring else { return }
         guard isUnitTest || canObserveSession else {
-            retryDeadline = .now.addingTimeInterval(10)
+            retryDeadline = now().addingTimeInterval(10)
             lastRestore = "Waiting for the macOS session to unlock"
             return
         }
@@ -139,7 +141,7 @@ final class RestartSessionController {
         let waitingForApp = snapshot.windows?.contains { record in
             !restoredIds.contains(record.id) && isAppStillRunning(record.identity)
         } ?? false
-        if waitingForApp && Date.now < retryDeadline {
+        if waitingForApp && now() < retryDeadline {
             lastRestore = "Restored \(matchedCount); waiting for \(unmatchedCount) windows"
             scheduleRetry()
         } else {
@@ -147,6 +149,7 @@ final class RestartSessionController {
             pending = nil
             retryTask?.cancel()
             retryTask = nil
+            BrowserWorkspaceController.shared.finishNativeRestoration()
             syncClosedWindowsCacheToCurrentWorld()
         }
     }

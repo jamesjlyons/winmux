@@ -2,6 +2,8 @@ import Foundation
 
 public enum BrowserSurfaceAction: String, Sendable {
     case focus, close, back, forward, reload, stop, navigate, extensions, minimize, fullscreen, zoom
+    case search, privacy
+    case keepActive = "keep_active", siteBlocking = "site_blocking"
     case newTab = "new_tab"
     case manageExtensions = "manage_extensions"
     case cancelFocus = "cancel_focus"
@@ -57,6 +59,7 @@ public final class BrowserSurfaceSession {
     private let sendLayout: LayoutTransport?
     public var supportsLayout = false
     public var supportsBrowserControls = false
+    public var supportsPrivacy = false
     public var supportsTabCreation = false
     public typealias NewTabTransport = @MainActor (BrowserNewTabRequest, @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> Void
     private let sendNewTab: NewTabTransport?
@@ -92,12 +95,15 @@ public final class BrowserSurfaceSession {
         return { task.cancel() }
     }
     private let send: Transport
+    private let canRetryFocus: @MainActor () -> Bool
 
-    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, sendNewTab: NewTabTransport? = nil, send: @escaping Transport) {
+    public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, sendNewTab: NewTabTransport? = nil,
+                canRetryFocus: @escaping @MainActor () -> Bool = { true }, send: @escaping Transport) {
         self.focusCoordinator = focusCoordinator
         self.send = send
         self.sendLayout = sendLayout
         self.sendNewTab = sendNewTab
+        self.canRetryFocus = canRetryFocus
     }
 
     public func connect(epoch: UUID) {
@@ -252,8 +258,9 @@ public final class BrowserSurfaceSession {
         }
         guard action != .cancelFocus else { completion?(.invalidRequest); return .unsupported }
         guard let epoch, let tab = inventory.tabs[surfaceID] else { completion?(.unavailable); return .unavailable }
+        if [.search, .privacy, .keepActive, .siteBlocking].contains(action), !supportsPrivacy { completion?(.unsupported); return .unsupported }
         guard (action != .navigate || url?.isEmpty == false),
-              url == nil || action == .navigate || action == .newTab,
+              url == nil || [.navigate, .newTab, .search, .privacy, .keepActive, .siteBlocking].contains(action),
               (url?.utf8.count ?? 0) <= 16_384 else { completion?(.invalidRequest); return .unsupported }
         guard action != .back || tab.canGoBack,
               action != .forward || tab.canGoForward else { completion?(.unavailable); return .unavailable }
@@ -265,7 +272,7 @@ public final class BrowserSurfaceSession {
         let request = BrowserActionRequest(epoch: epoch, operation: UUID(), surfaceID: surfaceID, action: action,
                                            revision: inventory.revision, generation: generation, url: url)
         if action == .focus { focusIntent = BrowserFocusIntent(request: request) }
-        sendAction(request, canRetry: action != .focus && action != .close, completion: completion)
+        sendAction(request, canRetry: action != .close, completion: completion)
         // Close acknowledgements intentionally do not remove a row. Only the
         // browser's inventory delta can confirm the tab actually went away.
         return .issued
@@ -276,6 +283,12 @@ public final class BrowserSurfaceSession {
         send(request) { [weak self] reply in
             guard let self, self.epoch == request.epoch else { return }
             if reply == .staleRevision, canRetry, self.pendingActions.count < 16 {
+                if request.action == .focus,
+                   (!self.canRetryFocus() || !self.focusCoordinator.isCurrent(request.generation, target: request.surfaceID) ||
+                    self.focusIntent?.request.operation != request.operation) {
+                    completion?(.staleFocus)
+                    return
+                }
                 self.pendingActions.append(PendingAction(request: request, completion: completion))
                 self.flushPendingActions()
                 return
@@ -297,10 +310,25 @@ public final class BrowserSurfaceSession {
             guard inventory.tabs[request.surfaceID] != nil else {
                 pending.completion?(.unavailable); continue
             }
+            var generation = request.generation
+            if request.action == .focus {
+                // Chromium rejected this before dispatch, but consumed its
+                // focus generation. Retry only the still-current intent with
+                // a fresh generation; a newer page or native selection wins.
+                guard canRetryFocus(), focusCoordinator.isCurrent(request.generation, target: request.surfaceID),
+                      focusIntent?.request.operation == request.operation else {
+                    pending.completion?(.staleFocus); continue
+                }
+                guard let next = focusCoordinator.select(request.surfaceID) else {
+                    pending.completion?(.unavailable); continue
+                }
+                generation = next
+            }
             let retry = BrowserActionRequest(epoch: request.epoch, operation: UUID(),
                                              surfaceID: request.surfaceID, action: request.action,
-                                             revision: inventory.revision, generation: request.generation,
+                                             revision: inventory.revision, generation: generation,
                                              url: request.url)
+            if request.action == .focus { focusIntent = BrowserFocusIntent(request: retry) }
             // stale_revision is returned before Chromium dispatches anything.
             // A single retry consumes newer authoritative inventory; issued
             // commands and uncertain transport failures are never replayed.

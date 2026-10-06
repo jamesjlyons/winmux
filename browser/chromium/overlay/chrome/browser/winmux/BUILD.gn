@@ -40,6 +40,13 @@ source_set("tab_identity") {
 
 source_set("workspace_bridge") {
   sources = [
+    "filter_updates.cc",
+    "filter_updates.h",
+    "page_lifetime.cc",
+    "page_lifetime.h",
+    "page_lifetime_policy.h",
+    "privacy_settings.cc",
+    "privacy_settings.h",
     "browser_inventory.cc",
     "browser_inventory.h",
     "cosmetics_host.cc",
@@ -53,6 +60,14 @@ source_set("workspace_bridge") {
     "workspace_bridge_state.h",
   ]
   deps = [
+    "//chrome/browser/search_engines",
+    "//components/search_engines",
+    "//services/network/public/mojom",
+    "//services/network/public/cpp",
+    "//chrome/browser/performance_manager",
+    "//components/performance_manager",
+    "//components/prefs",
+    "//net",
     ":profile_identity_lookup",
     ":tab_identity",
     "//base",
@@ -64,6 +79,7 @@ source_set("workspace_bridge") {
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_strip",

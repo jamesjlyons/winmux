@@ -18,6 +18,10 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     private let more = BrowserToolbarButton()
     private let moveGrip = BrowserToolbarMoveGrip()
     private let addressWell = BrowserToolbarAddressWell()
+    private var supportsPrivacy = false
+    private var keepActive = false
+    private var blockingEnabled = true
+    private var blockedRequests = 0
     private var isLoading = false
     private var controlsEnabled = true
     private var canGoBack = false
@@ -148,6 +152,10 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     override func cancelOperation(_ sender: Any?) { cancelDrag() }
 
     func update(_ item: BrowserToolbarItem, preserveAddress: Bool) {
+        supportsPrivacy = item.supportsPrivacy
+        keepActive = item.keepActive
+        blockingEnabled = item.blockingEnabled
+        blockedRequests = item.blockedRequests
         // A managed page's backing already draws the entire frame, including
         // the header. Drawing it again here doubles the material and corner
         // outline, and puts a straight separator across the native page curve.
@@ -221,6 +229,9 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
             ("Back", #selector(goBack)), ("Forward", #selector(goForward)),
             ("Reload page", #selector(reloadOrStop)), ("Extensions", #selector(openExtensions)),
             ("New web window", #selector(openNewTab)),
+            ("Keep Active", #selector(toggleKeepActive)),
+            ("Block Ads and Trackers on This Site", #selector(toggleSiteBlocking)),
+            ("Privacy Settings…", #selector(openPrivacySettings)),
             ("Minimize", #selector(minimizePage)), ("Enter Full Screen", #selector(zoomPage)),
             ("Make Wider", #selector(makeWider)), ("Make Narrower", #selector(makeNarrower)),
             ("Make Taller", #selector(makeTaller)), ("Make Shorter", #selector(makeShorter)),
@@ -241,6 +252,14 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
     @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(toggleKeepActive):
+            menuItem.state = keepActive ? .on : .off
+            return controlsEnabled && supportsPrivacy
+        case #selector(toggleSiteBlocking):
+            menuItem.state = blockingEnabled ? .on : .off
+            menuItem.title = "Block Ads and Trackers on This Site (\(blockedRequests) blocked)"
+            return controlsEnabled && supportsPrivacy
+        case #selector(openPrivacySettings): return controlsEnabled && supportsPrivacy
         case #selector(goBack): return controlsEnabled && canGoBack
         case #selector(goForward): return controlsEnabled && canGoForward
         case #selector(reloadOrStop):
@@ -255,6 +274,9 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     @objc private func goForward() { onAction?(.forward) }
     @objc private func reloadOrStop() { onAction?(isLoading ? .stop : .reload) }
     @objc private func openExtensions() { onAction?(.extensions) }
+    @objc private func toggleKeepActive() { onAction?(.toggleKeepActive) }
+    @objc private func toggleSiteBlocking() { onAction?(.toggleSiteBlocking) }
+    @objc private func openPrivacySettings() { onAction?(.privacySettings) }
     @objc private func openNewTab() { onAction?(.newTab) }
     @objc private func closePage() { onAction?(.close) }
     @objc private func minimizePage() { onAction?(.minimize) }

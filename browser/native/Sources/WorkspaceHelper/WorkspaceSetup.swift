@@ -39,6 +39,9 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let stopButton = NSButton(title: "Stop Workspace", target: nil, action: nil)
     let openButton = NSButton(title: "Open Browser", target: nil, action: nil)
     let approvalButton = NSButton(title: "Open Login Items Settings", target: nil, action: nil)
+    let securityUpdates = NSButton(checkboxWithTitle: "Allow security and component updates", target: nil, action: nil)
+    let extensionUpdates = NSButton(checkboxWithTitle: "Allow extension update checks", target: nil, action: nil)
+    let filterUpdates = NSButton(checkboxWithTitle: "Allow ad and tracker filter updates", target: nil, action: nil)
     var window: NSWindow!
     var timer: Timer?
     var busy = false
@@ -66,7 +69,7 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 330),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 540),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = fixture == nil ? "WinMux Workspace Setup" : "WinMux Workspace Setup — Fixture Validation"
         window.isReleasedWhenClosed = false
@@ -81,9 +84,18 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         for button in [startButton, stopButton, openButton, approvalButton] { button.target = self; button.bezelStyle = .rounded }
         startButton.action = #selector(start); stopButton.action = #selector(stop)
         openButton.action = #selector(openBrowser); approvalButton.action = #selector(openApproval)
+        if let request = try? store.readRequest() {
+            let consent = BrowserServiceConsent.read(profile: request.profile(in: store.root))
+            securityUpdates.state = consent.securityUpdates ? .on : .off
+            extensionUpdates.state = consent.extensionUpdates ? .on : .off
+            filterUpdates.state = consent.filterUpdates ? .on : .off
+        }
+        let privacy = NSStackView(views: [securityUpdates, extensionUpdates, filterUpdates])
+        privacy.orientation = .vertical; privacy.alignment = .leading; privacy.spacing = 6
+        let privacyNote = NSTextField(wrappingLabelWithString: "These services connect in the background. Browsing works with them off. Telemetry and search suggestions stay off. You can change these choices in Privacy Settings.")
         let buttons = NSStackView(views: [startButton, openButton, stopButton])
         buttons.orientation = .horizontal; buttons.spacing = 10
-        let stack = NSStackView(views: [title, explanation, shortcuts, status, buttons, approvalButton])
+        let stack = NSStackView(views: [title, explanation, shortcuts, privacy, privacyNote, status, buttons, approvalButton])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)
@@ -208,7 +220,11 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let request = try WorkspaceActivation(browser: browser, validationID: fixture.map { _ in UUID() },
                                                   nativeProcessID: fixture?.pid, nativeProcessLaunch: fixture?.launch,
                                                   testService: fixture == nil ? nil : serviceName)
-            try store.writeRequest(request)
+            var consent = BrowserServiceConsent()
+            consent.securityUpdates = securityUpdates.state == .on
+            consent.extensionUpdates = extensionUpdates.state == .on
+            consent.filterUpdates = filterUpdates.state == .on
+            try store.writeRequest(request, consent: consent)
             try store.writeStatus(.init(requestID: request.id, phase: "starting", helperPID: 0, helperLaunch: nil))
             try service.register()
             automaticOpen = request.id

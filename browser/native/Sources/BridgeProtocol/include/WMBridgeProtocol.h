@@ -3,7 +3,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 // All methods are asynchronous and available only after mutual code-signing
-// validation. Versions 2/3 add tab ownership/layout; version 4 adds navigation; version 5 adds session-owned page creation.
+// validation. Versions 2/3 add tab ownership/layout; version 4 adds navigation; version 5 adds session-owned page creation; version 6 adds privacy and lifecycle controls.
 @protocol WMBrowserSurfaceOwner
 // Version 5. A nil source creates a page in the last-used regular profile.
 // The returned persistent surface identifies the page even before inventory.

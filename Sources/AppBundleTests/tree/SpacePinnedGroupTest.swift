@@ -29,12 +29,11 @@ final class SpacePinnedGroupTest: XCTestCase {
         let controller = BrowserWorkspaceController()
         let legacy = SurfaceWorkspaceSnapshot(tree: tree, layoutWorkspaces: [], selected: live, closedBrowserTabs: [], browserPins: [pin, closed, isolated])
         controller.restorePlacementSnapshot(legacy)
-        let group = controller.pinnedGroup(for: regular.projectId)
-        XCTAssertEqual(controller.spacePinnedGroups.count, 2)
-        XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [pin.id, closed.id])
+        XCTAssertEqual(controller.pinnedDesktops.count, 3)
+        XCTAssertEqual(Set(controller.pinShelves.first { $0.spaceID == regular.projectId.rawValue }!.desktopOrder), [pin.id, closed.id])
         XCTAssertEqual(controller.surfaceTree.roots[regular.name]?.flatMap(\.surfaces), [sibling])
-        XCTAssertEqual(controller.surfaceTree.workspace(of: live), group.name)
-        XCTAssertEqual(controller.pinTiles(in: controller.pinnedGroup(for: otherSpace.id).name).map(\.id), [isolated.id])
+        XCTAssertEqual(controller.surfaceTree.workspace(of: live), controller.pinnedDesktops.first { $0.id == pin.id }?.workspaceName)
+        XCTAssertEqual(controller.pinShelves.first { $0.spaceID == otherSpace.id.rawValue }?.desktopOrder, [isolated.id])
         let saved = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
         controller.restorePlacementSnapshot(saved)
         XCTAssertEqual(controller.capturePlacementSnapshot(), saved, "A restart must not migrate again or reorder pins")
@@ -67,21 +66,19 @@ final class SpacePinnedGroupTest: XCTestCase {
         let pins = (1...3).map { BrowserSidebarPin(profileID: UUID(), workspaceName: group.name, title: "Page \($0)", url: "https://example.com/\($0)") }
         controller.browserSidebarPins = pins
         for pin in pins { controller.appendPinOrder(pin.id, workspace: group.name) }
+        controller.migratePinnedDesktops()
         controller.reorderPin(pins[2].id, before: pins[0].id)
-        XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [pins[2].id, pins[0].id, pins[1].id])
+        XCTAssertEqual(controller.pinShelves.first?.desktopOrder, [pins[2].id, pins[0].id, pins[1].id])
         XCTAssertTrue(controller.movePin(pins[0].id, to: space.id))
-        XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [pins[2].id, pins[1].id])
-        let destination = controller.pinnedGroup(for: space.id)
-        XCTAssertEqual(controller.pinTiles(in: destination.name).map(\.id), [pins[0].id])
-        let allPins = controller.pinTilesByWorkspace()
-        XCTAssertEqual(allPins[group.name], controller.pinTiles(in: group.name))
-        XCTAssertEqual(allPins[destination.name], controller.pinTiles(in: destination.name))
-        XCTAssertEqual(Set(allPins.keys), [group.name, destination.name])
+        XCTAssertEqual(controller.pinShelves.first?.desktopOrder, [pins[2].id, pins[1].id])
+        XCTAssertEqual(controller.pinShelves.first { $0.spaceID == space.id.rawValue }?.desktopOrder, [pins[0].id])
+        XCTAssertEqual(controller.pinTilesByWorkspace().values.flatMap { $0 }.count, 3)
         controller.usesSurfaceTree = true
         let snapshot = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
         let restored = BrowserWorkspaceController(); restored.restorePlacementSnapshot(snapshot)
-        XCTAssertEqual(restored.pinTiles(in: group.name).map(\.id), [pins[2].id, pins[1].id])
-        XCTAssertEqual(restored.pinTiles(in: destination.name).map(\.id), [pins[0].id])
+        XCTAssertEqual(restored.pinShelves, controller.pinShelves)
+        XCTAssertEqual(restored.pinnedDesktops, controller.pinnedDesktops)
+
     }
 
     func testFirstPinnedGroupRemembersRegularGroupAlreadyActiveAtStartup() {
@@ -93,7 +90,7 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertEqual(controller.spacePinnedGroups.first?.lastRegularWorkspaceName, regular.name)
     }
 
-    func testOneNativeLauncherPerAppReplacesItsWindowAndUnpinKeepsBothWindows() throws {
+    func testDifferentWindowsOfSameAppOwnIndependentDesktops() throws {
         let controller = BrowserWorkspaceController.shared
         controller.usesSurfaceTree = true
         let regular = focus.workspace
@@ -106,13 +103,16 @@ final class SpacePinnedGroupTest: XCTestCase {
         let pin = try XCTUnwrap(controller.nativeAppSidebarPins.first)
         XCTAssertEqual(first.nodeWorkspace?.name, pin.workspaceName)
         XCTAssertTrue(controller.pinSurface(second.surfaceID))
-        XCTAssertEqual(controller.nativeAppSidebarPins.count, 1)
-        XCTAssertEqual(controller.nativeAppSidebarPins.first?.surfaceID, second.surfaceID)
-        XCTAssertEqual(first.nodeWorkspace, regular)
-        XCTAssertEqual(second.nodeWorkspace?.name, pin.workspaceName)
+        XCTAssertEqual(controller.nativeAppSidebarPins.count, 2)
+        XCTAssertEqual(controller.nativeAppSidebarPins.first?.surfaceID, first.surfaceID)
+        XCTAssertNotEqual(first.nodeWorkspace, second.nodeWorkspace)
+        XCTAssertEqual(first.nodeWorkspace?.name, pin.workspaceName)
+        let secondWorkspace = second.nodeWorkspace
         XCTAssertTrue(controller.unpin(pin.id))
-        XCTAssertEqual(first.nodeWorkspace, regular)
-        XCTAssertEqual(second.nodeWorkspace, regular)
+        XCTAssertEqual(first.nodeWorkspace?.name, pin.workspaceName)
+        XCTAssertFalse(try XCTUnwrap(first.nodeWorkspace).isPinnedGroup)
+        XCTAssertEqual(second.nodeWorkspace, secondWorkspace)
+        XCTAssertTrue(try XCTUnwrap(secondWorkspace).isPinnedGroup)
         XCTAssertFalse(controller.hasPins(in: pin.workspaceName))
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
@@ -146,4 +146,23 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName(regular.name), original)
         XCTAssertEqual(workspaceDisplayName(group.name), "Pinned")
     }
+    func testPinWholeWorkspaceAndUnpinPreserveIdentityAndAllRoots() throws {
+        let controller = BrowserWorkspaceController.shared, regular = focus.workspace
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        let a = TestWindow.new(id: 991, parent: regular.rootTilingContainer)
+        let b = TestWindow.new(id: 992, parent: regular.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([a.surfaceID, b.surfaceID], in: regular.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [regular.name], selected: nil, closedBrowserTabs: []))
+        XCTAssertTrue(controller.pinWorkspace(regular.name))
+        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        XCTAssertEqual(desktop.workspaceName, regular.name)
+        XCTAssertEqual(desktop.kind, .group)
+        XCTAssertEqual(controller.surfaceTree, tree)
+        XCTAssertTrue(controller.unpin(desktop.id))
+        XCTAssertFalse(regular.isPinnedGroup)
+        XCTAssertEqual(controller.surfaceTree, tree)
+        XCTAssertEqual(a.nodeWorkspace, regular); XCTAssertEqual(b.nodeWorkspace, regular)
+        XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
+    }
+
 }

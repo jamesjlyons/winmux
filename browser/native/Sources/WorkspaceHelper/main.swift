@@ -475,9 +475,38 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         return true
     }
 
+    @MainActor private func exercisePrivacy(epoch: String, remote: BrowserOwnerProxy, id: SurfaceID) async -> Bool {
+        let defaults = BrowserPrivacySettings()
+        noteTest("privacy_defaults", lock.withLock { inventory.tabs[id]?.privacy == defaults } ? "yes" : "no")
+        noteTest("keep_active_on", await testAction("keep_active", surface: id, remote: remote, epoch: epoch, url: "true"))
+        guard await waitForTestInventory({ $0.tabs[id]?.keepActive == true }) != nil else { return false }
+        noteTest("keep_active_off", await testAction("keep_active", surface: id, remote: remote, epoch: epoch, url: "false"))
+        guard await waitForTestInventory({ $0.tabs[id]?.keepActive == false }) != nil else { return false }
+        noteTest("keep_active_round_trip", "yes")
+        noteTest("privacy_invalid", await testAction("privacy", surface: id, remote: remote, epoch: epoch, url: "{}"))
+        var changed = defaults
+        changed.searchTemplate = "https://example.invalid/search?q={searchTerms}"
+        changed.thirdPartyCookiesBlocked = false
+        guard let data = try? JSONEncoder().encode(changed), let json = String(data: data, encoding: .utf8),
+              let originalData = try? JSONEncoder().encode(defaults), let original = String(data: originalData, encoding: .utf8) else { return false }
+        let operation = UUID().uuidString
+        let revision = lock.withLock { inventory.revision }
+        noteTest("privacy_save", await testAction("privacy", surface: id, remote: remote, epoch: epoch,
+            url: json, revision: revision, operation: operation))
+        noteTest("privacy_repeat", await testAction("privacy", surface: id, remote: remote, epoch: epoch,
+            url: json, revision: revision, operation: operation))
+        guard await waitForTestInventory({ $0.tabs[id]?.privacy == changed }) != nil else { return false }
+        noteTest("privacy_search_cookie_state", "yes")
+        noteTest("privacy_restore", await testAction("privacy", surface: id, remote: remote, epoch: epoch, url: original))
+        guard await waitForTestInventory({ $0.tabs[id]?.privacy == defaults }) != nil else { return false }
+        noteTest("privacy_round_trip", "yes")
+        return true
+    }
+
     @MainActor private func exerciseNavigation(epoch: String, remote: BrowserOwnerProxy,
                                               ids: [SurfaceID], windows: [SurfaceID: UInt32]) async -> Bool {
         let id = ids[0], firstURL = "about:blank#winmux-navigation-a", secondURL = "about:blank#winmux-navigation-b"
+        guard await exercisePrivacy(epoch: epoch, remote: remote, id: id) else { return false }
         let legacy = await withCheckedContinuation { continuation in
             remote.value.performAction("reload", surface: id.description, epoch: epoch,
                 operation: UUID().uuidString, revision: 0, generation: 0) {

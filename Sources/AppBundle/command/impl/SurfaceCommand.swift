@@ -13,6 +13,7 @@ struct SurfaceCommand: Command {
             let rows = controller.knownSurfaces.sorted { $0.description < $1.description }.map { id in
                 SurfaceReference(id: id.description, workspace: controller.workspaceName(for: id),
                     available: controller.isAvailable(id), selected: (controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID) == id,
+                    pinnedDesktopID: controller.pinnedDesktops.first { controller.pinBindings(in: $0.workspaceName).values.contains(id) }?.id,
                     nativeWindowID: Window.get(bySurfaceID: id)?.windowId,
                     browser: controller.owner(of: id).flatMap { BrowserSurfaceState(session: $0, id: id) })
             }
@@ -29,6 +30,12 @@ struct SurfaceCommand: Command {
         switch args.operands[0] {
         case "focus": return reportSurfaceAction(controller.select(id), io)
         case "close": return reportSurfaceAction(controller.close(id), io)
+        case "pin": return reportOrganization(controller.pinSurface(id), io)
+        case "unpin":
+            guard let desktop = controller.pinnedDesktops.first(where: { controller.pinBindings(in: $0.workspaceName).values.contains(id) }) else {
+                return io.err("Surface does not belong to a pinned desktop")
+            }
+            return reportOrganization(controller.unpin(desktop.id), io)
         case "group":
             let rawTarget = args.operands[2]
             let target: SurfaceID?
@@ -72,12 +79,15 @@ private struct SurfaceReference: Encodable {
     let workspace: String?
     let available: Bool
     let selected: Bool
+    let pinnedDesktopID: UUID?
     let nativeWindowID: UInt32?
     let browser: BrowserSurfaceState?
 }
 
 /// Local control diagnostics omit page titles, URLs and profile paths.
 private struct BrowserSurfaceState: Encodable {
+    let lifecycle: BrowserPageLifecycle
+    let keepActive: Bool
     let hostWindowID: UInt32?
     let managed: Bool
     let minimized: Bool
@@ -96,6 +106,8 @@ private struct BrowserSurfaceState: Encodable {
 
     @MainActor init?(session: BrowserSurfaceSession, id: SurfaceID) {
         guard let tab = session.inventory.tabs[id] else { return nil }
+        lifecycle = tab.lifecycle
+        keepActive = tab.keepActive
         hostWindowID = tab.hostWindowID
         managed = tab.hostManaged
         minimized = tab.hostMinimized

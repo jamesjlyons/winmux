@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewModel]) -> WorkspaceSidebarWorkspaceViewModel? {
+    guard var result = workspaces.first(where: \.isPinnedGroup) else { return nil }
+    result.pins = workspaces.filter(\.isPinnedGroup).flatMap(\.pins).sorted { $0.sortOrder < $1.sortOrder }
+    return result
+}
+
+
 /// Pins occupy their own workspace, while their presentation stays separate
 /// from the regular group cards. Closed launchers still participate in order.
 struct WorkspaceSidebarPinGrid: View {
@@ -49,7 +56,7 @@ struct WorkspaceSidebarPinGrid: View {
             .frame(height: gridHeight + 4)
             .padding(.bottom, 10)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Pinned apps and tabs")
+            .accessibilityLabel("Pinned apps, tabs, and groups")
             .accessibilityIdentifier("winmux.sidebar.pins.\(workspace.projectId.rawValue)")
         }
     }
@@ -75,7 +82,7 @@ struct WorkspaceSidebarPinGrid: View {
         }
         .buttonStyle(.plain)
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
-        .accessibilityLabel("Pinned \(pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
+        .accessibilityLabel("Pinned \(pin.isGroup ? "group" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")
         .onHover { hoveredPin = $0 ? pin.id : nil }
         .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: true,
@@ -89,8 +96,9 @@ struct WorkspaceSidebarPinGrid: View {
             }
         }
         .contextMenu {
-            Button(pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
-            Button(pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
+            Button(pin.isOpen ? "Open" : pin.isGroup ? "Reopen Group" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
+            Button(pin.isGroup ? "Unpin Group" : pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
+            if pin.isGroup { Button("Reopen Closed Items") { actions.send(.reopenClosedPinItems(pin.id)) } }
             Menu("Move to Space") {
                 ForEach(projects) { project in
                     Button(project.displayName) { actions.send(.movePin(pin.id, toSpace: project.id)) }
@@ -106,7 +114,22 @@ struct WorkspaceSidebarPinGrid: View {
 
     @ViewBuilder
     private func pinIcon(_ pin: WorkspaceSidebarPinViewModel) -> some View {
-        if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarPinImageCache.shared.image(for: encoded) {
+        if pin.isGroup {
+            ZStack(alignment: .bottomTrailing) {
+                HStack(spacing: -5) {
+                    ForEach(Array(pin.members.prefix(2))) { member in
+                        Group {
+                            if let encoded = member.iconPNGBase64, let icon = WorkspaceSidebarPinImageCache.shared.image(for: encoded) {
+                                Image(nsImage: icon).resizable().scaledToFit()
+                            } else if let icon = appIconImage(bundleIdentifier: member.bundleIdentifier, bundlePath: member.bundlePath) {
+                                Image(nsImage: icon).resizable().scaledToFit()
+                            } else { Image(systemName: member.isBrowser ? "globe" : "app") }
+                        }.frame(width: 15, height: 15)
+                    }
+                }
+                Text("\(pin.memberCount)").font(.system(size: 8, weight: .bold)).padding(1).background(.regularMaterial, in: Circle()).offset(x: 6, y: 6)
+            }
+        } else if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarPinImageCache.shared.image(for: encoded) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else if !pin.isBrowser, let icon = appIconImage(bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath) {
             Image(nsImage: icon).resizable().scaledToFit()

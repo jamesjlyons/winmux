@@ -3,7 +3,7 @@ import Foundation
 /// Per-connection state, protected because NSXPC callbacks are not main-actor work.
 /// A reconnect creates a new object and epoch. Old messages cannot authenticate it.
 public final class BridgeSession: @unchecked Sendable {
-    public static let version = 5
+    public static let version = 6
     private let lock = NSLock()
     private let epoch = UUID().uuidString
     private var negotiatedVersion: Int?

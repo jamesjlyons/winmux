@@ -34,7 +34,7 @@ func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: B
 
 /// Keep omnibox normalization separate from dispatch so arbitrary pasted text
 /// never becomes an executable URL scheme.
-func browserNavigationURL(_ text: String) -> String? {
+func browserNavigationURL(_ text: String, allowSearch: Bool = true) -> String? {
     let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty, value.utf8.count <= 8192 else { return nil }
     let allowed = Set(["https", "http", "chrome", "chrome-extension", "about", "file"])
@@ -51,7 +51,8 @@ func browserNavigationURL(_ text: String) -> String? {
         }
     }
     if let scheme = URLComponents(string: value)?.scheme, !scheme.isEmpty { return nil }
-    var search = URLComponents(string: "https://www.google.com/search")!
+    guard allowSearch else { return nil }
+    var search = URLComponents(string: "https://kagi.com/search")!
     search.queryItems = [URLQueryItem(name: "q", value: value)]
     return search.url?.absoluteString
 }
@@ -70,6 +71,8 @@ extension BrowserWorkspaceController {
                                       frame: BrowserPageChromeGeometry.appKitRect(geometry.headerFrame, screenTop: screenTop),
                                       url: record.url, canGoBack: record.canGoBack, canGoForward: record.canGoForward,
                                       isLoading: record.isLoading, isFocused: focusCoordinator.target == placement.surfaceID,
+                                      supportsPrivacy: session.supportsPrivacy, keepActive: record.keepActive,
+                                      blockingEnabled: record.blockingEnabled, blockedRequests: record.blockedRequests,
                                       hostWindowID: hostWindowID,
                                       pageFrame: BrowserPageChromeGeometry.appKitRect(geometry.pageFrame, screenTop: screenTop),
                                       bodyFrame: BrowserPageChromeGeometry.appKitRect(geometry.bodyFrame, screenTop: screenTop),
@@ -120,13 +123,25 @@ extension BrowserWorkspaceController {
                 BrowserToolbarController.shared.showFailure(for: id, message: "This page has no resizable split in that direction.")
             }
             return
+        case .privacySettings:
+            presentPrivacySettings(for: id)
+            return
+        case .toggleKeepActive:
+            guard session.supportsPrivacy, let record = session.inventory.tabs[id] else { return }
+            request = .keepActive; url = record.keepActive ? "false" : "true"
+        case .toggleSiteBlocking:
+            guard session.supportsPrivacy, let record = session.inventory.tabs[id] else { return }
+            request = .siteBlocking; url = record.blockingEnabled ? "false" : "true"
         case .navigate(let text):
             guard let normalized = browserNavigationURL(text) else {
                 BrowserToolbarController.shared.showFailure(for: id, message: "Enter a web address or search terms.")
                 return
             }
-            request = .navigate
-            url = normalized
+            if session.supportsPrivacy && browserNavigationURL(text, allowSearch: false) == nil {
+                request = .search; url = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                request = .navigate; url = normalized
+            }
         case .focusPage, .close: return
         }
         // Buttons and address submission target their own page, including a

@@ -8,7 +8,7 @@ extension SurfaceID {
 
 extension BrowserWorkspaceController {
     @discardableResult
-    func openBrowserTab(url: String? = nil, workspaceName: String? = nil, profileID: UUID? = nil,
+    func openBrowserTab(url: String? = nil, workspaceName: String? = nil, profileID: UUID? = nil, selectNewPage: Bool = true,
                         created: (@MainActor (SurfaceID) -> Void)? = nil,
                         completion: (@MainActor (BrowserActionReply) -> Void)? = nil) -> SurfaceActionOutcome {
         guard let session = tabCreationSession(profileID: profileID) else {
@@ -21,15 +21,17 @@ extension BrowserWorkspaceController {
         let source = focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
             (profileID == nil || $0.browserProfileID == profileID) ? $0 : nil }
         let creation = UUID(), startingFocus = focusCoordinator.generation
-        latestBrowserTabCreation = creation
-        pendingBrowserTabSelections.removeAll()
-        pendingBrowserTabAddress = nil
-        cancelPendingBrowserFocusHold()
+        if selectNewPage {
+            latestBrowserTabCreation = creation
+            pendingBrowserTabSelections.removeAll()
+            pendingBrowserTabAddress = nil
+            cancelPendingBrowserFocusHold()
+        }
         NSLog("WinMux new tab: dispatch")
         return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url) { [weak self] reply, id in
             NSLog("WinMux new tab: %@", reply.rawValue)
             if reply == .issued, let id, let self {
-                let selectCreated = self.latestBrowserTabCreation == creation &&
+                let selectCreated = selectNewPage && self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)
                 self.placeCreatedBrowserTab(id, in: workspace, focusAddress: url == nil,
                                            selectCreated: selectCreated, focusGeneration: startingFocus)

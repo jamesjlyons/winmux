@@ -80,6 +80,8 @@ enum WorkspaceSidebarAction: Equatable {
     case selectWindow(UInt32)
     case newBrowserTab(workspaceName: String?)
     case pinSurface(SurfaceID)
+    case pinWorkspace(String)
+    case reopenClosedPinItems(UUID)
     case selectPin(UUID)
     case unpin(UUID)
     case movePin(UUID, toSpace: WorkspaceProjectId)

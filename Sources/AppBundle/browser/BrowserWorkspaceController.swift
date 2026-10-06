@@ -17,6 +17,8 @@ public final class BrowserWorkspaceController {
 
     var browserSidebarPins: [BrowserSidebarPin] = []
     var nativeAppSidebarPins: [NativeAppSidebarPin] = []
+    var pinnedDesktops: [PinnedDesktop] = []
+    var pinShelves: [SpacePinShelf] = []
     var spacePinnedGroups: [SpacePinnedGroup] = []
     var pendingNativePinLaunches: [UUID: UUID] = [:]
     var failedNativePinLaunches: Set<UUID> = []
@@ -41,6 +43,7 @@ public final class BrowserWorkspaceController {
     }
     private var browserFocusDeadline: Date?
     private var unresolvedNativeItems: Set<SurfaceID> = []
+    private var unresolvedBrowserItems: Set<SurfaceID> = []
     private var closedBrowserTabs: Set<SurfaceID> = []
     private var restoredSelection: SurfaceID?
     private var recentSelections: [SurfaceID] = []
@@ -51,10 +54,11 @@ public final class BrowserWorkspaceController {
     func capturePlacementSnapshot() -> SurfaceWorkspaceSnapshot? {
         guard usesSurfaceTree else { return nil }
         syncSidebarPins()
+        capturePinnedLayouts()
         let selected = restoredSelection ?? focusCoordinator.target
         return .init(tree: surfaceTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(surfaceTree.roots.keys),
                      selected: selected.flatMap { surfaceTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs,
-                     browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups)
+                     browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups, pinnedDesktops: pinnedDesktops, pinShelves: pinShelves)
     }
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
@@ -67,6 +71,13 @@ public final class BrowserWorkspaceController {
         browserSidebarPins = snapshot.browserPins
         nativeAppSidebarPins = snapshot.appPins
         spacePinnedGroups = snapshot.pinnedGroups
+        pinnedDesktops = snapshot.pinnedDesktops
+        pinShelves = snapshot.pinShelves
+        for desktop in pinnedDesktops {
+            let workspace = Workspace.get(byName: desktop.workspaceName)
+            workspace.assignProject(WorkspaceProjectId(desktop.spaceID))
+            workspace.isPinnedGroup = true; workspace.lifecycle = .durable
+        }
         pendingNativePinLaunches = [:]
         failedNativePinLaunches = []
         restorePinnedGroups()
@@ -78,11 +89,14 @@ public final class BrowserWorkspaceController {
         restoredPlacements = true
         placements = [:]
         unresolvedNativeItems = []
+        unresolvedBrowserItems = []
         for (workspace, nodes) in surfaceTree.roots {
             _ = Workspace.get(byName: workspace)
             for id in nodes.flatMap(\.surfaces) {
-                if case .browserTab = id { placements[id] = workspace }
-                else if Window.get(bySurfaceID: id) == nil { unresolvedNativeItems.insert(id) }
+                if case .browserTab = id {
+                    placements[id] = workspace
+                    if owner(of: id) == nil { unresolvedBrowserItems.insert(id) }
+                } else if Window.get(bySurfaceID: id) == nil { unresolvedNativeItems.insert(id) }
             }
         }
         migrateSidebarPinsToSpaceGroups()
@@ -93,7 +107,41 @@ public final class BrowserWorkspaceController {
             closedBrowserTabs.remove(id)
             _ = Workspace.get(byName: "Recovered")
         }
+        for session in sessions.values where session.inventory.revision > 0 {
+            reconcileRestoredBrowserPlacements(session.inventory)
+        }
         scheduleRefresh()
+    }
+
+    /// Native discovery has exhausted its retries. Unclaimed IDs cannot regain
+    /// an owner after this point, so do not checkpoint them into another restart.
+    func finishNativeRestoration() {
+        retireResolvedNativeReservations()
+        let missing = unresolvedNativeItems
+        unresolvedNativeItems = []
+        for id in missing { surfaceTree.remove(id) }
+        if let selected = restoredSelection, missing.contains(selected) { restoredSelection = nil }
+        recentSelections.removeAll(where: missing.contains)
+        if !missing.isEmpty { scheduleRefresh() }
+    }
+
+    /// A full inventory can retire saved references for profiles it actually
+    /// owns. Other profiles may connect later and keep their saved placement.
+    private func reconcileRestoredBrowserPlacements(_ inventory: BrowserInventory) {
+        let profiles = Set(inventory.tabs.keys.compactMap { id -> UUID? in
+            if case .browserTab(let profile, _) = id { return profile }
+            return nil
+        })
+        let missing = unresolvedBrowserItems.filter { id in
+            guard case .browserTab(let profile, _) = id else { return false }
+            return profiles.contains(profile) && owner(of: id) == nil
+        }
+        for id in missing {
+            browserPinDidClose(id)
+            retireAbsentPinnedPage(id)
+            if restoredSelection == id { restoredSelection = nil }
+            recentSelections.removeAll { $0 == id }
+        }
     }
 
     var ownsForegroundBrowser: Bool {
@@ -133,7 +181,11 @@ public final class BrowserWorkspaceController {
             binding.pid != processID && NSRunningApplication(processIdentifier: binding.pid)?.isTerminated == false
         }
         processBindings[connection] = (processID, NSRunningApplication(processIdentifier: processID)?.launchDate)
-        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, sendLayout: sendLayout, sendNewTab: sendNewTab, send: send)
+        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, sendLayout: sendLayout, sendNewTab: sendNewTab,
+            canRetryFocus: {
+                BrowserToolbarController.shared.focusedControlSurfaceID == nil &&
+                    !BrowserWindowDragController.shared.isDragging
+            }, send: send)
         reconcileNativeHosts()
     }
 
@@ -142,11 +194,14 @@ public final class BrowserWorkspaceController {
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
         session.supportsBrowserControls = protocolVersion >= 4
+        session.supportsPrivacy = protocolVersion >= 6
         session.supportsTabCreation = protocolVersion >= 5
         let isInitialInventory = session.inventory.revision == 0
         let oldIDs = Set(session.inventory.tabs.keys)
         guard session.reconcile(message, epoch: epoch) else { return }
+        unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
         let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection)
+        if message.full { reconcileRestoredBrowserPlacements(session.inventory) }
         if let target = focusCoordinator.target, session.inventory.tabs[target]?.hostMinimized == true {
             // A native titlebar or Dock action can minimize outside our toolbar.
             // Stale layout/focus replies must not reactivate that page.
@@ -155,6 +210,7 @@ public final class BrowserWorkspaceController {
         for id in oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs) where owner(of: id) == nil {
             browserPinDidClose(id)
             closedBrowserTabs.insert(id)
+            unresolvedBrowserItems.remove(id)
             placements.removeValue(forKey: id)
             surfaceTree.remove(id)
         }
@@ -193,12 +249,14 @@ public final class BrowserWorkspaceController {
         if usesSurfaceTree && session.supportsBrowserControls {
             mixedLayoutWorkspaces.formUnion(session.inventory.tabs.keys.compactMap { placements[$0] })
         }
+        migratePinnedDesktops()
         completePendingBrowserTabSelections()
         scheduleRefresh()
     }
 
     public func disconnected(_ connection: UUID) {
         guard let session = sessions.removeValue(forKey: connection) else { return }
+        unresolvedBrowserItems.formUnion(session.inventory.tabs.keys)
         for pin in browserSidebarPins {
             if let id = pin.surfaceID, session.inventory.tabs[id] != nil ||
                 (pendingSidebarPinOpenings.contains(pin.id) && sessions.isEmpty) {
@@ -439,6 +497,7 @@ public final class BrowserWorkspaceController {
     func retireAbsentPinnedPage(_ id: SurfaceID) {
         guard case .browserTab = id, owner(of: id) == nil else { return }
         closedBrowserTabs.insert(id)
+        unresolvedBrowserItems.remove(id)
         placements.removeValue(forKey: id)
         surfaceTree.remove(id)
         unresolvedSidebarPinOwners.removeValue(forKey: id)
@@ -500,8 +559,7 @@ public final class BrowserWorkspaceController {
             case .surface(let id):
                 if pinnedIDs.contains(id) { return [] }
                 if let row = available[id] { return [row] }
-                return unresolvedNativeItems.contains(id)
-                    ? [.init(kind: .surface(.init(surfaceID: id, title: "Waiting for owner", appName: "", isFocused: false)))] : []
+                return []
             case .group(let id, let children):
                 let visible = children.flatMap(project)
                 guard !visible.isEmpty else { return [] }
@@ -711,7 +769,7 @@ public final class BrowserWorkspaceController {
     }
 
     /// A restored native identity may still be waiting for its real app. It is
-    /// a durable reservation, not an owner that can veto unrelated live edits.
+    /// a temporary reservation, not an owner that can veto unrelated live edits.
     /// Once a matching native binding has appeared, normal close/stale-owner
     /// validation applies even if its row has not reached the sidebar yet.
     private func retireResolvedNativeReservations() {
@@ -787,6 +845,45 @@ public final class BrowserWorkspaceController {
 
     func isAwaitingNativePinBinding(_ id: SurfaceID) -> Bool { unresolvedNativeItems.contains(id) }
 
+    func applyPinnedTemplate(_ layout: [PinnedLayoutNode], bindings: [UUID: SurfaceID], workspace: String) {
+        surfaceTree.restorePinnedLayout(layout, bindings: bindings, in: workspace)
+        mixedLayoutWorkspaces.insert(workspace)
+    }
+
+    func migratePinnedNodes(_ nodes: [SurfaceTreeNode], from source: String, to destination: String) {
+        for node in nodes {
+            switch node {
+            case .group(let id, _): _ = surfaceTree.moveGroupToRoot(id, in: destination)
+            case .surface(let id): _ = surfaceTree.moveToRoot(id, in: destination)
+            }
+            for id in node.surfaces {
+                if case .browserTab = id { placements[id] = destination }
+                else if let window = Window.get(bySurfaceID: id) {
+                    let target = Workspace.get(byName: destination)
+                    let binding = workspaceAppendBindingData(targetWorkspace: target, index: INDEX_BIND_LAST)
+                    window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
+                }
+            }
+        }
+        mixedLayoutWorkspaces.formUnion([source, destination])
+        if let selected = restoredSelection, nodes.flatMap(\.surfaces).contains(selected), focus.workspace.name == source {
+            _ = Workspace.get(byName: destination).focusWorkspace(restoringSurfaceSelection: false)
+        }
+    }
+
+    func transferPinnedWorkspace(_ source: Workspace, to destination: Workspace) -> Bool {
+        let nodes = surfaceTree.roots[source.name] ?? []
+        guard !destination.isArchived, nodes.flatMap(\.surfaces).allSatisfy(canMoveSurface),
+              source.allLeafWindowsRecursive.allSatisfy(canAdoptNativePinWindow) else { return false }
+        // All owners are checked before any native binding or tree edit.
+        migratePinnedNodes(nodes, from: source.name, to: destination.name)
+        for window in source.allLeafWindowsRecursive {
+            let binding = workspaceAppendBindingData(targetWorkspace: destination, index: INDEX_BIND_LAST)
+            window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
+        }
+        return true
+    }
+
     func retireMissingNativePinBinding(_ id: SurfaceID) {
         guard Window.get(bySurfaceID: id) == nil else { return }
         unresolvedNativeItems.remove(id)
@@ -822,6 +919,11 @@ public final class BrowserWorkspaceController {
             (surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces).contains(where: unresolvedNativeItems.contains))
     }
 
+    func containsVisibleBrowserItems(in workspace: String) -> Bool {
+        usesSurfaceTree && (browserSidebarPins.contains(where: { $0.workspaceName == workspace }) ||
+            placements.contains { $0.value == workspace && owner(of: $0.key) != nil })
+    }
+
     func moveWorkspaceContents(from source: String, to target: String) {
         guard source != target else { return }
         for (id, workspace) in placements where workspace == source { placements[id] = target }
@@ -854,7 +956,7 @@ public final class BrowserWorkspaceController {
     func hasMixedLayout(in workspace: Workspace) -> Bool { mixedLayoutWorkspaces.contains(workspace.name) }
 
     /// Rendering and resizing must use the same tree of currently claimed panes.
-    /// The durable tree keeps reservations until their real native owner returns.
+    /// The saved tree keeps native reservations until discovery finishes.
     func liveLayoutTree(in workspace: Workspace) -> SurfaceTree {
         retireResolvedNativeReservations()
         var livePlan = surfaceTree

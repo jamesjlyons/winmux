@@ -6,8 +6,16 @@ placement, selection, splits, stacks, pins, native page controls, and restoratio
 Chromium owns page contents, navigation, profiles, and extensions.
 
 Use **Option–Command–T** from any app to create a page in the current regular Group.
-Each Space has a pinned group for page and app icons. Closed page pins reopen their
-saved URLs; app pins focus or launch their app. Pins, order, and layouts persist.
+Each Space has one ordered pin shelf. An app or page pin owns a full desktop;
+pinning an existing split, stack, or Group preserves its shared layout. Closed
+members retain their saved launch destinations and slots across restarts.
+
+Workspace Setup asks before enabling background component, extension, or filter
+updates. The page menu exposes Privacy Settings, per-site blocking, and Keep Active.
+New profiles use Kagi search, local blank tabs, and blocked third-party cookies.
+The lifecycle policy retains twelve recent eligible background pages, then freezes
+and discards older eligible pages while protecting active work. These additions
+require bridge protocol 6; the historical runtime measurements below predate them.
 
 The [October 4 draft candidate guide](../docs/browser/alpha-release-2026-10-04.md)
 covers installation, first launch, testing on another Mac, and rollback. The app
@@ -207,6 +215,34 @@ evidence. Application foreground is not proof of the selected tab's visibility,
 and display mode refresh is not a measurement of actual frame cadence.
 
 ## Qualification
+
+For an isolated live check of dedicated pins, pinned splits, Space switching,
+and resident page wake-up, use a newly signed package with native workspace
+ownership free and the current macOS console unlocked:
+
+```sh
+python3 browser/tools/test_browser_switch_speed.py \
+  --app '/path/to/WinMux Browser Alpha.app' --output .local/browser/new-switch-run
+```
+
+The fixture refuses a locked or inactive console before starting. It uses fresh
+loopback pages and an explicitly scoped native app. It waits for every page to
+load and establishes initial keyboard focus before measuring; setup focus retries
+are recorded separately, and every measured switch issues one command. Individual
+pins and the grouped pin are explicitly assigned to different Spaces. It waits
+for real lifecycle freezing, sends F13 only to its browser process, and records
+command responses, destination keyboard acknowledgements, and animation callbacks
+matched to the same input sequence. Timings include probe overhead; animation callbacks do not establish
+compositor presentation. A separate environment recording captures thermal state,
+power mode, foreground changes, and display configuration throughout measurement.
+If the preceding switch's inventory is still arriving, the fixture records its
+background-state settling wait separately before starting the next sample.
+The script never stops an existing workspace and does
+not qualify the full interaction workload. `surface pin` and `surface unpin`
+also expose pinning through the normal local command interface; `surface list`
+includes desktop identity and browser lifecycle without page titles or URLs.
+`--failure-hold-seconds 120` briefly retains a failed isolated fixture for UI
+diagnosis before cleanup; it does not retry or count a failed timing sample.
 
 See the [current performance audit](../docs/browser/performance-audit.md),
 [integration validation](../docs/browser/fork-integration-validation.md), and

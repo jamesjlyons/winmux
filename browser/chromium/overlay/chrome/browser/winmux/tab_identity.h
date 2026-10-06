@@ -11,6 +11,7 @@ namespace content { class WebContents; }
 namespace winmux {
 inline constexpr char kTabIdentityKey[] = "winmux.tab_uuid";
 void RegisterWorkspaceProfilePrefs(PrefRegistrySimple* registry);
+void ApplyWorkspacePrivacyDefaults(PrefRegistrySimple* registry);
 // Returns an existing regular-profile UUID without creating or changing it.
 std::string ExistingProfileID(Profile* profile);
 // Private tabs return empty and never enter session metadata or diagnostics.

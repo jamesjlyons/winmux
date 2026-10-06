@@ -34,11 +34,27 @@ public indirect enum SurfaceTreeNode: Equatable, Codable, Sendable {
 }
 
 public struct SurfaceTree: Equatable, Codable, Sendable {
-    public private(set) var roots: [String: [SurfaceTreeNode]] = [:]
-    public private(set) var layouts: [UUID: SurfaceContainerLayout] = [:]
-    public private(set) var activeSurfaces: [UUID: SurfaceID] = [:]
-    public private(set) var weights: [String: Double] = [:]
+    public internal(set) var roots: [String: [SurfaceTreeNode]] = [:]
+    public internal(set) var layouts: [UUID: SurfaceContainerLayout] = [:]
+    public internal(set) var activeSurfaces: [UUID: SurfaceID] = [:]
+    public internal(set) var weights: [String: Double] = [:]
     public init() {}
+
+    public func outermostGroup(containing surface: SurfaceID) -> UUID? {
+        for node in roots.values.flatMap({ $0 }) {
+            if case .group(let id, _) = node, node.surfaces.contains(surface) { return id }
+        }
+        return nil
+    }
+
+    public mutating func restorePinnedLayout(_ layout: [PinnedLayoutNode], bindings: [UUID: SurfaceID], in workspace: String) {
+        let existing = Set((roots[workspace] ?? []).flatMap(\.surfaces))
+        let valid = bindings.filter { existing.contains($0.value) }
+        let projected = layout.compactMap { $0.project(bindings: valid, tree: &self) }
+        let included = Set(projected.flatMap(\.surfaces))
+        roots[workspace] = projected + (roots[workspace] ?? []).flatMap(\.surfaces).filter { !included.contains($0) }.map(SurfaceTreeNode.surface)
+        pruneMetadata()
+    }
 
     enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces, weights }
     public init(from decoder: Decoder) throws {

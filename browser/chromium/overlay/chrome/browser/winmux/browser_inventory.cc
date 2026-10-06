@@ -1,4 +1,6 @@
 #include "chrome/browser/winmux/browser_inventory.h"
+#include "chrome/browser/winmux/page_lifetime.h"
+#include "chrome/browser/winmux/privacy_settings.h"
 
 #include <deque>
 #include <limits>
@@ -9,6 +11,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/base64.h"
 #include "base/json/json_writer.h"
 #include "base/hash/sha1.h"
@@ -93,11 +96,15 @@ class BrowserInventory final : public BrowserCollectionObserver,
     });
   }
 
+  void Refresh() { Schedule(); }
+
   void BeginEpoch(std::string epoch) {
     for (auto& [operation, creation] : pending_creations_) {
       for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
     }
     pending_creations_.clear();
+    for (auto& [operation, pending] : pending_privacy_) for (auto& callback : pending.callbacks) std::move(callback).Run("stale_epoch");
+    pending_privacy_.clear();
     epoch_ = std::move(epoch);
     operations_.clear();
     operation_order_.clear();
@@ -201,30 +208,37 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
   }
 
-  std::string Perform(const std::string& epoch, BrowserSurfaceAction request) {
+  std::string Perform(const std::string& epoch, BrowserSurfaceAction request, BrowserActionCallback completion = {}) {
     if (epoch.empty() || epoch != epoch_)
       return "stale_epoch";
     auto operation = base::Uuid::ParseCaseInsensitive(request.operation);
     if (!operation.is_valid() || request.surface.size() > 128)
       return "invalid_request";
     request.operation = operation.AsLowercaseString();
+    if (auto pending = pending_privacy_.find(request.operation); pending != pending_privacy_.end()) {
+      if (pending->second.request != request) return "operation_conflict";
+      if (!completion || pending->second.callbacks.size() >= 16) return "unavailable";
+      pending->second.callbacks.push_back(std::move(completion));
+      return "pending_privacy";
+    }
     auto previous = operations_.find(request.operation);
     if (previous != operations_.end()) {
-      return previous->second.first == request ? previous->second.second
-                                              : "operation_conflict";
+      if (previous->second.first != request) return "operation_conflict";
+      return previous->second.second;
     }
     if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus" &&
         request.action != "back" && request.action != "forward" && request.action != "reload" &&
         request.action != "stop" && request.action != "navigate" && request.action != "new_tab" &&
         request.action != "extensions" && request.action != "manage_extensions" &&
-        request.action != "minimize" && request.action != "fullscreen" && request.action != "zoom")
+        request.action != "minimize" && request.action != "fullscreen" && request.action != "zoom" &&
+        request.action != "search" && request.action != "privacy" && request.action != "keep_active" && request.action != "site_blocking")
       return "unsupported";
     if ((request.url && (request.url->size() > 16384 ||
-                         (request.action != "navigate" && request.action != "new_tab"))) ||
+                         (request.action != "navigate" && request.action != "new_tab" && request.action != "search" && request.action != "privacy" && request.action != "keep_active" && request.action != "site_blocking"))) ||
         (request.action == "navigate" && (!request.url || request.url->empty())))
       return "invalid_request";
     GURL target;
-    if (request.url) {
+    if (request.url && (request.action == "navigate" || request.action == "new_tab")) {
       target = GURL(*request.url);
       // The address field opens documents, never javascript/data execution
       // payloads. Chromium retains its normal policy and permission checks.
@@ -268,6 +282,24 @@ class BrowserInventory final : public BrowserCollectionObserver,
       if (request.action != "fullscreen" && IsBrowserHostFullscreen(browser)) return "unsupported";
       if (request.action != "minimize" && IsBrowserHostMinimized(browser)) return "unavailable";
     }
+    if (request.action == "search") {
+      if (!request.url || request.url->empty()) return "invalid_request";
+      target = WorkspaceSearch(browser->GetProfile(), *request.url);
+      if (!target.is_valid()) return "invalid_request";
+    }
+    if ((request.action == "keep_active" || request.action == "site_blocking") &&
+        (!request.url || (*request.url != "true" && *request.url != "false"))) return "invalid_request";
+    if (request.action == "privacy") {
+      if (!request.url || !completion) return "invalid_request";
+      if (pending_privacy_.size() >= 16) return "unavailable";
+      Remember(request, "pending_privacy");
+      PendingPrivacy pending{request, {}};
+      pending.callbacks.push_back(std::move(completion));
+      pending_privacy_.emplace(request.operation, std::move(pending));
+      UpdateWorkspacePrivacy(browser->GetProfile(), *request.url,
+          base::BindOnce(&BrowserInventory::FinishPrivacy, weak_factory_.GetWeakPtr(), epoch, request.operation));
+      return "pending_privacy";
+    }
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
     Remember(request);
     if (request.action == "focus") {
@@ -277,6 +309,10 @@ class BrowserInventory final : public BrowserCollectionObserver,
       // windows actively. A second Activate repeats Cocoa window ordering and
       // transaction synchronization for the same focus request.
       browser->GetWindow()->Show();
+      // A detached one-page host may retain focus in Chromium's now-hidden
+      // toolbar. Managed surfaces own their controls in Swift; selecting the
+      // page must explicitly give its renderer keyboard focus.
+      if (IsBrowserHostManaged(browser)) contents->Focus();
     } else if (request.action == "close") {
       strip->CloseWebContents(contents, TabCloseTypes::CLOSE_USER_GESTURE |
                                           TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
@@ -294,10 +330,15 @@ class BrowserInventory final : public BrowserCollectionObserver,
       navigation.Reload(content::ReloadType::NORMAL, /*check_for_repost=*/true);
     } else if (request.action == "stop") {
       contents->Stop();
-    } else if (request.action == "navigate") {
+    } else if (request.action == "keep_active") {
+      SetWorkspacePageKeepActive(contents, *request.url == "true");
+    } else if (request.action == "site_blocking") {
+      SetWorkspaceSiteBlocking(contents, *request.url == "true");
+      navigation.Reload(content::ReloadType::NORMAL, true);
+    } else if (request.action == "navigate" || request.action == "search") {
       navigation.LoadURL(target, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
     } else if (request.action == "new_tab") {
-      browser->OpenGURL(request.url ? target : GURL("chrome://newtab/"),
+      browser->OpenGURL(request.url ? target : GURL("about:blank"),
                         WindowOpenDisposition::NEW_FOREGROUND_TAB);
     } else if (request.action == "extensions") {
       strip->ActivateTabAt(index);
@@ -441,6 +482,16 @@ class BrowserInventory final : public BrowserCollectionObserver,
     for (auto& callback : creation.callbacks) std::move(callback).Run(outcome, surface);
   }
 
+  void FinishPrivacy(const std::string& epoch, const std::string& operation, std::string outcome) {
+    if (epoch_ != epoch) return;
+    auto found = pending_privacy_.find(operation);
+    if (found == pending_privacy_.end()) return;
+    auto callbacks = std::move(found->second.callbacks); pending_privacy_.erase(found);
+    if (auto cached = operations_.find(operation); cached != operations_.end()) cached->second.second = outcome;
+    Schedule();
+    for (auto& callback : callbacks) std::move(callback).Run(outcome);
+  }
+
   void RetainWorkspaceProfile(Profile* profile) {
     if (epoch_.empty() || !profile || !profile->IsRegularProfile()) return;
     auto& retained = profile_keep_alives_[profile->GetPath()];
@@ -542,6 +593,11 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("can_go_forward", contents->GetController().CanGoForward());
         record.Set("is_loading", contents->IsLoading());
         record.Set("private", false);
+        record.Set("lifecycle", WorkspacePageLifecycle(contents));
+        record.Set("keep_active", WorkspacePageKeepActive(contents));
+        record.Set("blocked_requests", WorkspaceBlockedCount(contents));
+        record.Set("blocking_enabled", WorkspaceSiteBlockingEnabled(browser->GetProfile(), contents->GetLastCommittedURL()));
+        record.Set("privacy", WorkspacePrivacyState(browser->GetProfile()));
         next.emplace(id, std::move(record));
         live_.emplace(id, contents);
       }
@@ -557,8 +613,10 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
     if (!full) {
       for (const auto& [id, record] : records_) {
-        if (!next.contains(id))
+        if (!next.contains(id)) {
+          ForgetWorkspacePage(id);
           removed.Append(id);
+        }
       }
     }
     records_ = std::move(next);
@@ -588,6 +646,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::map<std::string, raw_ptr<content::WebContents>> live_;
   std::map<base::FilePath, std::unique_ptr<ScopedProfileKeepAlive>> profile_keep_alives_;
   std::map<std::string, PendingCreation> pending_creations_;
+  struct PendingPrivacy { BrowserSurfaceAction request; std::vector<BrowserActionCallback> callbacks; };
+  std::map<std::string, PendingPrivacy> pending_privacy_;
   std::map<std::string, std::pair<BrowserSurfaceAction, std::string>> operations_;
   std::deque<std::string> operation_order_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver> collection_{this};
@@ -604,6 +664,7 @@ void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string
     inventory = new BrowserInventory(std::move(publisher), seed_isolated_test);
   }
 }
+void RefreshBrowserInventory() { if (inventory) inventory->Refresh(); }
 void StopBrowserInventory() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delete std::exchange(inventory, nullptr);
@@ -618,6 +679,13 @@ void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (inventory) inventory->OpenTab(epoch, std::move(request), std::move(completion));
   else std::move(completion).Run("unavailable", "");
+}
+void PerformBrowserSurfaceActionAsync(const std::string& epoch, BrowserSurfaceAction request, BrowserActionCallback completion) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (!inventory) { std::move(completion).Run("unavailable"); return; }
+  auto split = base::SplitOnceCallback(std::move(completion));
+  const auto result = inventory->Perform(epoch, std::move(request), std::move(split.first));
+  if (result != "pending_privacy") std::move(split.second).Run(result);
 }
 std::string PerformBrowserSurfaceAction(const std::string& epoch, BrowserSurfaceAction request) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);

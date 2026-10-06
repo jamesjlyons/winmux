@@ -156,7 +156,7 @@ import XCTest
         XCTAssertEqual(browserNavigationURL("localhost:5173/test"), "http://localhost:5173/test")
         XCTAssertEqual(browserNavigationURL("https://example.com"), "https://example.com")
         XCTAssertEqual(browserNavigationURL("chrome://extensions/"), "chrome://extensions/")
-        XCTAssertEqual(browserNavigationURL("hello world"), "https://www.google.com/search?q=hello%20world")
+        XCTAssertEqual(browserNavigationURL("hello world"), "https://kagi.com/search?q=hello%20world")
         XCTAssertNil(browserNavigationURL("javascript:alert(1)"))
         XCTAssertNil(browserNavigationURL("data:text/html,hello"))
         XCTAssertNil(browserNavigationURL("  "))

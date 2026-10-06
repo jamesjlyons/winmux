@@ -20,7 +20,7 @@ final class BrowserSidebarPinsTest: XCTestCase {
         return (controller, connection, epoch)
     }
 
-    func testPinMovesIntoItsOwnGroupAndUnpinKeepsTheLivePage() throws {
+    func testPinningGroupedMemberPreservesBothPanesAndUnpinKeepsDesktop() throws {
         let regular = focus.workspace.name
         let profile = UUID(), pinID = SurfaceID.browserTab(profile: profile, tab: UUID())
         let ordinary = SurfaceID.browserTab(profile: profile, tab: UUID())
@@ -30,16 +30,20 @@ final class BrowserSidebarPinsTest: XCTestCase {
         tree.group(pinID, with: ordinary)
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         XCTAssertTrue(controller.pinBrowserTab(pinID))
-        XCTAssertFalse(controller.pinBrowserTab(pinID))
+        XCTAssertTrue(controller.pinBrowserTab(pinID))
         let pin = try XCTUnwrap(controller.browserSidebarPins.first)
         let group = try XCTUnwrap(Workspace.existing(byName: pin.workspaceName))
         XCTAssertTrue(group.isPinnedGroup)
-        XCTAssertEqual(controller.organizedRows(native: [], in: regular).flatMap(\.surfaceIDs), [ordinary])
+        XCTAssertEqual(controller.organizedRows(native: [], in: regular).flatMap(\.surfaceIDs), [])
+        XCTAssertEqual(controller.surfaceTree.workspace(of: ordinary), group.name)
         XCTAssertEqual(controller.surfaceTree.workspace(of: pinID), group.name)
-        XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [pin.id])
+        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        XCTAssertEqual(controller.pinTiles(in: group.name).map(\.id), [desktop.id])
+        XCTAssertEqual(desktop.memberIDs.count, 2)
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
-        controller.unpinBrowserTab(pin.id)
-        XCTAssertEqual(controller.workspaceName(for: pinID), regular)
+        XCTAssertTrue(controller.unpin(desktop.id))
+        XCTAssertEqual(controller.workspaceName(for: pinID), group.name)
+        XCTAssertFalse(group.isPinnedGroup)
         XCTAssertFalse(controller.hasPins(in: group.name))
         XCTAssertTrue(controller.isAvailable(pinID))
     }
@@ -165,7 +169,8 @@ final class BrowserSidebarPinsTest: XCTestCase {
         let pin = try XCTUnwrap(controller.browserSidebarPins.first)
         controller.disconnected(connection)
         XCTAssertTrue(controller.unpin(pin.id))
-        XCTAssertEqual(controller.workspaceName(for: id), regular)
+        XCTAssertEqual(controller.workspaceName(for: id), pin.workspaceName)
+        XCTAssertFalse(try XCTUnwrap(Workspace.existing(byName: pin.workspaceName)).isPinnedGroup)
         XCTAssertTrue(controller.browserSidebarPins.isEmpty)
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
@@ -180,7 +185,8 @@ final class BrowserSidebarPinsTest: XCTestCase {
         XCTAssertEqual(controller.select(id), .issued)
         XCTAssertEqual(focus.workspace.name, pin.workspaceName)
         XCTAssertTrue(controller.unpin(pin.id))
-        XCTAssertEqual(focus.workspace, regular)
+        XCTAssertEqual(focus.workspace.name, pin.workspaceName)
+        XCTAssertFalse(focus.workspace.isPinnedGroup)
         XCTAssertEqual(controller.focusCoordinator.target, id)
     }
 
@@ -214,13 +220,14 @@ final class BrowserSidebarPinsTest: XCTestCase {
         controller.movePin(pin.id, to: firstSpace.id)
         XCTAssertEqual(controller.select(native.surfaceID), .issued)
         try XCTUnwrap(creationReply)(.issued, newID)
-        XCTAssertEqual(controller.workspaceName(for: newID), controller.pinnedGroup(for: firstSpace.id).name)
+        XCTAssertEqual(controller.workspaceName(for: newID), controller.pinnedDesktops.first?.workspaceName)
         XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
         controller.movePin(pin.id, to: secondSpace.id)
-        XCTAssertEqual(controller.workspaceName(for: newID), controller.pinnedGroup(for: secondSpace.id).name)
+        XCTAssertEqual(controller.workspaceName(for: newID), controller.pinnedDesktops.first?.workspaceName)
         controller.received(.init(revision: 2, full: false, tabs: [record(newID)]), epoch: epoch, connection: connection, protocolVersion: 5)
-        XCTAssertEqual(controller.browserSidebarPins.first?.workspaceName, controller.pinnedGroup(for: secondSpace.id).name)
+        XCTAssertEqual(controller.browserSidebarPins.first?.workspaceName, controller.pinnedDesktops.first?.workspaceName)
         XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
+        XCTAssertEqual(controller.pinnedDesktops.first?.spaceID, secondSpace.id.rawValue)
         XCTAssertTrue(controller.pendingSidebarPinOpenings.isEmpty)
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
@@ -240,4 +247,76 @@ final class BrowserSidebarPinsTest: XCTestCase {
         XCTAssertTrue(controller.isAvailable(id))
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
+    func testMovingMemberIntoAnotherPinUpdatesDurableOwnership() throws {
+        let regular = focus.workspace.name, profile = UUID()
+        let a = SurfaceID.browserTab(profile: profile, tab: UUID()), b = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let (controller, _, _) = controller([a, b])
+        _ = controller.organizedRows(native: [], in: regular)
+        XCTAssertTrue(controller.pinBrowserTab(a))
+        XCTAssertTrue(controller.pinBrowserTab(b))
+        let source = try XCTUnwrap(controller.sidebarPin(for: a)?.workspaceName)
+        let destination = try XCTUnwrap(controller.sidebarPin(for: b)?.workspaceName)
+        controller.moveBrowserSurface(a, to: destination)
+        controller.syncSidebarPins()
+        XCTAssertEqual(controller.pinnedDesktops.count, 1)
+        XCTAssertEqual(controller.pinnedDesktops.first?.kind, .group)
+        XCTAssertEqual(controller.pinnedDesktops.first?.memberIDs.count, 2)
+        XCTAssertFalse(try XCTUnwrap(Workspace.existing(byName: source)).isPinnedGroup)
+        XCTAssertEqual(Workspace.existing(byName: source)?.lifecycle, .transient)
+        let saved = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
+        XCTAssertEqual(saved.pinnedDesktops.first?.workspaceName, destination)
+        XCTAssertEqual(Set(saved.pinnedDesktops.first?.layout.flatMap(\.members) ?? []), Set(saved.browserPins.map(\.id)))
+    }
+
+    func testClosedTemplateDoesNotReclaimAGroupMovedToAnotherDesktop() throws {
+        let profile = UUID(), a = SurfaceID.browserTab(profile: profile, tab: UUID()), b = SurfaceID.browserTab(profile: profile, tab: UUID())
+        var tree = SurfaceTree(); tree.reconcile([a, b], in: focus.workspace.name)
+        tree.group(a, with: b, layout: .horizontal)
+        let movedGroup = try XCTUnwrap(tree.outermostGroup(containing: a))
+        let members = (1...2).map { BrowserSidebarPin(profileID: profile, workspaceName: "Closed Pin", title: "Saved \($0)", url: "https://example.com/\($0)") }
+        let desktop = PinnedDesktop(spaceID: focus.workspace.projectId.rawValue, workspaceName: "Closed Pin", title: "Saved", kind: .group,
+            memberIDs: members.map(\.id), layout: [.group(movedGroup, .vertical, members.map { .member($0.id, 1) }, nil, 1)])
+        let controller = BrowserWorkspaceController()
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: [],
+            browserPins: members, pinnedDesktops: [desktop], pinShelves: [.init(spaceID: desktop.spaceID, desktopOrder: [desktop.id])]))
+        let saved = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
+        guard case .group(let id, let layout, _, _, _) = try XCTUnwrap(saved.pinnedDesktops.first?.layout.first) else {
+            return XCTFail("Closed slots must retain their saved container")
+        }
+        XCTAssertNotEqual(id, movedGroup)
+        XCTAssertEqual(layout, .vertical)
+        XCTAssertEqual(saved.tree, tree)
+        XCTAssertEqual(controller.capturePlacementSnapshot(), saved, "Rekey once, then keep the new identity stable")
+    }
+
+    func testPartialGroupReopenRestoresSlotWithoutStealingLiveFocus() throws {
+        let regular = focus.workspace.name, profile = UUID(), connection = UUID(), epoch = UUID()
+        let a = SurfaceID.browserTab(profile: profile, tab: UUID()), b = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let unrelated = SurfaceID.browserTab(profile: profile, tab: UUID()), replacement = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let controller = BrowserWorkspaceController()
+        var replies: [@MainActor (BrowserActionReply, SurfaceID?) -> Void] = []
+        controller.connected(connection, processID: -1, sendNewTab: { _, reply in replies.append(reply) }) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [a, b, unrelated].map { record($0) }), epoch: epoch, connection: connection, protocolVersion: 6)
+        var tree = SurfaceTree(); tree.reconcile([a, b, unrelated], in: regular); tree.group(a, with: b)
+        let groupID = try XCTUnwrap(tree.outermostGroup(containing: a))
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [regular], selected: b, closedBrowserTabs: []))
+        XCTAssertTrue(controller.pinSurface(a))
+        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: unrelated), regular)
+        XCTAssertEqual(controller.select(b), .issued)
+        _ = controller.capturePlacementSnapshot()
+        controller.received(.init(revision: 2, full: false, tabs: [], removed: [a]), epoch: epoch, connection: connection, protocolVersion: 6)
+        let snapshot = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
+        XCTAssertEqual(snapshot.pinnedDesktops.first?.layout.flatMap(\.members).count, 2)
+        XCTAssertEqual(controller.selectPin(desktop.id), .issued)
+        XCTAssertTrue(replies.isEmpty, "Selecting a partial pin focuses its live member")
+        XCTAssertEqual(controller.reopenClosedPinItems(desktop.id), .issued)
+        XCTAssertEqual(replies.count, 1)
+        replies[0](.issued, replacement)
+        controller.received(.init(revision: 3, full: false, tabs: [record(replacement)]), epoch: epoch, connection: connection, protocolVersion: 6)
+        XCTAssertEqual(controller.focusCoordinator.target, b)
+        XCTAssertEqual(Set(try XCTUnwrap(controller.surfaceTree.group(groupID)).surfaces), [replacement, b])
+        XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
+    }
+
 }
