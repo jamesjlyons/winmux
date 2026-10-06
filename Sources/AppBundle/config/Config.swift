@@ -45,6 +45,7 @@ struct Config: ConvenienceCopyable {
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var automaticallyTileNewWindows: Bool = true
+    var workspaceInteractionMode: WorkspaceInteractionMode = .tiling
     var enableShakeToToggleTiling: Bool = true
     var shortcutsPreset: ShortcutsPreset = .none
     var browserNewTabShortcut = "alt-cmd-t"

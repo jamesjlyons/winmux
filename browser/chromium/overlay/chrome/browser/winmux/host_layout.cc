@@ -135,7 +135,7 @@ std::string ApplyHostLayout(const std::string& json) {
   std::map<std::string, base::WeakPtr<content::WebContents>> live;
   GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* host) {
     if (host->GetType() != BrowserWindowInterface::TYPE_NORMAL || host->IsDeleteScheduled() ||
-        host->GetProfile()->IsOffTheRecord()) return true;
+        host->GetProfile()->IsGuestSession() || host->GetProfile()->IsSystemProfile()) return true;
     auto* strip = host->GetTabStripModel();
     for (int i = 0; i < strip->count(); ++i) {
       auto* contents = strip->GetWebContentsAt(i);

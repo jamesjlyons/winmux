@@ -30,6 +30,8 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
@@ -93,7 +95,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     });
   }
 
-  void BeginEpoch(std::string epoch) {
+  void BeginEpoch(std::string epoch, bool include_private) {
+    include_private_ = include_private;
     for (auto& [operation, creation] : pending_creations_) {
       for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
     }
@@ -145,10 +148,21 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
     auto* manager = g_browser_process->profile_manager();
     if (!manager) { std::move(completion).Run("unavailable", ""); return; }
+    const bool workspace_profile = request.surface.starts_with("workspace:");
+    const std::string workspace_key = workspace_profile ? request.surface.substr(10) : "";
+    if (workspace_profile != request.profile_name.has_value() ||
+        (workspace_profile && (request.profile_name->empty() || request.profile_name->size() > 128 ||
+            (workspace_key != "shared" && !base::Uuid::ParseCaseInsensitive(workspace_key).is_valid())))) {
+      std::move(completion).Run("invalid_request", ""); return;
+    }
     base::FilePath profile_path;
     std::string lookup_uuid;
     std::vector<base::FilePath> registered_paths;
-    if (request.surface.empty()) {
+    if (workspace_profile) {
+      profile_path = manager->user_data_dir().Append(
+          workspace_key == "shared" ? ProfileManager::GetInitialProfileDir() :
+          base::FilePath("WinMux Profile " + base::Uuid::ParseCaseInsensitive(workspace_key).AsLowercaseString()));
+    } else if (request.surface.empty()) {
       profile_path = manager->GetLastUsedProfileDir();
     } else if (request.surface.starts_with("profile:")) {
       auto profile_id = base::Uuid::ParseCaseInsensitive(request.surface.substr(8));
@@ -186,7 +200,24 @@ class BrowserInventory final : public BrowserCollectionObserver,
     pending_creations_.emplace(request.operation, std::move(creation));
     // Reserve operation identity before profile loading or window callbacks.
     Remember(request, "pending");
-    if (!lookup_uuid.empty()) {
+    if (auto found = live_.find(request.surface); found != live_.end() &&
+        found->second->GetBrowserContext()->IsOffTheRecord()) {
+      FinishOpenTab(epoch, request.operation, Profile::FromBrowserContext(found->second->GetBrowserContext()));
+    } else if (workspace_profile && workspace_key != "shared") {
+      auto& storage = manager->GetProfileAttributesStorage();
+      if (!storage.GetProfileAttributesWithPath(profile_path) &&
+          storage.GetAllProfilesAttributes().size() >= kMaximumProfileIdentityCandidates) {
+        FinishOpenTab(epoch, request.operation, nullptr);
+        return;
+      }
+      // This deterministic, installation-local path belongs only to the named
+      // profile UUID. Chromium creates all keyed services and storage itself.
+      manager->CreateProfileAsync(profile_path,
+          base::BindOnce(&BrowserInventory::WorkspaceProfileInitialized,
+                         weak_factory_.GetWeakPtr(), epoch, request.operation,
+                         base::Uuid::ParseCaseInsensitive(workspace_key).AsLowercaseString(),
+                         *request.profile_name));
+    } else if (!lookup_uuid.empty()) {
       if (!base::ThreadPool::PostTaskAndReplyWithResult(
               FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
               base::BindOnce(&FindRegisteredProfileIdentity,
@@ -337,7 +368,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
-        browser->GetProfile()->IsOffTheRecord())
+        browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile())
       return;
     RetainWorkspaceProfile(browser->GetProfile());
     // TabStripModelObserver removes itself automatically when the source dies.
@@ -369,6 +400,22 @@ class BrowserInventory final : public BrowserCollectionObserver,
     std::vector<BrowserTabCreationCallback> callbacks;
   };
 
+  void WorkspaceProfileInitialized(const std::string& epoch, const std::string& operation,
+                                   const std::string& uuid, const std::string& name, Profile* profile) {
+    // Finish assigning an asynchronously created profile even if its caller
+    // disconnected. FinishOpenTab still fences the old epoch before any page.
+    if (!InitializeWorkspaceProfileIdentity(profile, uuid)) {
+      profile = nullptr;
+    } else if (profile->IsNewProfile()) {
+      profile->GetPrefs()->SetString(prefs::kProfileName, name);
+      profile->GetPrefs()->SetBoolean(prefs::kProfileUsingDefaultName, false);
+      auto* attributes = g_browser_process->profile_manager()->GetProfileAttributesStorage()
+          .GetProfileAttributesWithPath(profile->GetPath());
+      if (attributes) attributes->SetLocalProfileName(base::UTF8ToUTF16(name), false);
+    }
+    FinishOpenTab(epoch, operation, profile);
+  }
+
   void LoadProfileForCreation(const std::string& epoch, const std::string& operation,
                               base::FilePath path) {
     if (epoch != epoch_ || !pending_creations_.contains(operation)) return;
@@ -399,23 +446,28 @@ class BrowserInventory final : public BrowserCollectionObserver,
     pending_creations_.erase(found);
     std::string outcome = "unavailable", surface;
     std::string expected_profile;
-    if (creation.request.surface.starts_with("profile:")) {
+    if (creation.request.surface.starts_with("workspace:") && creation.request.surface != "workspace:shared") {
+      expected_profile = base::Uuid::ParseCaseInsensitive(creation.request.surface.substr(10)).AsLowercaseString();
+    } else if (creation.request.surface.starts_with("profile:")) {
       expected_profile = base::Uuid::ParseCaseInsensitive(
           creation.request.surface.substr(8)).AsLowercaseString();
     } else if (creation.request.surface.starts_with("browser:")) {
       expected_profile = base::Uuid::ParseCaseInsensitive(
           creation.request.surface.substr(8, 36)).AsLowercaseString();
     }
+    auto private_source = live_.find(creation.request.surface);
+    const bool private_creation = include_private_ && profile && profile->IsOffTheRecord() &&
+        private_source != live_.end() && private_source->second->GetBrowserContext() == profile;
     // Revalidate the loaded preference: a deleted/replaced directory or a
     // changed UUID must never silently open a pin in another account.
     auto* manager = g_browser_process->profile_manager();
-    if (profile && (!manager ||
+    if (profile && !private_creation && (!manager ||
         !manager->GetProfileAttributesStorage().GetProfileAttributesWithPath(profile->GetPath()) ||
         (!expected_profile.empty() && ExistingProfileID(profile) != expected_profile))) {
       profile = nullptr;
     }
-    profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
-    if (profile && !profile->IsOffTheRecord() && !profile->IsGuestSession() &&
+    if (!private_creation) profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
+    if (profile && (!profile->IsOffTheRecord() || private_creation) && !profile->IsGuestSession() &&
         !profile->IsSystemProfile() && !(browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
       RetainWorkspaceProfile(profile);
       BrowserWindowCreateParams params(profile, true);
@@ -482,7 +534,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
-          browser->GetProfile()->IsOffTheRecord() || browser->IsDeleteScheduled())
+          (browser->GetProfile()->IsOffTheRecord() && !include_private_) ||
+          browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile() || browser->IsDeleteScheduled())
         return true;
       RetainWorkspaceProfile(browser->GetProfile());
       const int host_id = browser->GetSessionID().id();
@@ -506,6 +559,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
         }
         base::DictValue record;
         record.Set("surface_id", id);
+        record.Set("is_shared_profile", !browser->GetProfile()->IsOffTheRecord() && browser->GetProfile()->GetPath() ==
+            g_browser_process->profile_manager()->user_data_dir().Append(
+                ProfileManager::GetInitialProfileDir()));
         record.Set("host_id", "host:" + base::NumberToString(browser->GetSessionID().id()));
         uint32_t host_window = BrowserHostWindowID(browser->GetWindow());
         if (host_window)
@@ -541,7 +597,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("can_go_back", contents->GetController().CanGoBack());
         record.Set("can_go_forward", contents->GetController().CanGoForward());
         record.Set("is_loading", contents->IsLoading());
-        record.Set("private", false);
+        record.Set("private", browser->GetProfile()->IsOffTheRecord());
         next.emplace(id, std::move(record));
         live_.emplace(id, contents);
       }
@@ -577,6 +633,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   base::RepeatingCallback<void(std::string, std::string)> publisher_;
   bool seed_test_;
+  bool include_private_ = false;
   bool pending_ = false;
   int revision_ = 0;
   uint64_t highest_focus_ = 0;
@@ -608,10 +665,10 @@ void StopBrowserInventory() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delete std::exchange(inventory, nullptr);
 }
-void BeginBrowserInventoryEpoch(std::string epoch) {
+void BeginBrowserInventoryEpoch(std::string epoch, bool include_private) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (inventory)
-    inventory->BeginEpoch(std::move(epoch));
+    inventory->BeginEpoch(std::move(epoch), include_private);
 }
 void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
                     BrowserTabCreationCallback completion) {

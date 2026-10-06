@@ -17,11 +17,13 @@ struct FrozenMonitor: Codable, Equatable, Sendable {
 
     @MainActor init(_ monitor: Monitor) {
         topLeftCorner = monitor.rect.topLeftCorner
-        visibleWorkspace = monitor.activeWorkspace.name
+        visibleWorkspace = monitor.activeWorkspace.isIncognito
+            ? (Workspace.all.first { !$0.isIncognito && !$0.isArchived }?.name ?? "1") : monitor.activeWorkspace.name
         displayUUID = monitor.persistentDisplayUUID
         visibleRect = CGRect(origin: monitor.visibleRect.topLeftCorner, size: CGSize(width: monitor.visibleRect.width, height: monitor.visibleRect.height))
         lastActiveWorkspaceByProject = winMuxWorkspaceState.monitorViewportsById[MonitorViewportId(monitor)]?
             .lastActiveWorkspaceByProject.reduce(into: [:]) { result, entry in
+                guard !entry.key.isIncognito else { return }
                 result[entry.key.rawValue] = winMuxWorkspaceState.workspaceById[entry.value]?.name
             }
     }

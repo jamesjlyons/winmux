@@ -57,7 +57,7 @@ struct RestartSessionSnapshot: Codable, Sendable {
     @MainActor static func capture(now: Date = .now) -> RestartSessionSnapshot {
         let interval = signposter.beginInterval("Session snapshot")
         defer { signposter.endInterval("Session snapshot", interval) }
-        let workspaces = Workspace.all.filter { !$0.isArchived }
+        let workspaces = Workspace.all.filter { !$0.isArchived && !$0.isIncognito }
         let world = FrozenWorld(workspaces: workspaces.map(FrozenWorkspace.init), monitors: monitors.map(FrozenMonitor.init),
                                 windowIds: workspaces.flatMap(collectAllWindowIds).toSet())
         return RestartSessionSnapshot(
@@ -71,11 +71,11 @@ struct RestartSessionSnapshot: Codable, Sendable {
                 return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame,
                                      surfaceID: window.surfaceID)
             },
-            projects: winMuxWorkspaceState.projectsById.values.sorted { $0.order < $1.order }.map { project in
+            projects: winMuxWorkspaceState.projectsById.values.filter { !$0.id.isIncognito }.sorted { $0.order < $1.order }.map { project in
                 RestartProject(id: project.id, name: project.name, order: project.order,
                                workspaceNames: project.workspaceOrder.compactMap { winMuxWorkspaceState.workspaceById[$0]?.name })
             },
-            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.name,
+            focusedWindowId: focus.windowOrNil?.windowId, focusedWorkspace: focus.workspace.isIncognito ? nil : focus.workspace.name,
             surfaces: BrowserWorkspaceController.shared.capturePlacementSnapshot()
         )
     }

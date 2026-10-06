@@ -1,6 +1,7 @@
 import Foundation
 
 public enum SurfaceContainerLayout: String, Codable, Sendable { case stack, horizontal, vertical }
+public enum SurfaceRootPresentation: Sendable { case adaptiveTiles, selectedRoot }
 
 public struct SurfaceMinimumSize: Equatable, Codable, Sendable {
     public let width: Int, height: Int
@@ -57,7 +58,7 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
 extension SurfaceTree {
     public func placements(in workspace: String, frame: SurfaceFrame, visible: Bool = true,
                            minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
-                           recentSelections: [SurfaceID] = []) -> [SurfacePlacement] {
+                           recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles) -> [SurfacePlacement] {
         guard frame.isValid else { return [] }
         func minimum(_ node: SurfaceTreeNode) -> SurfaceMinimumSize {
             switch node {
@@ -141,6 +142,16 @@ extension SurfaceTree {
             }
         }
         let nodes = roots[workspace] ?? []
+        if rootPresentation == .selectedRoot {
+            let selected = selectedSurface.flatMap { id in nodes.firstIndex { $0.surfaces.contains(id) } }
+                ?? recentSelections.lazy.compactMap { id in nodes.firstIndex { $0.surfaces.contains(id) } }.first ?? 0
+            // Keep hidden placements in the plan so owners receive explicit hide
+            // requests. A view switch is not a synthetic stack or saved edit.
+            return nodes.enumerated().flatMap { index, node in
+                walk([node], frame: frame, visible: visible && index == selected,
+                     layout: .horizontal, container: nil, inheritedStack: [])
+            }
+        }
         let sizes = nodes.map(minimum)
         // Retain normal horizontal splits and their saved resize weights. Root
         // overflow is different from an explicit user split: try both axes and

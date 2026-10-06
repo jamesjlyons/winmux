@@ -59,6 +59,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 isHovered: isHovered || selectedSearchTarget == .surface(surface.surfaceID),
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [surface.appBundleId], appBundlePaths: [surface.appBundlePath],
+                favicons: [surface.iconPNGBase64],
                 fallbackSystemImage: surface.isBrowser ? "globe" : "app"
             )
             .padding(.leading, leadingHitInset)
@@ -76,7 +77,13 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
         ))
         .contextMenu {
-            Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+            if config.workspaceInteractionMode == .views {
+                SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
+                Divider()
+            }
+            if Workspace.existing(byName: workspaceName)?.isIncognito != true {
+                Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+            }
             Divider()
             SurfaceMoveMenu(subject: .surface(surface.surfaceID), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)
@@ -89,6 +96,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             Divider()
             Button(surface.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface.surfaceID)) }
         }
+        .modifier(WorkspaceSidebarHoverClose(surface: surface.surfaceID, title: surface.title, actions: actions))
         .onHover { isHovered = $0 }
     }
 
@@ -107,8 +115,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 isFocused: surfaces.contains(where: \.isFocused), suppressFocusedStyle: isSearchFiltering,
                 rowHeight: workspaceSidebarWorkspaceRowHeight,
                 isHovered: isHovered || representative.map { selectedSearchTarget == .surface($0.surfaceID) } == true,
-                style: .tabGroupHeader, appBundleIds: surfaces.map(\.appBundleId),
-                appBundlePaths: surfaces.map(\.appBundlePath), fallbackSystemImage: "square.stack"
+                style: .tabGroupHeader, appBundleIds: [representative?.appBundleId],
+                appBundlePaths: [representative?.appBundlePath], favicons: [representative?.iconPNGBase64],
+                fallbackSystemImage: "square.stack"
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,6 +134,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.group(id), $0) }
         ))
         .contextMenu {
+            if Workspace.existing(byName: workspaceName)?.isIncognito != true {
+                Button("Pin Group") { actions.send(.pinSurfaceGroup(id)) }
+            }
             SurfaceMoveMenu(subject: .group(id), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)
             Divider()

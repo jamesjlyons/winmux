@@ -5,6 +5,15 @@ WinMux's **Spaces → Groups → Windows** interface. The Swift helper manages s
 placement, selection, splits, stacks, pins, native page controls, and restoration;
 Chromium owns page contents, navigation, profiles, and extensions.
 
+The views trial lets each Space choose **Shared** or a named browser profile in
+**Space → Manage Space → Browser Profile**. Create profiles such as Work and
+Personal, then reuse them across Spaces. New tabs and tabs sent from another
+Space use the selected profile. Cross-profile moves reopen the current URL and
+close the original after every replacement is available; same-profile moves
+preserve the live page. Changing the profile setting alone leaves existing tabs
+and pins unchanged. Chromium keeps each profile's
+history, cookies, extensions, settings, and saved passwords separately.
+
 Use **Option–Command–T** from any app to create a page in the current regular Group.
 Each Space has a pinned group for page and app icons. Closed page pins reopen their
 saved URLs; app pins focus or launch their app. Pins, order, and layouts persist.
@@ -147,7 +156,12 @@ The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.
 The resulting app is a private Apple Development build, not a notarized release.
-For the integrated workspace, use the application's **Workspace Setup…** menu
+The Views Trial starts its workspace automatically on launch, without an
+ordinary browser window. On first launch, setup requests Accessibility and
+background-item approval if needed, then opens the managed browser. Existing
+trial workspaces retain their saved profiles and state.
+
+For the integrated alpha, use the application's **Workspace Setup…** menu
 and [Start/Stop workflow](../docs/browser/workspace-setup.md). It creates its own
 profile and native state. Stop the old workspace and quit its browser before
 changing packages; keep the new app at its installed path while management is active.

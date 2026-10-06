@@ -67,15 +67,28 @@ struct WindowMoveMenuGroup: Identifiable, Equatable {
 /// Use only local hierarchy metadata, including when the sidebar is disabled.
 /// No window discovery or title fetching is needed to open the menu.
 @MainActor
-func windowMoveMenuDestinations() -> [WindowMoveMenuSpace] {
-    let spaces = workspaceProjects()
+func windowMoveMenuDestinations(sourceSpace: WorkspaceProjectId? = nil) -> [WindowMoveMenuSpace] {
+    let spaces = workspaceProjects().filter { sourceSpace?.isIncognito == true ? $0.id == sourceSpace : !$0.id.isIncognito }
     let workspaces = orderedWorkspacesForPresentation()
     let indices = automaticWorkspaceDisplayIndices(workspaces: workspaces, focusedWorkspace: focus.workspace)
+    let controller = BrowserWorkspaceController.shared
+    let destinations = workspaces.filter { workspace in
+        guard !workspace.isArchived, !workspace.isPinnedGroup else { return false }
+        guard config.workspaceInteractionMode == .views else { return true }
+        // Count identities once even when a native window appears in both
+        // trees. Retain saved/minimized group members without fetching titles.
+        let organized = controller.usesSurfaceTree
+            ? (controller.surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) : []
+        let members = Set(organized)
+            .union(workspace.allLeafWindowsRecursive.map(\.surfaceID))
+            .union(workspaceOwnedMinimizedWindows(workspace).map(\.surfaceID))
+        return members.count > 1 || (members.isEmpty && !workspace.usesAutomaticDisplayName)
+    }
     return spaces.map { space in
         WindowMoveMenuSpace(
             id: space.id,
             title: space.name,
-            groups: workspaces.filter { $0.projectId == space.id && !$0.isArchived && !$0.isPinnedGroup }.map { workspace in
+            groups: destinations.filter { $0.projectId == space.id }.map { workspace in
                 WindowMoveMenuGroup(
                     id: workspace.name,
                     title: workspaceDisplayName(workspace.name, automaticIndices: indices),

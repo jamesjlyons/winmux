@@ -8,12 +8,15 @@ directory; the test service is booted out and its own browser stopped on exit.
 """
 import argparse
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import plistlib
 import re
 import subprocess
+import sqlite3
+import threading
 import time
 import uuid
 
@@ -24,17 +27,85 @@ def identity(sample):
     return sample["process_start_ticks"], sample["executable_uuid"]
 
 
+class ProfileFixture(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        names = {"/work": "work", "/work-return": "work", "/personal": "personal", "/shared": "shared"}
+        account = names.get(self.path)
+        self.send_response(200 if account else 404)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        if account:
+            self.server.observations.append({"path": self.path, "cookie": self.headers.get("Cookie", "")})
+            self.send_header("Set-Cookie", f"winmux_fixture={account}; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax")
+        body = f"<!doctype html><title>Profile fixture</title><p>{account or 'missing'}</p>".encode()
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def verify_profile_storage(profile_root, observations, resumed):
+    expected = {"/work": "winmux_fixture=work" if resumed else "",
+                "/personal": "winmux_fixture=personal" if resumed else "",
+                "/work-return": "winmux_fixture=work",
+                "/shared": "winmux_fixture=shared" if resumed else ""}
+    assert all(any(item == {"path": path, "cookie": cookie} for item in observations) for path, cookie in expected.items())
+    assert all(item["cookie"] == expected[item["path"]] or
+               item["cookie"] == "winmux_fixture=" + {"/work-return": "work"}.get(item["path"], item["path"].lstrip("/"))
+               for item in observations), "A page received another profile's cookie"
+    profiles = {"work": "WinMux Profile 502aa58c-4c74-422e-9b41-e0a2fbbfc001",
+                "personal": "WinMux Profile 502aa58c-4c74-422e-9b41-e0a2fbbfc002", "shared": "Default"}
+    history = {}
+    for name, directory in profiles.items():
+        root = profile_root / directory
+        assert root.is_dir() and not root.is_symlink()
+        with sqlite3.connect(f"file:{root / 'History'}?mode=ro", uri=True) as database:
+            urls = [row[0] for row in database.execute("select url from urls")]
+        fixture_urls = [url for url in urls if url.startswith("http://127.0.0.1:")]
+        allowed = {"/work", "/work-return"} if name == "work" else {"/" + name}
+        from urllib.parse import urlsplit
+        assert fixture_urls and all(urlsplit(url).path in allowed for url in fixture_urls), "History crossed profile boundaries"
+        preferences = json.loads((root / "Preferences").read_text())
+        if name != "shared":
+            assert preferences["winmux"]["profile_uuid"] == directory.removeprefix("WinMux Profile ")
+            assert preferences["profile"]["name"] == name.title()
+            assert preferences["profile"]["using_default_name"] is False
+        history[name] = len(fixture_urls)
+    return {"cookies_isolated": True, "history_isolated": True, "names_and_identities_preserved": True,
+            "history_entries": history, "resumed": resumed}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--existing-helper-pid", type=int, required=True)
     parser.add_argument("--existing-helper-executable", type=Path, required=True)
+    parser.add_argument("--resume-profiles-from", type=Path,
+                        help="Reuse only a previously successful, stopped synthetic fixture to verify profile restart")
+    parser.add_argument("--workspace-startup", action="store_true",
+                        help="Test URL-free startup with saved profiles and Chromium's profile picker preference enabled")
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--private", action="store_true", help="Verify private tabs never enter helper inventory")
+    modes.add_argument("--private", action="store_true", help="Verify private tabs keep their off-the-record owner through creation, layout and reconnect")
     modes.add_argument("--native-window-controls", action="store_true",
                        help="Use visible isolated native windows to verify minimize, fullscreen, zoom and restoration")
     args = parser.parse_args()
+    if args.workspace_startup and (not args.resume_profiles_from or args.private or args.native_window_controls):
+        parser.error("Workspace startup requires a stopped regular profile fixture")
+    profile_root = None
+    if args.resume_profiles_from:
+        previous = args.resume_profiles_from.resolve(strict=True)
+        record = json.loads((previous / "result.json").read_text())
+        profile_root = previous / "profile"
+        if (args.private or args.native_window_controls or record.get("passed") is not True or
+                record.get("test_service_removed") is not True or record.get("browser_exit_code") != 0 or
+                record.get("profile_isolation", {}).get("cookies_isolated") is not True or
+                "--user-data-dir=" + str(profile_root) not in record.get("command", []) or
+                not profile_root.is_dir() or profile_root.is_symlink()):
+            parser.error("Resume requires a successful stopped synthetic profile fixture")
+    resumed_shared_id = json.loads((profile_root / "Default/Preferences").read_text())["winmux"]["profile_uuid"] if profile_root else None
     app = args.app.resolve(strict=True)
     executable = app / "Contents/MacOS/Chromium"
     manifest_path = app.parent / "winmux-package-manifest.json"
@@ -55,6 +126,21 @@ def main():
     before = identity(existing.read())
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
+    if args.workspace_startup:
+        # Keep the original successful fixture intact. Enabling the picker in
+        # this synthetic copy reproduces an ordinary multi-profile startup.
+        import shutil
+        shutil.copytree(profile_root, output / "profile", symlinks=True)
+        profile_root = output / "profile"
+        local_state = profile_root / "Local State"
+        state = json.loads(local_state.read_text())
+        assert len(state["profile"]["info_cache"]) >= 3
+        state["profile"]["show_picker_on_startup"] = True
+        local_state.write_text(json.dumps(state))
+    profile_root = profile_root or output / "profile"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ProfileFixture)
+    server.observations = []
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     service = browser_id + ".workspace.test." + str(uuid.uuid4())
     helper_report = output / "helper.json"
     bridge_report = output / "bridge.json"
@@ -63,16 +149,20 @@ def main():
     if args.native_window_controls:
         helper_arguments.append("--window-controls")
     plist.write_bytes(plistlib.dumps({"Label": service, "ProgramArguments": helper_arguments,
+        "EnvironmentVariables": {"WINMUX_TEST_PROFILE_URL": f"http://127.0.0.1:{server.server_port}/"},
         "MachServices": {service: True}, "RunAtLoad": True,
         "StandardOutPath": str(output / "helper.log"), "StandardErrorPath": str(output / "helper.log")}))
-    command = [str(executable), "--user-data-dir=" + str(output / "profile"),
+    command = [str(executable), "--user-data-dir=" + str(profile_root), "--profile-directory=Default",
                "--no-first-run", "--no-default-browser-check", "--enable-logging=stderr",
                "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service,
                "--winmux-trace-layout"]
     command += (["--winmux-sidebar-preview"] if args.native_window_controls else
                 ["--headless=new", "--winmux-bridge-test-disconnect-once"])
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
-    command += ["about:blank"]
+    if args.private:
+        command += ["--winmux-tab-report=" + str(output / "private-identities.jsonl")]
+    # A URL suppresses Chromium's picker by itself, masking launch regressions.
+    command += ["--restore-last-session"] if args.workspace_startup else ["about:blank"]
     expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
                 "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
                 "native_focus_fence": "issued", "repeated_fence": "issued",
@@ -100,6 +190,9 @@ def main():
                      "create_cross_action_conflict": "operation_conflict", "create_repeat_no_duplicate": "yes",
                      "create_close_created": "issued", "create_global_from_empty": "issued", "create_global_exact_identity": "yes",
                      "create_global_repeated_reopen": "yes"})
+    expected.update({"profiles_invalid_key": "invalid_request", "profiles_repeat": "yes",
+                     "profiles_conflict": "operation_conflict", "profiles_cleanup": "yes",
+                     **{f"profiles_open_{index}": "yes" for index in range(4)}})
     if args.native_window_controls:
         expected.update({
                 "native_minimize": "issued", "native_minimize_state": "yes",
@@ -115,16 +208,18 @@ def main():
                 "native_zoom_survives_layout": "yes", "native_zoom_keeps_window_ids": "yes", "native_zoom_exit": "issued",
                 "native_zoom_exit_state": "yes", "native_zoom_return_layout": "issued", "native_zoom_returns_to_tiles": "yes",
         })
-    expected_count = 0 if args.private else 1
+    expected_count = 1
     if args.private:
-        expected = {}
+        expected = {"private_create": "issued", "private_profile_retained": "yes", "private_layout": "issued",
+                    "private_managed": "yes", "private_close": "issued", "private_cleanup": "yes"}
     fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
                            "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
-    result = {"scope": ("actual_signed_browser_protocol5_native_window_controls" if args.native_window_controls else
-                        "actual_signed_browser_protocol5_page_windows_navigation"), "passed": False,
+    result = {"scope": ("actual_signed_browser_protocol7_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol7_page_windows_profiles"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
+        "workspace_startup_test": args.workspace_startup,
         "native_window_controls_test": args.native_window_controls, "observations": [],
         "limits": [fixture_description,
                    "No native window manager or shared sidebar is launched",
@@ -150,7 +245,7 @@ def main():
                     if actions_complete:
                         result["actions"] = report
                     if args.native_window_controls:
-                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 5
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 7
                                 and report.get("full_messages") == 1):
                             if completed_at is None:
                                 completed_at = time.monotonic()
@@ -162,9 +257,9 @@ def main():
                             raise RuntimeError("Completed native window controls did not remain stable")
                         time.sleep(.1)
                         continue
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 5
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 7
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
-                            and report.get("full_messages") == 1 and report.get("outcomes") == {}):
+                            and report.get("full_messages") == 1 and report.get("outcomes") == (expected if args.private else {})):
                         if recovered_at is None:
                             recovered_at = time.monotonic()
                         if time.monotonic() - recovered_at >= 17:
@@ -176,7 +271,7 @@ def main():
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
             if not result["passed"]:
-                result["error"] = "Expected protocol5 isolated fixture outcomes were not observed"
+                result["error"] = "Expected protocol7 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}
@@ -205,6 +300,26 @@ def main():
             except OSError:
                 result["existing_helper_unchanged"] = False
             result["passed"] = result["passed"] and result["existing_helper_unchanged"]
+            server.shutdown()
+            server.server_close()
+            result["profile_cookie_observations"] = server.observations
+            if args.private:
+                identities = output / "private-identities.jsonl"
+                result["private_identity_diagnostics_empty"] = not identities.exists() or identities.stat().st_size == 0
+                result["passed"] = result["passed"] and result["private_identity_diagnostics_empty"]
+            if result["passed"] and not args.private:
+                try:
+                    result["profile_isolation"] = verify_profile_storage(profile_root, server.observations, bool(args.resume_profiles_from))
+                    if resumed_shared_id:
+                        assert json.loads((profile_root / "Default/Preferences").read_text())["winmux"]["profile_uuid"] == resumed_shared_id, "Shared profile identity changed during restart"
+                except (AssertionError, OSError, KeyError, sqlite3.Error) as error:
+                    result.update(passed=False, error="Profile storage verification failed: " + str(error))
+            if result["passed"] and args.workspace_startup:
+                state = json.loads((profile_root / "Local State").read_text())
+                result["dock_profile_picker_suppressed"] = (
+                    state["profile"].get("show_picker_on_startup") is False and
+                    result["bridge"].get("startup_profile_picker_suppressed") is True)
+                result["passed"] = result["dock_profile_picker_suppressed"]
             (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps({key: result.get(key) for key in ("passed", "helper", "existing_helper_unchanged", "test_service_removed", "error")}))
     return 0 if result["passed"] else 1

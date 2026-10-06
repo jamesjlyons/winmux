@@ -117,6 +117,27 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
 
+    func testPinningDuringSidebarReadDoesNotLeaveDuplicateInRegularWorkspace() async throws {
+        let controller = BrowserWorkspaceController.shared
+        controller.usesSurfaceTree = true
+        let regular = focus.workspace
+        let oldPath = TestApp.shared.bundlePath
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        defer { TestApp.shared.bundlePath = oldPath }
+        let window = TestWindow.new(id: 94, parent: regular.rootTilingContainer)
+        let capturedRows = await buildWorkspaceSidebarNativeItems(for: regular, currentFocus: focus)
+        XCTAssertEqual(controller.organizedRows(native: capturedRows, in: regular.name).flatMap(\.surfaceIDs), [window.surfaceID])
+        XCTAssertTrue(controller.pinSurface(window.surfaceID))
+        let pin = try XCTUnwrap(controller.nativeAppSidebarPins.first)
+
+        XCTAssertTrue(controller.organizedRows(native: capturedRows, in: regular.name).isEmpty)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: window.surfaceID), pin.workspaceName)
+        XCTAssertEqual(controller.pinTiles(in: pin.workspaceName).compactMap(\.surfaceID), [window.surfaceID])
+
+        XCTAssertTrue(controller.unpin(pin.id, to: regular))
+        XCTAssertEqual(controller.organizedRows(native: capturedRows, in: regular.name).flatMap(\.surfaceIDs), [window.surfaceID])
+    }
+
     func testMissingAppRemainsVisibleAndCanBeUnpinnedWithoutLaunching() throws {
         let controller = BrowserWorkspaceController()
         controller.usesSurfaceTree = true

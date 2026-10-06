@@ -14,7 +14,7 @@ struct BrowserNativeState: Sendable {
         return "/tmp/winmux-browser-\(getuid())-\(hash).sock"
     }
 
-    init(directory: URL, workspaceShortcuts: Bool = false) throws {
+    init(directory: URL, workspaceShortcuts: Bool = false, viewsTrial: Bool = false) throws {
         guard directory.isFileURL, directory.path.hasPrefix("/") else { throw NativeManagementError.invalidState }
         self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
         let fm = FileManager.default
@@ -32,7 +32,8 @@ struct BrowserNativeState: Sendable {
         }
         if !fm.fileExists(atPath: config.path) {
             let shortcuts = workspaceShortcuts ? "\nalt-j = 'focus tab-next'\nalt-k = 'focus tab-prev'\nalt-space = 'layout horizontal vertical'\n" : ""
-            try Data((Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
+            let mode = viewsTrial ? "workspace-interaction-mode = 'views'\n" : ""
+            try Data((mode + Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
         }
     }
 
@@ -59,7 +60,7 @@ enum NativeManagementError: LocalizedError {
             case .invalidState: "Native activation requires a new directory or an existing isolated WinMux Browser state directory."
             case .anotherManager: "Another WinMux owns native windows. Quit that manager before activating the browser workspace."
             case .invalidProcess: "The explicitly scoped native process is no longer running."
-            case .lockUnavailable: "Could not acquire exclusive native workspace ownership."
+            case .lockUnavailable: "Could not acquire native workspace ownership. Stop any other running WinMux workspace before retrying."
             case .invalidConfiguration: "The isolated browser workspace configuration could not be loaded."
         }
     }
@@ -67,13 +68,14 @@ enum NativeManagementError: LocalizedError {
 
 /// A process-lifetime lease; never unlink a flock file (that would split owners).
 final class NativeManagementLease: @unchecked Sendable {
+    static let defaultPath = "/tmp/com.jameslyons.winmux.native-management-\(getuid()).lock"
     private let descriptor: Int32
     private let mutex = NSLock()
     private var revoked = false
     var isRevoked: Bool { mutex.withLock { revoked } }
     func revoke() { mutex.withLock { revoked = true } }
 
-    init(path: String = "/tmp/com.jameslyons.winmux.native-management-\(getuid()).lock") throws {
+    init(path: String = NativeManagementLease.defaultPath) throws {
         descriptor = open(path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw NativeManagementError.lockUnavailable }
         var info = stat()
@@ -82,6 +84,13 @@ final class NativeManagementLease: @unchecked Sendable {
             Darwin.close(descriptor)
             throw NativeManagementError.lockUnavailable
         }
+    }
+
+    /// Preflight only: the background helper acquires its own lifetime lease
+    /// again at startup, so a competing launch cannot bypass ownership checks.
+    static func checkAvailable(path: String = defaultPath) throws {
+        let lease = try NativeManagementLease(path: path)
+        withExtendedLifetime(lease) {}
     }
     deinit { Darwin.close(descriptor) }
 }
@@ -129,11 +138,15 @@ enum BrowserNativeManagement {
 /// Explicit only. Normal helper enrollment remains transport-only. An optional
 /// launch-bound PID scope permits live integration tests using only fixture windows.
 @MainActor
-public func checkBrowserNativeOwnership() throws { try BrowserNativeManagement.checkOwnership() }
+public func checkBrowserNativeOwnership() throws {
+    try BrowserNativeManagement.checkOwnership()
+    try NativeManagementLease.checkAvailable()
+}
 
 @MainActor
 public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: Int32? = nil,
-                                         expectedProcessLaunch: Date? = nil, workspaceShortcuts: Bool = false) async throws {
+                                         expectedProcessLaunch: Date? = nil, workspaceShortcuts: Bool = false,
+                                         viewsTrial: Bool = false) async throws {
     guard BrowserNativeManagement.lease == nil, !isWinMuxRuntimeReady else { throw NativeManagementError.anotherManager }
     try BrowserNativeManagement.checkOwnership()
     let lease = try NativeManagementLease()
@@ -144,7 +157,7 @@ public func startBrowserNativeManagement(stateDirectory: URL, nativeProcessID: I
         }
         BrowserNativeManagement.processScope = (pid, launch)
     }
-    let state = try BrowserNativeState(directory: stateDirectory, workspaceShortcuts: workspaceShortcuts)
+    let state = try BrowserNativeState(directory: stateDirectory, workspaceShortcuts: workspaceShortcuts, viewsTrial: viewsTrial)
     configureBrowserNativeState(state, lease: lease)
     BrowserNativeManagement.lease = lease
     BrowserNativeManagement.observeOwnership()

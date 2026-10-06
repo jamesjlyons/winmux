@@ -13,6 +13,11 @@
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/uuid.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #import "chrome/browser/winmux/WMBridgeProtocol.h"
@@ -20,6 +25,7 @@
 namespace {
 NSString* const kBrowserID = @"com.jameslyons.winmux.browser.alpha";
 NSString* const kHelperID = @"com.jameslyons.winmux.browser.alpha.workspace";
+bool setup_launch = false;
 
 NSString* OwnTeam() {
   SecCodeRef code = nullptr;
@@ -61,6 +67,7 @@ NSString* OwnTeam() {
 @property(nonatomic) BOOL disconnectOnceForTesting;
 @property(nonatomic) BOOL traceLayouts;
 @property(nonatomic) BOOL dropLayoutReplyOnceForTesting;
+@property(nonatomic) BOOL startupProfilePickerSuppressed;
 @property(nonatomic, copy) NSString* serviceName;
 @property(nonatomic, copy) NSString* epoch;
 @property(nonatomic) NSInteger protocolVersion;
@@ -84,6 +91,7 @@ NSString* OwnTeam() {
 @synthesize disconnectOnceForTesting = _disconnectOnceForTesting;
 @synthesize traceLayouts = _traceLayouts;
 @synthesize dropLayoutReplyOnceForTesting = _dropLayoutReplyOnceForTesting;
+@synthesize startupProfilePickerSuppressed = _startupProfilePickerSuppressed;
 @synthesize serviceName = _serviceName;
 @synthesize epoch = _epoch;
 @synthesize protocolVersion = _protocolVersion;
@@ -94,10 +102,22 @@ NSString* OwnTeam() {
       @"Contents/Helpers/WinMux Workspace.app"];
   NSWorkspaceOpenConfiguration* configuration = [NSWorkspaceOpenConfiguration configuration];
   configuration.createsNewApplicationInstance = YES;
-  configuration.arguments = @[@"--workspace-setup"];
+  configuration.arguments = setup_launch ? @[@"--workspace-setup", @"--open-workspace"] : @[@"--workspace-setup"];
   [NSWorkspace.sharedWorkspace openApplicationAtURL:helper configuration:configuration
       completionHandler:^(NSRunningApplication* app, NSError* error) {
-        if (error) NSLog(@"WinMux Workspace Setup failed: %@", error.localizedDescription);
+        dispatch_async(dispatch_get_main_queue(), ^{
+          if (error) {
+            NSAlert* alert = [[NSAlert alloc] init];
+            alert.messageText = @"WinMux setup could not open";
+            alert.informativeText = [@"Keep WinMux Browser Views Trial in Applications and try again. "
+                stringByAppendingString:error.localizedDescription];
+            [alert runModal];
+          } else if (setup_launch) {
+            // Only the empty launcher exits. A managed browser opened through
+            // its setup menu must keep all its existing pages alive.
+            [NSApp terminate:nil];
+          }
+        });
       }];
 }
 
@@ -135,6 +155,7 @@ NSString* OwnTeam() {
     @"authenticated_connections": @(_state.authenticated_connections()),
     @"protocol_version": @(self.protocolVersion),
     @"inventory_enabled": @(self.protocolVersion >= 2),
+    @"startup_profile_picker_suppressed": @(self.startupProfilePickerSuppressed),
   };
   NSError* error = nil;
   NSData* data = [NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted error:&error];
@@ -202,7 +223,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:5 remote:remote generation:generation];
+  [self negotiate:7 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -213,7 +234,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 5 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 7 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -237,7 +258,7 @@ NSString* OwnTeam() {
           self->_activeGeneration.store(generation);
           if (version >= 2) {
             content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
-                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch)));
+                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch), version >= 7));
           }
           [self report:@"authenticated"
                 detail:@"Chromium browser process and packaged Swift helper exchanged an asynchronous probe"];
@@ -274,6 +295,34 @@ NSString* OwnTeam() {
         });
       }
     }];
+  });
+}
+
+- (void)openBrowserTabInWorkspaceProfile:(NSString*)key name:(NSString*)name url:(NSString*)url
+                                 epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
+                                 reply:(void (^)(NSString*, NSString*))reply {
+  dispatch_async(self.queue, ^{
+    const uint64_t generation = self->_state.generation();
+    if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 6 ||
+        ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch", nil); return; }
+    if (key.length > 36 || !key.length || !name.length || operation.length > 40 ||
+        [name lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 128 ||
+        (url && [url lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 16384)) {
+      reply(@"invalid_request", nil); return;
+    }
+    winmux::BrowserSurfaceAction request{"open_tab", "workspace:" + base::SysNSStringToUTF8(key),
+        base::SysNSStringToUTF8(operation), revision, 0,
+        url ? std::make_optional(base::SysNSStringToUTF8(url)) : std::nullopt,
+        base::SysNSStringToUTF8(name)};
+    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+        [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string requestEpoch,
+           winmux::BrowserSurfaceAction request, void (^completion)(NSString*, NSString*)) {
+          if (bridge->_activeGeneration.load() != activeGeneration) { completion(@"stale_epoch", nil); return; }
+          winmux::OpenBrowserTab(requestEpoch, std::move(request), base::BindOnce(
+              [](void (^done)(NSString*, NSString*), std::string outcome, std::string surface) {
+                done(base::SysUTF8ToNSString(outcome), surface.empty() ? nil : base::SysUTF8ToNSString(surface));
+              }, [completion copy]));
+        }, self, generation, base::SysNSStringToUTF8(epoch), std::move(request), [reply copy]));
   });
 }
 
@@ -434,13 +483,43 @@ namespace winmux {
 namespace {
 WMChromiumWorkspaceBridge* bridge = nil;
 }
+void PrepareWorkspaceLaunch() {
+  auto* command = base::CommandLine::ForCurrentProcess();
+  setup_launch = [NSBundle.mainBundle.bundleIdentifier isEqualToString:kBrowserID] &&
+      [[NSBundle.mainBundle objectForInfoDictionaryKey:@"WinMuxWorkspaceViewsTrial"] boolValue] &&
+      !command->HasSwitch("user-data-dir") && !command->HasSwitch("headless") &&
+      !command->HasSwitch("winmux-managed-workspace") &&
+      !command->HasSwitch("winmux-register-helper") &&
+      !command->HasSwitch("winmux-test-service");
+  if (setup_launch) {
+    command->AppendSwitchASCII("profile-directory", "Default");
+    command->AppendSwitch("no-startup-window");
+    command->AppendSwitch("no-first-run");
+    command->AppendSwitch("no-default-browser-check");
+  }
+}
 void StartWorkspaceBridge() {
   // Raw control bundles never enroll or contact the alpha helper.
   if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:kBrowserID])
     return;
   if (bridge)
     return;
+  // macOS Dock/reopen callbacks consult GetStartupMode directly and ignore
+  // --profile-directory. Space profiles replace this automatic chooser for
+  // the trial, including existing multi-profile installations. Explicit
+  // profile management and policy/locked-profile handling remain Chromium's.
+  if ([[NSBundle.mainBundle objectForInfoDictionaryKey:@"WinMuxWorkspaceViewsTrial"] boolValue]) {
+    g_browser_process->local_state()->SetBoolean(prefs::kBrowserShowProfilePickerOnStartup, false);
+  }
   bridge = [[WMChromiumWorkspaceBridge alloc] init];
+  bridge.startupProfilePickerSuppressed = ProfilePicker::GetStartupMode() != StartupProfileMode::kProfilePicker;
+  if (setup_launch) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [bridge installWorkspaceMenu];
+      [bridge openWorkspaceSetup:nil];
+    });
+    return;  // Setup owns activation; the launcher never connects or enrolls.
+  }
   const auto* command = base::CommandLine::ForCurrentProcess();
   bridge.reportPath = base::SysUTF8ToNSString(command->GetSwitchValueNative("winmux-bridge-report"));
   // Opt-in diagnostics record only protocol metadata, never page content.

@@ -35,15 +35,17 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
     let isFocused: Bool
     let appBundleId: String?
     let appBundlePath: String?
+    let iconPNGBase64: String?
 
     init(surfaceID: SurfaceID, title: String, appName: String, isFocused: Bool,
-         appBundleId: String? = nil, appBundlePath: String? = nil) {
+         appBundleId: String? = nil, appBundlePath: String? = nil, iconPNGBase64: String? = nil) {
         self.surfaceID = surfaceID
         self.title = title
         self.appName = appName
         self.isFocused = isFocused
         self.appBundleId = appBundleId
         self.appBundlePath = appBundlePath
+        self.iconPNGBase64 = iconPNGBase64
     }
 
     var isBrowser: Bool {
@@ -73,7 +75,7 @@ extension WorkspaceSidebarItemViewModel {
         case .surfaceGroup(_, let children): children.flatMap(\.surfaceItems)
         case .browserTab(let tab):
             [.init(surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                   appBundleId: "com.jameslyons.winmux.browser.alpha")]
+                   appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64)]
         case .window(let window):
             [.init(surfaceID: window.surfaceID, title: window.title ?? window.appName, appName: window.appName,
                    isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)]

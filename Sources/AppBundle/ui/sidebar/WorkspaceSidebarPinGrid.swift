@@ -49,7 +49,7 @@ struct WorkspaceSidebarPinGrid: View {
             .frame(height: gridHeight + 4)
             .padding(.bottom, 10)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Pinned apps and tabs")
+            .accessibilityLabel("Pinned apps, tabs and groups")
             .accessibilityIdentifier("winmux.sidebar.pins.\(workspace.projectId.rawValue)")
         }
     }
@@ -75,7 +75,7 @@ struct WorkspaceSidebarPinGrid: View {
         }
         .buttonStyle(.plain)
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
-        .accessibilityLabel("Pinned \(pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
+        .accessibilityLabel("Pinned \(pin.isGroup ? "group" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")
         .onHover { hoveredPin = $0 ? pin.id : nil }
         .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: true,
@@ -89,15 +89,30 @@ struct WorkspaceSidebarPinGrid: View {
             }
         }
         .contextMenu {
-            Button(pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
-            Button(pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
+            if !pin.isGroup, config.workspaceInteractionMode == .views, let id = pin.surfaceID {
+                SurfaceViewActionsMenu(surface: id, actions: actions)
+                Divider()
+            }
+            if pin.isGroup {
+                ForEach(pin.groupMembers) { member in
+                    Button(member.title) { actions.send(.selectPin(member.id)) }
+                }
+                Divider()
+            }
+            Button(pin.isGroup ? "Open Group" : pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
+            Button(pin.isGroup ? "Unpin Group" : pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
             Menu("Move to Space") {
-                ForEach(projects) { project in
+                ForEach(projects.filter { !$0.id.isIncognito }) { project in
                     Button(project.displayName) { actions.send(.movePin(pin.id, toSpace: project.id)) }
-                        .disabled(project.id == workspace.projectId)
+                        .disabled(project.id == workspace.projectId || (pin.isGroup && pin.groupMembers.contains { !$0.isOpen }))
                 }
             }
-            if pin.isOpen, let surface = pin.surfaceID {
+            if pin.isGroup {
+                Divider()
+                Button("Close Group") {
+                    for member in pin.groupMembers { if let surface = member.surfaceID { actions.send(.closeSurface(surface)) } }
+                }.disabled(!pin.isOpen)
+            } else if pin.isOpen, let surface = pin.surfaceID {
                 Divider()
                 Button(pin.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface)) }
             }
@@ -106,34 +121,18 @@ struct WorkspaceSidebarPinGrid: View {
 
     @ViewBuilder
     private func pinIcon(_ pin: WorkspaceSidebarPinViewModel) -> some View {
-        if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarPinImageCache.shared.image(for: encoded) {
+        if pin.isGroup {
+            Image(systemName: "rectangle.split.2x1").font(.system(size: 19))
+                .overlay(alignment: .bottomTrailing) {
+                    Text("\(pin.groupMembers.count)").font(.system(size: 8, weight: .bold))
+                        .padding(2).background(.regularMaterial, in: Circle()).offset(x: 5, y: 6)
+                }
+        } else if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarFaviconCache.shared.image(for: encoded) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else if !pin.isBrowser, let icon = appIconImage(bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else {
             Image(systemName: pin.isBrowser ? "globe" : "app.dashed").font(.system(size: 20))
         }
-    }
-}
-
-/// Hover and focus changes redraw the grid frequently. Decode each favicon once,
-/// with bounded storage, instead of allocating an image for every tile render.
-@MainActor
-final class WorkspaceSidebarPinImageCache {
-    static let shared = WorkspaceSidebarPinImageCache()
-    private let images = NSCache<NSString, NSImage>()
-
-    init() {
-        images.countLimit = 256
-        images.totalCostLimit = 8 * 1024 * 1024
-    }
-
-    func image(for encoded: String) -> NSImage? {
-        let key = encoded as NSString
-        if let cached = images.object(forKey: key) { return cached }
-        guard let data = Data(base64Encoded: encoded), let image = NSImage(data: data) else { return nil }
-        let decodedBytes = image.representations.reduce(0) { $0 + $1.pixelsWide * $1.pixelsHigh * 4 }
-        images.setObject(image, forKey: key, cost: max(data.count, decodedBytes))
-        return image
     }
 }

@@ -9,31 +9,61 @@ extension SurfaceID {
 extension BrowserWorkspaceController {
     @discardableResult
     func openBrowserTab(url: String? = nil, workspaceName: String? = nil, profileID: UUID? = nil,
+                        explicitPlacement: Bool = false,
                         created: (@MainActor (SurfaceID) -> Void)? = nil,
                         completion: (@MainActor (BrowserActionReply) -> Void)? = nil) -> SurfaceActionOutcome {
-        guard let session = tabCreationSession(profileID: profileID) else {
+        let requestedWorkspace = workspaceName.flatMap { Workspace.existing(byName: $0) } ?? focus.workspace
+        let workspaceProfile: WorkspaceBrowserProfileTarget?
+        do {
+            workspaceProfile = profileID == nil && !requestedWorkspace.isIncognito ? try browserProfileTarget(for: requestedWorkspace.projectId) : nil
+        } catch {
+            if !isUnitTest { showWorkspaceSidebarError(error.localizedDescription) }
+            completion?(.unavailable)
+            return .unavailable
+        }
+        guard let session = tabCreationSession(profileID: profileID ?? workspaceProfile?.profileID) else {
             NSLog("WinMux new tab: no connected creation owner")
             completion?(.unavailable)
             return .unavailable
         }
-        let requestedWorkspace = workspaceName.flatMap { Workspace.existing(byName: $0) } ?? focus.workspace
+        // Older owners retain their original default behavior. A named profile
+        // must fail visibly rather than silently use the previous account.
+        if workspaceProfile?.profileID != nil && !session.supportsWorkspaceProfiles {
+            if !isUnitTest { showWorkspaceSidebarError("Restart with the browser build that supports Space profiles.") }
+            completion?(.unsupported)
+            return .unsupported
+        }
+        let routedProfile = session.supportsWorkspaceProfiles ? workspaceProfile : nil
         let workspace = (url == nil ? regularWorkspaceForNewItem(requestedWorkspace) : requestedWorkspace).name
-        let source = focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
+        let source = requestedWorkspace.isIncognito ? session.inventory.tabs.values.first(where: {
+            $0.privateBrowsing && $0.surfaceID.browserProfileID.map { WorkspaceProjectId.incognito($0) == requestedWorkspace.projectId } == true
+        })?.surfaceID : (routedProfile == nil ? focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
             (profileID == nil || $0.browserProfileID == profileID) ? $0 : nil }
+            : nil)
+        guard !requestedWorkspace.isIncognito || source != nil else {
+            completion?(.unavailable)
+            return .unavailable
+        }
         let creation = UUID(), startingFocus = focusCoordinator.generation
         latestBrowserTabCreation = creation
         pendingBrowserTabSelections.removeAll()
         pendingBrowserTabAddress = nil
         cancelPendingBrowserFocusHold()
         NSLog("WinMux new tab: dispatch")
-        return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url) { [weak self] reply, id in
+        return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url, workspaceProfile: routedProfile) { [weak self] reply, id in
             NSLog("WinMux new tab: %@", reply.rawValue)
             if reply == .issued, let id, let self {
+                if requestedWorkspace.isIncognito { self.privateSurfaces.insert(id) }
                 let selectCreated = self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)
-                self.placeCreatedBrowserTab(id, in: workspace, focusAddress: url == nil,
+                let destination = config.workspaceInteractionMode == .views && !explicitPlacement
+                    ? self.standaloneBrowserDestination(id, in: requestedWorkspace) : workspace
+                self.placeCreatedBrowserTab(id, in: destination, focusAddress: url == nil,
                                            selectCreated: selectCreated, focusGeneration: startingFocus)
                 created?(id)
+            }
+            if reply != .issued, routedProfile != nil, !isUnitTest {
+                showWorkspaceSidebarError("Could not open a tab in the selected browser profile. Your existing tabs are unchanged.")
             }
             completion?(reply)
         }

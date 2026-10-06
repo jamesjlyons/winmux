@@ -68,12 +68,21 @@ final class BrowserInventoryTests: XCTestCase {
         XCTAssertEqual(inventory.tabs, [a.surfaceID: a])
     }
 
-    func testPrivateNativeDuplicateAndConflictingRecordsAreRejected() {
+    func testPrivateRecordsRemainConnectionScopedAndFlagged() {
+        var inventory = BrowserInventory()
+        let page = tab(privateBrowsing: true)
+        XCTAssertTrue(inventory.apply(.init(revision: 1, full: true, tabs: [page])))
+        XCTAssertEqual(inventory.tabs[page.surfaceID]?.privateBrowsing, true)
+        XCTAssertFalse(inventory.apply(.init(revision: 2, full: true, tabs: [tab(id: page.surfaceID)])))
+        XCTAssertTrue(inventory.apply(.init(revision: 2, full: false, tabs: [], removed: [page.surfaceID])))
+        XCTAssertTrue(inventory.tabs.isEmpty)
+    }
+
+    func testNativeDuplicateAndConflictingRecordsAreRejected() {
         var inventory = BrowserInventory()
         let a = tab()
         for message in [
-            BrowserInventoryMessage(revision: 1, full: true, tabs: [tab(privateBrowsing: true)]),
-            .init(revision: 1, full: true, tabs: [tab(id: .nativeWindow(UUID()))]),
+            BrowserInventoryMessage(revision: 1, full: true, tabs: [tab(id: .nativeWindow(UUID()))]),
             .init(revision: 1, full: true, tabs: [a, a]),
             .init(revision: 1, full: true, tabs: [a], removed: [a.surfaceID]),
             .init(revision: 1, full: true, tabs: [tab(title: String(repeating: "x", count: 4097))]),

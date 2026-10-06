@@ -1,7 +1,7 @@
 import Foundation
 import WorkspaceCore
 
-struct WorkspaceSidebarPinViewModel: Hashable, Identifiable {
+struct WorkspaceSidebarPinViewModel: Hashable, Identifiable, Sendable {
     let id: UUID
     let workspaceName: String
     let title: String
@@ -15,4 +15,6 @@ struct WorkspaceSidebarPinViewModel: Hashable, Identifiable {
     let isUnavailable: Bool
     let isBrowser: Bool
     var url: String? = nil
+    var groupMembers: [WorkspaceSidebarPinViewModel] = []
+    var isGroup: Bool { !groupMembers.isEmpty }
 }

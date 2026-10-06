@@ -9,7 +9,9 @@ func workspaceProjects() -> [WorkspaceProject] {
     var numberedProjectIndex = 0
     return projects.map { project in
         let displayName: String
-        if let configuredName = config.workspaceSidebar.projectLabels[project.id.rawValue]?.trimmingCharacters(in: .whitespacesAndNewlines),
+        if project.id.isIncognito {
+            displayName = "Incognito"
+        } else if let configuredName = config.workspaceSidebar.projectLabels[project.id.rawValue]?.trimmingCharacters(in: .whitespacesAndNewlines),
            !configuredName.isEmpty,
            configuredName != project.id.rawValue
         {
@@ -116,7 +118,7 @@ func ensureMinimumWorkspace(for projectId: WorkspaceProjectId, monitor: Monitor 
 
 @MainActor
 func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throws {
-    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup else {
+    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup, !workspace.isIncognito else {
         throw WorkspaceMutationError.workspaceNotFound(workspaceName)
     }
     let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -135,7 +137,7 @@ func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throw
 
 @MainActor
 func resetWorkspaceSidebarName(workspaceName: String) throws {
-    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup else {
+    guard let workspace = Workspace.existing(byName: workspaceName), !workspace.isPinnedGroup, !workspace.isIncognito else {
         throw WorkspaceMutationError.workspaceNotFound(workspaceName)
     }
     config.workspaceSidebar.workspaceLabels.removeValue(forKey: workspaceName)
@@ -146,6 +148,7 @@ func resetWorkspaceSidebarName(workspaceName: String) throws {
 
 @MainActor
 func renameWorkspaceProject(_ projectId: WorkspaceProjectId, displayName: String) throws {
+    guard !projectId.isIncognito else { throw WorkspaceMutationError.projectCannotBeDeleted("Incognito") }
     materializePersistedWorkspaceProjects()
     guard winMuxWorkspaceState.projectsById[projectId] != nil else {
         throw WorkspaceMutationError.projectNotFound(projectId.rawValue)
@@ -161,12 +164,12 @@ func renameWorkspaceProject(_ projectId: WorkspaceProjectId, displayName: String
 @MainActor
 func canDeleteWorkspaceProject(_ projectId: WorkspaceProjectId) -> Bool {
     materializePersistedWorkspaceProjects()
-    return projectId != workspaceProjectDefaultId && winMuxWorkspaceState.projectsById[projectId] != nil
+    return !projectId.isIncognito && projectId != workspaceProjectDefaultId && winMuxWorkspaceState.projectsById[projectId] != nil
 }
 
 @MainActor
 func workspaceProjectFallbackForDeletion(excluding projectId: WorkspaceProjectId) -> WorkspaceProjectId {
-    let projects = workspaceProjects()
+    let projects = workspaceProjects().filter { !$0.id.isIncognito }
     guard let deletedIndex = projects.firstIndex(where: { $0.id == projectId }) else {
         return projects.first { $0.id != projectId }?.id ?? workspaceProjectDefaultId
     }
@@ -282,6 +285,8 @@ private func closeWindowsAndDeleteWorkspaceProject(_ projectId: WorkspaceProject
 @MainActor
 private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectId) throws {
     BrowserWorkspaceController.shared.discardPins(in: projectId)
+    // Other Spaces can share the profile. Deleting a Space never deletes data.
+    BrowserWorkspaceController.shared.browserProfileBySpace.removeValue(forKey: projectId.rawValue)
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil

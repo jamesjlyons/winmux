@@ -10,6 +10,9 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     var preferredMonitorPoint: CGPoint?
     var lifecycle: WorkspaceLifecycle = .durable
     var isPinnedGroup = false
+    var hasContainedItems = false
+
+    var isIncognito: Bool { projectId.isIncognito }
 
     @MainActor
     private init(_ name: String) {
@@ -97,6 +100,7 @@ extension Workspace {
     @MainActor
     func assignProject(_ projectId: WorkspaceProjectId) {
         guard self.projectId != projectId else { return }
+        guard !isIncognito, !projectId.isIncognito || !workspaceHasLifecycleWindows(self) else { return }
         winMuxWorkspaceState.assignWorkspace(self, to: projectId)
     }
 
@@ -124,8 +128,9 @@ extension Workspace {
 
     @MainActor
     func refreshEmptyLifecycle() {
-        if workspaceHasLifecycleWindows(self), lifecycle == .transient {
-            lifecycle = .durable
+        if workspaceHasLifecycleWindows(self) {
+            hasContainedItems = true
+            if lifecycle == .transient { lifecycle = .durable }
         }
     }
 

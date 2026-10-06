@@ -878,14 +878,6 @@ extension WorkspaceSidebarView {
                     .padding(.leading, leadingInset)
                     .padding(.trailing, trailingInset)
             }
-            if snapshot.configuration.showsBrowserControls {
-                WorkspaceSidebarNewTabButton(isCompact: isCompact) {
-                    let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
-                        ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
-                    actions.send(.newBrowserTab(workspaceName: workspace?.name))
-                }
-                .padding(.leading, leadingInset).padding(.trailing, trailingInset).padding(.bottom, 6)
-            }
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if showsPinnedActiveWorkspace,
@@ -954,6 +946,11 @@ extension WorkspaceSidebarView {
                             }
                         },
                         actions: actions,
+                        onNewTab: snapshot.configuration.showsBrowserControls ? {
+                            let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
+                                ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
+                            actions.send(.newBrowserTab(workspaceName: workspace?.name))
+                        } : nil,
                     )
                 }
             }

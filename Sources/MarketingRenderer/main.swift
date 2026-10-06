@@ -21,7 +21,9 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--sidebar-context-proof") {
+        if arguments.contains("--workspace-views-proof") {
+            try renderWinMuxWorkspaceViewsProofImages(in: outputURL)
+        } else if arguments.contains("--sidebar-context-proof") {
             try renderWinMuxSidebarContextProofImages(in: outputURL)
         } else if isSidebarProof || isMenuBarProof || isProjectIconProof {
             try renderWinMuxSidebarProofImages(in: outputURL, menuBarOnly: isMenuBarProof, projectIcons: isProjectIconProof)

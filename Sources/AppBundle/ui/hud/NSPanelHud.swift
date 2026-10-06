@@ -2,12 +2,21 @@ import AppKit
 
 open class NSPanelHud: NSPanel {
     init() {
+        super.init(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
+        configureHUD()
+    }
+
+    init(styleMask: NSWindow.StyleMask) {
         super.init(
             contentRect: .zero,
-            styleMask: [.nonactivatingPanel, .borderless],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false,
         )
+        configureHUD()
+    }
+
+    private func configureHUD() {
         self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.isReleasedWhenClosed = false

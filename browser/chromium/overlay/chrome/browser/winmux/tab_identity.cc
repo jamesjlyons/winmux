@@ -26,6 +26,12 @@ namespace winmux {
 namespace {
 constexpr char kProfileIdentityPref[] = "winmux.profile_uuid";
 const char kIdentityDataKey = 0;
+const char kPrivateProfileDataKey = 0;
+
+class PrivateProfileIdentity final : public base::SupportsUserData::Data {
+ public:
+  const std::string id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+};
 
 std::set<std::string>& LiveIDs() {
   static base::NoDestructor<std::set<std::string>> ids;
@@ -33,6 +39,15 @@ std::set<std::string>& LiveIDs() {
 }
 
 std::string ProfileID(Profile* profile) {
+  if (profile->IsOffTheRecord()) {
+    auto* identity = static_cast<PrivateProfileIdentity*>(profile->GetUserData(&kPrivateProfileDataKey));
+    if (!identity) {
+      auto data = std::make_unique<PrivateProfileIdentity>();
+      identity = data.get();
+      profile->SetUserData(&kPrivateProfileDataKey, std::move(data));
+    }
+    return identity->id;
+  }
   auto* prefs = profile->GetPrefs();
   auto id = base::Uuid::ParseCaseInsensitive(prefs->GetString(kProfileIdentityPref));
   if (!id.is_valid()) {
@@ -108,8 +123,6 @@ class TabIdentity final : public base::SupportsUserData::Data {
 TabIdentity* EnsureIdentity(content::WebContents* contents,
                             const std::string& requested = {}) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (contents->GetBrowserContext()->IsOffTheRecord())
-    return nullptr;
   auto* value = static_cast<TabIdentity*>(contents->GetUserData(&kIdentityDataKey));
   if (!value) {
     auto data = std::make_unique<TabIdentity>(requested);
@@ -118,7 +131,8 @@ TabIdentity* EnsureIdentity(content::WebContents* contents,
     // Establish the profile UUID even when diagnostics are disabled.
     auto* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
     ProfileID(profile);
-    ReportIdentity(profile, value->id(), value->restored());
+    if (!profile->IsOffTheRecord())
+      ReportIdentity(profile, value->id(), value->restored());
   }
   value->Observe(tabs::TabInterface::MaybeGetFromContents(contents));
   return value;
@@ -138,7 +152,20 @@ std::string ExistingProfileID(Profile* profile) {
   return id.is_valid() ? id.AsLowercaseString() : std::string();
 }
 
+bool InitializeWorkspaceProfileIdentity(Profile* profile, const std::string& uuid) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  const auto id = base::Uuid::ParseCaseInsensitive(uuid);
+  if (!profile || !profile->IsRegularProfile() || !id.is_valid()) return false;
+  const auto existing = profile->GetPrefs()->GetString(kProfileIdentityPref);
+  if (existing.empty() && profile->IsNewProfile()) {
+    profile->GetPrefs()->SetString(kProfileIdentityPref, id.AsLowercaseString());
+  }
+  return ExistingProfileID(profile) == id.AsLowercaseString();
+}
+
 std::string PersistentTabID(content::WebContents* contents) {
+  // Private IDs are memory-only and must never enter Chromium session data.
+  if (contents->GetBrowserContext()->IsOffTheRecord()) return {};
   auto* identity = EnsureIdentity(contents);
   return identity ? identity->id() : std::string();
 }
@@ -153,6 +180,7 @@ std::string PersistentSurfaceID(content::WebContents* contents) {
 
 void RestoreTabIdentity(content::WebContents* contents,
                         const std::map<std::string, std::string>& extra_data) {
+  if (contents->GetBrowserContext()->IsOffTheRecord()) return;
   auto found = extra_data.find(kTabIdentityKey);
   EnsureIdentity(contents, found == extra_data.end() ? std::string() : found->second);
 }

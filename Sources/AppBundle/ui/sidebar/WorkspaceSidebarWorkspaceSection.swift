@@ -33,6 +33,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var hoveredTabGroupId: UInt32? = nil
     @State var isDropTargeted = false
     @State var isDropSettling = false
+    @State var isViewExpanded = true
     @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -54,7 +55,12 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isDropTarget: Bool { dragPreview?.targetWorkspaceName == workspace.name }
     var activeSidebarDragSourceWindowId: UInt32? { dragPreview?.sourceWindowId }
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
-    var isSearchSelectedWorkspace: Bool { selectedSearchTarget == .workspace(workspace.name) }
+    var isSearchSelectedWorkspace: Bool {
+        selectedSearchTarget == .workspace(workspace.name) ||
+            (workspace.isViewMode && workspace.isSingleWindowView && workspace.viewSurfaces.first.map {
+                selectedSearchTarget == .surface($0.surfaceID)
+            } == true)
+    }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
     var participatesInReorder: Bool { allowsWorkspaceReordering && reorderState.applies(to: targetMonitorScopeId) }
     var isReorderingWorkspace: Bool { participatesInReorder && reorderState.sourceName == workspace.name }
@@ -85,13 +91,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()
                 } label: {
-                    Text("Rename Group")
+                    Text(workspace.isViewMode ? "Rename View" : "Rename Group")
                 }
                 Divider()
                 Button(role: .destructive) {
                     actions.send(.deleteWorkspace(workspace.name))
                 } label: {
-                    Text("Delete Group")
+                    Text(workspace.isViewMode ? "Delete View" : "Delete Group")
                 }
             }
             .onHover { hover in
@@ -168,6 +174,8 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
+        if workspace.isViewMode, case .surface(let id) = payload,
+           requestWorkspaceViewCombination(.surface(id), target: .workspace(workspace.name)) { return }
         guard !workspaceSidebarPayload(payload, comesFromWorkspace: workspace.name) else {
             actions.send(.clearDropPreview)
             WindowDragCursorProxyPanel.shared.hide()
@@ -423,7 +431,7 @@ extension WorkspaceSidebarWorkspaceSection {
             case .browserTab(let tab):
                 sharedSurfaceItemView(.init(kind: .surface(.init(
                     surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha"
+                    appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64
                 ))))
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
@@ -478,7 +486,7 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var interactiveSectionContent: some View {
-        if isCompact {
+        if isCompact && !workspace.isViewMode {
             Button(action: handleSectionClick) {
                 sectionContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -505,6 +513,12 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionContent: some View {
         VStack(alignment: .leading, spacing: 3) {
+            if workspace.isViewMode, !workspace.viewSurfaces.isEmpty, !isRenamingWorkspace {
+                viewSummary
+                if !isCompact && !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
+                    windowRows
+                }
+            } else {
             headerSlot
                 .frame(height: isCompact ? compactMetrics.controlHeight - 6 : headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
@@ -515,8 +529,88 @@ extension WorkspaceSidebarWorkspaceSection {
                     }
                 }
             windowRows
+            }
             dropPreviewRow
         }
+    }
+
+    private var viewSummary: some View {
+        HStack(spacing: 2) {
+            if !isCompact && !workspace.isSingleWindowView {
+                Button { isViewExpanded.toggle() } label: {
+                    Image(systemName: isViewExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .medium)).frame(width: 20, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isViewExpanded ? "Collapse arrangement" : "Expand arrangement")
+            }
+            Button(action: handleSectionClick) {
+                if isCompact {
+                    Group {
+                        if let surface = viewIconSurface,
+                           let icon = workspaceSidebarIconImage(favicon: surface.iconPNGBase64,
+                                bundleIdentifier: surface.appBundleId, bundlePath: surface.appBundlePath) {
+                            Image(nsImage: icon).resizable().scaledToFit().frame(width: 18, height: 18)
+                        } else {
+                            Image(systemName: workspace.isSingleWindowView ? "globe" : "rectangle.split.2x1")
+                        }
+                    }.frame(maxWidth: .infinity, minHeight: 28)
+                } else {
+                    WorkspaceSidebarWindowRow(title: workspace.displayName,
+                        badge: workspace.isSingleWindowView ? nil : "\(workspace.viewSurfaceCount)",
+                        isFocused: workspace.isFocused, suppressFocusedStyle: isSearchFiltering,
+                        rowHeight: workspaceSidebarWorkspaceRowHeight,
+                        isHovered: isHovered || isSearchSelectedWorkspace,
+                        style: workspace.isSingleWindowView ? .window : .tabGroupHeader,
+                        appBundleIds: viewIconSurfaces.map(\.appBundleId),
+                        appBundlePaths: viewIconSurfaces.map(\.appBundlePath),
+                        favicons: viewIconSurfaces.map(\.iconPNGBase64), fallbackSystemImage: "globe")
+                }
+            }
+            .buttonStyle(.plain)
+            .help(workspace.displayName)
+            .accessibilityLabel(workspace.displayName)
+            .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: workspace.isSingleWindowView,
+                onChanged: { value in
+                    if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragChanged(.surface(id), value) }
+                }, onEnded: { value in
+                    if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragEnded(.surface(id), value) }
+                }))
+            .modifier(WorkspaceSidebarHoverClose(surface: workspace.isSingleWindowView && !isCompact ? workspace.viewSurfaces.first?.surfaceID : nil,
+                title: workspace.displayName, actions: actions))
+            .contextMenu {
+                if !workspace.isSingleWindowView, !workspace.projectId.isIncognito {
+                    Button("Pin Group") { actions.send(.pinWorkspaceView(workspace.name)) }
+                }
+                if workspace.isSingleWindowView, let surface = workspace.viewSurfaces.first {
+                    SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
+                    Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
+                    SurfaceMoveMenu(subject: .surface(surface.surfaceID), workspaceName: workspace.name,
+                        targetMonitorScopeId: targetMonitorScopeId, actions: actions)
+                    Divider()
+                    Button(surface.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface.surfaceID)) }
+                }
+            }
+            if !isCompact && !workspace.isSingleWindowView {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 20, height: 28)
+                    .help("Drag to reorder arrangement")
+                    .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name,
+                        isEnabled: allowsWorkspaceReordering, actions: actions))
+            }
+        }
+    }
+
+    private var viewIconSurface: WorkspaceSidebarSurfaceItem? {
+        let complete = TrayMenuModel.shared.workspaceSidebarWorkspaces.first { $0.name == workspace.name } ?? workspace
+        if complete.isSingleWindowView { return complete.viewSurfaces.first }
+        guard complete.items.count == 1, case .surfaceGroup(let id, _) = complete.items[0].kind else { return nil }
+        return workspaceSidebarSurfaceStackRepresentative(complete.viewSurfaces,
+            activeSurfaceID: BrowserWorkspaceController.shared.surfaceTree.activeSurfaces[id])
+    }
+
+    private var viewIconSurfaces: [WorkspaceSidebarSurfaceItem] {
+        viewIconSurface.map { [$0] } ?? workspace.viewSurfaces
     }
 
     @ViewBuilder
@@ -671,6 +765,7 @@ extension WorkspaceSidebarWorkspaceSection {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
         .help(window.title ?? window.appName)
+        .modifier(WorkspaceSidebarHoverClose(surface: window.surfaceID, title: window.title ?? window.appName, actions: actions))
         .contextMenu {
             if layout.showsBrowserControls {
                 Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }

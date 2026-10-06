@@ -9,9 +9,10 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
     var onDrag: ((BrowserToolbarDragPhase, CGPoint) -> Void)?
     private var dragGesture = BrowserToolbarDragGesture()
     private let chromeBackground = BrowserChromeBackgroundView(headerOnly: true)
-    private let close = BrowserToolbarView.windowButton(.closeButton)
-    private let minimize = BrowserToolbarView.windowButton(.miniaturizeButton)
-    private let zoom = BrowserToolbarView.windowButton(.zoomButton)
+    private var close: NSButton?
+    private var minimize: NSButton?
+    private var zoom: NSButton?
+    var windowButtons: [NSButton] { [close, minimize, zoom].compactMap { $0 } }
     private let back = BrowserToolbarButton()
     private let forward = BrowserToolbarButton()
     private let reload = BrowserToolbarButton()
@@ -32,6 +33,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         let canGoForward: Bool
         let isFocused: Bool
         let preserveAddress: Bool
+        let isPrivate: Bool
     }
 
     init() {
@@ -41,9 +43,6 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         setAccessibilityLabel("Web page controls")
         setAccessibilityIdentifier("winmux.browser.toolbar")
         addSubview(chromeBackground)
-        configureWindowButton(close, label: "Close web window", identifier: "close", action: #selector(closePage))
-        configureWindowButton(minimize, label: "Minimize web window", identifier: "minimize", action: #selector(minimizePage))
-        configureWindowButton(zoom, label: "Enter Full Screen", identifier: "fullscreen", action: #selector(zoomPage))
         configure(back, symbol: "chevron.left", label: "Back", action: #selector(goBack))
         configure(forward, symbol: "chevron.right", label: "Forward", action: #selector(goForward))
         configure(reload, symbol: "arrow.clockwise", label: "Reload page", action: #selector(reloadOrStop))
@@ -68,7 +67,7 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
 
         moveGrip.onDrag = { [weak self] phase, point in self?.onDrag?(phase, point) }
         moveGrip.onClick = { [weak self] in self?.onAction?(.focusPage) }
-        for view in [close, minimize, zoom, back, forward, reload, addressWell, more, moveGrip] {
+        for view in [back, forward, reload, addressWell, more, moveGrip] {
             addSubview(view)
         }
         menu = makeWindowMenu()
@@ -90,12 +89,10 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         moveGrip.isHidden = false
         let controlHeight: CGFloat = 22
         let y = (bounds.height - controlHeight) / 2
-        var left: CGFloat = 10
-        for button in [close, minimize, zoom] {
-            button.setFrameOrigin(.init(x: left, y: (bounds.height - button.frame.height) / 2))
-            left += button.frame.width + 6
-        }
-        left += 2
+        // AppKit owns titlebar placement, spacing, hover and Liquid Glass.
+        // Only measure the controls here; never reparent or reposition them.
+        let lightsRight = windowButtons.map { convert($0.bounds, from: $0).maxX }.max() ?? 0
+        var left: CGFloat = max(10, lightsRight + 8)
         for button in [back, forward, reload] where !button.isHidden {
             button.frame = .init(x: left, y: y, width: 22, height: controlHeight)
             left += 22
@@ -159,14 +156,21 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         if !preserveAddress, address.stringValue != item.url { address.stringValue = item.url }
         let state = ControlState(url: item.url, isLoading: item.isLoading,
             controlsEnabled: item.controlsEnabled, canGoBack: item.canGoBack,
-            canGoForward: item.canGoForward, isFocused: item.isFocused, preserveAddress: preserveAddress)
+            canGoForward: item.canGoForward, isFocused: item.isFocused, preserveAddress: preserveAddress, isPrivate: item.isPrivate)
         guard currentControlState != state else { return }
         let previous = currentControlState
         currentControlState = state
-        minimize.isEnabled = item.controlsEnabled
-        zoom.isEnabled = item.controlsEnabled
+        if previous?.isPrivate != item.isPrivate {
+            let label = item.isPrivate ? "Incognito · Temporary — private page actions" : "Web window actions"
+            more.image = NSImage(systemSymbolName: item.isPrivate ? "eye.slash.fill" : "ellipsis", accessibilityDescription: label)
+            more.toolTip = label
+            more.setAccessibilityLabel(label)
+            setAccessibilityLabel(item.isPrivate ? "Private web page controls" : "Web page controls")
+        }
+        minimize?.isEnabled = item.controlsEnabled
+        zoom?.isEnabled = item.controlsEnabled
         if previous?.isFocused != item.isFocused {
-            for button in [close, minimize, zoom] { button.needsDisplay = true }
+            for button in windowButtons { button.needsDisplay = true }
         }
         isLoading = item.isLoading
         controlsEnabled = item.controlsEnabled
@@ -200,11 +204,14 @@ final class BrowserToolbarView: NSView, NSTextFieldDelegate, NSMenuItemValidatio
         button.action = action
     }
 
-    private static func windowButton(_ type: NSWindow.ButtonType) -> NSButton {
-        guard let button = NSWindow.standardWindowButton(type, for: [.titled, .closable, .miniaturizable, .resizable]) else {
-            preconditionFailure("AppKit did not provide a standard window control")
-        }
-        return button
+    func installWindowButtons(from window: NSWindow) {
+        close = window.standardWindowButton(.closeButton)
+        minimize = window.standardWindowButton(.miniaturizeButton)
+        zoom = window.standardWindowButton(.zoomButton)
+        if let close { configureWindowButton(close, label: "Close web window", identifier: "close", action: #selector(closePage)) }
+        if let minimize { configureWindowButton(minimize, label: "Minimize web window", identifier: "minimize", action: #selector(minimizePage)) }
+        if let zoom { configureWindowButton(zoom, label: "Enter Full Screen", identifier: "fullscreen", action: #selector(zoomPage)) }
+        needsLayout = true
     }
 
     private func configureWindowButton(_ button: NSButton, label: String, identifier: String, action: Selector) {

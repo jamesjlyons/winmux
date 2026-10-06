@@ -40,6 +40,18 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     public private(set) var weights: [String: Double] = [:]
     public init() {}
 
+    /// Substitute a browser-owned replacement without dissolving its containers.
+    @discardableResult public mutating func replaceSurface(_ old: SurfaceID, with new: SurfaceID) -> Bool {
+        guard old != new, let name = workspace(of: old), workspace(of: new) == nil,
+              var nodes = roots[name], Self.replace(old, in: &nodes, with: .surface(new)) else { return false }
+        roots[name] = nodes
+        for group in activeSurfaces.keys where activeSurfaces[group] == old { activeSurfaces[group] = new }
+        if let weight = weights.removeValue(forKey: SurfaceTreeNode.surface(old).weightKey) {
+            weights[SurfaceTreeNode.surface(new).weightKey] = weight
+        }
+        return true
+    }
+
     enum CodingKeys: String, CodingKey { case roots, layouts, activeSurfaces, weights }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -105,6 +117,23 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     public func workspace(ofGroup target: UUID) -> String? {
         guard let member = group(target)?.surfaces.first else { return nil }
         return workspace(of: member)
+    }
+
+    /// Combine complete root arrangements without flattening their children.
+    @discardableResult public mutating func combineRootGroup(_ id: UUID, with target: SurfaceID,
+        layout: SurfaceContainerLayout, before: Bool) -> Bool {
+        guard let name = workspace(ofGroup: id), workspace(of: target) == name,
+              let source = group(id), !source.surfaces.contains(target),
+              var nodes = roots[name], let sourceIndex = nodes.firstIndex(of: source) else { return false }
+        nodes.remove(at: sourceIndex)
+        guard let targetIndex = nodes.firstIndex(where: { $0.surfaces.contains(target) }) else { return false }
+        let anchor = nodes[targetIndex], combined = UUID()
+        nodes[targetIndex] = .group(combined, before ? [source, anchor] : [anchor, source])
+        roots[name] = nodes; layouts[combined] = layout
+        activeSurfaces[combined] = source.surfaces.first
+        weights[source.weightKey] = 1; weights[anchor.weightKey] = 1
+        pruneMetadata()
+        return true
     }
 
     /// Transfer one complete subtree without pruning its identity or metadata
@@ -203,11 +232,23 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     /// Callers retain disconnected browser leaves until authoritative removal.
     public mutating func reconcile(_ ids: [SurfaceID], in workspace: String, retaining: Set<SurfaceID> = []) {
         let allowed = Set(ids).union(retaining)
-        roots[workspace] = Self.filter(roots[workspace] ?? [], keeping: allowed)
-        for id in ids where self.workspace(of: id) != workspace {
+        let nodes = Self.filter(roots[workspace] ?? [], keeping: allowed)
+        var present = Set(nodes.flatMap(\.surfaces))
+        let arrivals = ids.filter { !present.contains($0) }
+        // Sidebar refreshes reconcile every view even when only its title or
+        // focus changed. Avoid scanning all other views and pruning the entire
+        // tree's metadata when this workspace's membership is already correct.
+        if roots[workspace] == nodes, arrivals.isEmpty { return }
+        roots[workspace] = nodes
+        for id in arrivals where present.insert(id).inserted {
             remove(id)
             roots[workspace, default: []].append(.surface(id))
         }
+        pruneMetadata()
+    }
+
+    public mutating func removeWorkspace(_ name: String) {
+        roots.removeValue(forKey: name)
         pruneMetadata()
     }
 

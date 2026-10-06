@@ -71,7 +71,7 @@ final class BrowserToolbarPerformanceTest: XCTestCase {
     }
 
     func testPinFaviconIsReusedAndInvalidImagesAreIgnored() throws {
-        let cache = WorkspaceSidebarPinImageCache()
+        let cache = WorkspaceSidebarFaviconCache()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))

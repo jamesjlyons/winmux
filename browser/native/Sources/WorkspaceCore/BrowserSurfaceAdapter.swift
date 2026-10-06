@@ -58,6 +58,7 @@ public final class BrowserSurfaceSession {
     public var supportsLayout = false
     public var supportsBrowserControls = false
     public var supportsTabCreation = false
+    public var supportsWorkspaceProfiles = false
     public typealias NewTabTransport = @MainActor (BrowserNewTabRequest, @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> Void
     private let sendNewTab: NewTabTransport?
     private struct PendingAction {
@@ -312,8 +313,13 @@ public final class BrowserSurfaceSession {
     /// No uncertain transport failure is retried, so a shortcut opens one page.
     @discardableResult
     public func openTab(sourceSurfaceID: SurfaceID? = nil, profileID: UUID? = nil, url: String? = nil,
+                        workspaceProfile: WorkspaceBrowserProfileTarget? = nil,
                         completion: @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> SurfaceActionOutcome {
         guard supportsTabCreation, sendNewTab != nil else { completion(.unsupported, nil); return .unsupported }
+        guard workspaceProfile == nil || supportsWorkspaceProfiles else { completion(.unsupported, nil); return .unsupported }
+        guard workspaceProfile == nil || (sourceSurfaceID == nil && profileID == nil && workspaceProfile?.isValid == true) else {
+            completion(.invalidRequest, nil); return .unsupported
+        }
         guard let epoch else { completion(.unavailable, nil); return .unavailable }
         guard sourceSurfaceID == nil || inventory.tabs[sourceSurfaceID!] != nil else {
             completion(.unavailable, nil); return .unavailable
@@ -328,7 +334,8 @@ public final class BrowserSurfaceSession {
             completion(.invalidRequest, nil); return .unsupported
         }
         let request = BrowserNewTabRequest(epoch: epoch, operation: UUID(), sourceSurfaceID: sourceSurfaceID,
-                                           profileID: profileID ?? sourceProfile, revision: inventory.revision, url: url)
+                                           profileID: profileID ?? sourceProfile, revision: inventory.revision, url: url,
+                                           workspaceProfile: workspaceProfile)
         sendCreation(request, canRetry: true, completion: completion)
         return .issued
     }
@@ -346,7 +353,10 @@ public final class BrowserSurfaceSession {
                 return
             }
             guard reply != .issued || id.map({ id in
-                if case .browserTab(let profile, _) = id { return request.profileID == nil || profile == request.profileID }
+                if case .browserTab(let profile, _) = id {
+                    let expected = request.workspaceProfile?.profileID ?? request.profileID
+                    return expected == nil || profile == expected
+                }
                 return false
             }) == true else {
                 completion(.invalidRequest, nil); return
@@ -362,7 +372,8 @@ public final class BrowserSurfaceSession {
             let request = pending.request
             let source = request.sourceSurfaceID.flatMap { inventory.tabs[$0] != nil ? $0 : nil }
             let retry = BrowserNewTabRequest(epoch: request.epoch, operation: UUID(), sourceSurfaceID: source,
-                                              profileID: request.profileID, revision: inventory.revision, url: request.url)
+                                              profileID: request.profileID, revision: inventory.revision, url: request.url,
+                                              workspaceProfile: request.workspaceProfile)
             sendCreation(retry, canRetry: false, completion: pending.completion)
         }
     }

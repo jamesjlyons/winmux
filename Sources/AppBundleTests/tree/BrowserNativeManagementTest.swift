@@ -50,6 +50,21 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), config)
     }
 
+    func testOwnershipPreflightReleasesItsLeaseAndDoesNotStealAnExistingLease() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try NativeManagementLease.checkAvailable(path: path)
+        do {
+            let owner = try NativeManagementLease(path: path)
+            try withExtendedLifetime(owner) {
+                XCTAssertThrowsError(try NativeManagementLease.checkAvailable(path: path))
+                XCTAssertFalse(owner.isRevoked)
+                XCTAssertThrowsError(try NativeManagementLease(path: path))
+            }
+        }
+        try NativeManagementLease.checkAvailable(path: path)
+    }
+
     func testFreshManagedDefaultsUseOriginalHierarchyAndCompactNeutralSidebar() throws {
         let parsed = parseConfig(BrowserNativeState.initialConfiguration)
         XCTAssertTrue(parsed.errors.isEmpty)
@@ -61,6 +76,21 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertEqual(parsed.config.workspaceSidebar.solidChromeColor, .system)
         XCTAssertTrue(parsed.config.workspaceSidebar.projectLabels.isEmpty)
         XCTAssertTrue(parsed.config.workspaceSidebar.workspaceLabels.isEmpty)
+    }
+
+    func testViewsTrialStartsInViewsModeAndPreservesLaterPreferences() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let state = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
+        let text = try String(contentsOf: state.config, encoding: .utf8)
+        let parsed = parseConfig(text)
+        XCTAssertTrue(parsed.errors.isEmpty)
+        XCTAssertEqual(parsed.config.workspaceInteractionMode, .views)
+        XCTAssertTrue(text.contains("alt-j = 'focus tab-next'"))
+        let customized = text.replacingOccurrences(of: "workspace-interaction-mode = 'views'", with: "workspace-interaction-mode = 'tiling'")
+        try customized.write(to: state.config, atomically: true, encoding: .utf8)
+        _ = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
+        XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), customized)
     }
 
     func testStandaloneOwnershipRecognizesNativeAppButAllowsTransportHelper() {

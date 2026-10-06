@@ -1,0 +1,54 @@
+{
+  "baseline_commit": "0357563d853c9eca3d175d1ceb9613651e8c16b9",
+  "hardware": {
+    "model": "MacBookPro18,1",
+    "memory_bytes": 17179869184,
+    "os": "27.0.1",
+    "architecture": "arm64"
+  },
+  "resource_observation": {
+    "workload": "Existing managed daily workspace; no load injected, one helper process only",
+    "elapsed_seconds": 30.000883417,
+    "cpu_seconds": 0.006362417,
+    "average_cpu_percent_one_core": 0.021207432166463258,
+    "sampled_max_physical_footprint_bytes": 117490768,
+    "sampled_min_physical_footprint_bytes": 117490768
+  },
+  "sidebar_before": [
+    {
+      "views": 50,
+      "samples": 10,
+      "median_ms": 9.289125,
+      "p95_ms": 9.45475
+    },
+    {
+      "views": 200,
+      "samples": 10,
+      "median_ms": 73.466,
+      "p95_ms": 74.184
+    }
+  ],
+  "sidebar_after": [
+    {
+      "views": 50,
+      "samples": 10,
+      "median_ms": 0.340083,
+      "p95_ms": 0.445
+    },
+    {
+      "views": 200,
+      "samples": 10,
+      "median_ms": 1.114333,
+      "p95_ms": 1.176166
+    }
+  ],
+  "benchmark_scope": "One main-actor sidebar projection across synthetic standalone browser views; includes fresh inventory projection, excludes rendering, native AX calls, and compositor/input latency. One warmup, ten timed passes in optimized Dev, no concurrent compilation.",
+  "debug_tests": 948,
+  "optimized_dev_tests": 948,
+  "native_tests": 114,
+  "python_tests": 69,
+  "all_tests_passed": true,
+  "trial_live_startup": "Pending on destination Mac; final trial not activated on this Mac",
+  "profile_isolation_and_default_mode_regressions": "passed",
+  "memory_comparison": "None: baseline only, no claim of a reduction"
+}
