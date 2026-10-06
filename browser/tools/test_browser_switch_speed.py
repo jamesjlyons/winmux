@@ -124,6 +124,7 @@ def main():
 start-at-login = false
 auto-reload-config = false
 persistent-workspaces = []
+workspace-interaction-mode = 'views'
 shortcuts-preset = 'none'
 automatically-unhide-macos-hidden-apps = false
 [workspace-sidebar]

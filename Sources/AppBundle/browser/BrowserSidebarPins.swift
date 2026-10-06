@@ -20,11 +20,13 @@ extension BrowserWorkspaceController {
         // A lost helper connection is not confirmation that a live page closed.
         if let surfaceID = pin.surfaceID, unresolvedSidebarPinOwners[surfaceID] != nil { return .unavailable }
         guard pendingSidebarPinOpenings.insert(id).inserted else { return .issued }
-        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, selectNewPage: selectAfterOpening, created: { [weak self] surfaceID in
+        let result = openBrowserTab(url: pin.url, workspaceName: pin.workspaceName, profileID: pin.profileID, explicitPlacement: true, selectNewPage: selectAfterOpening, created: { [weak self] surfaceID in
             guard let self else { return }
             guard let index = self.browserSidebarPins.firstIndex(where: { $0.id == id }) else {
                 if let group = Workspace.existing(byName: pin.workspaceName) {
-                    _ = self.adoptPinnedSurface(surfaceID, into: self.regularWorkspaceForNewItem(group).name)
+                    let destination = config.workspaceInteractionMode == .views
+                        ? self.newStandaloneWorkspace(in: group) : self.regularWorkspaceForNewItem(group)
+                    _ = self.adoptPinnedSurface(surfaceID, into: destination.name)
                     if self.focusCoordinator.target == surfaceID { _ = self.select(surfaceID) }
                 }
                 return
@@ -43,6 +45,7 @@ extension BrowserWorkspaceController {
                 self.placeCreatedBrowserTab(surfaceID, in: destination, focusAddress: false, selectCreated: false, focusGeneration: self.focusCoordinator.generation)
                 if self.focusCoordinator.target == surfaceID { _ = self.select(surfaceID) }
             }
+            self.restorePinnedViewLayout(containing: id)
             // A reply can precede the inventory delta. Keep the operation pending
             // until its exact created ID is available, preventing duplicate opens.
             if self.isAvailable(surfaceID) { self.pendingSidebarPinOpenings.remove(id) }
@@ -94,6 +97,7 @@ extension BrowserWorkspaceController {
             }
         }
         for id in removed {
+            detachPinFromSavedGroup(id)
             removePinOrder(id)
             browserSidebarPins.removeAll { $0.id == id }
             nativeAppSidebarPins.removeAll { $0.id == id }
@@ -120,6 +124,7 @@ extension BrowserWorkspaceController {
             }
             capturePinnedLayouts()
         }
+        syncPinnedViewGroups()
     }
 
     func browserPinDidClose(_ surfaceID: SurfaceID) {

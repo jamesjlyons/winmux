@@ -23,6 +23,7 @@ struct BrowserToolbarItem {
     var chromeColor: NSColor? = nil
     /// Nil follows the system. Explicit chrome colors can choose readable controls.
     var chromeAppearance: NSAppearance.Name? = nil
+    var isPrivate = false
 }
 
 enum BrowserToolbarAction: Equatable {

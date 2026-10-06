@@ -114,6 +114,7 @@ extension BrowserWorkspaceController {
 
     @discardableResult
     func pinSurface(_ surface: SurfaceID, in space: WorkspaceProjectId? = nil) -> Bool {
+        guard !isPrivateSurface(surface), space?.isIncognito != true else { return false }
         if let desktop = pinnedDesktops.first(where: { pinBindings(in: $0.workspaceName).values.contains(surface) }) {
             return space.map { movePin(desktop.id, to: $0) } ?? true
         }
@@ -129,10 +130,16 @@ extension BrowserWorkspaceController {
         return createPinnedDesktop(nodes: [node], source: source, space: space ?? source.projectId, group: id)
     }
 
+    func separatePinnedDesktopMember(_ surface: SurfaceID) -> Bool {
+        guard let source = workspaceName(for: surface).flatMap({ Workspace.existing(byName: $0) }),
+              pinnedDesktops.contains(where: { $0.workspaceName == source.name && $0.memberIDs.count > 1 }) else { return false }
+        return createPinnedDesktop(nodes: [.surface(surface)], source: source, space: source.projectId, group: nil)
+    }
+
     @discardableResult
     func pinWorkspace(_ name: String) -> Bool {
         guard usesSurfaceTree, let source = Workspace.existing(byName: name), !source.isPinnedGroup,
-              !source.isArchived else { return false }
+              !source.isArchived, !source.isIncognito else { return false }
         let nodes = surfaceTree.roots[name] ?? []
         let tiled = Set(nodes.flatMap(\.surfaces))
         let floating = source.allLeafWindowsRecursive.map(\.surfaceID).filter { !tiled.contains($0) }
@@ -145,15 +152,19 @@ extension BrowserWorkspaceController {
         return true
     }
 
-    private func createPinnedDesktop(nodes: [SurfaceTreeNode], source: Workspace, space: WorkspaceProjectId, group: UUID?) -> Bool {
-        guard winMuxWorkspaceState.projectsById[space] != nil else { return false }
-        let name = "__pin_" + UUID().uuidString.lowercased()
+    private func createPinnedDesktop(nodes: [SurfaceTreeNode], source: Workspace, space: WorkspaceProjectId, group: UUID?, destination existing: Workspace? = nil) -> Bool {
+        guard !space.isIncognito, !source.isIncognito, !nodes.flatMap(\.surfaces).contains(where: isPrivateSurface),
+              winMuxWorkspaceState.projectsById[space] != nil else { return false }
+        let name = existing?.name ?? "__pin_" + UUID().uuidString.lowercased()
+        let destination = existing ?? Workspace.get(byName: name)
+        destination.assignProject(space); destination.seedMonitorIfNeeded(source.workspaceMonitor)
+        if let accepted = moveUsingDestinationProfile(nodes.flatMap(\.surfaces), to: destination, commit: { [weak self] in
+            self?.createPinnedDesktop(nodes: nodes, source: source, space: space, group: group, destination: destination) ?? false
+        }) { return accepted }
         guard let descriptors = launchDescriptors(nodes.flatMap(\.surfaces), workspace: name),
               browserSidebarPins.count + nativeAppSidebarPins.count + nodes.flatMap(\.surfaces).count <= 10000 else { return false }
         let originalTree = surfaceTree
         let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID
-        let destination = Workspace.get(byName: name)
-        destination.assignProject(space); destination.seedMonitorIfNeeded(source.workspaceMonitor)
         if let group {
             guard moveGroup(group, to: destination) else { return false }
         } else if let member = nodes.first?.surfaces.first {
@@ -231,7 +242,7 @@ extension BrowserWorkspaceController {
               let workspace = Workspace.existing(byName: pinnedDesktops[index].workspaceName) else { return legacyUnpin(id, to: destination) }
         let desktop = pinnedDesktops[index]
         if let destination {
-            guard !destination.isPinnedGroup, transferPinnedWorkspace(workspace, to: destination) else { return false }
+            guard !destination.isPinnedGroup, !destination.isIncognito, transferPinnedWorkspace(workspace, to: destination) else { return false }
         }
         let members = Set(desktop.memberIDs)
         for member in members { pendingSidebarPinOpenings.remove(member); pendingNativePinLaunches.removeValue(forKey: member); failedNativePinLaunches.remove(member) }
@@ -254,13 +265,39 @@ extension BrowserWorkspaceController {
     @discardableResult
     func movePin(_ id: UUID, to space: WorkspaceProjectId) -> Bool {
         guard let index = pinnedDesktops.firstIndex(where: { $0.id == id || $0.memberIDs.contains(id) }) else { return legacyMovePin(id, to: space) }
-        guard winMuxWorkspaceState.projectsById[space] != nil, let workspace = Workspace.existing(byName: pinnedDesktops[index].workspaceName) else { return false }
+        guard !space.isIncognito, winMuxWorkspaceState.projectsById[space] != nil, let workspace = Workspace.existing(byName: pinnedDesktops[index].workspaceName) else { return false }
         guard pinnedDesktops[index].spaceID != space.rawValue else { return true }
+        let destination = Workspace.get(byName: "__pin_" + UUID().uuidString.lowercased())
+        destination.assignProject(space); destination.seedMonitorIfNeeded(workspace.workspaceMonitor)
+        return movePinnedDesktop(pinnedDesktops[index].id, to: destination)
+    }
+
+    private func movePinnedDesktop(_ id: UUID, to destination: Workspace) -> Bool {
+        guard let index = pinnedDesktops.firstIndex(where: { $0.id == id }),
+              let workspace = Workspace.existing(byName: pinnedDesktops[index].workspaceName),
+              !destination.isIncognito else { return false }
+        let members = Set(pinnedDesktops[index].memberIDs)
+        let pages = browserSidebarPins.filter { members.contains($0.id) }
+        let closed = pages.filter { $0.surfaceID == nil }
+        // A group must have all of its browser slots open before a profile
+        // transfer. A closed standalone pin can reopen transactionally.
+        guard closed.isEmpty || (pages.count == 1 && members.count == 1) else { return false }
+        let surfaces = Array(pinBindings(in: workspace.name).values).filter(isAvailable)
+        if let accepted = moveUsingDestinationProfile(surfaces, closedPin: closed.first, to: destination, commit: { [weak self] in
+            self?.movePinnedDesktop(id, to: destination) ?? false
+        }) { return accepted }
+        capturePinnedLayouts()
+        guard transferPinnedWorkspace(workspace, to: destination) else { return false }
+        let space = destination.projectId
         let desktopID = pinnedDesktops[index].id
         ensurePinShelf(space)
         for shelf in pinShelves.indices { pinShelves[shelf].desktopOrder.removeAll { $0 == desktopID } }
         pinnedDesktops[index].spaceID = space.rawValue; pinnedDesktops[index].formerRegularIndex = nil
-        workspace.assignProject(space)
+        pinnedDesktops[index].workspaceName = destination.name
+        for i in browserSidebarPins.indices where members.contains(browserSidebarPins[i].id) { browserSidebarPins[i].workspaceName = destination.name }
+        for i in nativeAppSidebarPins.indices where members.contains(nativeAppSidebarPins[i].id) { nativeAppSidebarPins[i].workspaceName = destination.name }
+        destination.isPinnedGroup = true; destination.lifecycle = .durable
+        workspace.isPinnedGroup = false; workspace.markAsTransientBlank()
         if let shelf = pinShelves.firstIndex(where: { $0.spaceID == space.rawValue }) { pinShelves[shelf].desktopOrder.append(desktopID) }
         scheduleRefresh(); return true
     }
@@ -288,7 +325,8 @@ extension BrowserWorkspaceController {
         guard var tile = members.first else { return [] }
         tile.id = desktop.id; tile.title = desktop.kind == .group ? desktop.title : tile.title
         tile.sortOrder = pinShelves.first { $0.spaceID == desktop.spaceID }?.desktopOrder.firstIndex(of: desktop.id) ?? 0
-        tile.members = desktop.kind == .group ? Array(members.prefix(4)) : []
+        tile.members = desktop.kind == .group ? members : []
+        tile.groupMembers = tile.members
         tile.isGroup = desktop.kind == .group; tile.memberCount = desktop.memberIDs.count
         tile.isFocused = members.contains(where: \.isFocused); tile.isOpen = members.contains(where: \.isOpen)
         tile.isLoading = members.contains(where: \.isLoading); tile.isUnavailable = members.allSatisfy(\.isUnavailable)
@@ -315,7 +353,7 @@ extension BrowserWorkspaceController {
             let order = spacePinnedGroups.first { $0.workspaceName == name }?.pinOrder
                 ?? (legacyPages.filter { $0.workspaceName == name }.map(\.id) + legacyApps.filter { $0.workspaceName == name }.map(\.id))
             for id in order {
-                if pinnedDesktops.contains(where: { $0.memberIDs.contains(id) }) { continue }
+                if pinnedDesktops.contains(where: { $0.memberIDs.contains(id) }) || isGroupedPin(id) { continue }
                 let page = browserSidebarPins.first { $0.id == id }, app = nativeAppSidebarPins.first { $0.id == id }
                 let surface = page?.surfaceID ?? app?.surfaceID
                 if let surface, let group = surfaceTree.outermostGroup(containing: surface), let node = surfaceTree.group(group) {

@@ -12,7 +12,7 @@ struct SurfaceMoveMenu: View {
 
     var body: some View {
         Menu("Move to") {
-            ForEach(windowMoveMenuDestinations()) { space in
+            ForEach(windowMoveMenuDestinations(sourceSpace: Workspace.existing(byName: workspaceName)?.projectId)) { space in
                 Menu(space.title) {
                     ForEach(space.groups) { group in
                         Button { move(to: group.id) } label: {

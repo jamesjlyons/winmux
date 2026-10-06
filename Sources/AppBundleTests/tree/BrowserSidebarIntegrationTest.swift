@@ -7,6 +7,94 @@ import XCTest
 final class BrowserSidebarIntegrationTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testSidebarProjectionMatchesLiveRowsAndRefreshesOwnershipAndIcons() throws {
+        let controller = BrowserWorkspaceController(), connection = UUID(), duplicate = UUID(), epoch = UUID()
+        let first = SurfaceID.browserTab(profile: UUID(), tab: UUID()), second = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree()
+        tree.reconcile([first], in: "one"); tree.reconcile([second], in: "two")
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        defer { controller.disconnected(connection); controller.disconnected(duplicate) }
+        let icon = favicon(red: 255, blue: 0)
+        let record = BrowserTabRecord(surfaceID: first, hostID: "first", title: "Website", selected: false, iconPNGBase64: icon)
+        controller.received(.init(revision: 1, full: true, tabs: [record,
+            .init(surfaceID: second, hostID: "second", title: "Other", selected: false)]), epoch: epoch, connection: connection)
+        let before = controller.sidebarProjection()
+        for name in ["one", "two"] {
+            XCTAssertEqual(before.rowsByWorkspace[name], controller.rows(in: name))
+            XCTAssertEqual(controller.organizedRows(native: [], in: name, projection: before),
+                           controller.organizedRows(native: [], in: name))
+        }
+        XCTAssertEqual(before.retainedByWorkspace["one"], [first])
+        controller.connected(duplicate, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [record]), epoch: UUID(), connection: duplicate)
+        XCTAssertNil(controller.sidebarProjection().rowsByWorkspace["one"], "Ambiguous owners must not produce actionable rows")
+        XCTAssertEqual(controller.sidebarProjection().rowsByWorkspace["two"]?.count, 1)
+        controller.disconnected(duplicate)
+        controller.received(.init(revision: 2, full: false, tabs: [
+            .init(surfaceID: first, hostID: "first", title: "Navigated", selected: false, iconPNGBase64: nil),
+        ]), epoch: epoch, connection: connection)
+        XCTAssertNil(controller.sidebarProjection().rowsByWorkspace["one"]?.first?.surfaceItems.first?.iconPNGBase64)
+        XCTAssertEqual(before.rowsByWorkspace["one"]?.first?.surfaceItems.first?.iconPNGBase64, icon,
+            "The projection is a per-refresh value, not a persistent cache with stale invalidation")
+    }
+
+    func testCurrentWebsiteFaviconReachesSharedRowsAndSearchAfterNavigation() throws {
+        let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID()
+        controller.usesSurfaceTree = true
+        let id = SurfaceID.browserTab(profile: UUID(), tab: UUID()), workspace = focus.workspace.name
+        let first = favicon(red: 255, blue: 0), second = favicon(red: 0, blue: 255)
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        defer { controller.disconnected(connection) }
+        func receive(_ revision: UInt64, icon: String?) {
+            controller.received(.init(revision: revision, full: true, tabs: [
+                .init(surfaceID: id, hostID: "host", title: "Website", selected: true, iconPNGBase64: icon),
+            ]), epoch: epoch, connection: connection)
+        }
+        receive(1, icon: first)
+        let before = controller.organizedRows(native: [], in: workspace)
+        XCTAssertEqual(before.flatMap(\.surfaceItems).first?.iconPNGBase64, first)
+        receive(2, icon: second)
+        let after = controller.organizedRows(native: [], in: workspace)
+        XCTAssertNotEqual(before, after, "A favicon-only update must publish a changed sidebar snapshot")
+        let model = WorkspaceSidebarWorkspaceViewModel(name: workspace, projectId: workspaceProjectDefaultId,
+            displayName: "View", sidebarLabel: "", isGeneratedName: true, monitorScopeId: "test", monitorName: nil,
+            isFocused: false, isVisible: true, items: after, isViewMode: true)
+        let filtered = workspaceSidebarFilteredWorkspacesByProject([workspaceProjectDefaultId: [model]], projects: [], query: "Website")
+        XCTAssertEqual(filtered[workspaceProjectDefaultId]?.first?.viewSurfaces.first?.iconPNGBase64, second)
+        receive(3, icon: nil)
+        XCTAssertNil(controller.organizedRows(native: [], in: workspace).flatMap(\.surfaceItems).first?.iconPNGBase64,
+            "A page without an icon must not keep the previous website's icon")
+    }
+
+    func testOpenPinUsesCurrentWebsiteIconWhileClosedPinKeepsSavedIcon() throws {
+        let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID(), profile = UUID()
+        controller.usesSurfaceTree = true
+        let id = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let saved = favicon(red: 255, blue: 0), current = favicon(red: 0, blue: 255)
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        defer { controller.disconnected(connection) }
+        controller.received(.init(revision: 1, full: true, tabs: [
+            .init(surfaceID: id, hostID: "host", title: "Pinned", selected: true, url: "https://example.com", iconPNGBase64: saved),
+        ]), epoch: epoch, connection: connection)
+        XCTAssertTrue(controller.pinBrowserTab(id))
+        let pin = try XCTUnwrap(controller.browserSidebarPins.first)
+        controller.received(.init(revision: 2, full: true, tabs: [
+            .init(surfaceID: id, hostID: "host", title: "Another website", selected: true, url: "https://example.org", iconPNGBase64: current),
+        ]), epoch: epoch, connection: connection)
+        XCTAssertEqual(controller.pinTiles(in: pin.workspaceName).first?.iconPNGBase64, current)
+        XCTAssertEqual(controller.browserSidebarPins.first?.iconPNGBase64, saved, "Navigation must preserve the saved launcher icon")
+        controller.received(.init(revision: 3, full: false, tabs: [], removed: [id]), epoch: epoch, connection: connection)
+        XCTAssertEqual(controller.pinTiles(in: pin.workspaceName).first?.iconPNGBase64, saved)
+    }
+
+    private func favicon(red: UInt8, blue: UInt8) -> String {
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 4, bitsPerPixel: 32)!
+        bitmap.bitmapData!.update(from: [red, 0, blue, 255], count: 4)
+        return bitmap.representation(using: .png, properties: [:])!.base64EncodedString()
+    }
+
     func testBrowserRowsShareNativeSidebarAndSearchWithoutNativeBindings() async throws {
         let controller = BrowserWorkspaceController()
         let connection = UUID(), epoch = UUID()

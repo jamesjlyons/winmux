@@ -30,7 +30,8 @@ final class SpacePinnedGroupTests: XCTestCase {
         }
         XCTAssertThrowsError(try snapshot([app], [group, group]).validated())
         let duplicate = NativeAppSidebarPin(workspaceName: "Pins", bundleIdentifier: app.bundleIdentifier, bundlePath: app.bundlePath, title: app.title)
-        XCTAssertThrowsError(try snapshot([app, duplicate], [group]).validated())
+        XCTAssertNoThrow(try snapshot([app, duplicate], [group]).validated(), "Separate windows of the same app may be pinned")
+        XCTAssertThrowsError(try snapshot([app, app], [group]).validated())
         var foreign = group; foreign.pinOrder.append(UUID())
         XCTAssertThrowsError(try snapshot([app], [foreign]).validated())
         XCTAssertThrowsError(try snapshot([app], []).validated())

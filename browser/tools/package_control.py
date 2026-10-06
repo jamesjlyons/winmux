@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import build_alpha
 import chromium
-from package_alpha import DevelopmentSigner, sha256, verify_identity
+from package_alpha import PackageSigner, sha256, verify_identity
 
 APP_NAME = "WinMux Browser Control"
 APP_ID = "com.jameslyons.winmux.browser.control"
@@ -82,7 +82,7 @@ def package(engine, output, identity, team):
         def run_spctl_assess(self):
             return False
 
-    config = ControlConfig(identity=identity, invoker=SimpleNamespace(signer=DevelopmentSigner()),
+    config = ControlConfig(identity=identity, invoker=SimpleNamespace(signer=PackageSigner()),
                            notarize=model.NotarizeAndStapleLevel.NONE)
     output.mkdir(parents=True)
     report_path = output / "winmux-package-manifest.json"

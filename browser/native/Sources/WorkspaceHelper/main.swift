@@ -28,12 +28,15 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     private let sidebarEnabled: Bool
     private let windowControlsEnabled: Bool
     private var closed = false
+    private let authenticatedBrowser: (@Sendable (Int32) -> Void)?
 
-    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
+    init(connection: NSXPCConnection, testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool,
+         authenticatedBrowser: (@Sendable (Int32) -> Void)? = nil) {
         self.connection = connection
         self.testReport = testReport
         self.sidebarEnabled = sidebarEnabled
         self.windowControlsEnabled = windowControlsEnabled
+        self.authenticatedBrowser = authenticatedBrowser
         super.init()
 #if canImport(AppBundle)
         if sidebarEnabled {
@@ -96,11 +99,20 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
               let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
                   DispatchQueue.main.async { completion(.unavailable, nil) }
               }) as? WMBrowserSurfaceOwner else { completion(.unavailable, nil); return }
-        proxy.openBrowserTab(request.sourceSurfaceID?.description, profile: request.profileID?.uuidString, url: request.url, epoch: request.epoch.uuidString,
-                             operation: request.operation.uuidString, revision: request.revision) { outcome, surface in
+        let reply: @Sendable (String, String?) -> Void = { outcome, surface in
             DispatchQueue.main.async {
                 completion(BrowserActionReply(rawValue: outcome) ?? .invalidRequest, surface.flatMap(SurfaceID.init(string:)))
             }
+        }
+        if let profile = request.workspaceProfile {
+            guard (session.version ?? 0) >= 7 else { completion(.unsupported, nil); return }
+            proxy.openBrowserTab(inWorkspaceProfile: profile.key, name: profile.name, url: request.url,
+                                 epoch: request.epoch.uuidString, operation: request.operation.uuidString,
+                                 revision: request.revision, reply: reply)
+        } else {
+            proxy.openBrowserTab(request.sourceSurfaceID?.description, profile: request.profileID?.uuidString,
+                                 url: request.url, epoch: request.epoch.uuidString,
+                                 operation: request.operation.uuidString, revision: request.revision, reply: reply)
         }
     }
 
@@ -119,6 +131,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     func negotiateVersion(_ version: Int, reply: @escaping (Int, String?) -> Void) {
         let epoch = session.negotiate(version: version)
+        if epoch != nil, let connection { authenticatedBrowser?(connection.processIdentifier) }
         reply(epoch == nil ? BridgeSession.version : version, epoch)
     }
 
@@ -131,6 +144,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             guard !closed, data.count <= 1_048_576,
                   session.accept(epoch: epoch, sequence: sequence, minimumVersion: 2),
                   let message = try? JSONDecoder().decode(BrowserInventoryMessage.self, from: data),
+                  (session.version ?? 0) >= 7 || !message.tabs.contains(where: \.privateBrowsing),
                   inventory.apply(message) else { return (false, inventory.revision, false) }
             if message.full { fullMessages += 1 } else { deltaMessages += 1 }
 #if canImport(AppBundle)
@@ -142,7 +156,8 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 DispatchQueue.main.async { BrowserWorkspaceController.shared.received(snapshot, epoch: epochID, connection: id, protocolVersion: version) }
             }
 #endif
-            let startTest = testReport != nil && !sidebarEnabled && !testStarted && inventory.tabs.count == 2
+            let privateTest = inventory.tabs.count == 1 && inventory.tabs.values.allSatisfy(\.privateBrowsing)
+            let startTest = testReport != nil && !sidebarEnabled && !testStarted && (inventory.tabs.count == 2 || privateTest)
             if startTest { testStarted = true }
             return (true, inventory.revision, startTest)
         }
@@ -151,11 +166,34 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             writeTestReport()
             if result.2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
+                    if self.lock.withLock({ self.inventory.tabs.values.contains(where: \.privateBrowsing) }) {
+                        Task { await self.exercisePrivateTabs(epoch: epoch) }
+                    } else if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
                     else { self.exerciseActions(epoch: epoch) }
                 }
             }
         }
+    }
+
+    @MainActor private func exercisePrivateTabs(epoch: String) async {
+        guard let connection, let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner,
+              let original = lock.withLock({ inventory.tabs.values.first }), original.privateBrowsing else { return }
+        let remote = BrowserOwnerProxy(proxy)
+        let (outcome, created) = await testCreate(remote: remote, epoch: epoch, source: original.surfaceID)
+        noteTest("private_create", outcome)
+        guard let created, let current = await waitForTestInventory({ $0.tabs.count == 2 && $0.tabs[created]?.privateBrowsing == true }),
+              case .browserTab(let profile, _) = created,
+              case .browserTab(let originalProfile, _) = original.surfaceID else { return }
+        noteTest("private_profile_retained", profile == originalProfile && current.tabs.values.allSatisfy(\.privateBrowsing) ? "yes" : "no")
+        let hosts = [original.surfaceID, created].enumerated().map { index, id in
+            BrowserHostPlacement(containerID: UUID(), surfaces: [id], selected: id,
+                frame: .init(x: index * 600, y: 100, width: 600, height: 700), visible: true, nativeControls: true)
+        }
+        noteTest("private_layout", await testLayout(hosts, remote: remote, epoch: epoch, revision: current.revision, generation: 1))
+        let managed = await waitForTestInventory { $0.tabs.count == 2 && $0.tabs.values.allSatisfy { $0.privateBrowsing && $0.hostManaged } }
+        noteTest("private_managed", managed != nil ? "yes" : "no")
+        noteTest("private_close", await testAction("close", surface: created, remote: remote, epoch: epoch))
+        noteTest("private_cleanup", await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[original.surfaceID]?.privateBrowsing == true }) != nil ? "yes" : "no")
     }
 
     @MainActor private func testLayout(_ hosts: [BrowserHostPlacement], remote: BrowserOwnerProxy,
@@ -566,12 +604,12 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         return true
     }
 
-    @MainActor private func testCreate(remote: BrowserOwnerProxy, epoch: String, profile: UUID? = nil,
+    @MainActor private func testCreate(remote: BrowserOwnerProxy, epoch: String, profile: UUID? = nil, source: SurfaceID? = nil,
                                       url: String? = nil, operation: String = UUID().uuidString,
                                       revision: UInt64? = nil) async -> (String, SurfaceID?) {
         let current = revision ?? lock.withLock { inventory.revision }
         return await withCheckedContinuation { continuation in
-            remote.value.openBrowserTab(nil, profile: profile?.uuidString, url: url, epoch: epoch,
+            remote.value.openBrowserTab(source?.description, profile: profile?.uuidString, url: url, epoch: epoch,
                                         operation: operation, revision: current) { outcome, surface in
                 continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
             }
@@ -628,7 +666,59 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         noteTest("create_global_from_empty", global.0)
         if let globalID = global.1, await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[globalID] != nil }) != nil {
             noteTest("create_global_exact_identity", "yes")
+            if (session.version ?? 0) >= 7 { await exerciseWorkspaceProfiles(epoch: epoch, remote: remote, shared: globalID) }
         } else { noteTest("create_global_exact_identity", "timed_out") }
+    }
+
+    @MainActor private func exerciseWorkspaceProfiles(epoch: String, remote: BrowserOwnerProxy, shared: SurfaceID) async {
+        // Fresh test roots only; stable fixture IDs let a second run verify data
+        // and identity survive browser restart without ever reading real profiles.
+        let work = UUID(uuidString: "502aa58c-4c74-422e-9b41-e0a2fbbfc001")!
+        let personal = UUID(uuidString: "502aa58c-4c74-422e-9b41-e0a2fbbfc002")!
+        let base = ProcessInfo.processInfo.environment["WINMUX_TEST_PROFILE_URL"] ?? "about:blank#"
+        func create(_ key: String, name: String, suffix: String, operation: String = UUID().uuidString,
+                    revision: UInt64? = nil) async -> (String, SurfaceID?) {
+            let current = revision ?? lock.withLock { inventory.revision }
+            return await withCheckedContinuation { continuation in
+                remote.value.openBrowserTab(inWorkspaceProfile: key, name: name, url: base + suffix, epoch: epoch,
+                                            operation: operation, revision: current) { outcome, surface in
+                    continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
+                }
+            }
+        }
+        noteTest("profiles_invalid_key", (await create("../escape", name: "Invalid", suffix: "invalid")).0)
+        for (index, key, name, suffix) in [(0, work.uuidString, "Work", "work"),
+                                          (1, personal.uuidString, "Personal", "personal"),
+                                          (2, work.uuidString, "Work", "work-return"),
+                                          (3, "shared", "Shared", "shared")] {
+            let operation = UUID().uuidString, revision = lock.withLock { inventory.revision }
+            let result = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+            guard result.0 == "issued", let id = result.1,
+                  case .browserTab(let profile, _) = id,
+                  let state = await waitForTestInventory({ $0.tabs[id]?.url == base + suffix && $0.tabs[id]?.isLoading == false }) else {
+                noteTest("profiles_open_\(index)", result.0); return
+            }
+            let expected: UUID
+            if index == 3 {
+                // Global creation uses the last-used profile, which restored
+                // windows can change. Explicit Shared must use Default instead.
+                if state.tabs[shared]?.isSharedProfile == true, case .browserTab(let original, _) = shared { expected = original }
+                else { expected = profile }
+            } else { expected = index == 1 ? personal : work }
+            noteTest("profiles_open_\(index)", profile == expected && (index != 3 || (profile != work && profile != personal)) && state.tabs.count == 2 &&
+                state.tabs[id]?.isSharedProfile == (index == 3) ? "yes" : "wrong_account")
+            if index == 0 {
+                let repeated = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+                noteTest("profiles_repeat", repeated.0 == "issued" && repeated.1 == id ? "yes" : "no")
+                let conflict = await create(personal.uuidString, name: "Personal", suffix: suffix, operation: operation, revision: revision)
+                noteTest("profiles_conflict", conflict.0)
+            }
+            guard await testAction("close", surface: id, remote: remote, epoch: epoch) == "issued",
+                  await waitForTestInventory({ $0.tabs.count == 1 && $0.tabs[shared] != nil }) != nil else {
+                noteTest("profiles_cleanup", "failed"); return
+            }
+        }
+        noteTest("profiles_cleanup", "yes")
     }
 
     // Runs only in an explicitly named isolated test service. Production never
@@ -715,15 +805,19 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     let testReport: URL?
     let sidebarEnabled: Bool
     let windowControlsEnabled: Bool
-    init(testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool) {
+    let authenticatedBrowser: (@Sendable (Int32) -> Void)?
+    init(testReport: URL?, sidebarEnabled: Bool, windowControlsEnabled: Bool,
+         authenticatedBrowser: (@Sendable (Int32) -> Void)? = nil) {
         self.testReport = testReport
         self.sidebarEnabled = sidebarEnabled
         self.windowControlsEnabled = windowControlsEnabled
+        self.authenticatedBrowser = authenticatedBrowser
     }
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         connection.exportedInterface = NSXPCInterface(with: WMWorkspaceBridge.self)
         connection.remoteObjectInterface = NSXPCInterface(with: WMBrowserSurfaceOwner.self)
-        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
+        let endpoint = SessionEndpoint(connection: connection, testReport: testReport, sidebarEnabled: sidebarEnabled,
+                                       windowControlsEnabled: windowControlsEnabled, authenticatedBrowser: authenticatedBrowser)
         connection.exportedObject = endpoint
         connection.invalidationHandler = { [weak endpoint] in endpoint?.invalidate() }
         connection.interruptionHandler = { [weak endpoint] in endpoint?.invalidate() }
@@ -736,12 +830,13 @@ do {
 #if canImport(AppBundle)
     if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
         let args = CommandLine.arguments
-        guard args.count == 2 || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
+        let openWorkspace = args.count == 3 && args[2] == "--open-workspace"
+        guard args.count == 2 || openWorkspace || (args.count == 4 && args[2] == "--fixture-process" && Int32(args[3]) != nil) else {
             throw WorkspaceActivationError.invalidRequest
         }
         let application = BrowserWorkspaceApplication.shared
-        let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil)
-        application.setActivationPolicy(.regular)
+        let setup = try WorkspaceSetup(fixturePID: args.count == 4 ? Int32(args[3]) : nil, openExistingWorkspace: openWorkspace)
+        application.setActivationPolicy(openWorkspace ? .accessory : .regular)
         application.delegate = setup
         withExtendedLifetime(setup) { application.run() }
         exit(0)
@@ -812,8 +907,14 @@ do {
             let request = activation
             Task { @MainActor in
                 do {
+                    if let request {
+                        try WorkspaceActivationStore().writeStatus(.init(requestID: request.id,
+                            phase: AXIsProcessTrusted() ? "starting" : "needs_accessibility",
+                            helperPID: getpid(), helperLaunch: processLaunchDate(getpid())))
+                    }
                     try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
-                        expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil)
+                        expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil,
+                        viewsTrial: WorkspaceActivationStore.usesWorkspaceViews)
                     installHostedShortcutSettingsWindow()
                     if let request {
                         try WorkspaceActivationStore().writeStatus(.init(requestID: request.id, phase: "ready",
@@ -836,7 +937,17 @@ do {
 #else
     guard !sidebarEnabled else { throw NSError(domain: "WinMuxBrowser.SidebarUnavailable", code: 1) }
 #endif
-    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled, windowControlsEnabled: windowControlsEnabled)
+    var authenticatedBrowser: (@Sendable (Int32) -> Void)?
+#if canImport(AppBundle)
+    if WorkspaceActivationStore.usesWorkspaceViews, let activation, activation.validationID == nil {
+        let lifetime = ManagedBrowserLifetime(request: activation, store: try WorkspaceActivationStore())
+        authenticatedBrowser = { pid in
+            DispatchQueue.main.async { lifetime.observeAuthenticatedBrowser(pid) }
+        }
+    }
+#endif
+    let delegate = ListenerDelegate(testReport: testReport, sidebarEnabled: sidebarEnabled,
+                                    windowControlsEnabled: windowControlsEnabled, authenticatedBrowser: authenticatedBrowser)
     let listener = NSXPCListener(machServiceName: service)
     listener.setConnectionCodeSigningRequirement(requirement)
     listener.delegate = delegate
@@ -850,5 +961,16 @@ do {
     }
 } catch {
     FileHandle.standardError.write(Data("Helper refused to start: \(error.localizedDescription)\n".utf8))
+#if canImport(AppBundle)
+    if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
+        let application = BrowserWorkspaceApplication.shared
+        application.setActivationPolicy(.regular)
+        application.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "WinMux setup could not start"
+        alert.informativeText = "Keep the complete WinMux app in Applications and open it again.\n\n" + error.localizedDescription
+        alert.runModal()
+    }
+#endif
     exit(1)
 }

@@ -19,4 +19,5 @@ struct WorkspaceSidebarPinViewModel: Hashable, Identifiable, Sendable {
     var isGroup = false
     var memberCount = 1
     var url: String? = nil
+    var groupMembers: [WorkspaceSidebarPinViewModel] = []
 }

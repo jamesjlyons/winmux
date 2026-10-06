@@ -74,7 +74,7 @@ struct WorkspaceSidebarProjectPopup: View {
         .disabled(disabledProjectIds.contains(project.id))
         .frame(maxWidth: .infinity, alignment: .leading)
         .contextMenu {
-            if allowsContextMenu {
+            if allowsContextMenu && !project.id.isIncognito {
                 projectContextMenuItems(for: project)
             }
         }
@@ -110,6 +110,7 @@ struct WorkspaceSidebarProjectPopup: View {
 extension WorkspaceSidebarProjectPopup {
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
+        WorkspaceSidebarBrowserProfileMenu(project: project)
         Button("Rename Space") {
             onRename(project)
         }

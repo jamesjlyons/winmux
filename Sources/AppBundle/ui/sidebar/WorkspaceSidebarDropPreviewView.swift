@@ -16,7 +16,14 @@ struct WorkspaceSidebarDropPreviewView: View {
         if preview.targetsNewWorkspace {
             newWorkspacePreview
         } else {
-            previewRows
+            VStack(alignment: .leading, spacing: 2) {
+                if let label = preview.intentLabel {
+                    Text(label).font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+                }
+                previewRows
+            }
                 .padding(.leading, workspaceSidebarWindowRowsLeadingIndent)
                 .allowsHitTesting(false)
         }
@@ -25,7 +32,7 @@ struct WorkspaceSidebarDropPreviewView: View {
     private var newWorkspacePreview: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
-                Text("New Group")
+                Text(config.workspaceInteractionMode == .views ? "New View" : "New Group")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.85))
                     .lineLimit(1)

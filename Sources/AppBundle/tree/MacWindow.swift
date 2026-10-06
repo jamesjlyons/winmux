@@ -53,7 +53,11 @@ final class MacWindow: Window {
         let didRestorePersistedFrozenWorld = RestartSessionController.shared.claims(window)
         let didRestoreClosedWindowsCache = didRestorePersistedFrozenWorld ? false : try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {
-            try await tryOnWindowDetected(window)
+            let source = window.nodeWorkspace
+            let explicitlyRouted = try await tryOnWindowDetected(window)
+            if !explicitlyRouted, let source {
+                BrowserWorkspaceController.shared.placeOrdinaryNativeArrival(window, in: source)
+            }
             noteNewFloatingWindow(window)
         }
         return window

@@ -14,12 +14,14 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
     let onCreateWorkspace: () -> Void
     let onDropPayload: @MainActor (WorkspaceSidebarDragPayload) -> Void
     let actions: WorkspaceSidebarActions
+    var onNewTab: (() -> Void)? = nil
 
     @State private var isDropTargeted = false
     @State private var isDropSettling = false
     @State private var isHovered = false
 
     private var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    private var buttonWidth: CGFloat { onNewTab != nil && !isCompact ? (sectionWidth - 6) / 2 : sectionWidth }
     private var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
     private var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     private var showsDropTarget: Bool {
@@ -49,7 +51,14 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                     removal: .opacity,
                 ))
             } else {
-                createButton
+                if let onNewTab {
+                    let row = isCompact ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 6))
+                    row {
+                        createButton
+                        WorkspaceSidebarNewTabButton(isCompact: isCompact || buttonWidth < 90, isPrivate: projectId.isIncognito, onOpen: onNewTab)
+                            .frame(width: buttonWidth, height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded)
+                    }
+                } else { createButton }
             }
         }
         .frame(width: sectionWidth, alignment: isCompact ? .center : .leading)
@@ -83,8 +92,8 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             onCreateWorkspace()
         } label: {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
-                if isCompact {
-                    Image(systemName: "plus")
+                if isCompact || buttonWidth < 90 {
+                    Image(systemName: "rectangle.badge.plus")
                         .font(.system(size: min(14, compactMetrics.badgeFontSize), weight: .semibold))
                         .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -93,7 +102,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
-                        Text("New Group")
+                        Text(config.workspaceInteractionMode == .views ? "New View" : "New Group")
                             .font(.system(size: 13, weight: layout.menuBarStyle ? .regular : .medium))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.48))
                             .lineLimit(1)
@@ -102,9 +111,9 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 }
             }
             .padding(.vertical, isCompact ? 3 : 4)
-            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
+            .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : onNewTab != nil ? 8 : workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
             .frame(
-                width: sectionWidth,
+                width: buttonWidth,
                 height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded,
                 alignment: isCompact ? .center : .leading,
             )
@@ -123,7 +132,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .accessibilityLabel("New Group")
-        .help("New Group")
+        .accessibilityLabel(config.workspaceInteractionMode == .views ? "New View" : "New Group")
+        .help(config.workspaceInteractionMode == .views ? "Create an empty view" : "New Group")
     }
 }

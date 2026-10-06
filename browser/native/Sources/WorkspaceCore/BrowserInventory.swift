@@ -25,6 +25,8 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let hostFrame: SurfaceFrame?
     public let hostVisible: Bool?
     public let hostMinimumSize: SurfaceMinimumSize?
+    /// Owner-confirmed initial profile; UUIDs alone cannot identify Shared.
+    public var isSharedProfile: Bool? = nil
 
     public init(surfaceID: SurfaceID, hostID: String, title: String, selected: Bool, privateBrowsing: Bool = false, hostWindowID: UInt32? = nil, hostFrame: SurfaceFrame? = nil, hostVisible: Bool? = nil, hostMinimumSize: SurfaceMinimumSize? = nil, url: String = "", canGoBack: Bool = false, canGoForward: Bool = false, isLoading: Bool = false, hostManaged: Bool = false, hostMinimized: Bool = false, hostFullscreen: Bool = false, hostZoomed: Bool = false, focused: Bool = false, iconPNGBase64: String? = nil, lifecycle: BrowserPageLifecycle = .active, keepActive: Bool = false, blockingEnabled: Bool = true, blockedRequests: Int = 0, privacy: BrowserPrivacySettings? = nil) {
         self.lifecycle = lifecycle; self.keepActive = keepActive; self.blockingEnabled = blockingEnabled; self.blockedRequests = max(0, blockedRequests); self.privacy = privacy
@@ -57,6 +59,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case hostFrame = "host_frame", hostVisible = "host_visible"
         case hostMinimumSize = "host_minimum_size"
         case iconPNGBase64 = "icon_png_base64"
+        case isSharedProfile = "is_shared_profile"
         case url, canGoBack = "can_go_back", canGoForward = "can_go_forward"
         case isLoading = "is_loading", hostManaged = "host_managed", focused
         case hostMinimized = "host_minimized", hostFullscreen = "host_fullscreen", hostZoomed = "host_zoomed"
@@ -88,6 +91,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
                   blockingEnabled: try values.decodeIfPresent(Bool.self, forKey: .blockingEnabled) ?? true,
                   blockedRequests: try values.decodeIfPresent(Int.self, forKey: .blockedRequests) ?? 0,
                   privacy: try values.decodeIfPresent(BrowserPrivacySettings.self, forKey: .privacy))
+        isSharedProfile = try values.decodeIfPresent(Bool.self, forKey: .isSharedProfile)
     }
 }
 
@@ -124,8 +128,11 @@ public struct BrowserInventory: Sendable {
               Set(message.removed).count == message.removed.count,
               Set(changed).isDisjoint(with: message.removed),
               (changed + message.removed).allSatisfy({ if case .browserTab = $0 { return true }; return false }),
-              message.tabs.allSatisfy({ !$0.privateBrowsing && !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && $0.url.utf8.count <= 16_384 && ($0.iconPNGBase64?.utf8.count ?? 0) <= 131072 && ($0.hostMinimumSize?.isValid ?? true) })
+              message.tabs.allSatisfy({ !$0.hostID.isEmpty && $0.hostID.utf8.count <= 128 && $0.title.utf8.count <= 4096 && $0.url.utf8.count <= 16_384 && ($0.iconPNGBase64?.utf8.count ?? 0) <= 131072 && ($0.hostMinimumSize?.isValid ?? true) })
         else { return false }
+        guard message.tabs.allSatisfy({ record in
+            tabs[record.surfaceID].map { $0.privateBrowsing == record.privateBrowsing } ?? true
+        }) else { return false }
         var next = message.full ? [:] : tabs
         for id in message.removed {
             guard next.removeValue(forKey: id) != nil else { return false }
@@ -134,7 +141,12 @@ public struct BrowserInventory: Sendable {
         guard next.count <= 10_000 else { return false }
         var hosts: [String: UInt32] = [:]
         var windows: [UInt32: String] = [:]
+        var privateProfiles: [UUID: Bool] = [:]
         for tab in next.values {
+            if case .browserTab(let profile, _) = tab.surfaceID {
+                guard privateProfiles[profile].map({ $0 == tab.privateBrowsing }) ?? true else { return false }
+                privateProfiles[profile] = tab.privateBrowsing
+            }
             if let window = tab.hostWindowID {
                 guard window > 0, hosts[tab.hostID] == nil || hosts[tab.hostID] == window,
                       windows[window] == nil || windows[window] == tab.hostID else { return false }

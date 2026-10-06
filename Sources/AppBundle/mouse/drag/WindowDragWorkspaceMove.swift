@@ -6,6 +6,7 @@ func shouldSuppressSwapDestination(sourceWindow: Window, subject: WindowDragSubj
 
 @MainActor
 func applySidebarWorkspaceMove(sourceNode: TreeNode, sourceWindow: Window, targetWorkspace: Workspace) {
+    guard !targetWorkspace.isIncognito else { return }
     if targetWorkspace.isPinnedGroup {
         for window in sourceNode.allLeafWindowsRecursive {
             _ = BrowserWorkspaceController.shared.pinSurface(window.surfaceID, in: targetWorkspace.projectId)
@@ -23,6 +24,7 @@ func applySidebarWorkspaceMove(sourceNode: TreeNode, sourceWindow: Window, targe
 // Internal to keep cross-workspace insertion semantics unit-testable.
 @MainActor
 func applyWorkspaceMove(sourceNode: TreeNode, sourceWindow: Window, mouseLocation: CGPoint, targetWorkspace: Workspace) {
+    guard !targetWorkspace.isIncognito else { return }
     if sourceNode is Window, sourceWindow.isFloating {
         sourceNode.bind(to: targetWorkspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         _ = sourceWindow.focusWindow()
@@ -45,6 +47,7 @@ func applyWorkspaceZoneMove(
     targetWorkspace: Workspace,
     zone: WindowDropZone,
 ) {
+    guard !targetWorkspace.isIncognito else { return }
     guard let position = zone.stackSplitPosition else {
         applyWorkspaceMove(
             sourceNode: sourceNode,

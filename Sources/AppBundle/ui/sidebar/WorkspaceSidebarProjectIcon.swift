@@ -97,7 +97,7 @@ func setWorkspaceSidebarProjectIcon(
         if !isUnitTest { try persistWorkspaceSidebarProjectIcon(projectId: id, symbolName: name) }
     }
 ) throws {
-    guard workspaceProjects().contains(where: { $0.id == projectId }) else { return }
+    guard !projectId.isIncognito, workspaceProjects().contains(where: { $0.id == projectId }) else { return }
     let name = symbolName?.trimmingCharacters(in: .whitespacesAndNewlines).takeIf { !$0.isEmpty }
     if let name, WorkspaceSidebarSymbolImages.image(named: name) == nil {
         throw WorkspaceSidebarProjectIconError.unavailable(name)

@@ -88,9 +88,26 @@ public final class WorkspaceActivationLock {
 
 public struct WorkspaceActivationStore: Sendable {
     public let root: URL
+    public static var isViewsTrial: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "WinMuxWorkspaceViewsTrial") as? Bool ?? false
+    }
+    public static var usesWorkspaceViews: Bool {
+        isViewsTrial || Bundle.main.object(forInfoDictionaryKey: "WinMuxWorkspaceViews") as? Bool == true
+    }
     public static var defaultRoot: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/WinMux Browser Workspace Alpha", isDirectory: true)
+        root(forViewsTrial: isViewsTrial)
+    }
+    static func root(forViewsTrial trial: Bool, applicationSupport: URL =
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)) -> URL {
+        guard trial else { return applicationSupport.appendingPathComponent("WinMux Browser Workspace Alpha", isDirectory: true) }
+        let legacy = applicationSupport.appendingPathComponent("WinMux Browser Views Trial", isDirectory: true)
+        // Earlier builds also used this directory for an unmanaged Chromium
+        // profile. Keep actual workspace state; never adopt or delete that
+        // unmarked browser directory, or relax the store's ownership checks.
+        if ["workspace-activation-v1", "request.json", "status.json"].contains(where: {
+            FileManager.default.fileExists(atPath: legacy.appendingPathComponent($0).path)
+        }) { return legacy }
+        return applicationSupport.appendingPathComponent("WinMux Browser Views Trial Workspace", isDirectory: true)
     }
     public init(root: URL = Self.defaultRoot) throws {
         guard root.isFileURL, root.path.hasPrefix("/"),

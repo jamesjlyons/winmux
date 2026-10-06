@@ -5,6 +5,15 @@ WinMux's **Spaces → Groups → Windows** interface. The Swift helper manages s
 placement, selection, splits, stacks, pins, native page controls, and restoration;
 Chromium owns page contents, navigation, profiles, and extensions.
 
+The views trial lets each Space choose **Shared** or a named browser profile in
+**Space → Manage Space → Browser Profile**. Create profiles such as Work and
+Personal, then reuse them across Spaces. New tabs and tabs sent from another
+Space use the selected profile. Cross-profile moves reopen the current URL and
+close the original after every replacement is available; same-profile moves
+preserve the live page. Changing the profile setting alone leaves existing tabs
+and pins unchanged. Chromium keeps each profile's
+history, cookies, extensions, settings, and saved passwords separately.
+
 Use **Option–Command–T** from any app to create a page in the current regular Group.
 Each Space has one ordered pin shelf. An app or page pin owns a full desktop;
 pinning an existing split, stack, or Group preserves its shared layout. Closed
@@ -155,7 +164,12 @@ The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.
 The resulting app is a private Apple Development build, not a notarized release.
-For the integrated workspace, use the application's **Workspace Setup…** menu
+The Views Trial starts its workspace automatically on launch, without an
+ordinary browser window. On first launch, setup requests Accessibility and
+background-item approval if needed, then opens the managed browser. Existing
+trial workspaces retain their saved profiles and state.
+
+For the integrated alpha, use the application's **Workspace Setup…** menu
 and [Start/Stop workflow](../docs/browser/workspace-setup.md). It creates its own
 profile and native state. Stop the old workspace and quit its browser before
 changing packages; keep the new app at its installed path while management is active.
@@ -262,3 +276,31 @@ Its scope is interaction latency only. Startup, memory/energy, frame pacing,
 browser benchmarks, essential extensions, physical input, recovery and soak
 tests are separate gates in the approved plan. No measurement report is generated
 from the synthetic evaluator fixtures.
+
+## Unified Alpha (2026-10-06)
+
+The Alpha now includes the complete Views Trial through `a2d79459`: independent
+views by default, explicit split/stack grouping, reusable Space browser profiles
+and transactional cross-profile moves, temporary Incognito Spaces, native window
+controls, current favicons, direct permission-aware launch, profile-picker
+suppression, browser-exit shutdown, branding, and 1Password host discovery.
+
+The Alpha retains its existing application identity and workspace data directory.
+`WinMuxWorkspaceViews` enables the shared behavior without selecting the Trial's
+separate data directory. Existing marked Alpha configurations without an explicit
+interaction-mode setting gain `workspace-interaction-mode = 'views'`; explicit
+settings and existing layouts are preserved. New tabs and ordinary app windows
+start separately. A pin gets a dedicated desktop; pinning an existing group keeps
+its layout. Browser profiles are never copied between the Alpha and Trial.
+
+Protocol 8 combines the formerly divergent Alpha/Trial version-6 features.
+Profile dispatch requires version 7 or newer; privacy/lifecycle controls require
+version 8. The dedicated pin-desktop model preserves closed-member layouts and
+uses the Trial's transactional profile move before changing a cross-Space pin.
+Private Spaces cannot be pinned or saved in regular restart metadata.
+
+The privacy defaults, background page policy, private first-run directory repair,
+and bounded filter-download crash fix remain enabled. Automatic launch preserves
+saved background-service consent. Developer ID packaging support is included;
+Apple Development-signed packages remain unnotarized and do not establish
+1Password desktop linking. See [the certificate investigation](../docs/browser/onepassword-desktop-link.md).

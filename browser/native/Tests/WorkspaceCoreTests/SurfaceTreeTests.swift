@@ -7,6 +7,28 @@ final class SurfaceTreeTests: XCTestCase {
     let browser = SurfaceID.browserTab(profile: UUID(), tab: UUID())
     let second = SurfaceID.browserTab(profile: UUID(), tab: UUID())
 
+    func testReplacementPreservesNestedLayoutSelectionWeightsAndPersistence() throws {
+        var tree = SurfaceTree()
+        tree.reconcile([native, browser, second], in: "one")
+        XCTAssertTrue(tree.group(browser, with: native, layout: .horizontal))
+        XCTAssertTrue(tree.group(second, with: browser, layout: .stack))
+        tree.select(browser)
+        tree.setWeights([browser.description: 3])
+        let groups = tree.layouts
+        let replacement = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        XCTAssertTrue(tree.replaceSurface(browser, with: replacement))
+        XCTAssertEqual(tree.layouts, groups)
+        XCTAssertTrue(tree.activeSurfaces.values.contains(replacement))
+        XCTAssertFalse(tree.activeSurfaces.values.contains(browser))
+        XCTAssertEqual(tree.weights[replacement.description], 3)
+        XCTAssertNil(tree.weights[browser.description])
+        XCTAssertEqual(tree, try JSONDecoder().decode(SurfaceTree.self, from: JSONEncoder().encode(tree)))
+        let before = tree
+        XCTAssertFalse(tree.replaceSurface(replacement, with: native))
+        XCTAssertFalse(tree.replaceSurface(browser, with: replacement))
+        XCTAssertEqual(tree, before)
+    }
+
     func testMixedOrderSurvivesOwnerRefreshAndMetadataChanges() {
         var tree = SurfaceTree()
         tree.reconcile([native, browser, second], in: "one")
@@ -48,6 +70,33 @@ final class SurfaceTreeTests: XCTestCase {
         XCTAssertEqual(tree.roots["one"], [.surface(browser)])
         XCTAssertTrue(tree.moveToRoot(browser, in: "two"))
         XCTAssertEqual(tree.roots.values.flatMap { $0.flatMap(\.surfaces) }.count, 2)
+    }
+
+    func testUnchangedReconciliationPreservesMetadataAndLaterRemovalStillPrunes() throws {
+        var tree = SurfaceTree()
+        tree.reconcile([native, browser], in: "one")
+        tree.group(browser, with: native)
+        let firstGroup = try XCTUnwrap(tree.containingGroup(of: native))
+        let other = SurfaceID.nativeWindow(UUID())
+        tree.reconcile([second, other], in: "two")
+        tree.group(other, with: second, layout: .horizontal)
+        let otherGroup = try XCTUnwrap(tree.containingGroup(of: second))
+        tree.select(browser)
+        tree.setWeights([native.description: 2, browser.description: 3, second.description: 4])
+        let before = tree
+        for _ in 0..<100 { tree.reconcile([native], in: "one", retaining: [browser]) }
+        XCTAssertEqual(tree, before)
+
+        tree.reconcile([native, native], in: "one")
+        XCTAssertEqual(tree.roots["one"], [.surface(native)])
+        XCTAssertNil(tree.layouts[firstGroup])
+        XCTAssertNil(tree.activeSurfaces[firstGroup])
+        XCTAssertNil(tree.weights[browser.description])
+        XCTAssertEqual(tree.layouts[otherGroup], .horizontal)
+        XCTAssertEqual(tree.weights[second.description], 4)
+        XCTAssertEqual(tree, try JSONDecoder().decode(SurfaceTree.self, from: JSONEncoder().encode(tree)))
+        tree.reconcile([], in: "empty")
+        XCTAssertEqual(tree.roots["empty"], [])
     }
 
     func testInvalidOrStaleOperationsAreAtomic() {

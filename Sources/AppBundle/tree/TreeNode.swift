@@ -66,6 +66,14 @@ open class TreeNode: Equatable, WinMuxAny {
     @MainActor
     @discardableResult
     func bind(to newParent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) -> BindingData? {
+        // Enforce the private boundary at the native tree, including drag and
+        // restore paths that bind directly instead of using move commands.
+        if anyLeafWindowRecursive != nil, let destination = newParent.nodeWorkspace, destination.isIncognito {
+            guard !isBound else { return nil }
+            let regular = BrowserWorkspaceController.shared.regularArrivalWorkspace(destination)
+            return bind(to: newParent is Workspace ? regular : regular.rootTilingContainer,
+                        adaptiveWeight: adaptiveWeight, index: INDEX_BIND_LAST)
+        }
         let result = unbindIfBound()
 
         if newParent === NilTreeNode.instance {

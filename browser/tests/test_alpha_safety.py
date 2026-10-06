@@ -2,6 +2,7 @@ import copy
 from contextlib import ExitStack, contextmanager
 import hashlib
 import json
+import plistlib
 from pathlib import Path
 import subprocess
 import sys
@@ -49,6 +50,40 @@ def alpha_build_fixture(build_args):
 
 
 class AlphaSafetyTests(TestCase):
+    def test_app_branding_covers_localized_names_and_preserves_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "Trial.app"
+            resources = app / "Contents/Resources"
+            localized = resources / "en.lproj/InfoPlist.strings"
+            localized.parent.mkdir(parents=True)
+            info = app / "Contents/Info.plist"
+            info.write_bytes(plistlib.dumps({"CFBundleIdentifier": package_alpha.APP_ID,
+                "CFBundleName": "Chromium", "CFBundleIconFile": "old.icns"}))
+            localized.write_bytes(plistlib.dumps({"CFBundleName": "Chromium",
+                "NSCameraUsageDescription": "Once Chromium has access, websites can ask.",
+                "NSHumanReadableCopyright": "The Chromium Authors", "unrelated": "Keep this"}))
+            openstep = resources / "fr.lproj/InfoPlist.strings"
+            openstep.parent.mkdir()
+            openstep.write_text('"CFBundleName" = "Chromium";\n"unrelated" = "Conserver";\n')
+            icon = root / "WinMux.icns"
+            icon.write_bytes(b"fixture icon")
+            package_alpha.brand_application(app, "WinMux Trial", icon)
+            main = plistlib.loads(info.read_bytes())
+            names = plistlib.loads(localized.read_bytes())
+            self.assertEqual(main["CFBundleIdentifier"], package_alpha.APP_ID)
+            for data in (main, names):
+                self.assertEqual(data["CFBundleName"], "WinMux Trial")
+                self.assertEqual(data["CFBundleDisplayName"], "WinMux Trial")
+            self.assertEqual(main["CFBundleIconFile"], "app.icns")
+            self.assertEqual((resources / "app.icns").read_bytes(), icon.read_bytes())
+            self.assertEqual(names["NSCameraUsageDescription"], "Once WinMux Trial has access, websites can ask.")
+            self.assertEqual(names["NSHumanReadableCopyright"], "The Chromium Authors")
+            self.assertEqual(names["unrelated"], "Keep this")
+            translated = plistlib.loads(openstep.read_bytes())
+            self.assertEqual(translated["CFBundleDisplayName"], "WinMux Trial")
+            self.assertEqual(translated["unrelated"], "Conserver")
+
     def test_matching_build_records_original_configuration_and_preserves_archive(self):
         with alpha_build_fixture(b"is_debug = false\n") as fixture:
             build_alpha.build(fixture.args, fixture.engine)

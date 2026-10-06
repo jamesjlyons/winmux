@@ -76,10 +76,11 @@ extension BrowserWorkspaceController {
                                       hostWindowID: hostWindowID,
                                       pageFrame: BrowserPageChromeGeometry.appKitRect(geometry.pageFrame, screenTop: screenTop),
                                       bodyFrame: BrowserPageChromeGeometry.appKitRect(geometry.bodyFrame, screenTop: screenTop),
-                                      chromeColor: config.workspaceSidebar.chromeStyle == .solid &&
+                                      chromeColor: record.privateBrowsing ? NSColor(srgbRed: 0.19, green: 0.14, blue: 0.27, alpha: 1) : (config.workspaceSidebar.chromeStyle == .solid &&
                                           config.workspaceSidebar.solidChromeColor != .system
-                                          ? config.workspaceSidebar.resolvedSolidChromeNSColor : nil,
-                                      chromeAppearance: config.workspaceSidebar.chromeAppearance)
+                                          ? config.workspaceSidebar.resolvedSolidChromeNSColor : nil),
+                                      chromeAppearance: record.privateBrowsing ? .darkAqua : config.workspaceSidebar.chromeAppearance,
+                                      isPrivate: record.privateBrowsing)
         }
         BrowserToolbarController.shared.update(items: items) { [weak self] id, action in
             self?.performToolbarAction(action, for: id)
@@ -91,7 +92,7 @@ extension BrowserWorkspaceController {
         if action == .focusPage { _ = select(id); return }
         if action == .close { _ = close(id); return }
         if action == .newTab, owner(of: id)?.supportsTabCreation == true {
-            _ = openBrowserTab(workspaceName: workspaceName(for: id), profileID: id.browserProfileID)
+            _ = openBrowserTab(workspaceName: workspaceName(for: id))
             return
         }
         guard let session = owner(of: id), session.supportsBrowserControls else { return }
@@ -180,7 +181,8 @@ extension BrowserWorkspaceController {
         let minima = minimumSizes(in: workspace)
         var livePlan = liveLayoutTree(in: workspace)
         guard livePlan.workspace(of: id) == workspace.name,
-              livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima) else { return false }
+              livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima,
+                              rootPresentation: rootPresentation(in: workspace)) else { return false }
         return editOrganization(of: id) { durable in
             // Removing reservations only collapses containers; every remaining
             // weight key still belongs to the saved tree. Preserve its complete

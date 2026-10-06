@@ -171,6 +171,7 @@ func isActionableWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceD
 @MainActor
 private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
     guard isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return }
+    if requestWorkspaceViewCombination(subject, target: target) { return }
     let controller = BrowserWorkspaceController.shared
     if case .pin(let targetPin) = target, let name = controller.pinWorkspaceName(targetPin) {
         if case .pin(let id) = subject {
@@ -220,10 +221,11 @@ private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfac
 @MainActor
 func previewWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
     guard isActionableWorkspaceSidebarSurfaceDrop(subject, target: target),
-          let preview = workspaceSidebarSurfaceSourcePreview(subject, target: target) else {
+          var preview = workspaceSidebarSurfaceSourcePreview(subject, target: target) else {
         clearWorkspaceSidebarDropPreview()
         return
     }
+    preview.intentLabel = workspaceViewDropHint(subject, target: target)
     setWorkspaceSidebarDropPreviewIfChanged(preview)
 }
 

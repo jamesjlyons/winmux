@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Package a private development alpha using Chromium's per-process signing policy.
+"""Package a private alpha using Chromium's per-process signing policy.
 
 Creates a new staging directory; never installs over an application or changes
-profiles. The Personal Team build is not notarized or a distributable release.
+profiles. Developer ID mode requires a distribution certificate and secure
+timestamps. Notarization and desktop-extension acceptance remain separate steps.
 """
 import argparse
 import asyncio
@@ -16,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
 from types import SimpleNamespace
 
@@ -26,19 +28,77 @@ ROOT = chromium.ROOT
 APP_NAME = "WinMux Browser Alpha"
 APP_ID = "com.jameslyons.winmux.browser.alpha"
 HELPER_ID = APP_ID + ".workspace"
+DEVELOPER_ID_REQUIREMENT = (
+    'certificate 1[field.1.2.840.113635.100.6.2.6] and '
+    'certificate leaf[field.1.2.840.113635.100.6.1.13]')
 
 
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def signing_requirement(identifier, team):
-    return f'anchor apple generic and identifier "{identifier}" and certificate leaf[subject.OU] = "{team}"'
+def signing_requirement(identifier, team, developer_id=False):
+    requirement = f'anchor apple generic and identifier "{identifier}" and certificate leaf[subject.OU] = "{team}"'
+    return requirement + ' and ' + DEVELOPER_ID_REQUIREMENT if developer_id else requirement
 
 
-def verify_identity(path, identifier, team):
+def verify_identity(path, identifier, team, developer_id=False):
     chromium.run("codesign", "--verify", "--strict", "-R",
-                 "=" + signing_requirement(identifier, team), str(path))
+                 "=" + signing_requirement(identifier, team, developer_id), str(path))
+
+
+def require_developer_id(identity, identities):
+    """Reject a missing/wrong certificate before creating a staging directory.
+
+    The final codesign requirement also checks Apple's certificate extensions;
+    an identity's display name alone never establishes distribution signing.
+    """
+    for fingerprint, name in re.findall(r'^\s*\d+\)\s+([0-9A-Fa-f]{40})\s+"([^"]+)"', identities, re.MULTILINE):
+        if fingerprint.lower() == identity.lower() and name.startswith("Developer ID Application: "):
+            return
+    raise RuntimeError("Developer ID mode requires a valid Developer ID Application signing identity. "
+                       "The selected identity is missing or has a different certificate type.")
+
+
+def timestamp_argument(developer_id):
+    return "--timestamp" if developer_id else "--timestamp=none"
+
+
+def brand_application(app, name, icon):
+    """Use one app identity in Finder, the Dock and localized macOS prompts."""
+    resources = app / "Contents/Resources"
+    info = app / "Contents/Info.plist"
+    data = plistlib.loads(info.read_bytes())
+    data.update(CFBundleDisplayName=name, CFBundleName=name, CFBundleIconFile="app.icns")
+    info.write_bytes(plistlib.dumps(data))
+    shutil.copy2(icon, resources / "app.icns")
+    for localized in resources.glob("*.lproj/InfoPlist.strings"):
+        try:
+            strings = plistlib.loads(localized.read_bytes())
+        except plistlib.InvalidFileException:
+            # Chromium ships OpenStep .strings files, not just binary/XML
+            # plists. Let macOS parse their escaping and localized text.
+            strings = plistlib.loads(subprocess.check_output(
+                ["plutil", "-convert", "binary1", "-o", "-", str(localized)]))
+        strings.update(CFBundleDisplayName=name, CFBundleName=name)
+        # Preserve upstream copyright/attribution and unrelated translations.
+        for key, value in strings.items():
+            if key.startswith("NS") and key.endswith("UsageDescription") and isinstance(value, str):
+                strings[key] = value.replace("Chromium", name)
+        localized.write_bytes(plistlib.dumps(strings, fmt=plistlib.FMT_BINARY))
+
+
+def create_application_icon(source, directory):
+    iconset = directory / "WinMux.iconset"
+    iconset.mkdir()
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            pixels = str(size * scale)
+            output = iconset / f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png"
+            chromium.run("sips", "-z", pixels, pixels, str(source), "--out", str(output))
+    icon = directory / "WinMux.icns"
+    chromium.run("iconutil", "--convert", "icns", "--output", str(icon), str(iconset))
+    return icon
 
 
 def validate_manifest(manifest, source):
@@ -61,10 +121,13 @@ def validate_manifest(manifest, source):
             raise RuntimeError(f"Alpha source changed since compilation: {name}")
 
 
-class DevelopmentSigner:
+class PackageSigner:
     """Use upstream part policy, replacing the linker-generated ad-hoc signatures."""
+    def __init__(self, developer_id=False):
+        self.developer_id = developer_id
+
     def codesign(self, config, product, path):
-        command = ["codesign", "--force", "--sign", config.identity, "--timestamp=none"]
+        command = ["codesign", "--force", "--sign", config.identity, timestamp_argument(self.developer_id)]
         if product.sign_with_identifier:
             command += ["--identifier", product.identifier]
         requirement = product.requirements_string(config)
@@ -81,17 +144,27 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="New package directory (must not exist)")
+    parser.add_argument("--views-trial", action="store_true", help="Package the tab-style trial with separate profile and state")
+    parser.add_argument("--developer-id", action="store_true",
+                        help="Require Developer ID Application signing with secure timestamps; does not notarize")
     args = parser.parse_args()
     identity = os.environ.get("BROWSER_SIGNING_IDENTITY", "")
     team = os.environ.get("BROWSER_SIGNING_TEAM", "")
     if not re.fullmatch(r"[0-9A-Fa-f]{40}", identity) or not re.fullmatch(r"[A-Z0-9]{10}", team):
         parser.error("Source signing.env with an exact certificate SHA-1 and Apple team identifier")
+    if args.developer_id:
+        require_developer_id(identity, subprocess.check_output(
+            ["security", "find-identity", "-v", "-p", "codesigning"], text=True))
     engine = args.root.expanduser().resolve()
     with build_alpha.acquire_engine_lock(engine, exclusive=False):
         package(args, identity, team, engine / "chromium/src")
 
 
 def package(args, identity, team, source):
+    views_trial = args.views_trial
+    developer_id = args.developer_id
+    timestamp = timestamp_argument(developer_id)
+    app_name = "WinMux Browser Views Trial" if views_trial else APP_NAME
     build = source / "out/WinMuxControl"
     manifest = json.loads((build / "winmux-build-manifest.json").read_text())
     validate_manifest(manifest, source)
@@ -114,7 +187,7 @@ def package(args, identity, team, source):
     class AlphaConfig(ChromiumCodeSignConfig):
         @property
         def app_product(self):
-            return APP_NAME
+            return app_name
 
         @property
         def base_bundle_id(self):
@@ -122,26 +195,29 @@ def package(args, identity, team, source):
 
         @property
         def run_spctl_assess(self):
-            # Personal Team development signing does not imply notarization.
+            # Notarization and Gatekeeper acceptance are separate release steps.
             return False
 
-    config = AlphaConfig(identity=identity, invoker=SimpleNamespace(signer=DevelopmentSigner()),
+    config = AlphaConfig(identity=identity, invoker=SimpleNamespace(signer=PackageSigner(developer_id)),
                          notarize=model.NotarizeAndStapleLevel.NONE)
     output = args.output.expanduser().absolute()
     if output.exists():
         raise RuntimeError("Refusing to overwrite an existing package directory")
     output.mkdir(parents=True)
     report_path = output / "winmux-package-manifest.json"
-    report = {"scope": "private_development_alpha_milestone_0", "verified": False,
-              "notarized": False, "identity_sha1": identity, "team_identifier": team,
+    report = {"scope": "private_developer_id_alpha" if developer_id else "private_development_alpha_milestone_0", "verified": False,
+              "notarized": False, "views_trial": views_trial, "identity_sha1": identity, "team_identifier": team,
+              "signing_mode": "developer_id" if developer_id else "development",
+              "secure_timestamp_required": developer_id, "developer_id_verified": False,
+              "one_password_desktop_link_verified": False,
               "build": manifest, "created_utc": datetime.now(timezone.utc).isoformat()}
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    app = output / (APP_NAME + ".app")
+    app = output / (app_name + ".app")
     chromium.run("cp", "-cpR", str(build / "Chromium.app"), str(app))
     blocker_library = app / "Contents/Frameworks/Chromium Framework.framework/Libraries/libwinmux_blocking.dylib"
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", APP_ID + ".blocking",
-                 "--timestamp=none", str(blocker_library))
-    verify_identity(blocker_library, APP_ID + ".blocking", team)
+                 timestamp, str(blocker_library))
+    verify_identity(blocker_library, APP_ID + ".blocking", team, developer_id)
     notices = app / "Contents/Resources/WinMuxBlocking"
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
@@ -162,13 +238,14 @@ def package(args, identity, team, source):
         "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
         "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
         "WinMuxValidationService": validation_service,
+        "WinMuxWorkspaceViewsTrial": views_trial, "WinMuxWorkspaceViews": True,
     }))
     for resource in (native_build / "release").glob("*.bundle"):
         destination = helper_app / "Contents/Resources" / resource.name
         shutil.copytree(resource, destination)
         chromium.run("codesign", "--force", "--sign", identity,
                      "--identifier", HELPER_ID + ".resources." + resource.stem,
-                     "--timestamp=none", str(destination))
+                     timestamp, str(destination))
     agents = app / "Contents/Library/LaunchAgents"
     agents.mkdir(parents=True, exist_ok=True)
     agent = plistlib.loads((native / (HELPER_ID + ".plist")).read_bytes())
@@ -190,8 +267,8 @@ def package(args, identity, team, source):
         "MachServices": {validation_service: True}, "ProcessType": "Interactive", "RunAtLoad": True,
     }))
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
-                 "--options", "runtime", "--timestamp=none", str(helper_app))
-    verify_identity(helper, HELPER_ID, team)
+                 "--options", "runtime", timestamp, str(helper_app))
+    verify_identity(helper, HELPER_ID, team, developer_id)
     for part in parts.get_parts(config).values():
         part_path = output / part.path
         info = part_path / ("Contents/Info.plist" if part_path.suffix == ".app" else "Resources/Info.plist")
@@ -200,7 +277,9 @@ def package(args, identity, team, source):
         data = plistlib.loads(info.read_bytes())
         data["CFBundleIdentifier"] = part.identifier
         if part.identifier == APP_ID:
-            data.update(CFBundleDisplayName=APP_NAME, CFBundleName=APP_NAME, CrProductDirName=APP_NAME)
+            data.update(CFBundleDisplayName=app_name, CFBundleName=app_name,
+                        CrProductDirName=app_name + " Launcher" if views_trial else app_name,
+                        WinMuxWorkspaceViewsTrial=views_trial, WinMuxWorkspaceViews=True)
             for scheme in data.get("CFBundleURLTypes", []):
                 name = scheme.get("CFBundleURLName", "")
                 if name.startswith("org.chromium.Chromium"):
@@ -208,21 +287,30 @@ def package(args, identity, team, source):
         info.write_bytes(plistlib.dumps(data))
         if part.entitlements:
             shutil.copy2(packaging / part.entitlements, output / part.entitlements)
+    icon_source = ROOT / "resources/Assets.xcassets/AppIcon.appiconset/icon.png"
+    with tempfile.TemporaryDirectory(prefix="winmux-app-icon-") as icon_directory:
+        icon = create_application_icon(icon_source, Path(icon_directory))
+        brand_application(app, app_name, icon)
     paths = model.Paths(input=str(build), output=str(output), work=str(output))
     asyncio.run(parts.sign_chrome(paths, config, sign_framework=True))
-    verify_identity(app, APP_ID, team)
-    verify_identity(helper, HELPER_ID, team)
-    report.update(verified=True, app=str(app), helper_sha256=sha256(helper), helper_relative_path=helper_relative,
+    verify_identity(app, APP_ID, team, developer_id)
+    verify_identity(helper, HELPER_ID, team, developer_id)
+    report.update(verified=True, developer_id_verified=developer_id, app=str(app), helper_sha256=sha256(helper), helper_relative_path=helper_relative,
                   browser_executable_sha256=sha256(app / "Contents/MacOS/Chromium"),
                   native_sources_sha256={str(p.relative_to(ROOT)): sha256(p)
                     for p in sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
                                     | set((ROOT / "Sources/Common").rglob("*.swift")))},
                   native_package_sha256=sha256(ROOT / "Package.swift"),
                   default_config_sha256=sha256(ROOT / "resources/default-config.toml"),
-                  package_tool_sha256=sha256(Path(__file__)))
+                  package_tool_sha256=sha256(Path(__file__)),
+                  app_icon_source_sha256=sha256(icon_source),
+                  app_icon_sha256=sha256(app / "Contents/Resources/app.icns"))
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"app": str(app), "verified": True, "notarized": False}, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        sys.exit(str(error))
