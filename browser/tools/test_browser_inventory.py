@@ -275,7 +275,7 @@ def main():
                         raise RuntimeError("Recovered inventory did not remain stable")
                 time.sleep(.1)
             if result["passed"] and not args.private:
-                consent = json.loads((output / "profile/winmux-services.json").read_text())
+                consent = json.loads((profile_root / "winmux-services.json").read_text())
                 result["privacy_consent_persisted"] = consent == {
                     "version": 1, "security_updates": False,
                     "extension_updates": False, "filter_updates": False,
