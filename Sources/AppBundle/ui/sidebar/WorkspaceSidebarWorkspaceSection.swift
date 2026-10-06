@@ -576,7 +576,12 @@ extension WorkspaceSidebarWorkspaceSection {
                 }, onEnded: { value in
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragEnded(.surface(id), value) }
                 }))
+            .modifier(WorkspaceSidebarHoverClose(surface: workspace.isSingleWindowView && !isCompact ? workspace.viewSurfaces.first?.surfaceID : nil,
+                title: workspace.displayName, actions: actions))
             .contextMenu {
+                if !workspace.isSingleWindowView, !workspace.projectId.isIncognito {
+                    Button("Pin Group") { actions.send(.pinWorkspaceView(workspace.name)) }
+                }
                 if workspace.isSingleWindowView, let surface = workspace.viewSurfaces.first {
                     SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
                     Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
@@ -760,6 +765,7 @@ extension WorkspaceSidebarWorkspaceSection {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
         .help(window.title ?? window.appName)
+        .modifier(WorkspaceSidebarHoverClose(surface: window.surfaceID, title: window.title ?? window.appName, actions: actions))
         .contextMenu {
             if layout.showsBrowserControls {
                 Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }

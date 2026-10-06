@@ -53,11 +53,10 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
         else { throw SurfaceSnapshotError.invalidTree }
         let pinnedSurfaces = browserPins.compactMap(\.surfaceID) + appPins.compactMap(\.surfaceID)
         let pinIDs = browserPins.map(\.id) + appPins.map(\.id)
-        guard pinIDs.count <= 10000, Set(pinIDs).count == pinIDs.count, browserPins.allSatisfy(\.isValid),
+        let viewIDs = pinnedGroups.flatMap { $0.views.map(\.id) }
+        guard Set(viewIDs).count == viewIDs.count, Set(viewIDs).isDisjoint(with: pinIDs),
+              pinIDs.count <= 10000, Set(pinIDs).count == pinIDs.count, browserPins.allSatisfy(\.isValid),
               appPins.allSatisfy(\.isValid), pinnedGroups.allSatisfy(\.isValid),
-              Dictionary(grouping: appPins, by: \.workspaceName).values.allSatisfy({ pins in
-                  Set(pins.map(\.bundleIdentifier)).count == pins.count
-              }),
               Set(pinnedGroups.map(\.spaceID)).count == pinnedGroups.count,
               Set(pinnedGroups.map(\.workspaceName)).count == pinnedGroups.count,
               appPins.allSatisfy({ pin in pinnedGroups.contains { $0.workspaceName == pin.workspaceName } }),

@@ -69,6 +69,10 @@ func handleWorkspaceSidebarAction(
             focusWindowFromSidebar(windowId)
         case .newBrowserTab(let workspaceName):
             runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.openBrowserTab(workspaceName: workspaceName) }
+        case .pinSurfaceGroup(let id):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.pinSurfaceGroup(id) }
+        case .pinWorkspaceView(let name):
+            runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.pinWorkspaceView(name) }
         case .pinSurface(let id):
             runWorkspaceSidebarSession { _ = BrowserWorkspaceController.shared.pinSurface(id) }
         case .selectPin(let id):

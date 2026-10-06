@@ -106,6 +106,8 @@ func requestWorkspaceViewCombination(_ subject: WorkspaceSidebarSurfaceDragSubje
             runWorkspaceSidebarSession {
                 if case .group(let group) = subject {
                     _ = controller.combineGroupViews(group, with: selected, layout: layout, before: before)
+                } else if case .pin(let pin) = subject, controller.savedPinnedView(pin) != nil {
+                    _ = controller.combineGroupViews(pin, with: selected, layout: layout, before: before)
                 } else { _ = controller.combineViews(source, with: selected, layout: layout, before: before) }
             }
         }

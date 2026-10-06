@@ -32,11 +32,20 @@ The developer fixture launcher below is only needed for scoped integration work.
 - **Separate into Own View** removes one member from an arrangement. It is
   disabled for a window that is already standalone.
 - Pinned belongs to each Space. Each live pin displays independently by default;
-  pins can be explicitly combined with other live pins. The left edge of a pin
+  pins can be explicitly combined with other live pins. **Pin Group** on an
+  arrangement preserves its split/stack, nested groups, proportions and active tab
+  as one pin. Dragging a group into Pinned does the same. The left edge of a pin
   reorders it; dropping in its center offers the combination menu.
 - New ordinary tabs opened while Pinned is active use a regular standalone view.
   Unpin also creates a standalone view. A pinned app or URL can still reopen from
-  its pin. Reopening a closed member does not reconstruct its former combination.
+  its pin. Pinned groups retain their arrangement when a member closes and restore
+  it when that member reopens. Their context menu selects individual members,
+  closes the group, or unpins it as a complete arrangement. Reopen all members
+  before transferring a pinned group to another Space/profile.
+- Hover over a tab or app row to reveal **Close** at its right edge. **New Tab**
+  and **New View** sit together after the view list; narrow sidebars use icons.
+- Browser traffic lights remain in an AppKit title bar, using the installed macOS
+  appearance, spacing and hover treatment. Actions still target the browser page.
 - Floating windows, dialogs, and popups retain their existing behavior. Explicit
   native window rules and restored layouts take precedence over automatic arrival
   placement. Minimized and unavailable owners keep their reserved views.

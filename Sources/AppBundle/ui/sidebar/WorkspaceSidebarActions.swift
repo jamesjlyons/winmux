@@ -839,8 +839,8 @@ func moveSidebarSurface(_ id: SurfaceID, to workspace: Workspace, controller: Br
 func moveSurfaceGroupFromSidebar(_ id: UUID, toWorkspace name: String) {
     runWorkspaceSidebarSession {
         if let workspace = Workspace.existing(byName: name), workspace.isPinnedGroup,
-           BrowserWorkspaceController.shared.canMoveGroup(id), let group = BrowserWorkspaceController.shared.surfaceTree.group(id) {
-            for surface in group.surfaces { _ = BrowserWorkspaceController.shared.pinSurface(surface, in: workspace.projectId) }
+           BrowserWorkspaceController.shared.canMoveGroup(id) {
+            _ = BrowserWorkspaceController.shared.pinSurfaceGroup(id, in: workspace.projectId)
             return
         }
         guard let workspace = Workspace.existing(byName: name), !workspace.isArchived,

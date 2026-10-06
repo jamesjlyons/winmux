@@ -14,6 +14,7 @@ struct WorkspaceSidebarNewTabButton: View {
                 if !isCompact {
                     Text(isPrivate ? "New Private Tab" : "New Tab")
                         .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1).minimumScaleFactor(0.85)
                     Spacer(minLength: 0)
                 }
             }
@@ -29,6 +30,6 @@ struct WorkspaceSidebarNewTabButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .accessibilityLabel(isPrivate ? "New Private Tab" : "New Tab")
-        .help(isPrivate ? "Open a private tab in this temporary Space" : "Open a browser tab in this group")
+        .help(isPrivate ? "Open a private tab in this temporary Space" : "Open a browser tab in this Space")
     }
 }

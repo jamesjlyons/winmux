@@ -1,9 +1,23 @@
-# WinMux Views Trial: Incognito Spaces — October 5, 2026
+# WinMux Views Trial: Pinned Groups and Native Controls — October 5, 2026
 
 This trial uses the new tab-style model: each ordinary app window or browser tab
 starts in its own view and fills the usable desktop. Splits and stacks appear
 when you explicitly combine views. Each Space has its own Pinned area. Website
 favicons follow the current page, including the selected member of a stack.
+
+A single pin fills the desktop. **Pin Group** keeps an existing split or stack
+as one pin, including nested groups, proportions and the active tab. Closed
+members retain their saved arrangement and rejoin it when reopened. Unpinning a
+group keeps the open arrangement together. Reopen all members before combining
+or moving a pinned group to another Space. Multiple windows from the same app
+can remain separate members of a pinned group.
+
+Hover over tab/app rows for their right-side **Close** button. **New Tab** sits
+beside **New View** after the list, with icon controls at narrow widths. Browser
+traffic lights now remain inside a native AppKit title bar, allowing the system
+to supply its current appearance and hover treatment; they still act on the
+browser page. The trial uses the WinMux app icon and localized application name.
+Automatic Chromium profile selection is suppressed on startup and Dock reopen.
 
 Private windows create a temporary **Incognito** Space for their off-the-record
 browser session. Private pages have purple window chrome and an eye-slash icon;
@@ -111,8 +125,12 @@ workspace manager.
   private icon, purple chrome, and **New Private Tab** button. Close all private
   tabs and confirm the Space disappears. Reopen the trial and confirm none of
   those private pages or groups returns.
-- Pin a page and an app. Select them independently, combine pins, close and
-  reopen a pin, and open a new tab while Pinned is active.
+- Pin a page and an app. Select each and check it fills the desktop. Use **Pin
+  Group** on a split or stack and check it becomes one pin with the same layout.
+  Close and reopen one member, then unpin the group and check it stays together.
+- Hover over tab/app rows and use the right-side Close button. Check **New Tab**
+  and **New View** together after the list. Verify the native traffic lights,
+  address entry and window actions in narrow splits on the destination Mac.
 - Navigate to another website and check the sidebar favicon. Check both the
   expanded sidebar and its narrow icon rail.
 - Create Work and Personal profiles in two Spaces. Open the same site in both

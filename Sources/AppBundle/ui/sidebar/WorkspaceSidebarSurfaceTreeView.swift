@@ -96,6 +96,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             Divider()
             Button(surface.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface.surfaceID)) }
         }
+        .modifier(WorkspaceSidebarHoverClose(surface: surface.surfaceID, title: surface.title, actions: actions))
         .onHover { isHovered = $0 }
     }
 
@@ -133,6 +134,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.group(id), $0) }
         ))
         .contextMenu {
+            if Workspace.existing(byName: workspaceName)?.isIncognito != true {
+                Button("Pin Group") { actions.send(.pinSurfaceGroup(id)) }
+            }
             SurfaceMoveMenu(subject: .group(id), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)
             Divider()

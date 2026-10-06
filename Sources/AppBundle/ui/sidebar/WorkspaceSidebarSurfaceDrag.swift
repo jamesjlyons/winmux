@@ -189,8 +189,7 @@ private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfac
             case .pin(let id): _ = controller.movePin(id, to: workspace.projectId)
             case .surface(let id): _ = controller.pinSurface(id, in: workspace.projectId)
             case .group(let id):
-                guard let group = controller.surfaceTree.group(id), controller.canMoveGroup(id) else { return }
-                for surface in group.surfaces { _ = controller.pinSurface(surface, in: workspace.projectId) }
+                _ = controller.pinSurfaceGroup(id, in: workspace.projectId)
             }
         }
         return

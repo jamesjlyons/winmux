@@ -25,7 +25,7 @@ extension BrowserWorkspaceController {
     @discardableResult
     func combineViews(_ source: SurfaceID, with target: SurfaceID, layout: SurfaceContainerLayout,
                       before: Bool = false) -> Bool {
-        guard source != target, let sourceName = workspaceName(for: source),
+        guard source != target, canCombinePinnedView(containing: source), canCombinePinnedView(containing: target), let sourceName = workspaceName(for: source),
               let sourceWorkspace = Workspace.existing(byName: sourceName),
               let targetName = workspaceName(for: target), let destination = Workspace.existing(byName: targetName),
               sourceWorkspace.projectId == destination.projectId,
@@ -46,6 +46,7 @@ extension BrowserWorkspaceController {
         if source.isPinnedGroup {
             // The pin remains pinned; only its explicit combination is removed.
             let changed = editOrganization(of: id) { $0.moveToRoot(id, in: name) }
+            if changed, let pin = pinID(for: id) { detachPinFromSavedGroup(pin) }
             if changed { _ = select(id) }
             return changed
         }
@@ -66,6 +67,7 @@ extension BrowserWorkspaceController {
     @discardableResult
     func combineGroupViews(_ id: UUID, with target: SurfaceID, layout: SurfaceContainerLayout, before: Bool) -> Bool {
         guard let group = surfaceTree.group(id), !group.surfaces.contains(target),
+              group.surfaces.allSatisfy({ canCombinePinnedView(containing: $0) }), canCombinePinnedView(containing: target),
               let name = workspaceName(forGroup: id), let source = Workspace.existing(byName: name),
               let targetName = workspaceName(for: target), let destination = Workspace.existing(byName: targetName),
               source.projectId == destination.projectId, source.isPinnedGroup == destination.isPinnedGroup,

@@ -776,7 +776,7 @@ public final class BrowserWorkspaceController {
         scheduleRefresh()
     }
 
-    func ungroup(_ id: UUID) { _ = surfaceTree.ungroup(id); scheduleRefresh() }
+    func ungroup(_ id: UUID) { if surfaceTree.ungroup(id) { removePinnedView(id) }; scheduleRefresh() }
 
     /// Structural commands must never edit the old native tree behind a browser
     /// selection. Validate the owners and candidate snapshot before committing.
@@ -929,6 +929,8 @@ public final class BrowserWorkspaceController {
 
     @discardableResult
     func adoptPinnedSurface(_ id: SurfaceID, into workspace: String) -> Bool {
+        // Selecting or restoring an existing pin must not flatten its group.
+        if workspaceName(for: id) == workspace, surfaceTree.workspace(of: id) == workspace { return true }
         if case .browserTab = id {
             if let old = placements[id] { mixedLayoutWorkspaces.insert(old) }
             mixedLayoutWorkspaces.insert(workspace)

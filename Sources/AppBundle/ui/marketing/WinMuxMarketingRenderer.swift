@@ -43,6 +43,13 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
             pins.pins = [WorkspaceSidebarPinViewModel(id: UUID(), workspaceName: pins.name, title: "Mail",
                 bundleIdentifier: "com.apple.mail", bundlePath: nil, iconPNGBase64: nil, surfaceID: nil,
                 isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: false)]
+            let members = [WorkspaceSidebarPinViewModel(id: UUID(), workspaceName: pins.name, title: "Docs",
+                bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: favicon, surfaceID: nil,
+                isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: true), pins.pins[0]]
+            pins.pins.append(.init(id: UUID(), workspaceName: pins.name, title: "Research",
+                bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: nil, surfaceID: nil,
+                isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: false, groupMembers: members))
+            snapshot.configuration.showsBrowserControls = true
             snapshot.workspaces = [pins,
                 workspace("proof-notes", title: "Project notes", items: [items[0]], focused: false),
                 workspace("proof-web", title: "Website reference", items: [website], focused: false),

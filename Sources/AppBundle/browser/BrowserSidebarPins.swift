@@ -63,6 +63,7 @@ extension BrowserWorkspaceController {
                 self.placeCreatedBrowserTab(surfaceID, in: destination, focusAddress: false, selectCreated: false, focusGeneration: self.focusCoordinator.generation)
                 if self.focusCoordinator.target == surfaceID { _ = self.select(surfaceID) }
             }
+            self.restorePinnedViewLayout(containing: id)
             // A reply can precede the inventory delta. Keep the operation pending
             // until its exact created ID is available, preventing duplicate opens.
             if self.isAvailable(surfaceID) { self.pendingSidebarPinOpenings.remove(id) }
@@ -106,12 +107,14 @@ extension BrowserWorkspaceController {
             }
         }
         for id in removed {
+            detachPinFromSavedGroup(id)
             removePinOrder(id)
             browserSidebarPins.removeAll { $0.id == id }
             nativeAppSidebarPins.removeAll { $0.id == id }
             pendingSidebarPinOpenings.remove(id)
             pendingNativePinLaunches.removeValue(forKey: id)
         }
+        syncPinnedViewGroups()
     }
 
     func browserPinDidClose(_ surfaceID: SurfaceID) {

@@ -15,10 +15,15 @@ final class BrowserToolbarPanel: NSPanelHud {
 
     init(surfaceID: SurfaceID) {
         pageChromePanel = BrowserPageChromePanel(surfaceID: surfaceID)
-        super.init()
+        super.init(styleMask: [.nonactivatingPanel, .titled, .closable, .miniaturizable, .resizable, .fullSizeContentView])
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        titlebarSeparatorStyle = .none
+        tabbingMode = .disallowed
+        collectionBehavior.insert(.fullScreenDisallowsTiling)
         identifier = .init("winmux-browser-toolbar-" + surfaceID.description)
         title = "Web page controls"
-        // Borderless nonactivating panels need explicit window semantics so
+        // Nonactivating page headers need explicit window semantics so
         // VoiceOver and AX clients can discover their interactive controls.
         setAccessibilityElement(true)
         setAccessibilityRole(.window)
@@ -34,7 +39,9 @@ final class BrowserToolbarPanel: NSPanelHud {
         animationBehavior = .none
         applyWinMuxLayer(.windowChrome)
         contentView = toolbarView
-        setAccessibilityChildren([toolbarView])
+        toolbarView.installWindowButtons(from: self)
+        // Include the title-bar-owned controls in the explicit AX window tree.
+        setAccessibilityChildren(toolbarView.windowButtons + [toolbarView])
         toolbarView.setAccessibilityParent(self)
         toolbarView.autoresizingMask = [.width, .height]
         toolbarView.onAction = { [weak self] action in
@@ -58,6 +65,11 @@ final class BrowserToolbarPanel: NSPanelHud {
             self.onAction?(.focusPage)
         }
     }
+
+    override func performClose(_ sender: Any?) { onAction?(.close) }
+    override func miniaturize(_ sender: Any?) { onAction?(.minimize) }
+    override func zoom(_ sender: Any?) { onAction?(.zoom) }
+    override func toggleFullScreen(_ sender: Any?) { onAction?(.fullscreen) }
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }

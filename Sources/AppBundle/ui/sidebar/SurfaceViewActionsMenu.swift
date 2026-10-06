@@ -7,6 +7,7 @@ struct SurfaceViewActionsMenu: View {
 
     private var targets: [WorkspaceSidebarSurfaceItem] {
         let controller = BrowserWorkspaceController.shared
+        guard controller.canCombinePinnedView(containing: surface) else { return [] }
         guard let name = controller.workspaceName(for: surface), let source = Workspace.existing(byName: name) else { return [] }
         let workspaces = TrayMenuModel.shared.workspaceSidebarWorkspaces.filter {
             $0.projectId == source.projectId && $0.isPinnedGroup == source.isPinnedGroup
@@ -16,7 +17,7 @@ struct SurfaceViewActionsMenu: View {
                 pin.surfaceID.map { .init(surfaceID: $0, title: pin.title, appName: pin.title,
                     isFocused: pin.isFocused, appBundleId: pin.bundleIdentifier, appBundlePath: pin.bundlePath) }
             }
-        }.filter { $0.surfaceID != surface && controller.canMoveSurface($0.surfaceID) }
+        }.filter { $0.surfaceID != surface && controller.canMoveSurface($0.surfaceID) && controller.canCombinePinnedView(containing: $0.surfaceID) }
     }
 
     var body: some View {
