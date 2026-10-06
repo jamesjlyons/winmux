@@ -13,6 +13,11 @@
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/uuid.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #import "chrome/browser/winmux/WMBridgeProtocol.h"
@@ -62,6 +67,7 @@ NSString* OwnTeam() {
 @property(nonatomic) BOOL disconnectOnceForTesting;
 @property(nonatomic) BOOL traceLayouts;
 @property(nonatomic) BOOL dropLayoutReplyOnceForTesting;
+@property(nonatomic) BOOL startupProfilePickerSuppressed;
 @property(nonatomic, copy) NSString* serviceName;
 @property(nonatomic, copy) NSString* epoch;
 @property(nonatomic) NSInteger protocolVersion;
@@ -85,6 +91,7 @@ NSString* OwnTeam() {
 @synthesize disconnectOnceForTesting = _disconnectOnceForTesting;
 @synthesize traceLayouts = _traceLayouts;
 @synthesize dropLayoutReplyOnceForTesting = _dropLayoutReplyOnceForTesting;
+@synthesize startupProfilePickerSuppressed = _startupProfilePickerSuppressed;
 @synthesize serviceName = _serviceName;
 @synthesize epoch = _epoch;
 @synthesize protocolVersion = _protocolVersion;
@@ -148,6 +155,7 @@ NSString* OwnTeam() {
     @"authenticated_connections": @(_state.authenticated_connections()),
     @"protocol_version": @(self.protocolVersion),
     @"inventory_enabled": @(self.protocolVersion >= 2),
+    @"startup_profile_picker_suppressed": @(self.startupProfilePickerSuppressed),
   };
   NSError* error = nil;
   NSData* data = [NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted error:&error];
@@ -484,6 +492,7 @@ void PrepareWorkspaceLaunch() {
       !command->HasSwitch("winmux-register-helper") &&
       !command->HasSwitch("winmux-test-service");
   if (setup_launch) {
+    command->AppendSwitchASCII("profile-directory", "Default");
     command->AppendSwitch("no-startup-window");
     command->AppendSwitch("no-first-run");
     command->AppendSwitch("no-default-browser-check");
@@ -495,7 +504,15 @@ void StartWorkspaceBridge() {
     return;
   if (bridge)
     return;
+  // macOS Dock/reopen callbacks consult GetStartupMode directly and ignore
+  // --profile-directory. Space profiles replace this automatic chooser for
+  // the trial, including existing multi-profile installations. Explicit
+  // profile management and policy/locked-profile handling remain Chromium's.
+  if ([[NSBundle.mainBundle objectForInfoDictionaryKey:@"WinMuxWorkspaceViewsTrial"] boolValue]) {
+    g_browser_process->local_state()->SetBoolean(prefs::kBrowserShowProfilePickerOnStartup, false);
+  }
   bridge = [[WMChromiumWorkspaceBridge alloc] init];
+  bridge.startupProfilePickerSuppressed = ProfilePicker::GetStartupMode() != StartupProfileMode::kProfilePicker;
   if (setup_launch) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [bridge installWorkspaceMenu];

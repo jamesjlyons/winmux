@@ -105,6 +105,7 @@ def main():
                 "--user-data-dir=" + str(profile_root) not in record.get("command", []) or
                 not profile_root.is_dir() or profile_root.is_symlink()):
             parser.error("Resume requires a successful stopped synthetic profile fixture")
+    resumed_shared_id = json.loads((profile_root / "Default/Preferences").read_text())["winmux"]["profile_uuid"] if profile_root else None
     app = args.app.resolve(strict=True)
     executable = app / "Contents/MacOS/Chromium"
     manifest_path = app.parent / "winmux-package-manifest.json"
@@ -309,8 +310,16 @@ def main():
             if result["passed"] and not args.private:
                 try:
                     result["profile_isolation"] = verify_profile_storage(profile_root, server.observations, bool(args.resume_profiles_from))
+                    if resumed_shared_id:
+                        assert json.loads((profile_root / "Default/Preferences").read_text())["winmux"]["profile_uuid"] == resumed_shared_id, "Shared profile identity changed during restart"
                 except (AssertionError, OSError, KeyError, sqlite3.Error) as error:
                     result.update(passed=False, error="Profile storage verification failed: " + str(error))
+            if result["passed"] and args.workspace_startup:
+                state = json.loads((profile_root / "Local State").read_text())
+                result["dock_profile_picker_suppressed"] = (
+                    state["profile"].get("show_picker_on_startup") is False and
+                    result["bridge"].get("startup_profile_picker_suppressed") is True)
+                result["passed"] = result["dock_profile_picker_suppressed"]
             (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps({key: result.get(key) for key in ("passed", "helper", "existing_helper_unchanged", "test_service_removed", "error")}))
     return 0 if result["passed"] else 1

@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
 from types import SimpleNamespace
 
@@ -39,6 +40,43 @@ def signing_requirement(identifier, team):
 def verify_identity(path, identifier, team):
     chromium.run("codesign", "--verify", "--strict", "-R",
                  "=" + signing_requirement(identifier, team), str(path))
+
+
+def brand_application(app, name, icon):
+    """Use one app identity in Finder, the Dock and localized macOS prompts."""
+    resources = app / "Contents/Resources"
+    info = app / "Contents/Info.plist"
+    data = plistlib.loads(info.read_bytes())
+    data.update(CFBundleDisplayName=name, CFBundleName=name, CFBundleIconFile="app.icns")
+    info.write_bytes(plistlib.dumps(data))
+    shutil.copy2(icon, resources / "app.icns")
+    for localized in resources.glob("*.lproj/InfoPlist.strings"):
+        try:
+            strings = plistlib.loads(localized.read_bytes())
+        except plistlib.InvalidFileException:
+            # Chromium ships OpenStep .strings files, not just binary/XML
+            # plists. Let macOS parse their escaping and localized text.
+            strings = plistlib.loads(subprocess.check_output(
+                ["plutil", "-convert", "binary1", "-o", "-", str(localized)]))
+        strings.update(CFBundleDisplayName=name, CFBundleName=name)
+        # Preserve upstream copyright/attribution and unrelated translations.
+        for key, value in strings.items():
+            if key.startswith("NS") and key.endswith("UsageDescription") and isinstance(value, str):
+                strings[key] = value.replace("Chromium", name)
+        localized.write_bytes(plistlib.dumps(strings, fmt=plistlib.FMT_BINARY))
+
+
+def create_application_icon(source, directory):
+    iconset = directory / "WinMux.iconset"
+    iconset.mkdir()
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            pixels = str(size * scale)
+            output = iconset / f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png"
+            chromium.run("sips", "-z", pixels, pixels, str(source), "--out", str(output))
+    icon = directory / "WinMux.icns"
+    chromium.run("iconutil", "--convert", "icns", "--output", str(icon), str(iconset))
+    return icon
 
 
 def validate_manifest(manifest, source):
@@ -214,6 +252,10 @@ def package(args, identity, team, source):
         info.write_bytes(plistlib.dumps(data))
         if part.entitlements:
             shutil.copy2(packaging / part.entitlements, output / part.entitlements)
+    icon_source = ROOT / "resources/Assets.xcassets/AppIcon.appiconset/icon.png"
+    with tempfile.TemporaryDirectory(prefix="winmux-app-icon-") as icon_directory:
+        icon = create_application_icon(icon_source, Path(icon_directory))
+        brand_application(app, app_name, icon)
     paths = model.Paths(input=str(build), output=str(output), work=str(output))
     asyncio.run(parts.sign_chrome(paths, config, sign_framework=True))
     verify_identity(app, APP_ID, team)
@@ -225,7 +267,9 @@ def package(args, identity, team, source):
                                     | set((ROOT / "Sources/Common").rglob("*.swift")))},
                   native_package_sha256=sha256(ROOT / "Package.swift"),
                   default_config_sha256=sha256(ROOT / "resources/default-config.toml"),
-                  package_tool_sha256=sha256(Path(__file__)))
+                  package_tool_sha256=sha256(Path(__file__)),
+                  app_icon_source_sha256=sha256(icon_source),
+                  app_icon_sha256=sha256(app / "Contents/Resources/app.icns"))
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"app": str(app), "verified": True, "notarized": False}, indent=2))
 
