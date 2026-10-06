@@ -310,11 +310,26 @@ speed-space = 'Speed fixture'
             request(endpoint, command or ["surface", "focus", surface])
             reply = time.perf_counter_ns()
             deadline = time.monotonic() + 2
+            input_after = start
+            transitional_inputs = []
             while True:
                 key()
                 try:
-                    event = pages.wait("input", start, page=mapping[surface], timeout=.005)
-                    break
+                    event = pages.wait("input", input_after, page=mapping[surface], timeout=.005)
+                    input_after = event["received_ns"] + 1
+                    if event["discarded"]:
+                        raise RuntimeError("Destination reloaded instead of remaining resident")
+                    if event["visible"] and event["focused"]:
+                        break
+                    # A thawed renderer can accept a queued key before its
+                    # visibility notification arrives. Keep the original clock
+                    # running until the expected page is actually input-ready.
+                    transitional_inputs.append(dict(
+                        elapsed_ms=(event["received_ns"]-start)/1e6,
+                        visible=event["visible"], focused=event["focused"],
+                        input_sequence=event["input_sequence"]))
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Destination did not become visible and focused")
                 except TimeoutError:
                     if time.monotonic() >= deadline:
                         result["switch_failure"] = dict(kind=kind, target=surface, inventory=rows())
@@ -325,6 +340,7 @@ speed-space = 'Speed fixture'
                 raise RuntimeError("Destination was not visible, focused, and resident")
             result["samples"].append(dict(kind=kind, surface=surface, lifecycle_before=expected,
                 input_sequence=event["input_sequence"],
+                transitional_input_acknowledgements=transitional_inputs,
                 precondition_wait_ms=settling_wait_ms,
                 viewport={k: event[k] for k in ["width", "height", "pixel_ratio"]},
                 start_ns=start, command_reply_ns=reply, input_received_ns=event["received_ns"],
