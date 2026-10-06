@@ -217,7 +217,8 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     @MainActor private func testAction(_ action: String, surface: SurfaceID, remote: BrowserOwnerProxy,
                                       epoch: String, url: String? = nil, revision: UInt64? = nil,
-                                      operation: String = UUID().uuidString, generation: UInt64 = 0) async -> String {
+                                      operation: String = UUID().uuidString, generation: UInt64 = 0,
+                                      retries: Int = 3) async -> String {
         let currentRevision = revision ?? lock.withLock { inventory.revision }
         let outcome: String = await withCheckedContinuation { continuation in
             remote.value.performBrowserAction(action, surface: surface.description, url: url, epoch: epoch,
@@ -227,15 +228,15 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         }
         // Let the helper consume a just-published page-state update. Explicit
         // revisions (including the stale-revision test) are never retried.
-        // This fixture stops an about:blank reload after it finishes. Do not
-        // spend its one retry on the intermediate loading-start inventory.
-        if outcome == "stale_revision", revision == nil,
-           let newer = await waitForTestInventory({ state in
+        // Layout, loading and privacy counters can each publish a revision.
+        // Only retry an explicit pre-dispatch rejection, with a bounded budget.
+        if outcome == "stale_revision", revision == nil, retries > 0,
+           await waitForTestInventory({ state in
                state.revision > currentRevision &&
                    (action != "stop" || state.tabs[surface]?.isLoading == false)
-           }) {
+           }) != nil {
             return await testAction(action, surface: surface, remote: remote, epoch: epoch,
-                                    url: url, revision: newer.revision, operation: operation, generation: generation)
+                                    url: url, operation: UUID().uuidString, generation: generation, retries: retries - 1)
         }
         return outcome
     }
@@ -677,22 +678,33 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         let personal = UUID(uuidString: "502aa58c-4c74-422e-9b41-e0a2fbbfc002")!
         let base = ProcessInfo.processInfo.environment["WINMUX_TEST_PROFILE_URL"] ?? "about:blank#"
         func create(_ key: String, name: String, suffix: String, operation: String = UUID().uuidString,
-                    revision: UInt64? = nil) async -> (String, SurfaceID?) {
+                    revision: UInt64? = nil, retries: Int = 3) async -> (String, SurfaceID?) {
             let current = revision ?? lock.withLock { inventory.revision }
-            return await withCheckedContinuation { continuation in
+            let result: (String, SurfaceID?) = await withCheckedContinuation { continuation in
                 remote.value.openBrowserTab(inWorkspaceProfile: key, name: name, url: base + suffix, epoch: epoch,
                                             operation: operation, revision: current) { outcome, surface in
                     continuation.resume(returning: (outcome, surface.flatMap(SurfaceID.init(string:))))
                 }
             }
+            if result.0 == "stale_revision", revision == nil, retries > 0,
+               await waitForTestInventory({ $0.revision > current }) != nil {
+                return await create(key, name: name, suffix: suffix, retries: retries - 1)
+            }
+            return result
         }
         noteTest("profiles_invalid_key", (await create("../escape", name: "Invalid", suffix: "invalid")).0)
         for (index, key, name, suffix) in [(0, work.uuidString, "Work", "work"),
                                           (1, personal.uuidString, "Personal", "personal"),
                                           (2, work.uuidString, "Work", "work-return"),
                                           (3, "shared", "Shared", "shared")] {
-            let operation = UUID().uuidString, revision = lock.withLock { inventory.revision }
-            let result = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+            let operation = UUID().uuidString
+            var revision = lock.withLock { inventory.revision }
+            var result = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+            for _ in 0..<3 where result.0 == "stale_revision" {
+                guard let newer = await waitForTestInventory({ $0.revision > revision }) else { break }
+                revision = newer.revision
+                result = await create(key, name: name, suffix: suffix, operation: operation, revision: revision)
+            }
             guard result.0 == "issued", let id = result.1,
                   case .browserTab(let profile, _) = id,
                   let state = await waitForTestInventory({ $0.tabs[id]?.url == base + suffix && $0.tabs[id]?.isLoading == false }) else {

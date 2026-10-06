@@ -273,7 +273,10 @@ public final class BrowserSurfaceSession {
         let request = BrowserActionRequest(epoch: epoch, operation: UUID(), surfaceID: surfaceID, action: action,
                                            revision: inventory.revision, generation: generation, url: url)
         if action == .focus { focusIntent = BrowserFocusIntent(request: request) }
-        sendAction(request, canRetry: action != .close, completion: completion)
+        // A stale revision is rejected before dispatch, including close. Retry
+        // once against newer inventory for this same persistent tab and epoch;
+        // never replay issued closes or ambiguous transport failures.
+        sendAction(request, canRetry: true, completion: completion)
         // Close acknowledgements intentionally do not remove a row. Only the
         // browser's inventory delta can confirm the tab actually went away.
         return .issued

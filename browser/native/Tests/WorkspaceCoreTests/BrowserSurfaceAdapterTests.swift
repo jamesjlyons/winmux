@@ -4,6 +4,52 @@ import XCTest
 
 @MainActor
 final class BrowserSurfaceAdapterTests: XCTestCase {
+    func testCloseRetriesOnlyAnExplicitStaleRejectionForTheSameTab() {
+        var requests: [BrowserActionRequest] = []
+        var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        var outcomes: [BrowserActionReply] = []
+        let session = BrowserSurfaceSession { request, reply in requests.append(request); replies.append(reply) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        session.request(.close, surfaceID: id) { outcomes.append($0) }
+        replies[0](.staleRevision)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests[1].surfaceID, id)
+        XCTAssertEqual(requests[1].epoch, epoch)
+        XCTAssertEqual(requests[1].revision, 2)
+        XCTAssertNotEqual(requests[1].operation, requests[0].operation)
+        replies[1](.staleRevision)
+        XCTAssertTrue(session.reconcile(.init(revision: 3, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(outcomes, [.staleRevision])
+        for outcome: BrowserActionReply in [.issued, .unavailable] {
+            session.request(.close, surfaceID: id)
+            replies.last?(outcome)
+            let count = requests.count
+            XCTAssertTrue(session.reconcile(.init(revision: session.inventory.revision + 1, full: false, tabs: []), epoch: epoch))
+            XCTAssertEqual(requests.count, count)
+        }
+    }
+
+    func testPendingCloseCannotCrossRemovalOrReconnect() {
+        for reconnect in [false, true] {
+            var requests: [BrowserActionRequest] = []
+            var reply: (@MainActor (BrowserActionReply) -> Void)?
+            let session = BrowserSurfaceSession { requests.append($0); reply = $1 }
+            let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+            session.connect(epoch: epoch)
+            XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+            session.request(.close, surfaceID: id)
+            reply?(.staleRevision)
+            if reconnect { session.connect(epoch: UUID()) }
+            XCTAssertTrue(session.reconcile(.init(revision: 2, full: true, tabs: reconnect ? [record(id)] : []), epoch: session.epoch!))
+            XCTAssertEqual(requests.count, 1)
+        }
+    }
+
     func testLateAcknowledgementCannotReplaceNewerFocusIntent() {
         var requests: [BrowserActionRequest] = []
         var replies: [@MainActor (BrowserActionReply) -> Void] = []
@@ -60,7 +106,7 @@ final class BrowserSurfaceAdapterTests: XCTestCase {
         XCTAssertEqual(BrowserTabSurfaceAdapter(surfaceID: .nativeWindow(tab), session: session).requestClose(), .unavailable)
     }
 
-    func testPrivacyControlsRequireProtocolSixAndStayBoundToTheirPage() {
+    func testPrivacyControlsRequireNegotiatedCapabilityAndStayBoundToTheirPage() {
         var requests: [BrowserActionRequest] = []
         let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(.issued) }
         let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
