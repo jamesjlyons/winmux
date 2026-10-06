@@ -1,5 +1,24 @@
 import("//testing/test.gni")
 
+source_set("one_password_native_messaging") {
+  sources = [
+    "one_password_native_messaging.cc",
+    "one_password_native_messaging.h",
+  ]
+  deps = [ "//base" ]
+}
+
+test("one_password_native_messaging_unittests") {
+  sources = [ "one_password_native_messaging_unittest.cc" ]
+  deps = [
+    ":one_password_native_messaging",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+}
+
 source_set("profile_identity_lookup") {
   sources = [
     "profile_identity_lookup.cc",

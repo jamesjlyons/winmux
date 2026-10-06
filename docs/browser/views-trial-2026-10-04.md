@@ -1,4 +1,4 @@
-# WinMux Views Trial: Pinned Groups and Native Controls — October 5, 2026
+# WinMux Views Trial: 1Password Desktop Connection — October 5, 2026
 
 This trial uses the new tab-style model: each ordinary app window or browser tab
 starts in its own view and fills the usable desktop. Splits and stacks appear
@@ -102,6 +102,31 @@ Only one WinMux workspace can manage native windows at a time.
 The trial uses the same signing identity as the existing alpha. Its name and
 profile distinguish the experiment; it is not intended to run beside the other
 workspace manager.
+
+## Connect 1Password
+
+Install the 1Password extension in each browser profile where you want to use
+it. In the **1Password desktop app → Settings → Browser**, enable its browser
+connection and use **Add Browser** to choose
+**/Applications/WinMux Browser Views Trial.app**. Choose the main WinMux app,
+not the Workspace helper or another Chromium installation. In the extension's
+settings, enable **Integrate this extension with the 1Password desktop app**.
+See [1Password's supported additional-browser flow](https://support.1password.com/additional-browsers/).
+
+This build fixes native-host discovery in WinMux's separate data folder. If
+there is no explicit WinMux or system registration, it reads 1Password's installed
+Chrome registration, then its Chromium registration. It does not copy profiles,
+passwords, or browser approval settings, and it does not require Chrome to be
+running. The installed registration supplies the helper path and authorized
+extension IDs. Enterprise native-messaging restrictions and 1Password's browser
+signature verification still apply. If the registration has not been installed,
+open the desktop app and enable its browser connection first.
+
+Automated discovery and extension-origin checks do not establish successful
+desktop unlock or Touch ID. After updating and approving the main WinMux app,
+test unlocking the extension from the desktop app on your Mac. If it still
+fails, record the connection error shown by the extension; see
+[1Password's connection troubleshooting](https://support.1password.com/connect-1password-browser-app/).
 
 ## What to try
 
