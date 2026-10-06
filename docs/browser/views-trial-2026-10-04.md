@@ -105,6 +105,13 @@ workspace manager.
 
 ## Connect 1Password
 
+**The current Apple Development-signed download does not establish desktop
+linking.** It fails a distribution-certificate requirement found in the installed
+1Password 8.12.38 helper, even though its own signature verifies. Approving the
+browser and enabling integration does not resolve this certificate mismatch.
+The next package needs a Developer ID Application identity, followed by a real
+desktop-link test. See [signing investigation and next build](onepassword-desktop-link.md).
+
 Install the 1Password extension in each browser profile where you want to use
 it. In the **1Password desktop app → Settings → Browser**, enable its browser
 connection and use **Add Browser** to choose
