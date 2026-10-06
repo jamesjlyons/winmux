@@ -110,7 +110,7 @@ NSString* OwnTeam() {
           if (error) {
             NSAlert* alert = [[NSAlert alloc] init];
             alert.messageText = @"WinMux setup could not open";
-            alert.informativeText = [@"Keep WinMux Browser Views Trial in Applications and try again. "
+            alert.informativeText = [@"Keep the WinMux app in Applications and try again. "
                 stringByAppendingString:error.localizedDescription];
             [alert runModal];
           } else if (setup_launch) {
