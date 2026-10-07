@@ -130,6 +130,8 @@ func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throw
     guard !trimmedName.isEmpty else {
         throw WorkspaceMutationError.emptyName
     }
+    workspace.retainsEmptyView = true
+    workspace.lifecycle = .durable
     if trimmedName == workspaceDefaultDisplayName(workspaceName) {
         try resetWorkspaceSidebarName(workspaceName: workspaceName)
         return

@@ -24,7 +24,7 @@ extension BrowserWorkspaceController {
             guard let self else { return }
             guard let index = self.browserSidebarPins.firstIndex(where: { $0.id == id }) else {
                 if let group = Workspace.existing(byName: pin.workspaceName) {
-                    let destination = config.workspaceInteractionMode == .views
+                    let destination = config.newItemPlacement == .newView
                         ? self.newStandaloneWorkspace(in: group) : self.regularWorkspaceForNewItem(group)
                     _ = self.adoptPinnedSurface(surfaceID, into: destination.name)
                     if self.focusCoordinator.target == surfaceID { _ = self.select(surfaceID) }

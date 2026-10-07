@@ -58,12 +58,12 @@ func workspaceDefaultDisplayName(_ workspaceName: String, automaticIndices: [Wor
         }
         if let index = displayIndex ?? automaticWorkspaceDisplayIndexFallback(workspaceName)
         {
-            return "Group \(index)"
+            return "View \(index)"
         }
         return workspaceName
     }
     if let index = sidebarDraftWorkspaceIndex(workspaceName) {
-        return "Group \(index)"
+        return "View \(index)"
     }
     return workspaceName
 }

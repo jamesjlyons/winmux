@@ -6,10 +6,10 @@ import XCTest
 @MainActor final class NewItemOrderingTest: XCTestCase {
     override func setUp() async throws {
         setUpWorkspacesForTests()
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
     }
 
-    override func tearDown() async throws { config.workspaceInteractionMode = .tiling }
+    override func tearDown() async throws { config.newItemPlacement = .tile }
 
     private func assertImmediatelyAfter(_ destination: Workspace, _ source: Workspace,
                                         file: StaticString = #filePath, line: UInt = #line) {
@@ -78,7 +78,7 @@ import XCTest
     func testBrowserReplyKeepsOriginalSourceAfterFocusChangesInEitherArrivalOrder() throws {
         for inventoryFirst in [false, true] {
             setUpWorkspacesForTests()
-            config.workspaceInteractionMode = .views
+            config.newItemPlacement = .newView
             let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID()
             controller.usesSurfaceTree = true
             let source = focus.workspace
@@ -142,8 +142,8 @@ import XCTest
     }
 
     func testNativeTabGroupArrivalInsertsAfterFocusedTab() {
-        config.workspaceInteractionMode = .tiling
-        config.autoAddNewWindowsToTabGroup = true
+        config.newItemPlacement = .tile
+        config.newItemPlacement = .stackNative
         let workspace = focus.workspace
         let group = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST)
         let source = TestWindow.new(id: 308, parent: group)
@@ -158,7 +158,7 @@ import XCTest
     }
 
     func testBrowserCreationInTilingModeInsertsAfterSourceBeforeLaterItems() throws {
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
         let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID(), profile = UUID()
         controller.usesSurfaceTree = true
         let workspace = focus.workspace

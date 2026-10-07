@@ -3,8 +3,7 @@ import SwiftUI
 struct ShortcutBehaviorSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
     @State private var doubleSidedWindows = ExperimentalUISettings().doubleSidedWindows
-    @State private var automaticallyTileNewWindows = config.automaticallyTileNewWindows
-    @State private var autoAddNewWindowsToTabGroup = config.autoAddNewWindowsToTabGroup
+    @State private var newItemPlacement = config.newItemPlacement
     @State private var enableShakeToToggleTiling = config.enableShakeToToggleTiling
     @State private var automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps
     @State private var autoReloadConfig = config.autoReloadConfig
@@ -19,8 +18,9 @@ struct ShortcutBehaviorSettingsView: View {
     var body: some View {
         SettingsScrollView {
             SettingsSection("New windows") {
-                SettingsToggle("Tile new windows automatically", isOn: $automaticallyTileNewWindows, help: "Place new windows in the current tiled layout.") { persistRootBool("automatically-tile-new-windows", automaticallyTileNewWindows) }
-                SettingsToggle("Add new windows to the current tab group", isOn: $autoAddNewWindowsToTabGroup, help: "Keep new windows in the selected stack instead of creating a new tile.") { persistRootBool("auto-add-new-windows-to-tab-group", autoAddNewWindowsToTabGroup) }
+                SettingsPicker("New pages and windows", selection: $newItemPlacement, help: newItemPlacement.detail) {
+                    ForEach(NewItemPlacement.allCases, id: \.self) { Text($0.title).tag($0) }
+                } onChange: { persistRootString("new-item-placement", newItemPlacement.rawValue) }
                 SettingsToggle("Unhide macOS-hidden apps", isOn: $automaticallyUnhideMacosHiddenApps, help: "Restore apps macOS has hidden when they receive focus.") { persistRootBool("automatically-unhide-macos-hidden-apps", automaticallyUnhideMacosHiddenApps) }
             }
             SettingsSection("Window pairs") {
@@ -48,9 +48,9 @@ struct ShortcutBehaviorSettingsView: View {
                 SettingsToggle("Reload config when it changes", isOn: $autoReloadConfig, help: "Apply valid edits saved from another editor automatically.") { persistRootBool("auto-reload-config", autoReloadConfig) }
             }
             SettingsSection("Default layout") {
-                SettingsPicker("Root layout", selection: $defaultLayout, help: "Used for new groups.") {
+                SettingsPicker("Root layout", selection: $defaultLayout, help: "Used for new Views.") {
                     Text("Tiles").tag(Layout.tiles)
-                    Text("Tab group").tag(Layout.tabGroup)
+                    Text("Stack").tag(Layout.tabGroup)
                 } onChange: { persistRootString("default-root-container-layout", defaultLayout.rawValue) }
                 SettingsPicker("Root orientation", selection: $defaultOrientation, help: "Controls how new tiled containers split.") {
                     Text("Automatic").tag(DefaultContainerOrientation.auto)
@@ -62,8 +62,8 @@ struct ShortcutBehaviorSettingsView: View {
                     Text("Rectangle").tag("rectangle")
                 } onChange: { persistRootString("shortcuts-preset", shortcutsPreset) }
             }
-            SettingsSection("Groups") {
-                SettingsTextField("Persistent groups", text: $persistentWorkspaces, help: "Comma-separated group names that remain available when empty.") {
+            SettingsSection("Views") {
+                SettingsTextField("Persistent Views", text: $persistentWorkspaces, help: "Comma-separated View names that remain available when empty.") {
                     persistConfig(section: nil, key: "persistent-workspaces", value: tomlStringArray(persistentWorkspaces))
                 }
             }
@@ -110,7 +110,7 @@ struct ShortcutAppearanceSettingsView: View {
     var body: some View {
         SettingsScrollView {
             SettingsSection("Chrome") {
-                SettingsPicker("Style", selection: $chromeStyle, help: "Apply Liquid Glass or an opaque solid color to the sidebar, tab groups, and switcher. Settings keep their own appearance.") {
+                SettingsPicker("Style", selection: $chromeStyle, help: "Apply Liquid Glass or an opaque solid color to the sidebar, stacks, and switcher. Settings keep their own appearance.") {
                     Text("Liquid Glass").tag(ChromeStyle.liquidGlass)
                     Text("Solid color").tag(ChromeStyle.solid)
                 } onChange: { persist("workspace-sidebar", "chrome-style", "'\(chromeStyle.rawValue)'") }
@@ -150,7 +150,7 @@ struct ShortcutAppearanceSettingsView: View {
             SettingsSection("Window tabs") {
                 SettingsToggle("Show tab strips", isOn: $tabEnabled, help: "Display browser-like tabs for stacked windows.") { persist("window-tabs", "enabled", tabEnabled ? "true" : "false") }
                 SettingsStepper("Tab strip height", value: $tabHeight, range: 21...80, help: "Height of the window tab strip.") { persist("window-tabs", "height", "\(tabHeight)") }
-                SettingsStepper("Tab group padding", value: $tabPadding, range: 0...80, help: "Space around tab groups.") { persist(nil, "tab-group-padding", "\(tabPadding)") }
+                SettingsStepper("Stack padding", value: $tabPadding, range: 0...80, help: "Space around stacks.") { persist(nil, "tab-group-padding", "\(tabPadding)") }
             }
             SettingsSection("Tiling gaps") {
                 SettingsStepper("Inner horizontal", value: $innerHorizontalGap, range: 0...80, help: "Space between windows side by side.") { persist("gaps", "inner.horizontal", "\(innerHorizontalGap)") }
@@ -180,13 +180,13 @@ struct ShortcutAutomationSettingsView: View {
     var body: some View {
         SettingsScrollView {
             SettingsSection("Event actions") {
-                SettingsMultilineField("On group change", text: $workspaceCommands, help: "One command per line. Commands run after changing groups.") { saveCommands("exec-on-workspace-change", workspaceCommands) }
+                SettingsMultilineField("On View change", text: $workspaceCommands, help: "One command per line. Commands run after changing Views.") { saveCommands("exec-on-workspace-change", workspaceCommands) }
                 SettingsMultilineField("On focus change", text: $focusCommands, help: "One command per line. Commands run after the focused window changes.") { saveCommands("on-focus-changed", focusCommands) }
                 SettingsMultilineField("On focused monitor change", text: $monitorCommands, help: "One command per line. Commands run after the active display changes.") { saveCommands("on-focused-monitor-changed", monitorCommands) }
                 SettingsMultilineField("On mode change", text: $modeCommands, help: "One command per line. Commands run after a mode changes.") { saveCommands("on-mode-changed", modeCommands) }
             }
             SettingsSection("Advanced rules") {
-                Text("Window-detected rules, execution environment variables, key remapping, custom modes, tap bindings, sequence bindings, and group-to-display assignments are all available below as TOML blocks. This keeps their variable-length rules editable without hiding any option.")
+                Text("Window-detected rules, execution environment variables, key remapping, custom modes, tap bindings, sequence bindings, and View-to-display assignments are all available below as TOML blocks. This keeps their variable-length rules editable without hiding any option.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)

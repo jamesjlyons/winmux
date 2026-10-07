@@ -9,13 +9,71 @@ final class WorkspaceViewRestoreTest: XCTestCase {
 
     override func setUp() async throws {
         setUpWorkspacesForTests()
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
     }
 
     override func tearDown() async throws {
         browser.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         browser.usesSurfaceTree = false
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
+    }
+
+    func testExplicitEmptyViewsSurviveOccupancyClosureAndBothRestartFormatsForEveryArrivalPolicy() throws {
+        for policy in NewItemPlacement.allCases {
+            setUpWorkspacesForTests()
+            config.newItemPlacement = policy
+            let view = createEmptyView(projectId: focus.workspace.projectId, monitor: mainMonitor)
+            let renamed = createBlankWorkspace(projectId: view.projectId, monitor: mainMonitor)
+            try renameWorkspaceForSidebar(workspaceName: renamed.name, displayName: "Research")
+            let windows = [TestWindow.new(id: 407, parent: view.rootTilingContainer),
+                           TestWindow.new(id: 408, parent: renamed.rootTilingContainer)]
+            for window in windows { window.unbindFromParent() }
+            Workspace.reconcileWorkspaceState()
+            XCTAssertTrue(Workspace.existing(byName: view.name) === view)
+            XCTAssertTrue(Workspace.existing(byName: renamed.name) === renamed)
+            XCTAssertTrue(userFacingWorkspaces(Workspace.all).contains(view))
+            XCTAssertTrue(userFacingWorkspaces(Workspace.all).contains(renamed))
+
+            let frozen = try JSONDecoder().decode([FrozenWorkspace].self,
+                from: JSONEncoder().encode([FrozenWorkspace(view), FrozenWorkspace(renamed)]))
+            browser.usesSurfaceTree = true
+            browser.reconcileSharedOrganization()
+            let surfaces = try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self,
+                from: JSONEncoder().encode(try XCTUnwrap(browser.capturePlacementSnapshot())))
+            XCTAssertTrue(surfaces.savedViews.first { $0.workspaceName == view.name }?.retainsWhenEmpty == true)
+            for restoreSurfaces in [true, false] {
+                setUpWorkspacesForTests()
+                config.newItemPlacement = policy
+                if restoreSurfaces {
+                    browser.restorePlacementSnapshot(surfaces)
+                } else {
+                    restoreRestartMetadata(.init(savedAt: .now, bootSession: currentBootSession(),
+                        world: .init(workspaces: frozen, monitors: [], windowIds: []), windows: [], projects: [],
+                        focusedWindowId: nil, focusedWorkspace: nil))
+                }
+                Workspace.reconcileWorkspaceState()
+                for name in [view.name, renamed.name] {
+                    let restored = try XCTUnwrap(Workspace.existing(byName: name))
+                    XCTAssertTrue(restored.retainsEmptyView)
+                    XCTAssertTrue(isUserFacingWorkspace(restored))
+                    XCTAssertFalse(workspaceShouldRemoveEmptyView(restored))
+                }
+            }
+        }
+    }
+
+    func testExplicitEmptyViewIsNotReusedByAnotherArrivalOrNewViewButton() {
+        let source = focus.workspace
+        _ = TestWindow.new(id: 409, parent: source.rootTilingContainer)
+        let empty = createEmptyView(projectId: source.projectId, monitor: mainMonitor)
+        let another = createEmptyView(projectId: source.projectId, monitor: mainMonitor)
+        XCTAssertFalse(another === empty)
+        let arrival = browser.newStandaloneWorkspace(in: source)
+        XCTAssertFalse(arrival === empty)
+        XCTAssertFalse(arrival === another)
+        XCTAssertTrue(browser.newStandaloneWorkspace(in: empty) === empty, "The selected empty View accepts its first arrival")
+        let named = Workspace.get(byName: "Selected named View")
+        XCTAssertTrue(browser.newStandaloneWorkspace(in: named) === named)
     }
 
     func testLegacyNumericWorkspaceUsesWindowTitleAndPreservesCustomLabel() async throws {
@@ -104,13 +162,15 @@ final class WorkspaceViewRestoreTest: XCTestCase {
         XCTAssertNil(Workspace.existing(byName: workspace.name))
     }
 
-    func testAutomaticBlankHasDescriptiveNameAndTilingModeKeepsNumericNames() async throws {
+    func testAutomaticBlankHasDescriptiveNameAndConfiguredNumericNamesRemainExplicit() async throws {
         let workspace = createBlankWorkspace(projectId: focus.workspace.projectId, monitor: mainMonitor)
         _ = workspace.focusWorkspace()
         let models = await sidebarModels()
         XCTAssertEqual(models.first { $0.name == workspace.name }?.displayName, "Empty View")
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
+        config.persistentWorkspaces = ["27"]
         let numeric = Workspace.get(byName: "27")
+        numeric.restoreNamingStyle(.explicit)
         XCTAssertEqual(workspaceDisplayName(numeric.name), "27")
     }
 

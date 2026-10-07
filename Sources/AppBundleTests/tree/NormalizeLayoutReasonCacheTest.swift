@@ -59,10 +59,16 @@ final class NormalizeLayoutReasonCacheTest: XCTestCase {
         window.nativeIsMacosMinimized = true
         try await normalizeLayoutReason()
         XCTAssertTrue(window.parent is MacosMinimizedWindowsContainer)
+        Workspace.reconcileWorkspaceState()
+        XCTAssertTrue(Workspace.existing(byName: workspace.name) === workspace)
+        XCTAssertEqual(workspaceOwnedMinimizedWindows(workspace), [window])
+        let other = Workspace.get(byName: "other-view")
+        _ = TestWindow.new(id: 2, parent: other.rootTilingContainer).focusWindow()
 
         window.nativeIsMacosMinimized = false
         try await normalizeLayoutReason()
         XCTAssertTrue(window.parent is TilingContainer)
+        XCTAssertTrue(window.nodeWorkspace === workspace, "Restoration preserves the minimized window's View after focus changes")
     }
 
     /// An async AX observation races the events that invalidate the caches: a value fetched

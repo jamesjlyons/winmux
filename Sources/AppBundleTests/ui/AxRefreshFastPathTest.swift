@@ -67,7 +67,7 @@ final class AxRefreshFastPathTest: XCTestCase {
     }
 
     @MainActor
-    func testNativeMinimizeRefreshKeepsActiveAdjacentEmptyWorkspaceForReuse() async throws {
+    func testNativeMinimizeRefreshReservesItsViewAgainstReuse() async throws {
         setUpWorkspacesForTests()
         TrayMenuModel.shared.isEnabled = true
         config.automaticallyUnhideMacosHiddenApps = true
@@ -88,15 +88,16 @@ final class AxRefreshFastPathTest: XCTestCase {
         try await runRefreshSessionBlocking(.ax("native-minimize"), layoutWorkspaces: false)
 
         XCTAssertNotNil(Workspace.existing(byName: minimizedWorkspace.name))
-        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "Group 2")
-        XCTAssertTrue(
+        XCTAssertEqual(workspaceDefaultDisplayName(minimizedWorkspace.name), "View 2")
+        XCTAssertFalse(
             getOrCreateAdjacentBlankWorkspace(
                 projectId: minimizedWorkspace.projectId,
                 monitor: minimizedWorkspace.workspaceMonitor,
             ) === minimizedWorkspace
         )
         XCTAssertTrue(minimizedWindow.parent === macosMinimizedWindowsContainer)
-        XCTAssertEqual(minimizedWindow.layoutReason, .macos(prevParentKind: .tilingContainer, prevWorkspaceName: nil))
+        XCTAssertEqual(minimizedWindow.layoutReason, .macos(prevParentKind: .tilingContainer, prevWorkspaceName: minimizedWorkspace.name))
+        XCTAssertEqual(workspaceOwnedMinimizedWindows(minimizedWorkspace), [minimizedWindow])
     }
 
     @MainActor

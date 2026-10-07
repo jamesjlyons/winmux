@@ -56,7 +56,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
     var isSearchSelectedWorkspace: Bool {
         selectedSearchTarget == .workspace(workspace.name) ||
-            (workspace.isViewMode && workspace.isSingleWindowView && workspace.viewSurfaces.first.map {
+            (workspace.isSingleWindowView && workspace.viewSurfaces.first.map {
                 selectedSearchTarget == .surface($0.surfaceID)
             } == true)
     }
@@ -88,19 +88,19 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .contentShape(Rectangle())
             .contextMenu {
                 if BrowserWorkspaceController.shared.usesSurfaceTree {
-                    Button("Pin Group") { actions.send(.pinWorkspace(workspace.name)) }
+                    Button("Pin View") { actions.send(.pinWorkspace(workspace.name)) }
                 }
                 Button {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()
                 } label: {
-                    Text(workspace.isViewMode ? "Rename View" : "Rename Group")
+                    Text("Rename View")
                 }
                 Divider()
                 Button(role: .destructive) {
                     actions.send(.deleteWorkspace(workspace.name))
                 } label: {
-                    Text(workspace.isViewMode ? "Delete View" : "Delete Group")
+                    Text("Delete View")
                 }
             }
             .onHover { hover in
@@ -178,7 +178,7 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
-        if workspace.isViewMode, case .surface(let id) = payload,
+        if case .surface(let id) = payload,
            requestWorkspaceViewCombination(.surface(id), target: .workspace(workspace.name)) { return }
         guard !workspaceSidebarPayload(payload, comesFromWorkspace: workspace.name) else {
             actions.send(.clearDropPreview)
@@ -303,16 +303,16 @@ extension WorkspaceSidebarWorkspaceSection {
         if workspace.isGeneratedName, let initial = workspace.displayName.first {
             return String(initial).uppercased()
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "V"
     }
 
     var generatedWorkspaceBadgeText: String {
-        let prefix = "Group "
+        let prefix = "View "
         if workspace.displayName.hasPrefix(prefix) {
             let suffix = String(workspace.displayName.dropFirst(prefix.count))
             if !suffix.isEmpty { return suffix }
         }
-        return workspace.displayName.first.map { String($0).uppercased() } ?? "G"
+        return workspace.displayName.first.map { String($0).uppercased() } ?? "V"
     }
 
     var workspaceBadgeForeground: Color {
@@ -336,7 +336,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel(workspace.displayName)
         .accessibilityValue(isActiveOnTargetMonitor ? "Selected" : "")
-        .accessibilityHint("Click to switch groups. Drag to rearrange.")
+        .accessibilityHint("Click to switch Views. Drag to rearrange.")
         .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
     }
 
@@ -507,7 +507,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionContent: some View {
         VStack(alignment: .leading, spacing: 1) {
-            if workspace.isViewMode, !workspace.viewSurfaces.isEmpty, !isRenamingWorkspace {
+            if !workspace.viewSurfaces.isEmpty, !isRenamingWorkspace {
                 viewSummary
                 if !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
                     windowRows
@@ -578,7 +578,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     isHovered: isHovered, isKeyboardTarget: isSearchSelectedWorkspace)))
             .contextMenu {
                 if !workspace.isSingleWindowView, !workspace.projectId.isIncognito {
-                    Button("Pin Group") { actions.send(.pinWorkspaceView(workspace.name)) }
+                    Button("Pin View") { actions.send(.pinWorkspaceView(workspace.name)) }
                 }
                 if workspace.isSingleWindowView, let surface = workspace.viewSurfaces.first {
                     SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
@@ -676,8 +676,8 @@ extension WorkspaceSidebarWorkspaceSection {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Window group · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
-        .accessibilityLabel("Tab group of \(group.windowCount) windows")
+        .help("Stack · Active: \(group.title.isEmpty ? "Untitled window" : group.title)")
+        .accessibilityLabel("Stack of \(group.windowCount) windows")
         .contextMenu {
             WindowMoveMenu(
                 windowId: group.representativeWindowId,

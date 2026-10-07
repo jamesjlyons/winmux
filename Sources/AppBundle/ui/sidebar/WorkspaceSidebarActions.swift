@@ -37,7 +37,6 @@ func optimisticallyMarkWorkspaceFocusedInSidebar(_ workspaceName: String) {
             items: w.items,
             isPinnedGroup: w.isPinnedGroup,
             pins: w.pins,
-            isViewMode: w.isViewMode,
         )
     }
     WorkspaceSidebarPanel.syncVisiblePanelModelsFromShared()
@@ -208,7 +207,7 @@ func createWorkspaceFromSidebarButton() {
 func createWorkspaceFromSidebarButton(projectId: WorkspaceProjectId, monitorScopeId: String) {
     runWorkspaceSidebarSession {
         let targetMonitor = workspaceSidebarTargetMonitor(scopeId: monitorScopeId)
-        let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
+        let workspace = createEmptyView(projectId: projectId, monitor: targetMonitor)
         _ = workspace.focusWorkspace()
     }
 }

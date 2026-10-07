@@ -27,7 +27,7 @@ final class TreeNodeTest: XCTestCase {
     func testNewRegularWindowsFloatWhenAutomaticTilingIsDisabled() {
         let workspace = Workspace.get(byName: name)
         let window = TestWindow.new(id: 502, parent: workspace.rootTilingContainer)
-        config.automaticallyTileNewWindows = false
+        config.newItemPlacement = .floatNative
 
         let binding = bindingDataForNewRegularWindow(workspace, window: window)
 
@@ -220,7 +220,7 @@ final class TreeNodeTest: XCTestCase {
         _ = workspace.focusWorkspace()
         let window = TestWindow.new(id: 114, parent: workspace.rootTilingContainer)
 
-        window.rememberMacOsLayoutOrigin(detachFromWorkspace: true)
+        window.rememberMacOsLayoutOrigin()
         window.nativeIsMacosMinimized = true
         window.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: 1, index: INDEX_BIND_LAST)
         Workspace.reconcileWorkspaceState()
@@ -299,22 +299,28 @@ final class TreeNodeTest: XCTestCase {
         XCTAssertNil(config.workspaceSidebar.workspaceLabels["__sidebar_draft_workspace_1"])
     }
 
-    func testReconcileWorkspaceStateClearsCollectedDraftWorkspaceLabel() {
+    func testReconcileWorkspaceStatePreservesNamedDraftViewUntilDeletion() throws {
         config.workspaceSidebar.workspaceLabels["__sidebar_draft_workspace_1"] = "Old Name"
-        _ = Workspace.get(byName: "__sidebar_draft_workspace_1")
+        let workspace = Workspace.get(byName: "__sidebar_draft_workspace_1")
 
         Workspace.reconcileWorkspaceState()
 
+        XCTAssertTrue(isUserFacingWorkspace(workspace))
+        XCTAssertEqual(workspaceDisplayName(workspace.name), "Old Name")
+        try deleteWorkspace(workspace)
         XCTAssertNil(config.workspaceSidebar.workspaceLabels["__sidebar_draft_workspace_1"])
-        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_1"), "Group 1")
+        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_1"), "View 1")
     }
 
-    func testReconcileWorkspaceStateClearsCollectedWorkspaceLabel() {
+    func testReconcileWorkspaceStatePreservesNamedViewUntilDeletion() throws {
         config.workspaceSidebar.workspaceLabels["ghost"] = "Ghost Name"
-        _ = Workspace.get(byName: "ghost")
+        let workspace = Workspace.get(byName: "ghost")
 
         Workspace.reconcileWorkspaceState()
 
+        XCTAssertTrue(isUserFacingWorkspace(workspace))
+        XCTAssertEqual(workspaceDisplayName(workspace.name), "Ghost Name")
+        try deleteWorkspace(workspace)
         XCTAssertNil(config.workspaceSidebar.workspaceLabels["ghost"])
         XCTAssertEqual(workspaceDisplayName("ghost"), "ghost")
     }
@@ -325,7 +331,7 @@ final class TreeNodeTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertNil(config.workspaceSidebar.workspaceLabels["__sidebar_draft_workspace_7"])
-        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_7"), "Group 7")
+        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_7"), "View 7")
     }
 
     func testReconcileWorkspaceStateClearsOrphanedWorkspaceLabel() {
@@ -339,7 +345,7 @@ final class TreeNodeTest: XCTestCase {
     }
 
     func testWorkspaceDisplayNameUsesSidebarDraftFallback() {
-        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_4"), "Group 4")
+        XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_4"), "View 4")
     }
 
     func testShouldShowWorkspaceInSidebarIncludesPersistentEmptyWorkspace() {
@@ -357,7 +363,9 @@ final class TreeNodeTest: XCTestCase {
 
     func testUserFacingWorkspacesExcludeUnretainedFocusedEmptyWorkspace() {
         let focusedWorkspace = Workspace.get(byName: "focused")
+        focusedWorkspace.markAsTransientBlank()
         let hiddenEmptyWorkspace = Workspace.get(byName: "hidden-empty")
+        hiddenEmptyWorkspace.markAsTransientBlank()
         let occupiedWorkspace = Workspace.get(byName: "occupied")
         _ = TestWindow.new(id: 2, parent: occupiedWorkspace.rootTilingContainer)
 
@@ -420,6 +428,7 @@ final class TreeNodeTest: XCTestCase {
 
     func testUserFacingWorkspacesExcludeWorkspaceWithOnlyMacosFullscreenWindows() {
         let focusedWorkspace = Workspace.get(byName: "focused")
+        focusedWorkspace.markAsTransientBlank()
         let fullscreenOnlyWorkspace = Workspace.get(byName: "fullscreen-only")
         _ = TestWindow.new(id: 22, parent: fullscreenOnlyWorkspace.macOsNativeFullscreenWindowsContainer)
         let occupiedWorkspace = Workspace.get(byName: "occupied")
@@ -436,6 +445,7 @@ final class TreeNodeTest: XCTestCase {
 
     func testUserFacingWorkspacesExcludeWorkspaceWithOnlyMacosHiddenWindows() {
         let focusedWorkspace = Workspace.get(byName: "focused")
+        focusedWorkspace.markAsTransientBlank()
         let hiddenOnlyWorkspace = Workspace.get(byName: "hidden-only")
         _ = TestWindow.new(id: 24, parent: hiddenOnlyWorkspace.macOsNativeHiddenAppsWindowsContainer)
         let occupiedWorkspace = Workspace.get(byName: "occupied")

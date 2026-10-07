@@ -213,7 +213,7 @@ final class RestartSessionTest: XCTestCase {
         second.rootTilingContainer.layout = .tabGroup
         let controller = RestartSessionController(isAppStillRunning: { _ in true })
         controller.prepare(RestartSessionSnapshot.capture())
-        config.automaticallyTileNewWindows = false
+        config.newItemPlacement = .floatNative
         XCTAssertTrue(controller.claims(a), "Restoring existing windows must not depend on the new-window tiling preference")
         b.unbindFromParent()
         try await controller.restoreAfterDiscovery()

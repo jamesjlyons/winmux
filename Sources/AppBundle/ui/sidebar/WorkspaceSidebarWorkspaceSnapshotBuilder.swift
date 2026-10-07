@@ -16,8 +16,7 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     let browserProjection = BrowserWorkspaceController.shared.sidebarProjection()
     // Views may retain unresolved placement internally while discovery is still
     // running. Do not turn those reservations into empty, clickable sidebar rows.
-    let visibleWorkspaces = config.workspaceInteractionMode == .views
-        ? userFacingWorkspaces(orderedWorkspaces, focusedWorkspace: currentFocus.workspace) : orderedWorkspaces
+    let visibleWorkspaces = userFacingWorkspaces(orderedWorkspaces, focusedWorkspace: currentFocus.workspace)
     let visibleIDs = Set(visibleWorkspaces.map(\.id))
     var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
     for workspace in orderedWorkspaces where workspace.isPinnedGroup || visibleIDs.contains(workspace.id) {
@@ -55,7 +54,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     let viewName: String
     if !label.isEmpty {
         viewName = label
-    } else if workspace.usesAutomaticDisplayName && config.workspaceInteractionMode == .views {
+    } else if workspace.usesAutomaticDisplayName {
         viewName = titles.isEmpty ? "Empty View"
             : titles.prefix(2).joined(separator: " + ") + (titles.count > 2 ? " + \(titles.count - 2)" : "")
     } else {
@@ -74,7 +73,6 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
         items: items,
         isPinnedGroup: workspace.isPinnedGroup,
         pins: pins,
-        isViewMode: config.workspaceInteractionMode == .views,
     )
 }
 

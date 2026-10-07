@@ -7,9 +7,6 @@ import WorkspaceCore
 @MainActor
 public func renderWinMuxWorkspaceViewsProofImages(in directory: URL, focusSingleView: Bool = false) throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let previousMode = config.workspaceInteractionMode
-    config.workspaceInteractionMode = .views
-    defer { config.workspaceInteractionMode = previousMode }
     let websiteIcon = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
         NSColor.systemTeal.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
@@ -36,7 +33,7 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL, focusSingle
             func workspace(_ name: String, title: String, items: [WorkspaceSidebarItemViewModel], focused: Bool) -> WorkspaceSidebarWorkspaceViewModel {
                 .init(name: name, projectId: snapshot.activeProjectId, displayName: title, sidebarLabel: "", isGeneratedName: true,
                     monitorScopeId: original.monitorScopeId, monitorName: nil, isFocused: focused, isVisible: focused,
-                    items: items, isViewMode: true)
+                    items: items)
             }
             var pins = workspace("proof-pins", title: "Pinned", items: [], focused: false)
             pins.isPinnedGroup = true
@@ -92,7 +89,7 @@ public func renderWinMuxSidebarProofImages(in directory: URL, menuBarOnly: Bool 
                             WorkspaceSidebarWorkspaceViewModel(
                                 name: "proof-\(number)",
                                 projectId: snapshot.activeProjectId,
-                                displayName: "Group \(number)",
+                                displayName: "View \(number)",
                                 sidebarLabel: "",
                                 isGeneratedName: true,
                                 monitorScopeId: snapshot.targetMonitorScopeId,
@@ -146,7 +143,7 @@ public func renderWinMuxSidebarContextProofImages(in directory: URL) throws {
     snapshot.configuration.menuBarStyle = false
     snapshot.selectedMonitorScopeId = workspaceSidebarFocusedScopeId
     snapshot.monitorScopes.append(WorkspaceSidebarMonitorScopeViewModel(
-        id: workspaceSidebarFocusedScopeId, displayName: "Focused Group",
+        id: workspaceSidebarFocusedScopeId, displayName: "Focused View",
         subtitle: nil, systemImageName: "scope", isFocusedMonitor: false
     ))
     let sidebar = WorkspaceSidebarView(snapshot: snapshot)
@@ -526,7 +523,7 @@ private struct WinMuxMarketingCanvas: View {
 
             HStack(spacing: 10) {
                 MarketingFeaturePill(symbol: "sidebar.left", title: "See every space")
-                MarketingFeaturePill(symbol: "rectangle.3.group", title: "Group any window")
+                MarketingFeaturePill(symbol: "rectangle.3.group", title: "View any window")
                 MarketingFeaturePill(symbol: "arrow.up.left.and.arrow.down.right", title: "Drag to arrange")
             }
         }

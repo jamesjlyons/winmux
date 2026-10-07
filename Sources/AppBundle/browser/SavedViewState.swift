@@ -118,6 +118,7 @@ extension BrowserWorkspaceController {
                 workspaceName: workspace.name, title: title)
             view.spaceID = workspace.projectId.rawValue
             view.title = title
+            view.retainsWhenEmpty = workspace.retainsEmptyView
             view.members = ids.map { id in
                 var member = members[id] ?? ViewMember(title: "", surfaceID: id)
                 member.launch = nil; member.iconPNGBase64 = nil

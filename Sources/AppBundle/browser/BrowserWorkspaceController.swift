@@ -101,6 +101,7 @@ public final class BrowserWorkspaceController {
             let workspace = Workspace.get(byName: desktop.workspaceName)
             workspace.assignProject(WorkspaceProjectId(desktop.spaceID))
             workspace.isPinnedGroup = desktop.isPinned; workspace.lifecycle = .durable
+            workspace.retainsEmptyView = workspace.retainsEmptyView || desktop.retainsWhenEmpty
         }
         browserProfiles = snapshot.browserProfiles
         browserProfileBySpace = snapshot.browserProfileBySpace
@@ -265,7 +266,7 @@ public final class BrowserWorkspaceController {
         // the active group just like a delta, while keeping existing placements.
         let workspace = restoredPlacements && isInitialInventory && message.full ? "Recovered" : (previewWindow == nil ? regularWorkspaceForNewItem(regularArrivalWorkspace(focus.workspace)).name : "browser-alpha")
         let arrivalContext = focus.workspace
-        let separateArrivals = config.workspaceInteractionMode == .views && previewWindow == nil &&
+        let separateArrivals = config.newItemPlacement == .newView && previewWindow == nil &&
             !(restoredPlacements && isInitialInventory && message.full)
         for id in session.inventory.tabs.keys.sorted(by: { $0.description < $1.description }) {
             closedBrowserTabs.remove(id)
@@ -855,11 +856,7 @@ public final class BrowserWorkspaceController {
                let source, source !== destination, movedSelection { retainSourceSelection(in: source) }
         } else if let earlier { _ = editOrganization(of: id) { $0.reorder(id, earlier: earlier) } }
         else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
-            if config.workspaceInteractionMode == .views {
-                _ = combineViews(id, with: target, layout: layout)
-                return
-            }
-            _ = editOrganization(of: id) { $0.group(id, with: target, layout: layout) }
+            _ = combineViews(id, with: target, layout: layout)
         }
         scheduleRefresh()
     }
@@ -1188,7 +1185,7 @@ public final class BrowserWorkspaceController {
     }
 
     func rootPresentation(in workspace: Workspace) -> SurfaceRootPresentation {
-        config.workspaceInteractionMode == .views && workspace.isPinnedGroup ? .selectedRoot : .adaptiveTiles
+        workspace.isPinnedGroup ? .selectedRoot : .adaptiveTiles
     }
 
     func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {

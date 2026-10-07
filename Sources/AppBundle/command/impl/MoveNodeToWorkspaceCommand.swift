@@ -81,6 +81,7 @@ func resolveMoveTargetWorkspace(
     let workspace = Workspace.get(byName: workspaceName)
     if !existedBefore {
         workspace.assignProject(sourceWorkspace.projectId)
+        workspace.retainsEmptyView = true
     }
     workspace.seedMonitorIfNeeded(sourceMonitor)
     return workspace

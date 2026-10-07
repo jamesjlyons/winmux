@@ -51,6 +51,7 @@ public struct SavedView: Codable, Equatable, Sendable, Identifiable {
     public var workspaceName: String
     public var title: String
     public var isPinned: Bool
+    public var retainsWhenEmpty: Bool
     public var kind: Kind
     public var members: [ViewMember]
     public var layout: [ViewLayoutNode]
@@ -59,10 +60,31 @@ public struct SavedView: Codable, Equatable, Sendable, Identifiable {
 
     public init(id: UUID = UUID(), spaceID: String, workspaceName: String, title: String,
                 isPinned: Bool = false, kind: Kind = .group, members: [ViewMember] = [], layout: [ViewLayoutNode] = [],
-                selectedMember: UUID? = nil, formerRegularIndex: Int? = nil) {
+                selectedMember: UUID? = nil, formerRegularIndex: Int? = nil, retainsWhenEmpty: Bool = false) {
         self.id = id; self.spaceID = spaceID; self.workspaceName = workspaceName; self.title = title
         self.isPinned = isPinned; self.kind = kind; self.members = members; self.layout = layout
         self.selectedMember = selectedMember; self.formerRegularIndex = formerRegularIndex
+        self.retainsWhenEmpty = retainsWhenEmpty
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, spaceID, workspaceName, title, isPinned, kind, members, layout, selectedMember, formerRegularIndex, retainsWhenEmpty
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        spaceID = try c.decode(String.self, forKey: .spaceID)
+        workspaceName = try c.decode(String.self, forKey: .workspaceName)
+        title = try c.decode(String.self, forKey: .title)
+        isPinned = try c.decode(Bool.self, forKey: .isPinned)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        members = try c.decode([ViewMember].self, forKey: .members)
+        layout = try c.decode([ViewLayoutNode].self, forKey: .layout)
+        selectedMember = try c.decodeIfPresent(UUID.self, forKey: .selectedMember)
+        formerRegularIndex = try c.decodeIfPresent(Int.self, forKey: .formerRegularIndex)
+        // Earlier v6 checkpoints saved empty ordinary Views only when durable.
+        retainsWhenEmpty = try c.decodeIfPresent(Bool.self, forKey: .retainsWhenEmpty) ?? (!isPinned && members.isEmpty)
     }
 
     public var memberIDs: [UUID] { members.map(\.id) }

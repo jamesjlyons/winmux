@@ -59,7 +59,7 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
         XCTAssertNotEqual(before, after, "A favicon-only update must publish a changed sidebar snapshot")
         let model = WorkspaceSidebarWorkspaceViewModel(name: workspace, projectId: workspaceProjectDefaultId,
             displayName: "View", sidebarLabel: "", isGeneratedName: true, monitorScopeId: "test", monitorName: nil,
-            isFocused: false, isVisible: true, items: after, isViewMode: true)
+            isFocused: false, isVisible: true, items: after)
         let filtered = workspaceSidebarFilteredWorkspacesByProject([workspaceProjectDefaultId: [model]], projects: [], query: "Website")
         XCTAssertEqual(filtered[workspaceProjectDefaultId]?.first?.viewSurfaces.first?.iconPNGBase64, second)
         receive(3, icon: nil)

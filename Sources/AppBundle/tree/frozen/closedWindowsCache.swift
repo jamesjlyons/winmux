@@ -34,6 +34,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
     let projectId: WorkspaceProjectId
     let namingStyle: WorkspaceNamingStyle
     let hasContainedItems: Bool
+    let retainsEmptyView: Bool
     let monitor: FrozenMonitor // todo drop this property, once monitor to workspace assignment migrates to TreeNode
     let rootTilingNode: FrozenContainer
     let floatingWindows: [FrozenWindow]
@@ -44,6 +45,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         case projectId
         case namingStyle
         case hasContainedItems
+        case retainsEmptyView
         case monitor
         case rootTilingNode
         case floatingWindows
@@ -55,6 +57,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         projectId = workspace.projectId
         namingStyle = workspace.namingStyle
         hasContainedItems = workspace.hasContainedItems || workspaceHasLifecycleWindows(workspace)
+        retainsEmptyView = workspace.retainsEmptyView
         monitor = FrozenMonitor(workspace.workspaceMonitor)
         rootTilingNode = FrozenContainer(workspace.rootTilingContainer)
         floatingWindows = workspace.floatingWindows.map(FrozenWindow.init)
@@ -69,6 +72,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         name = try container.decode(String.self, forKey: .name)
         projectId = try container.decodeIfPresent(WorkspaceProjectId.self, forKey: .projectId) ?? workspaceProjectDefaultId
         namingStyle = try container.decodeIfPresent(WorkspaceNamingStyle.self, forKey: .namingStyle) ?? .explicit
+        retainsEmptyView = try container.decodeIfPresent(Bool.self, forKey: .retainsEmptyView) ?? false
         monitor = try container.decode(FrozenMonitor.self, forKey: .monitor)
         rootTilingNode = try container.decode(FrozenContainer.self, forKey: .rootTilingNode)
         floatingWindows = try container.decode([FrozenWindow].self, forKey: .floatingWindows)
@@ -118,6 +122,7 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
         workspace.assignProject(frozenWorkspace.projectId)
         workspace.restoreNamingStyle(frozenWorkspace.namingStyle)
         workspace.hasContainedItems = workspace.hasContainedItems || frozenWorkspace.hasContainedItems
+        workspace.retainsEmptyView = workspace.retainsEmptyView || frozenWorkspace.retainsEmptyView
         let frozenWindowById = collectFrozenWindows(frozenWorkspace)
         _ = topLeftCornerToMonitor[frozenWorkspace.monitor.topLeftCorner]?
             .singleOrNil()?

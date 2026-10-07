@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class WorkspaceLifecycleTest: XCTestCase {
-    override func setUp() async throws { setUpWorkspacesForTests() }
+    override func setUp() async throws { setUpWorkspacesForTests(); focus.workspace.markAsTransientBlank() }
 
     func testReconcilePrunesUnfocusedEmptyWorkspacesWhenProjectHasOccupiedWorkspace() {
         let occupied = Workspace.get(byName: "1")

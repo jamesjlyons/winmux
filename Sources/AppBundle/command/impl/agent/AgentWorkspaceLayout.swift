@@ -41,6 +41,7 @@ struct AgentWorkspaceLayout: Codable {
         if !existedBefore {
             workspace.assignProject(focus.workspace.projectId)
         }
+        workspace.retainsEmptyView = true
         workspace.seedMonitorIfNeeded(focusPane?.resolveNode()?.nodeMonitor ?? focus.workspace.workspaceMonitor)
         let oldWindows = workspace.allLeafWindowsRecursive
         var referenced: Set<UInt32> = []

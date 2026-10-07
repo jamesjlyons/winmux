@@ -42,6 +42,14 @@ func createBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Wo
 }
 
 @MainActor
+func createEmptyView(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
+    let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: monitor)
+    workspace.retainsEmptyView = true
+    workspace.lifecycle = .durable
+    return workspace
+}
+
+@MainActor
 func getOrCreateAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
     let scope = WorkspaceScope(projectId: projectId)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
@@ -203,21 +211,22 @@ func workspaceShouldSurviveReconciliation(
 ) -> Bool {
     guard !workspace.isArchived else { return false }
     if workspaceShouldRemoveEmptyView(workspace) { return false }
-    return (config.workspaceInteractionMode == .views && !workspace.usesAutomaticDisplayName && !workspace.hasContainedItems) ||
-        workspace.isPinnedGroup || workspace.isVisible ||
+    return workspace.preservesEmptyView || workspace.isPinnedGroup || workspace.isVisible ||
         workspaceHasLifecycleWindows(workspace) ||
         workspace.isConfiguredPersistent ||
         projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1 ||
         retainedEmptyWorkspaceIds[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
 }
 
-/// A view that lost its last member is no longer a group. Keep a single
-/// automatic blank for an empty Space, plus intentional, unused named groups.
+/// Retire automatic arrival slots after their last owner closes. Explicitly
+/// created, named, or configured Views keep their empty state until deletion.
 @MainActor
 func workspaceShouldRemoveEmptyView(_ workspace: Workspace) -> Bool {
-    guard config.workspaceInteractionMode == .views, !workspace.isPinnedGroup,
-          !workspace.isConfiguredPersistent, !workspaceHasLifecycleWindows(workspace),
+    guard !workspace.isPinnedGroup, !workspace.preservesEmptyView, !workspaceHasLifecycleWindows(workspace),
           workspace.usesAutomaticDisplayName || workspace.hasContainedItems else { return false }
+    // Keyboard navigation can select an unused blank before its first arrival.
+    // Keep that active destination; a used automatic View can still retire.
+    if workspace.isVisible && !workspace.hasContainedItems { return false }
     if !workspace.usesAutomaticDisplayName { return true }
     return projectWorkspaces(projectId: workspace.projectId).contains {
         $0 !== workspace && !$0.isPinnedGroup && !$0.isArchived && workspaceHasLifecycleWindows($0)

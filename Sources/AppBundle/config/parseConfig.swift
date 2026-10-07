@@ -62,11 +62,22 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
-    "automatically-tile-new-windows": Parser(\.automaticallyTileNewWindows, parseBool),
-    "workspace-interaction-mode": Parser(\.workspaceInteractionMode) { raw, trace in
+    "new-item-placement": Parser(\.newItemPlacement) { raw, trace in
         parseString(raw, trace).flatMap {
-            WorkspaceInteractionMode(rawValue: $0)
-                .orFailure(.semantic(trace, "Expected workspace-interaction-mode to be 'tiling' or 'views'"))
+            NewItemPlacement(rawValue: $0)
+                .orFailure(.semantic(trace, "Expected new-item-placement to be 'new-view', 'tile', 'stack-native', or 'float-native'"))
+        }
+    },
+    "automatically-tile-new-windows": Parser(\.newItemPlacement) { raw, trace in
+        parseBool(raw, trace).map { $0 ? .tile : .floatNative }
+    },
+    "workspace-interaction-mode": Parser(\.newItemPlacement) { raw, trace in
+        parseString(raw, trace).flatMap {
+            switch $0 {
+            case "views": .success(.newView)
+            case "tiling": .success(.tile)
+            default: .failure(.semantic(trace, "Expected workspace-interaction-mode to be 'tiling' or 'views'"))
+            }
         }
     },
     "enable-shake-to-toggle-tiling": Parser(\.enableShakeToToggleTiling, parseBool),
@@ -80,7 +91,9 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     modeConfigRootKey: Parser(\.modes, skipParsing(Config().modes)), // Parsed manually
 
     "browser-new-tab-shortcut": Parser(\.browserNewTabShortcut, parseString),
-    "auto-add-new-windows-to-tab-group": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
+    "auto-add-new-windows-to-tab-group": Parser(\.newItemPlacement) { raw, trace in
+        parseBool(raw, trace).map { $0 ? .stackNative : .tile }
+    },
     "gaps": Parser(\.gaps, parseGaps),
     "workspace-sidebar": Parser(\.workspaceSidebar, parseWorkspaceSidebar),
     "window-tabs": Parser(\.windowTabs, parseWindowTabs),
@@ -149,6 +162,17 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
     var errors: [TomlParseError] = []
 
     var config = rawTable.parseTable(Config(), configParser, .emptyRoot, &errors)
+
+    // Explicit modern policy wins, regardless of key order. Old Views forced
+    // separate tiled windows; old tiling consulted the native flags in order.
+    if let modern = rawTable["new-item-placement"]?.string.flatMap(NewItemPlacement.init(rawValue:)) {
+        config.newItemPlacement = modern
+    } else if !rawTable.contains(key: "new-item-placement"),
+              ["workspace-interaction-mode", "automatically-tile-new-windows", "auto-add-new-windows-to-tab-group"].contains(where: { rawTable.contains(key: $0) }) {
+        config.newItemPlacement = rawTable["workspace-interaction-mode"]?.string == "views" ? .newView
+            : rawTable["automatically-tile-new-windows"]?.bool == false ? .floatNative
+            : rawTable["auto-add-new-windows-to-tab-group"]?.bool == true ? .stackNative : .tile
+    }
 
     if let mapping = rawTable[keyMappingConfigRootKey].flatMap({ parseKeyMapping($0, .rootKey(keyMappingConfigRootKey), &errors) }) {
         config.keyMapping = mapping

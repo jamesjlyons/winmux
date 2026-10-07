@@ -8,7 +8,7 @@ final class WorkspaceViewsPerformanceTest: XCTestCase {
     func testStandaloneSidebarRefreshBenchmark() throws {
         for count in [50, 200] {
             setUpWorkspacesForTests()
-            config.workspaceInteractionMode = .views
+            config.newItemPlacement = .newView
             let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID(), profile = UUID()
             let names = (0..<count).map { "view-benchmark-\($0)" }
             let ids = names.map { _ in SurfaceID.browserTab(profile: profile, tab: UUID()) }
@@ -41,6 +41,6 @@ final class WorkspaceViewsPerformanceTest: XCTestCase {
             print("VIEWS_MODEL_AND_SIDEBAR_BENCHMARK count=\(count) samples=\(updateDurations.count) median_ms=\(updateDurations[updateDurations.count / 2]) p95_ms=\(updateDurations.last!)")
             controller.disconnected(connection)
         }
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
     }
 }

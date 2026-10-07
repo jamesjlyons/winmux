@@ -17,14 +17,14 @@ struct ShortcutConfigurationReferenceView: View {
                 }
                 ReferenceSection("Rules and integrations") {
                     ReferenceRow("[exec]", "Inherited environment and explicit environment variables for commands.")
-                    ReferenceRow("[workspace-to-monitor-force-assignment]", "Group-to-display assignments.")
+                    ReferenceRow("[workspace-to-monitor-force-assignment]", "View-to-display assignments.")
                     ReferenceRow("on-window-detected", "Window matching rules and commands to run.")
                     ReferenceRow("on-focus-changed", "Commands that run after the focused window changes.")
                     ReferenceRow("on-focused-monitor-changed", "Commands that run after the active display changes.")
                     ReferenceRow("on-mode-changed", "Commands that run after switching modes.")
                 }
                 ReferenceSection("Named sidebar items") {
-                    ReferenceRow("workspace-labels", "Override visible group names.")
+                    ReferenceRow("workspace-labels", "Override visible View names.")
                     ReferenceRow("project-labels", "Override visible space names.")
                     ReferenceRow("project-colors", "Assign space colors using #RRGGBB values.")
                     ReferenceRow("project-icons", "Assign SF Symbol names to spaces. Omit an entry to use its colored dot.")

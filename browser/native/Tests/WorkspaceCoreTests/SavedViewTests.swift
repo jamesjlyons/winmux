@@ -3,6 +3,26 @@ import XCTest
 @testable import WorkspaceCore
 
 final class SavedViewTests: XCTestCase {
+    func testEmptyIntentRoundTripsAndOlderEmptyOrdinaryViewsAreRetained() throws {
+        for pinned in [true, false] {
+            for retain in [true, false] {
+                let view = SavedView(spaceID: "work", workspaceName: "Empty", title: "Empty",
+                    isPinned: pinned, retainsWhenEmpty: retain)
+                let data = try JSONEncoder().encode(view)
+                XCTAssertEqual(try JSONDecoder().decode(SavedView.self, from: data), view)
+                var old = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+                old.removeValue(forKey: "retainsWhenEmpty")
+                let decoded = try JSONDecoder().decode(SavedView.self, from: JSONSerialization.data(withJSONObject: old))
+                XCTAssertEqual(decoded.retainsWhenEmpty, !pinned)
+            }
+        }
+        let occupied = SavedView(spaceID: "work", workspaceName: "One", title: "One",
+            members: [.init(title: "App", surfaceID: .nativeWindow(UUID()))])
+        var old = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(occupied)) as? [String: Any])
+        old.removeValue(forKey: "retainsWhenEmpty")
+        XCTAssertFalse(try JSONDecoder().decode(SavedView.self, from: JSONSerialization.data(withJSONObject: old)).retainsWhenEmpty)
+    }
+
     private func fixture() throws -> (SurfaceWorkspaceSnapshot, SavedView) {
         let url = try XCTUnwrap(Bundle.module.url(forResource: "pinned-arrangement-v5", withExtension: "json", subdirectory: "Fixtures"))
         let snapshot = try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self, from: Data(contentsOf: url)).validated()

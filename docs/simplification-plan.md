@@ -217,4 +217,42 @@ All 160 targeted configuration, sidebar, monitor-layout, and native-management
 tests passed, followed by the full 1,069-test Debug suite with the existing
 locked-console exclusions. Optimized verification passed with the directional
 movement slice above. Unlocked desktop qualification, arrival policy migration,
-and unified View terminology remain open.
+and unified View terminology remained open after that slice.
+
+### Stage 5 arrival policies and empty Views
+
+Spaces and Views now have one presentation and lifecycle model. The old runtime
+interaction mode and its two native arrival flags have been replaced by
+`new-item-placement`: `new-view`, `tile`, `stack-native`, or `float-native`.
+Fresh configurations default to a new View after the source. Explicit legacy
+settings retain their effective arrival behavior through the parser; a modern
+setting takes precedence regardless of key order. Settings edits preserve the
+legacy lines, and Alpha/Trial startup no longer rewrites existing configurations.
+The sidebar, arrangement menus, generated names, and settings use View and Stack
+terminology consistently across all arrival policies. CLI spellings remain valid.
+
+Explicit empty-View creation, naming, and named command destinations retain their
+intent through occupancy, closure, and restart. Both native restart metadata and
+shared saved Views record that intent. Earlier v6 empty ordinary saved Views
+decode conservatively as retained. Arrivals cannot consume another intentional
+empty View, but the selected empty View can receive its first item. Temporary
+blank destinations created by keyboard navigation remain available while active.
+
+Native minimization now preserves the original View association, preventing a
+new arrival from reusing its reservation. Restoring after focus changes returns
+the window to that View. The regression work also fixed fixture isolation for
+minimized and popup owners, which live outside the workspace registry.
+
+The final Debug and Release app suites passed 1,083 tests each. Native Debug and Release passed
+173 WorkspaceCore and 21 BridgeCore tests each. All 84 Python tests passed;
+their local HTTP fixtures require loopback access outside the sandbox. These
+Swift runs retain only the previously documented locked-console exclusions.
+Dependency resolution left `Package.resolved` unchanged, and `git diff --check`
+passed. The Release model-plus-sidebar benchmark measured 0.698 ms median for
+50 Views and 2.394 ms for 200 Views; these exclude native input and composition.
+
+The production sidebar rendered successfully at widths 40, 140, 190, and 240 in
+light and dark appearances. Expanded, narrow, and compact samples were visually
+inspected. These fixture images validate layout, not live keyboard, accessibility,
+or window-management behavior. The remaining shared-layout adoption, integrated
+Chromium toolbar, obsolete-path retirement, and unlocked qualification are open.

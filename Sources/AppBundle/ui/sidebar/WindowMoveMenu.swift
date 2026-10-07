@@ -31,7 +31,7 @@ struct WindowMoveMenu: View {
                         .disabled(group.id == workspaceName)
                     }
                     Divider()
-                    Button("New Group") {
+                    Button("New View") {
                         let scope = targetMonitorScopeId
                             ?? Window.get(byId: windowId)?.nodeMonitor.map { workspaceSidebarMonitorScopeId(for: $0) }
                             ?? sidebarModel.workspaceSidebarFocusedMonitorScopeId
@@ -74,7 +74,6 @@ func windowMoveMenuDestinations(sourceSpace: WorkspaceProjectId? = nil) -> [Wind
     let controller = BrowserWorkspaceController.shared
     let destinations = workspaces.filter { workspace in
         guard !workspace.isArchived, !workspace.isPinnedGroup else { return false }
-        guard config.workspaceInteractionMode == .views else { return true }
         // Count identities once even when a native window appears in both
         // trees. Retain saved/minimized group members without fetching titles.
         let organized = controller.usesSurfaceTree
@@ -82,7 +81,7 @@ func windowMoveMenuDestinations(sourceSpace: WorkspaceProjectId? = nil) -> [Wind
         let members = Set(organized)
             .union(workspace.allLeafWindowsRecursive.map(\.surfaceID))
             .union(workspaceOwnedMinimizedWindows(workspace).map(\.surfaceID))
-        return members.count > 1 || (members.isEmpty && !workspace.usesAutomaticDisplayName)
+        return members.count > 1 || (members.isEmpty && workspace.preservesEmptyView)
     }
     return spaces.map { space in
         WindowMoveMenuSpace(

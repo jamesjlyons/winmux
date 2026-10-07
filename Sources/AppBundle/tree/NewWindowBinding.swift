@@ -14,7 +14,7 @@ func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _
 
 @MainActor
 func bindingDataForNewRegularWindow(_ workspace: Workspace, window: Window?) -> BindingData {
-    guard config.automaticallyTileNewWindows || config.workspaceInteractionMode == .views else {
+    guard config.newItemPlacement != .floatNative else {
         window?.unbindFromParent()
         return BindingData(parent: workspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     }
@@ -40,7 +40,7 @@ func bindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> B
 
 @MainActor
 private func autoAddNewWindowToFocusedTabGroupBinding(_ workspace: Workspace) -> BindingData? {
-    guard config.workspaceInteractionMode != .views, config.autoAddNewWindowsToTabGroup,
+    guard config.newItemPlacement == .stackNative,
           let focusedWindow = focus.windowOrNil,
           focusedWindow.nodeWorkspace == workspace,
           let tabGroup = focusedWindow.parent as? TilingContainer,

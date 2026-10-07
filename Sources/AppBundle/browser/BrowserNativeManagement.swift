@@ -32,14 +32,10 @@ struct BrowserNativeState: Sendable {
         }
         if !fm.fileExists(atPath: config.path) {
             let shortcuts = workspaceShortcuts ? "\nalt-j = 'focus tab-next'\nalt-k = 'focus tab-prev'\nalt-space = 'layout horizontal vertical'\n" : ""
-            let mode = viewsTrial ? "workspace-interaction-mode = 'views'\n" : ""
-            try Data((mode + Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
+            try Data((Self.initialConfiguration + shortcuts).utf8).write(to: config, options: .withoutOverwriting)
         } else if viewsTrial {
             let existing = try String(contentsOf: config, encoding: .utf8)
             guard parseConfig(existing).errors.isEmpty else { throw NativeManagementError.invalidConfiguration }
-            if existing.range(of: #"(?m)^\s*workspace-interaction-mode\s*="#, options: .regularExpression) == nil {
-                try Data(("workspace-interaction-mode = 'views'\n" + existing).utf8).write(to: config, options: .atomic)
-            }
         }
     }
 
@@ -50,9 +46,10 @@ struct BrowserNativeState: Sendable {
     persistent-workspaces = []
     shortcuts-preset = 'none'
     automatically-unhide-macos-hidden-apps = false
+    new-item-placement = 'new-view'
     [workspace-sidebar]
     enabled = true
-    always-expanded = false
+    visibility = 'compact'
     chrome-style = 'solid'
     solid-chrome-color = 'system'
     [mode.main.binding]

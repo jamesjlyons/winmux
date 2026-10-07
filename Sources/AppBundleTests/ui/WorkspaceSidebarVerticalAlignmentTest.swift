@@ -94,7 +94,7 @@ final class WorkspaceSidebarVerticalAlignmentTest: XCTestCase {
         func workspace(_ name: String, _ items: [WorkspaceSidebarItemViewModel]) -> WorkspaceSidebarWorkspaceViewModel {
             .init(name: name, projectId: workspaceProjectDefaultId, displayName: name, sidebarLabel: "",
                 isGeneratedName: true, monitorScopeId: "display", monitorName: nil, isFocused: name == "first",
-                isVisible: name == "first", items: items, isViewMode: true)
+                isVisible: name == "first", items: items)
         }
         var pins = workspace("pins", [])
         pins.isPinnedGroup = true

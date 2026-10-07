@@ -54,7 +54,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 if let onNewTab {
                     if isCompact {
                         Menu {
-                            Button(config.workspaceInteractionMode == .views ? "New View" : "New Group") {
+                            Button("New View") {
                                 guard shouldHandleWorkspaceSidebarActivation(isEditing: false, isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()) else { return }
                                 onCreateWorkspace()
                             }
@@ -125,7 +125,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.45))
-                        Text(config.workspaceInteractionMode == .views ? "New View" : "New Group")
+                        Text("New View")
                             .font(.system(size: 13, weight: layout.menuBarStyle ? .regular : .medium))
                             .foregroundStyle(Color.primary.opacity(layout.menuBarStyle ? 0.8 : 0.48))
                             .lineLimit(1)
@@ -155,7 +155,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .accessibilityLabel(config.workspaceInteractionMode == .views ? "New View" : "New Group")
-        .help(config.workspaceInteractionMode == .views ? "Create an empty view" : "New Group")
+        .accessibilityLabel("New View")
+        .help("Create an empty View")
     }
 }

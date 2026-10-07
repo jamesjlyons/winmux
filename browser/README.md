@@ -313,11 +313,12 @@ controls, current favicons, direct permission-aware launch, profile-picker
 suppression, browser-exit shutdown, branding, and 1Password host discovery.
 
 The Alpha retains its existing application identity and workspace data directory.
-`WinMuxWorkspaceViews` enables the shared behavior without selecting the Trial's
-separate data directory. Existing marked Alpha configurations without an explicit
-interaction-mode setting gain `workspace-interaction-mode = 'views'`; explicit
-settings and existing layouts are preserved. New tabs and ordinary app windows
-start separately. A pin gets a dedicated desktop; pinning an existing group keeps
+`WinMuxWorkspaceViews` retains compatibility with Trial launchers without selecting
+the Trial's separate data directory. New configurations use
+`new-item-placement = 'new-view'`. Existing configuration files are preserved;
+legacy arrival settings are translated by the parser without changing sidebar
+presentation. New tabs and ordinary app windows start separately by default.
+A pin gets a dedicated View; pinning an existing arrangement keeps
 its layout. Browser profiles are never copied between the Alpha and Trial.
 
 Protocol 8 combines the formerly divergent Alpha/Trial version-6 features.

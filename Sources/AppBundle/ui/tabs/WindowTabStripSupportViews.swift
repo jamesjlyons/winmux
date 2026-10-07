@@ -42,7 +42,7 @@ struct WindowTabGroupHandleView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .accessibilityLabel("Focus Tab Group")
+        .accessibilityLabel("Focus Stack")
         .contextMenu {
             if let windowId {
                 WindowMoveMenu(windowId: windowId, workspaceName: workspaceName, subject: .group)

@@ -1,5 +1,10 @@
 # Tab-style workspace trial
 
+Historical trial instructions follow. Current builds use the Space/View UI for
+every arrival policy and default to `new-item-placement = 'new-view'`. See the
+[current arrival settings](../../README.md#new-pages-and-windows). The legacy
+`workspace-interaction-mode` key remains a supported configuration alias.
+
 This opt-in experiment keeps one sidebar view per ordinary window or browser tab.
 Selecting a view fills the usable desktop without entering macOS fullscreen. A
 split or stack appears only after explicitly combining windows. Existing saved

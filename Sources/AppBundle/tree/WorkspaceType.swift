@@ -11,6 +11,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     var lifecycle: WorkspaceLifecycle = .durable
     var isPinnedGroup = false
     var hasContainedItems = false
+    var retainsEmptyView = false
 
     var isIncognito: Bool { projectId.isIncognito }
 
@@ -127,7 +128,7 @@ extension Workspace {
         // Older surface-only restores materialized generated IDs with the default
         // explicit style. In Views these are placement keys, not user-facing names.
         // User renames live in workspaceLabels and remain authoritative.
-        self.namingStyle = config.workspaceInteractionMode == .views &&
+        self.namingStyle = !config.persistentWorkspaces.contains(name) &&
             (parsePositiveWorkspaceDisplayIndex(name) != nil || isSidebarDraftWorkspaceName(name) ||
                 internalAutomaticWorkspaceIndex(name) != nil || name == "Recovered")
             ? .automatic : namingStyle
@@ -147,8 +148,15 @@ extension Workspace {
     }
 
     @MainActor
+    var preservesEmptyView: Bool {
+        retainsEmptyView || isConfiguredPersistent ||
+            config.workspaceSidebar.workspaceLabels[name]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ||
+            (!usesAutomaticDisplayName && !hasContainedItems)
+    }
+
+    @MainActor
     var isOrdinaryEmptySlot: Bool {
-        !workspaceHasLifecycleWindows(self) && !isConfiguredPersistent
+        !workspaceHasLifecycleWindows(self) && !preservesEmptyView
     }
 
     var usesAutomaticDisplayName: Bool {

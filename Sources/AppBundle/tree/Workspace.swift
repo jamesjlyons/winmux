@@ -24,9 +24,9 @@ enum WorkspaceMutationError: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .workspaceNotFound(let name):
-                "Group '\(name)' no longer exists."
+                "View '\(name)' no longer exists."
             case .workspaceCannotBeDeleted(let name):
-                "Group '\(name)' cannot be deleted."
+                "View '\(name)' cannot be deleted."
             case .projectNotFound(let id):
                 "Space '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):

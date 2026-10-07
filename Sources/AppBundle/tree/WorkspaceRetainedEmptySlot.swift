@@ -19,7 +19,7 @@ func retainedEmptyWorkspaceId(in scope: WorkspaceScope, minimizedWorkspaceNames:
     let orderedWorkspaces = orderedWorkspaces(in: scope).filter { !$0.isPinnedGroup }
     let minimizedNames = minimizedWorkspaceNames ?? workspaceNamesWithOwnedMinimizedWindows()
     let ordinaryEmptyWorkspaces = orderedWorkspaces.filter {
-        !workspaceShouldRemoveEmptyView($0) && !BrowserWorkspaceController.shared.containsBrowserItems(in: $0.name) && $0.isEffectivelyEmpty && !minimizedNames.contains($0.name) && !$0.isConfiguredPersistent
+        !workspaceShouldRemoveEmptyView($0) && !BrowserWorkspaceController.shared.containsBrowserItems(in: $0.name) && $0.isEffectivelyEmpty && !minimizedNames.contains($0.name) && !$0.preservesEmptyView
     }.sorted {
         if $0.lifecycle != $1.lifecycle {
             return $0.lifecycle == .durable
@@ -55,7 +55,7 @@ func workspaceScopeIsVisibleActiveProject(_ scope: WorkspaceScope) -> Bool {
 
 @MainActor
 func workspaceAnchorsEmptySlot(_ workspace: Workspace) -> Bool {
-    workspaceHasLifecycleWindows(workspace) || workspace.isConfiguredPersistent
+    workspaceHasLifecycleWindows(workspace) || workspace.preservesEmptyView
 }
 
 @MainActor

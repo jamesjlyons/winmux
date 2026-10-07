@@ -48,7 +48,7 @@ enum SettingsSidebarItem: Hashable, Identifiable {
     var label: String {
         switch self {
             case .shortcuts: "Shortcuts"
-            case .workspaces: "Groups"
+            case .workspaces: "Views"
             case .behavior: "Behavior"
             case .appearance: "Appearance"
             case .configuration: "Configuration"

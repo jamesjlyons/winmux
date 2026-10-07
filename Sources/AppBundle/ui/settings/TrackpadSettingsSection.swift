@@ -9,7 +9,7 @@ struct TrackpadSettingsSection: View {
     var body: some View {
         SettingsSection("Trackpad") {
             SettingsToggle("Three-finger swipe to switch tabs", isOn: $enabled,
-                help: "Switch tabs in the focused group. One tab per swipe, wrapping at either end.") {
+                help: "Switch tabs in the focused stack. One tab per swipe, wrapping at either end.") {
                     persist("enabled", enabled)
                 }
             SettingsToggle("Reverse swipe direction", isOn: $reversed,

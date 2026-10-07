@@ -28,6 +28,9 @@ let projectRoot: URL = {
 func setUpWorkspacesForTests() {
     Window.resetSurfaceRegistryForTests()
     config = defaultConfig
+    // Existing layout fixtures exercise the supported native stacking policy.
+    // Arrival-policy tests choose their policy explicitly.
+    config.newItemPlacement = .stackNative
     setMonitorsForTests(nil)
     configUrl = defaultConfigUrl
     resetWorkspaceNameGenerationStateForTests()
@@ -45,6 +48,10 @@ func setUpWorkspacesForTests() {
             child.unbindFromParent()
         }
     }
+    // These owners live outside the workspace registry. Minimized windows retain
+    // their View name, so they must not reserve that name in the next fixture.
+    for child in macosMinimizedWindowsContainer.children { child.unbindFromParent() }
+    for child in macosPopupWindowsContainer.children { child.unbindFromParent() }
     resetWinMuxWorkspaceStateForTests()
     check(Workspace.get(byName: "setUpWorkspacesForTests").focusWorkspace())
     Workspace.reconcileWorkspaceState()

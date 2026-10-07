@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class WorkspaceVisibilitySnapshotTest: XCTestCase {
-    func testBatchedVisibilityMatchesOriginalRulesAcrossLifecycleChanges() {
+    func testBatchedVisibilityMatchesScalarRulesAcrossLifecycleChanges() {
         setUpWorkspacesForTests()
         var workspaces: [Workspace] = []
         for index in 0 ..< 24 {
@@ -30,9 +30,7 @@ final class WorkspaceVisibilitySnapshotTest: XCTestCase {
             XCTAssertTrue(mainMonitor.setActiveWorkspace(workspaces[visibleIndex]))
             let ordered = orderedWorkspacesForPresentation()
             let expected = ordered.filter { workspace in
-                !workspace.isArchived && (workspaceHasSidebarVisibleWindows(workspace) || workspace.isVisible ||
-                    workspace.isConfiguredPersistent || !workspaceOwnedMinimizedWindows(workspace).isEmpty ||
-                    referenceRetainedWorkspace(in: WorkspaceScope(projectId: workspace.projectId)) == workspace.id)
+                isUserFacingWorkspace(workspace)
             }
             XCTAssertEqual(userFacingWorkspaces(ordered).map(\.id), expected.map(\.id))
             for project in workspaceProjects() {
@@ -42,10 +40,10 @@ final class WorkspaceVisibilitySnapshotTest: XCTestCase {
         }
     }
 
-    // Original scalar rule, kept independent of the batched ownership/retention lookups.
+    // Scalar retention rule, independent of the batched ownership lookups.
     private func referenceRetainedWorkspace(in scope: WorkspaceScope) -> WorkspaceId? {
         let ordered = orderedWorkspaces(in: scope)
-        let empty = ordered.filter(\.isOrdinaryEmptySlot).sorted {
+        let empty = ordered.filter { $0.isOrdinaryEmptySlot && !workspaceShouldRemoveEmptyView($0) }.sorted {
             if $0.lifecycle != $1.lifecycle { return $0.lifecycle == .durable }
             return $0 < $1
         }

@@ -23,7 +23,7 @@ final class ModelRefreshBenchmarkTest: XCTestCase {
                 let start = DispatchTime.now().uptimeNanoseconds
                 let state = await buildWorkspaceSidebarModelState()
                 samples.append(Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000)
-                XCTAssertEqual(state.workspaces.filter { $0.displayName.hasPrefix("Group ") }.count, count)
+                XCTAssertEqual(state.workspaces.filter { $0.viewSurfaceCount == 4 }.count, count)
             }
             report("sidebar-\(count)-groups", samples)
         }

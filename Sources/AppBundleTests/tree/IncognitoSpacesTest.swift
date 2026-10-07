@@ -9,7 +9,7 @@ import XCTest
 
     override func setUp() async throws {
         setUpWorkspacesForTests()
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
         controller.restorePlacementSnapshot(.init(tree: SurfaceTree(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         controller.connected(connection, processID: -1, send: { _, reply in reply(.issued) })
     }
@@ -18,7 +18,7 @@ import XCTest
         controller.disconnected(connection)
         controller.restorePlacementSnapshot(.init(tree: SurfaceTree(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         controller.usesSurfaceTree = false
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
     }
 
     private func page(_ profile: UUID? = nil) -> BrowserTabRecord {

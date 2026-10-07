@@ -9,11 +9,11 @@ final class WindowMoveMenuTest: XCTestCase {
     func testViewsDestinationsExcludeStandaloneAppsAndTabsButKeepCombinedAndEmptyNamedGroups() throws {
         let controller = BrowserWorkspaceController.shared
         controller.usesSurfaceTree = true
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
         defer {
             controller.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
             controller.usesSurfaceTree = false
-            config.workspaceInteractionMode = .tiling
+            config.newItemPlacement = .tile
         }
         let singleApp = Workspace.get(byName: "single-app")
         let window = TestWindow.new(id: 82005, parent: singleApp.rootTilingContainer)
@@ -23,6 +23,8 @@ final class WindowMoveMenuTest: XCTestCase {
         let first = TestWindow.new(id: 82006, parent: combined.rootTilingContainer)
         let second = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         let empty = Workspace.get(byName: "empty-group")
+        let intentional = createBlankWorkspace(projectId: empty.projectId, monitor: mainMonitor)
+        intentional.retainsEmptyView = true
         var tree = SurfaceTree()
         tree.reconcile([window.surfaceID], in: singleApp.name)
         tree.reconcile([tab], in: singleTab.name)
@@ -34,11 +36,12 @@ final class WindowMoveMenuTest: XCTestCase {
         XCTAssertFalse(groups.contains(singleTab.name))
         XCTAssertTrue(groups.contains(combined.name))
         XCTAssertTrue(groups.contains(empty.name))
+        XCTAssertTrue(groups.contains(intentional.name))
 
-        config.workspaceInteractionMode = .tiling
-        let traditional = Set(windowMoveMenuDestinations().flatMap(\.groups).map(\.id))
-        XCTAssertTrue(traditional.contains(singleApp.name))
-        XCTAssertTrue(traditional.contains(singleTab.name))
+        for policy in NewItemPlacement.allCases {
+            config.newItemPlacement = policy
+            XCTAssertEqual(Set(windowMoveMenuDestinations().flatMap(\.groups).map(\.id)), groups)
+        }
     }
 
     func testDestinationsIncludeInactiveAndEmptySpacesInSavedOrderWithoutSidebar() throws {

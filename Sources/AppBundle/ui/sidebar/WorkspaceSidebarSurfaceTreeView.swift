@@ -80,10 +80,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
         ))
         .contextMenu {
-            if config.workspaceInteractionMode == .views {
-                SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
-                Divider()
-            }
+            SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
+            Divider()
             if Workspace.existing(byName: workspaceName)?.isIncognito != true {
                 Button(surface.isBrowser ? "Pin Tab" : "Pin App") { actions.send(.pinSurface(surface.surfaceID)) }
             }
@@ -93,7 +91,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             Divider()
             Button("Move Earlier") { actions.send(.reorderSurface(surface.surfaceID, earlier: true)) }
             Button("Move Later") { actions.send(.reorderSurface(surface.surfaceID, earlier: false)) }
-            Button("Group with Selected Item") { actions.send(.groupSurfaceWithSelection(surface.surfaceID)) }
+            Button("Stack with Selected Item") { actions.send(.groupSurfaceWithSelection(surface.surfaceID)) }
             Button("Split Side by Side with Selected Item") { actions.send(.splitSurfaceWithSelection(surface.surfaceID, vertical: false)) }
             Button("Split Above and Below Selected Item") { actions.send(.splitSurfaceWithSelection(surface.surfaceID, vertical: true)) }
             Divider()
@@ -128,8 +126,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Tab group of \(count) windows")
-        .help("Window group · Active: \(representative?.title ?? "Untitled window")")
+        .accessibilityLabel("Stack of \(count) windows")
+        .help("Stack · Active: \(representative?.title ?? "Untitled window")")
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(
@@ -139,12 +137,12 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         ))
         .contextMenu {
             if Workspace.existing(byName: workspaceName)?.isIncognito != true {
-                Button("Pin Group") { actions.send(.pinSurfaceGroup(id)) }
+                Button("Pin View") { actions.send(.pinSurfaceGroup(id)) }
             }
             SurfaceMoveMenu(subject: .group(id), workspaceName: workspaceName,
                             targetMonitorScopeId: targetMonitorScopeId, actions: actions)
             Divider()
-            Button("Ungroup Items") { actions.send(.ungroupSurfaces(id)) }
+            Button("Remove Stack") { actions.send(.ungroupSurfaces(id)) }
         }
         .onHover { isHovered = $0 }
     }

@@ -4,7 +4,6 @@ import WorkspaceCore
 @MainActor
 func workspaceViewDropHint(_ subject: WorkspaceSidebarSurfaceDragSubject,
                           target: WorkspaceSidebarDropTargetKind) -> String? {
-    guard config.workspaceInteractionMode == .views else { return nil }
     let controller = BrowserWorkspaceController.shared
     let sourceName: String?
     switch subject {
@@ -43,7 +42,6 @@ func workspaceViewDropHint(_ subject: WorkspaceSidebarSurfaceDragSubject,
 @MainActor
 func requestWorkspaceViewCombination(_ subject: WorkspaceSidebarSurfaceDragSubject,
                                      target: WorkspaceSidebarDropTargetKind) -> Bool {
-    guard config.workspaceInteractionMode == .views else { return false }
     let controller = BrowserWorkspaceController.shared
     let source: SurfaceID
     switch subject {

@@ -64,7 +64,7 @@ extension BrowserWorkspaceController {
                 if requestedWorkspace.isIncognito { self.privateSurfaces.insert(id) }
                 let selectCreated = selectNewPage && self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)
-                let destination = config.workspaceInteractionMode == .views && !explicitPlacement
+                let destination = config.newItemPlacement == .newView && !explicitPlacement
                     ? self.standaloneBrowserDestination(id, in: requestedWorkspace) : workspace
                 self.placeCreatedBrowserTab(id, in: destination, focusAddress: url == nil,
                                            selectCreated: selectCreated, focusGeneration: startingFocus,

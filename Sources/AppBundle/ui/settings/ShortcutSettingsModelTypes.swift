@@ -45,8 +45,8 @@ extension ShortcutSettingsModel {
 
         var subtitle: String {
             switch self {
-                case .switchTo: "Change focus to group N"
-                case .moveTo: "Send the focused window to group N"
+                case .switchTo: "Change focus to View N"
+                case .moveTo: "Send the focused window to View N"
             }
         }
     }

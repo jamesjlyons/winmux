@@ -77,31 +77,33 @@ final class BrowserNativeManagementTest: XCTestCase {
         XCTAssertTrue(parsed.config.workspaceSidebar.workspaceLabels.isEmpty)
     }
 
-    func testViewsTrialStartsInViewsModeAndPreservesLaterPreferences() throws {
+    func testFreshConfigurationUsesNewViewsAndPreservesLaterArrivalPreferences() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let state = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
         let text = try String(contentsOf: state.config, encoding: .utf8)
         let parsed = parseConfig(text)
         XCTAssertTrue(parsed.errors.isEmpty)
-        XCTAssertEqual(parsed.config.workspaceInteractionMode, .views)
+        XCTAssertEqual(parsed.config.newItemPlacement, .newView)
         XCTAssertTrue(text.contains("alt-j = 'focus tab-next'"))
-        let customized = text.replacingOccurrences(of: "workspace-interaction-mode = 'views'", with: "workspace-interaction-mode = 'tiling'")
+        let customized = text.replacingOccurrences(of: "new-item-placement = 'new-view'", with: "new-item-placement = 'tile'")
+        XCTAssertEqual(parseConfig(customized).config.newItemPlacement, .tile)
         try customized.write(to: state.config, atomically: true, encoding: .utf8)
         _ = try BrowserNativeState(directory: root, workspaceShortcuts: true, viewsTrial: true)
         XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), customized)
     }
 
-    func testUnifiedAlphaMigratesExistingDefaultModeWithoutChangingOtherSettings() throws {
+    func testUnifiedAlphaPreservesExistingLegacyConfigurationAndArrivalBehavior() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let state = try BrowserNativeState(directory: root, workspaceShortcuts: true)
-        let old = try String(contentsOf: state.config, encoding: .utf8) + "\n# Preserve custom shortcuts\n"
+        let old = try String(contentsOf: state.config, encoding: .utf8)
+            .replacingOccurrences(of: "new-item-placement = 'new-view'", with: "automatically-tile-new-windows = false") + "\n# Preserve custom shortcuts\n"
         try old.write(to: state.config, atomically: true, encoding: .utf8)
         _ = try BrowserNativeState(directory: root, viewsTrial: true)
         let migrated = try String(contentsOf: state.config, encoding: .utf8)
-        XCTAssertEqual(migrated, "workspace-interaction-mode = 'views'\n" + old)
-        XCTAssertEqual(parseConfig(migrated).config.workspaceInteractionMode, .views)
+        XCTAssertEqual(migrated, old)
+        XCTAssertEqual(parseConfig(migrated).config.newItemPlacement, .floatNative)
         _ = try BrowserNativeState(directory: root, viewsTrial: true)
         XCTAssertEqual(try String(contentsOf: state.config, encoding: .utf8), migrated)
     }

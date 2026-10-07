@@ -259,15 +259,19 @@ Unlike stack-only layouts, WinMux tab groups behave more intuitively like you wo
 
 ### Philosophy
 
-#### Automatic tiling
+#### New pages and windows
 
-WinMux tiles newly discovered windows by default. To keep their existing macOS size and position while still using WinMux's sidebar, groups, and manual layout commands, disable automatic tiling:
+WinMux opens each new page or app window in a View after its source. Combine Views explicitly to create splits or stacks. Choose arrival behavior with:
 
 ```toml
-automatically-tile-new-windows = false
+new-item-placement = 'new-view'
 ```
 
-This applies to windows discovered when WinMux starts and windows opened later. You can still tile an individual floating window with `winmux layout tiling` or the configured `layout floating tiling` shortcut.
+The other policies are `tile` (arrive in the current View), `stack-native` (add app windows to the active app stack when available), and `float-native` (keep app windows floating). Browser pages tile in the current View for the latter two policies. Restored arrangements and explicit window rules take precedence over automatic arrival placement.
+
+Legacy `workspace-interaction-mode`, `automatically-tile-new-windows`, and `auto-add-new-windows-to-tab-group` keys remain supported. An explicit `new-item-placement` wins regardless of key order. Without it, legacy `views` means `new-view`; otherwise disabling automatic tiling means `float-native`, enabling automatic tab-group addition means `stack-native`, and the remaining legacy combinations mean `tile`. All policies use the same Space/View UI.
+
+You can tile an individual floating window with `winmux layout tiling` or the configured `layout floating tiling` shortcut.
 
 While dragging a window by its title bar, shake it horizontally to toggle between floating and tiling. The gesture requires several deliberate direction changes in quick succession, and does not activate during resize, sidebar, tab-strip, or tab-group drags. Disable it with:
 
@@ -275,13 +279,13 @@ While dragging a window by its title bar, shake it horizontally to toggle betwee
 enable-shake-to-toggle-tiling = false
 ```
 
-#### Groups
-Each space keeps at least one group available. Empty groups may be cleaned up automatically; configured persistent groups remain available.
+#### Views
+Each Space keeps an empty View available when needed. Automatic arrival Views can retire after their last member closes. Views created with **New View**, renamed Views, and configured persistent Views remain available when empty, including after restart.
 
 ### Multi-Monitors
-Monitors share spaces and groups. Each monitor can independently browse spaces and select a group to view.
+Monitors share Spaces and Views. Each monitor can independently browse Spaces and select a View.
 
-Monitors cannot show the same group at the same time. They can show different groups from the same space.
+Monitors cannot show the same View at the same time. They can show different Views from the same Space.
 
 #### App Launching
 WinMux supports single-modifer keybindings (e.g. triggering an action on press of `⌘`)

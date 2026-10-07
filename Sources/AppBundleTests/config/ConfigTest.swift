@@ -37,7 +37,7 @@ final class ConfigTest: XCTestCase {
         let toml = try String(contentsOf: projectRoot.appending(component: "resources/default-config.toml"), encoding: .utf8)
         let (config, errors) = parseConfig(toml)
         assertEquals(errors, [])
-        XCTAssertTrue(config.automaticallyTileNewWindows)
+        XCTAssertEqual(config.newItemPlacement, .newView)
         XCTAssertFalse(config.workspaceSidebar.showClock)
         XCTAssertTrue(config.workspaceSidebar.showSeconds)
         XCTAssertFalse(config.workspaceSidebar.showDate)
@@ -49,7 +49,7 @@ final class ConfigTest: XCTestCase {
         let (config, errors) = parseConfig("automatically-tile-new-windows = false")
 
         assertEquals(errors, [])
-        XCTAssertFalse(config.automaticallyTileNewWindows)
+        XCTAssertEqual(config.newItemPlacement, .floatNative)
     }
 
     func testParseShakeToToggleTiling() {

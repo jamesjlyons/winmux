@@ -67,7 +67,7 @@ struct WorkspaceSidebarPinGrid: View {
             .frame(height: gridHeight + 4)
             .padding(.bottom, 8)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Pinned apps, tabs, and groups")
+            .accessibilityLabel("Pinned apps, pages, and Views")
             .accessibilityIdentifier("winmux.sidebar.pins.\(workspace.projectId.rawValue)")
         }
     }
@@ -100,7 +100,7 @@ struct WorkspaceSidebarPinGrid: View {
         .buttonStyle(.plain)
         .frame(height: tileHeight)
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
-        .accessibilityLabel("Pinned \(pin.isGroup ? "group" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
+        .accessibilityLabel("Pinned \(pin.isGroup ? "View" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")
         .onHover { hoveredPin = $0 ? pin.id : nil }
         .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: true,
@@ -114,7 +114,7 @@ struct WorkspaceSidebarPinGrid: View {
             }
         }
         .contextMenu {
-            if !pin.isGroup, config.workspaceInteractionMode == .views, let id = pin.surfaceID {
+            if !pin.isGroup, let id = pin.surfaceID {
                 SurfaceViewActionsMenu(surface: id, actions: actions)
                 Divider()
             }
@@ -124,8 +124,8 @@ struct WorkspaceSidebarPinGrid: View {
                 }
                 Divider()
             }
-            Button(pin.isGroup ? "Open Group" : pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
-            Button(pin.isGroup ? "Unpin Group" : pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
+            Button(pin.isGroup ? "Open View" : pin.isOpen ? "Open" : pin.isBrowser ? "Reopen Tab" : "Launch App") { actions.send(.selectPin(pin.id)) }
+            Button(pin.isGroup ? "Unpin View" : pin.isBrowser ? "Unpin Tab" : "Unpin App") { actions.send(.unpin(pin.id)) }
             if pin.isGroup { Button("Reopen Closed Items") { actions.send(.reopenClosedPinItems(pin.id)) } }
             Menu("Move to Space") {
                 ForEach(projects.filter { !$0.id.isIncognito }) { project in
@@ -135,7 +135,7 @@ struct WorkspaceSidebarPinGrid: View {
             }
             if pin.isGroup {
                 Divider()
-                Button("Close Group") {
+                Button("Close View") {
                     for member in pin.groupMembers { if let surface = member.surfaceID { actions.send(.closeSurface(surface)) } }
                 }.disabled(!pin.isOpen)
             } else if pin.isOpen, let surface = pin.surfaceID {

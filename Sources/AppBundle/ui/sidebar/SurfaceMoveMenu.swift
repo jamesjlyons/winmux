@@ -23,7 +23,7 @@ struct SurfaceMoveMenu: View {
                         .disabled(group.id == workspaceName)
                     }
                     Divider()
-                    Button("New Group") { moveToNewGroup(in: space.id) }
+                    Button("New View") { moveToNewGroup(in: space.id) }
                 }
             }
         }

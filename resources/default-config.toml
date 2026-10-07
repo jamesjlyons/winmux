@@ -15,10 +15,9 @@ default-root-container-orientation = 'auto'
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 automatically-unhide-macos-hidden-apps = false
-automatically-tile-new-windows = true
+new-item-placement = 'new-view'
 # Shake a window horizontally while dragging its title bar to toggle floating/tiling.
 enable-shake-to-toggle-tiling = true
-auto-add-new-windows-to-tab-group = true
 shortcuts-preset = 'none'
 persistent-workspaces = []
 on-mode-changed = []

@@ -84,6 +84,7 @@ extension TreeNodeTest {
         let occupiedWorkspace = Workspace.get(byName: "occupied")
         let window = TestWindow.new(id: 31, parent: occupiedWorkspace.rootTilingContainer)
         let emptyWorkspace = Workspace.get(byName: "empty")
+        emptyWorkspace.markAsTransientBlank()
         _ = emptyWorkspace.focusWorkspace()
 
         let frozenWorld = FrozenWorld(

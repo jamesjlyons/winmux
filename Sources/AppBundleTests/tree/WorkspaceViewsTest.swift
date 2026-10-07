@@ -8,10 +8,10 @@ import XCTest
     override func setUp() async throws {
         setUpWorkspacesForTests()
         for window in macosMinimizedWindowsContainer.children { window.unbindFromParent() }
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
     }
 
-    override func tearDown() async throws { config.workspaceInteractionMode = .tiling }
+    override func tearDown() async throws { config.newItemPlacement = .tile }
 
     func testClosingLastWindowRemovesUsedNamedGroupAndFocusesRemainingView() throws {
         let used = focus.workspace
@@ -56,11 +56,11 @@ import XCTest
         XCTAssertTrue(focus.workspace.isEffectivelyEmpty)
     }
 
-    func testModeIsOptInAndRejectsUnknownValues() {
-        XCTAssertEqual(parseConfig("").0.workspaceInteractionMode, .tiling)
+    func testNewViewIsDefaultAndLegacyModeRejectsUnknownValues() {
+        XCTAssertEqual(parseConfig("").0.newItemPlacement, .newView)
         let (parsed, errors) = parseConfig("workspace-interaction-mode = 'views'")
         XCTAssertTrue(errors.isEmpty)
-        XCTAssertEqual(parsed.workspaceInteractionMode, .views)
+        XCTAssertEqual(parsed.newItemPlacement, .newView)
         XCTAssertFalse(parseConfig("workspace-interaction-mode = 'invalid'").1.isEmpty)
     }
 
@@ -69,7 +69,7 @@ import XCTest
             displayName: "Research", sidebarLabel: "", isGeneratedName: false, monitorScopeId: "test",
             monitorName: nil, isFocused: false, isVisible: true, items: ["Notes", "Reference"].map { title in
                 .init(kind: .surface(.init(surfaceID: .nativeWindow(UUID()), title: title, appName: "App", isFocused: false)))
-            }, isViewMode: true)
+            })
         let filtered = workspaceSidebarFilteredWorkspacesByProject([workspaceProjectDefaultId: [workspace]], projects: [], query: "Reference")
         let result = try XCTUnwrap(filtered[workspaceProjectDefaultId]?.first)
         XCTAssertEqual(result.viewSurfaces.count, 1)
@@ -79,7 +79,7 @@ import XCTest
 
     func testBrowserCreationAllocatesExactlyOneViewInEitherArrivalOrder() throws {
         for inventoryFirst in [true, false] {
-            setUpWorkspacesForTests(); config.workspaceInteractionMode = .views
+            setUpWorkspacesForTests(); config.newItemPlacement = .newView
             let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID()
             controller.usesSurfaceTree = true
             let original = focus.workspace

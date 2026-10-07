@@ -66,10 +66,8 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
           frame.isEqual(to: destination.targetFrame),
           destination.zone != .tab || config.windowTabs.enabled,
           destination.zone != .middle || destination.sourceWorkspace == destination.targetWorkspace else { return false }
-    if config.workspaceInteractionMode == .views {
-        guard let source = Workspace.existing(byName: destination.sourceWorkspace),
-              source.projectId == workspace.projectId, source.isPinnedGroup == workspace.isPinnedGroup else { return false }
-    }
+    guard let source = Workspace.existing(byName: destination.sourceWorkspace),
+          source.projectId == workspace.projectId, source.isPinnedGroup == workspace.isPinnedGroup else { return false }
 
     let edit: (inout SurfaceTree) -> Bool = { tree in
         switch destination.zone {

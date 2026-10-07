@@ -33,7 +33,7 @@ struct WorkspaceSidebarDropPreviewView: View {
     private var newWorkspacePreview: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
-                Text(config.workspaceInteractionMode == .views ? "New View" : "New Group")
+                Text("New View")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.85))
                     .lineLimit(1)

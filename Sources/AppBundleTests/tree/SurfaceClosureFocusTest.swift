@@ -13,7 +13,7 @@ final class SurfaceClosureFocusTest: XCTestCase {
 
     override func setUp() async throws {
         setUpWorkspacesForTests()
-        config.workspaceInteractionMode = .tiling
+        config.newItemPlacement = .tile
         controller = BrowserWorkspaceController(foregroundProcessID: { -1 })
         controller.usesSurfaceTree = true
         connection = UUID(); epoch = UUID(); revision = 0
@@ -37,7 +37,7 @@ final class SurfaceClosureFocusTest: XCTestCase {
     }
 
     func testBrowserCloseReturnsToNativeAppInPreviousView() {
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
         let previous = Workspace.get(byName: "Previous app")
         let native = TestWindow.new(id: 811, parent: previous.rootTilingContainer)
         XCTAssertEqual(controller.select(native.surfaceID), .issued)

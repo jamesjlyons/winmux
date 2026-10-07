@@ -12,12 +12,11 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
 
     var isPinnedGroup: Bool = false
     var pins: [WorkspaceSidebarPinViewModel] = []
-    var isViewMode: Bool = false
     var totalViewSurfaceCount: Int? = nil
 
     var viewSurfaces: [WorkspaceSidebarSurfaceItem] { items.flatMap(\.surfaceItems) }
     var viewSurfaceCount: Int { totalViewSurfaceCount ?? viewSurfaces.count }
-    var isSingleWindowView: Bool { isViewMode && viewSurfaceCount == 1 }
+    var isSingleWindowView: Bool { viewSurfaceCount == 1 }
 
     var id: String { name }
 }

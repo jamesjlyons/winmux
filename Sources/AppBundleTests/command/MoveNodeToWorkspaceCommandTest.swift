@@ -25,7 +25,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         assertEquals((Workspace.get(byName: "b").rootTilingContainer.children.singleOrNil() as? Window)?.windowId, 1)
     }
 
-    func testMovingLastWindowLeavesOneAdjacentEmptyWorkspace() async throws {
+    func testMovingLastWindowRetiresTheAutomaticSourceView() async throws {
         let workspaceA = Workspace.get(byName: "a")
         workspaceA.rootTilingContainer.apply {
             _ = TestWindow.new(id: 1, parent: $0).focusWindow()
@@ -35,11 +35,11 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertTrue(Workspace.existing(byName: "a") === workspaceA)
+        XCTAssertNil(Workspace.existing(byName: "a"))
         XCTAssertTrue(workspaceA.isEffectivelyEmpty)
         XCTAssertEqual(
             userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).filter(\.isOrdinaryEmptySlot),
-            [workspaceA],
+            [],
         )
     }
 
@@ -124,7 +124,8 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Group 2")
+        XCTAssertNil(Workspace.existing(byName: workspace1.name))
+        XCTAssertEqual(workspaceDisplayName("2"), "View 1")
     }
 
     func testDirectNumericMoveDoesNotCreateWorkspaceMultipleHopsAway() async throws {
@@ -156,9 +157,9 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
         XCTAssertNil(Workspace.existing(byName: "4"))
-        XCTAssertEqual(workspaceDisplayName(first.name), "Group 1")
-        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Group 2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Group 3")
+        XCTAssertNil(Workspace.existing(byName: first.name))
+        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "View 1")
+        XCTAssertEqual(workspaceDisplayName("2"), "View 2")
     }
 
     func testDirectNumericMoveDoesNotCreateMultipleHopsAfterBlankIsCollected() async throws {

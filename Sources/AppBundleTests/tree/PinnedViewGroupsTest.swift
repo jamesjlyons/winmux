@@ -6,10 +6,10 @@ import XCTest
 @MainActor final class PinnedViewGroupsTest: XCTestCase {
     override func setUp() async throws {
         setUpWorkspacesForTests()
-        config.workspaceInteractionMode = .views
+        config.newItemPlacement = .newView
         TestApp.shared.bundlePath = "/Missing/Test.app"
     }
-    override func tearDown() async throws { config.workspaceInteractionMode = .tiling; TestApp.shared.bundlePath = nil }
+    override func tearDown() async throws { config.newItemPlacement = .tile; TestApp.shared.bundlePath = nil }
 
     func testPinWholeSplitKeepsNestedLayoutWeightsAndSingleDesktopSelection() throws {
         let c = BrowserWorkspaceController(), source = focus.workspace

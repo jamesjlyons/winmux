@@ -44,8 +44,7 @@ struct Config: ConvenienceCopyable {
     var startAtLogin: Bool = false
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
-    var automaticallyTileNewWindows: Bool = true
-    var workspaceInteractionMode: WorkspaceInteractionMode = .tiling
+    var newItemPlacement: NewItemPlacement = .newView
     var enableShakeToToggleTiling: Bool = true
     var shortcutsPreset: ShortcutsPreset = .none
     var browserNewTabShortcut = "alt-cmd-t"
@@ -60,7 +59,6 @@ struct Config: ConvenienceCopyable {
     // var onFocusedWorkspaceChanged: [any Command] = []
     var onFocusedMonitorChanged: [any Command] = []
 
-    var autoAddNewWindowsToTabGroup: Bool = false
     var gaps: Gaps = .zero
     var workspaceSidebar = WorkspaceSidebarConfig()
     var windowTabs = WindowTabsConfig()
