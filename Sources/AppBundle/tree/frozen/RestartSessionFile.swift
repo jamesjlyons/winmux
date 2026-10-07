@@ -6,6 +6,7 @@ import WorkspaceCore
 struct RestartSessionFile: Sendable {
     let url: URL
     var backupURL: URL { url.appendingPathExtension("backup") }
+    func migrationBackupURL(version: Int) -> URL { url.appendingPathExtension("v\(version).backup") }
 
     static func location(appSupport: URL, appName: String, explicitConfigPath: String?) -> URL {
         var directory = appSupport.appendingPathComponent(appName, isDirectory: true)
@@ -32,9 +33,24 @@ struct RestartSessionFile: Sendable {
 
     func write(_ snapshot: RestartSessionSnapshot) throws {
         let data = try JSONEncoder.winMuxDefault.encode(snapshot)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let previous = try? Data(contentsOf: url), (try? decode(previous, source: url)) != nil {
-            try previous.write(to: backupURL, options: .atomic)
+        let fm = FileManager.default
+        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        for source in [url, backupURL] {
+            guard let previous = try? Data(contentsOf: source) else { continue }
+            let decoded: RestartSessionSnapshot
+            do { decoded = try decode(previous, source: source) }
+            catch {
+                if case RestartSessionFileError.unsupportedVersion = error { throw error }
+                continue
+            }
+            if decoded.version != snapshot.version {
+                // The rotating backup will be replaced on the next checkpoint.
+                // Keep the first valid bytes from each migrated format as well.
+                let migration = migrationBackupURL(version: decoded.version)
+                if !fm.fileExists(atPath: migration.path) { try fm.copyItem(at: source, to: migration) }
+            }
+            if source == url { try previous.write(to: backupURL, options: .atomic) }
+            break
         }
         try data.write(to: url, options: .atomic)
     }

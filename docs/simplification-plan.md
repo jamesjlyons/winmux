@@ -102,5 +102,25 @@ protection qualification. Rerun unfiltered `make check` and the signed isolated
 `browser/tools/test_browser_switch_speed.py` fixture after unlocking. Do not
 relax file protection or replace desktop checks with synthetic timing claims.
 
-Stages 3–7 remain pending. The first slice is implemented; desktop qualification
+The first slice was committed and pushed as `d3feb53a`. Desktop qualification
 for stages 1–2 remains open.
+
+### Stage 3 progress
+
+`SavedView` now provides a common member model with optional runtime bindings,
+launch descriptors, saved selection, and layout. Pin layout capture uses this
+core model. `ViewLayoutNode` holds the shared arrangement; `PinnedLayoutNode`
+remains a compatibility spelling while callers migrate.
+
+The legacy conversion boundary now handles groups whose members are closed,
+preserving member order, proportions, and selection without launching pages.
+Groups containing native bindings wait until restart discovery finishes before
+moving to their new workspace. A version migration preserves the original
+session bytes in a version-specific backup, in addition to the rotating backup.
+Checkpoints refuse to replace a file from an unsupported newer build.
+
+App Debug and Release passed 1,060 tests each; native Release passed 150 WorkspaceCore tests and
+21 BridgeCore tests, using the same locked-console exclusions described above.
+These changes do not complete stage 3: ordinary View persistence and the
+remaining runtime pin adapters still need consolidation. Stages 4–7 remain
+pending.

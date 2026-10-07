@@ -657,6 +657,7 @@ public final class BrowserWorkspaceController {
             }
         }
         syncSidebarPins()
+        migratePinnedDesktops()
     }
 
     /// Project the current organization without changing it. Stale native rows

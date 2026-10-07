@@ -41,22 +41,10 @@ extension BrowserWorkspaceController {
     func capturePinnedLayouts() {
         normalizePinnedGroupIDs()
         for index in pinnedDesktops.indices {
-            let desktop = pinnedDesktops[index]
-            let bindings = pinBindings(in: desktop.workspaceName)
-            let members = Dictionary(uniqueKeysWithValues: bindings.map { ($0.value, $0.key) })
-            if let selected = focusCoordinator.target.flatMap({ members[$0] }) { pinnedDesktops[index].selectedMember = selected }
-            // A close prunes the live tree. Preserve the complete saved template
-            // until all slots are present, rather than saving that projection.
-            let tiledMembers = Set(desktop.layout.flatMap(\.members))
-            let liveTree = Set((surfaceTree.roots[desktop.workspaceName] ?? []).flatMap(\.surfaces))
-            let allSlotsPresent = tiledMembers.allSatisfy { bindings[$0].map(liveTree.contains) ?? false }
-            if bindings.count == desktop.memberIDs.count && allSlotsPresent {
-                pinnedDesktops[index].layout = (surfaceTree.roots[desktop.workspaceName] ?? []).compactMap {
-                    PinnedLayoutNode.capture($0, tree: surfaceTree, members: members)
-                }
-            } else {
-                pinnedDesktops[index].layout = desktop.layout.map { $0.refreshing(from: surfaceTree, bindings: bindings) }
-            }
+            guard var view = pinnedDesktops[index].savedView(browserPins: browserSidebarPins, appPins: nativeAppSidebarPins) else { continue }
+            view.captureLayout(from: surfaceTree, selected: focusCoordinator.target)
+            pinnedDesktops[index].layout = view.layout
+            pinnedDesktops[index].selectedMember = view.selectedMember
         }
     }
 
@@ -349,11 +337,20 @@ extension BrowserWorkspaceController {
         let sources = Set(legacyPages.map(\.workspaceName) + legacyApps.map(\.workspaceName))
         for name in sources.sorted() {
             guard let source = Workspace.existing(byName: name) else { continue }
+            // Native restart restoration still owns these bindings until its
+            // final discovery pass. Moving them earlier would be undone by the
+            // frozen native hierarchy and could discard their saved pins.
+            if RestartSessionController.shared.retainsWorkspace(name),
+               legacyApps.contains(where: { $0.workspaceName == name && $0.surfaceID != nil }) { continue }
             ensurePinShelf(source.projectId, source: source)
             let order = spacePinnedGroups.first { $0.workspaceName == name }?.pinOrder
                 ?? (legacyPages.filter { $0.workspaceName == name }.map(\.id) + legacyApps.filter { $0.workspaceName == name }.map(\.id))
             for id in order {
-                if pinnedDesktops.contains(where: { $0.memberIDs.contains(id) }) || isGroupedPin(id) { continue }
+                if pinnedDesktops.contains(where: { $0.memberIDs.contains(id) }) { continue }
+                if let saved = spacePinnedGroups.first(where: { $0.workspaceName == name })?.views.first(where: { $0.members.values.contains(id) }) {
+                    migrateLegacySavedView(saved, source: source)
+                    continue
+                }
                 let page = browserSidebarPins.first { $0.id == id }, app = nativeAppSidebarPins.first { $0.id == id }
                 let surface = page?.surfaceID ?? app?.surfaceID
                 if let surface, let group = surfaceTree.outermostGroup(containing: surface), let node = surfaceTree.group(group) {
@@ -372,6 +369,36 @@ extension BrowserWorkspaceController {
                 }
             }
         }
+    }
+
+    private func migrateLegacySavedView(_ saved: PinnedViewGroup, source: Workspace) {
+        guard let view = saved.savedView(spaceID: source.projectId.rawValue, workspaceName: source.name,
+            browserPins: browserSidebarPins, appPins: nativeAppSidebarPins),
+              !pinnedDesktops.contains(where: { $0.id == view.id }),
+              view.bindings.values.allSatisfy({ surfaceTree.workspace(of: $0).map { $0 == source.name } ?? true }) else { return }
+        let destination = Workspace.get(byName: "__pin_" + UUID().uuidString.lowercased())
+        destination.assignProject(source.projectId)
+        destination.seedMonitorIfNeeded(source.workspaceMonitor)
+        let ids = Set(view.members.map(\.id))
+        let live = view.members.compactMap(\.surfaceID).filter { surfaceTree.workspace(of: $0) == source.name }
+        migratePinnedNodes(live.map(SurfaceTreeNode.surface), from: source.name, to: destination.name)
+        for index in browserSidebarPins.indices where ids.contains(browserSidebarPins[index].id) {
+            browserSidebarPins[index].workspaceName = destination.name
+        }
+        for index in nativeAppSidebarPins.indices where ids.contains(nativeAppSidebarPins[index].id) {
+            nativeAppSidebarPins[index].workspaceName = destination.name
+        }
+        pinnedDesktops.append(.init(id: view.id, spaceID: view.spaceID, workspaceName: destination.name,
+            title: view.title, kind: .group, memberIDs: view.members.map(\.id),
+            layout: view.layout, selectedMember: view.selectedMember))
+        destination.isPinnedGroup = true; destination.lifecycle = .durable
+        ensurePinShelf(source.projectId, source: source)
+        if let shelf = pinShelves.firstIndex(where: { $0.spaceID == view.spaceID }) {
+            pinShelves[shelf].desktopOrder.append(view.id)
+        }
+        for id in ids { removePinOrder(id) }
+        removePinnedView(saved.id)
+        restorePinnedDesktopLayout(workspace: destination.name)
     }
 
     private func migrateLegacyNodes(_ nodes: [SurfaceTreeNode], source: Workspace, kind: PinnedDesktop.Kind) -> Bool {

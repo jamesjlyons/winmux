@@ -2,6 +2,7 @@
 import AppKit
 import Common
 import XCTest
+import WorkspaceCore
 
 @MainActor
 final class RestartSessionTest: XCTestCase {
@@ -150,6 +151,58 @@ final class RestartSessionTest: XCTestCase {
         try file.write(RestartSessionSnapshot.capture(now: Date(timeIntervalSince1970: 300)))
         XCTAssertEqual(try JSONDecoder().decode(RestartSessionSnapshot.self, from: Data(contentsOf: file.backupURL)).savedAt, first.savedAt)
         XCTAssertEqual(try file.read()?.savedAt, Date(timeIntervalSince1970: 300))
+    }
+
+    func testMigrationKeepsOriginalBytesAcrossLaterCheckpoints() throws {
+        let file = temporaryFile()
+        defer { try? FileManager.default.removeItem(at: file.url.deletingLastPathComponent()) }
+        var legacy = RestartSessionSnapshot.capture(now: Date(timeIntervalSince1970: 100))
+        legacy.version = 3
+        try file.write(legacy)
+        let original = try Data(contentsOf: file.url)
+        var migrated = legacy
+        migrated.version = 5
+        migrated.surfaces = .init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: [])
+        try file.write(migrated)
+        try file.write(migrated)
+
+        XCTAssertEqual(try Data(contentsOf: file.migrationBackupURL(version: 3)), original)
+        XCTAssertEqual(try JSONDecoder().decode(RestartSessionSnapshot.self, from: Data(contentsOf: file.backupURL)).version, 5)
+        XCTAssertEqual(try file.read()?.version, 5)
+        // A second migration from the same format cannot replace the first copy.
+        legacy = RestartSessionSnapshot.capture(now: Date(timeIntervalSince1970: 200))
+        legacy.version = 3
+        try file.write(legacy)
+        try file.write(migrated)
+        XCTAssertEqual(try Data(contentsOf: file.migrationBackupURL(version: 3)), original)
+    }
+
+    func testMigrationFromRecoveredBackupKeepsItsOriginalBytes() throws {
+        let file = temporaryFile()
+        defer { try? FileManager.default.removeItem(at: file.url.deletingLastPathComponent()) }
+        var legacy = RestartSessionSnapshot.capture()
+        legacy.version = 3
+        try file.write(legacy)
+        try file.write(legacy)
+        let original = try Data(contentsOf: file.backupURL)
+        try Data("corrupt".utf8).write(to: file.url)
+        var migrated = try XCTUnwrap(file.read())
+        migrated.version = 5
+        migrated.surfaces = .init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: [])
+        try file.write(migrated)
+        try file.write(migrated)
+        XCTAssertEqual(try Data(contentsOf: file.migrationBackupURL(version: 3)), original)
+    }
+
+    func testCheckpointCannotReplaceAFileFromANewerBuild() throws {
+        let file = temporaryFile()
+        defer { try? FileManager.default.removeItem(at: file.url.deletingLastPathComponent()) }
+        let snapshot = RestartSessionSnapshot.capture()
+        try file.write(snapshot)
+        let future = Data("{\"version\":999}".utf8)
+        try future.write(to: file.url)
+        XCTAssertThrowsError(try file.write(snapshot))
+        XCTAssertEqual(try Data(contentsOf: file.url), future)
     }
 
     func testDelayedDiscoveryRestoresLaterWindowsWithoutResettingFinishedWorkspaces() async throws {
