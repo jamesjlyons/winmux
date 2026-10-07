@@ -3,8 +3,8 @@ import Common
 import QuartzCore
 import WorkspaceCore
 
-/// One interaction owns the Chromium body and its helper-owned chrome. The
-/// durable tree changes only on release; live frames travel through owner IPC.
+/// Observe native page-window gestures and retain shared organization until
+/// release. Legacy helper chrome uses the same owner-validated commit path.
 @MainActor
 final class BrowserWindowDragController {
     static let shared = BrowserWindowDragController()
@@ -202,7 +202,8 @@ final class BrowserWindowDragController {
         if let deadline = drag.settlingUntil {
             let planned = Workspace.all.flatMap(controller.plannedSurfaces).first { $0.surfaceID == drag.id && $0.visible }
             let target = planned.flatMap { placement -> CGRect? in
-                let frame = drag.kind == .native ? placement.frame : BrowserPageChromeGeometry(frame: placement.frame)?.bodyFrame
+                let frame = drag.kind == .native || controller.owner(of: drag.id)?.supportsIntegratedToolbar == true
+                    ? placement.frame : BrowserPageChromeGeometry(frame: placement.frame)?.bodyFrame
                 return frame.map { CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
             }
             if target.map({ Self.close(actual, $0) }) == true || CACurrentMediaTime() >= deadline { clear() }
@@ -281,10 +282,9 @@ final class BrowserWindowDragController {
                   let bounds = entry[kCGWindowBounds as String] as? NSDictionary,
                   let rect = CGRect(dictionaryRepresentation: bounds), rect.contains(point),
                   let host = entry[kCGWindowNumber as String] as? UInt32 else { continue }
-            guard let item = BrowserToolbarController.shared.presentationItems.first(where: { $0.hostWindowID == host }),
-                  let pid = controller.browserProcess(for: item.surfaceID),
-                  entry[kCGWindowOwnerPID as String] as? Int32 == pid else { return nil }
-            return Drag(id: item.surfaceID, host: host, pid: pid, kind: .observedBrowser, start: point, frame: rect)
+            guard let pid = entry[kCGWindowOwnerPID as String] as? Int32,
+                  let id = controller.browserSurface(forHostWindow: host, processID: pid) else { return nil }
+            return Drag(id: id, host: host, pid: pid, kind: .observedBrowser, start: point, frame: rect)
         }
         return nil
     }
@@ -308,5 +308,16 @@ final class BrowserWindowDragController {
 
     private static func close(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) <= 1 && abs(a.minY - b.minY) <= 1 && abs(a.width - b.width) <= 1 && abs(a.height - b.height) <= 1
+    }
+}
+
+extension BrowserWorkspaceController {
+    func browserSurface(forHostWindow host: UInt32, processID pid: Int32) -> SurfaceID? {
+        knownSurfaces.first { id in
+            guard let record = owner(of: id)?.inventory.tabs[id], record.hostWindowID == host,
+                  record.hostManaged, !record.hostMinimized, !record.hostFullscreen, !record.hostZoomed,
+                  browserProcess(for: id) == pid else { return false }
+            return true
+        }
     }
 }

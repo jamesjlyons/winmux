@@ -8,6 +8,31 @@ import XCTest
 @MainActor final class BrowserPagePresentationTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testIntegratedToolbarUsesWholeWindowFrameAndOwnerMinimumWithoutHelperOverhead() throws {
+        let controller = BrowserWorkspaceController(), workspace = focus.workspace, connection = UUID()
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree(); tree.reconcile([page], in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: pid) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: page, hostID: "integrated",
+            title: "Page", selected: true, hostWindowID: 99001, hostMinimumSize: .init(width: 400, height: 180), hostManaged: true)]),
+            epoch: UUID(), connection: connection, protocolVersion: 11)
+        XCTAssertEqual(controller.owner(of: page)?.supportsIntegratedToolbar, true)
+        XCTAssertEqual(controller.minimumSizes(in: workspace)[page], .init(width: 400, height: 180))
+        let placements = controller.plannedSurfaces(in: workspace)
+        let host = try XCTUnwrap(browserHostPlacements(placements, hasNativeToolbar: true, integratedToolbar: true).first)
+        XCTAssertTrue(host.integratedToolbar && host.nativeControls)
+        XCTAssertEqual(host.x, placements[0].frame.x)
+        XCTAssertEqual(host.y, placements[0].frame.y)
+        XCTAssertEqual(host.width, placements[0].frame.width)
+        XCTAssertEqual(host.height, placements[0].frame.height)
+        XCTAssertEqual(controller.browserSurface(forHostWindow: 99001, processID: pid), page)
+        XCTAssertNil(controller.browserSurface(forHostWindow: 99001, processID: -2))
+        controller.disconnected(connection)
+        XCTAssertNil(controller.browserSurface(forHostWindow: 99001, processID: pid))
+    }
+
     func testProtocolFourAdoptsFirstPageWithoutManualGroupingAndReflectsNativeFocus() throws {
         let controller = BrowserWorkspaceController(foregroundProcessID: { -1 }), connection = UUID(), epoch = UUID()
         let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())

@@ -221,12 +221,17 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         guard var data = try? encoder.encode(hosts) else { return "invalid_fixture" }
-        if omitNativeControls {
-            guard var legacy = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return "invalid_fixture" }
-            for index in legacy.indices { legacy[index].removeValue(forKey: "native_controls") }
-            guard let encoded = try? JSONSerialization.data(withJSONObject: legacy) else { return "invalid_fixture" }
-            data = encoded
+        guard var payload = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return "invalid_fixture" }
+        for index in payload.indices {
+            if omitNativeControls {
+                payload[index].removeValue(forKey: "native_controls")
+                payload[index].removeValue(forKey: "integrated_toolbar")
+            } else if (session.version ?? 0) >= 11, hosts[index].nativeControls {
+                payload[index]["integrated_toolbar"] = true
+            }
         }
+        guard let encoded = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) else { return "invalid_fixture" }
+        data = encoded
         return await withCheckedContinuation { continuation in
             remote.value.applyLayout(data, epoch: epoch, operation: operation, revision: revision,
                                      generation: generation) { continuation.resume(returning: $0) }
@@ -357,6 +362,11 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             guard await exerciseRepeatedGroupSwitches(epoch: epoch, remote: remote, ids: ids,
                 windows: windows, split: split) else { return }
             guard await exerciseNavigation(epoch: epoch, remote: remote, ids: ids, windows: windows) else { return }
+        }
+        if (session.version ?? 0) >= 11 {
+            // Address focus uses the same global fence as page/native focus.
+            noteTest("focus_address", await testAction("focus_address", surface: ids[0], remote: remote,
+                epoch: epoch, generation: 2, retries: 0))
         }
         exerciseActions(epoch: epoch)
     }
@@ -784,14 +794,14 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         let snapshot = lock.withLock { inventory }
         guard let id = snapshot.tabs.keys.sorted(by: { $0.description < $1.description }).first else { return }
         remote.value.performAction("focus", surface: id.description, epoch: epoch, operation: UUID().uuidString,
-                             revision: snapshot.revision, generation: 2) { outcome in
+                             revision: snapshot.revision, generation: 10) { outcome in
             self.noteTest("focus", outcome)
             let fence = UUID().uuidString
             remote.value.performAction("cancel_focus", surface: "", epoch: epoch, operation: fence,
-                                       revision: 0, generation: 3) { fenced in
+                                       revision: 0, generation: 11) { fenced in
                 self.noteTest("native_focus_fence", fenced)
                 remote.value.performAction("cancel_focus", surface: "", epoch: epoch, operation: fence,
-                                           revision: 0, generation: 3) { repeated in
+                                           revision: 0, generation: 11) { repeated in
                     self.noteTest("repeated_fence", repeated)
                     remote.value.performAction("focus", surface: id.description, epoch: epoch, operation: UUID().uuidString,
                                          revision: snapshot.revision, generation: 1) { stale in

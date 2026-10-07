@@ -1,0 +1,21 @@
+--- a/chrome/browser/ui/toolbar/BUILD.gn
++++ b/chrome/browser/ui/toolbar/BUILD.gn
+@@ -101,7 +101,7 @@
+ 
+ source_set("impl") {
+   sources = []
+-  deps = [ ":toolbar" ]
++  deps = [ ":toolbar", "//chrome/browser/winmux:managed_toolbar" ]
+ 
+   if (!is_android) {
+     sources += [
+--- a/chrome/browser/ui/views/download/BUILD.gn
++++ b/chrome/browser/ui/views/download/BUILD.gn
+@@ -24,6 +24,7 @@
+     "//ui/views",
+   ]
+   deps = [
++    "//chrome/browser/winmux:managed_toolbar",
+     "//chrome/browser/profiles:profile",
+     "//chrome/browser/safe_browsing",
+     "//chrome/browser/safe_browsing:advanced_protection",

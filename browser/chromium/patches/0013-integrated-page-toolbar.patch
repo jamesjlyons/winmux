@@ -1,0 +1,160 @@
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <stdint.h>
+ 
+@@ -1394,7 +1395,7 @@
+ }
+ 
+ bool BrowserView::ShouldDrawTabStrip() const {
+-  if (winmux_managed_) {
++  if (winmux_managed_ || GetProperty(winmux::kIntegratedToolbar)) {
+     return false;
+   }
+   // Return false if this window does not normally display a tabstrip or if the
+@@ -3002,7 +3003,7 @@
+ }
+ 
+ bool BrowserView::IsBookmarkBarVisible() const {
+-  if (winmux_managed_) {
++  if (winmux_managed_ || GetProperty(winmux::kIntegratedToolbar)) {
+     return false;
+   }
+   if (!WindowFeatureController::From(browser_)->SupportsWindowFeature(
+@@ -3043,7 +3044,7 @@
+ }
+ 
+ bool BrowserView::IsToolbarVisible() const {
+-  if (winmux_managed_) {
++  if (winmux_managed_ && !GetProperty(winmux::kIntegratedToolbar)) {
+     return false;
+   }
+ #if BUILDFLAG(IS_MAC)
+@@ -3069,11 +3070,12 @@
+ }
+ 
+ bool BrowserView::IsToolbarShowing() const {
++  if (GetProperty(winmux::kIntegratedToolbar)) return IsToolbarVisible();
+   return GetTabStripVisible();
+ }
+ 
+ bool BrowserView::IsLocationBarVisible() const {
+-  if (winmux_managed_) {
++  if (winmux_managed_ && !GetProperty(winmux::kIntegratedToolbar)) {
+     return false;
+   }
+   return WindowFeatureController::From(browser_)->SupportsWindowFeature(
+@@ -4796,7 +4798,7 @@
+ }
+ 
+ gfx::Size BrowserView::GetMinimumSize() const {
+-  if (winmux_managed_) {
++  if (winmux_managed_ && !GetProperty(winmux::kIntegratedToolbar)) {
+     return gfx::Size(160, 120);
+   }
+   auto* const layout = GetBrowserViewLayout();
+--- a/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/frame/browser_frame_view_mac.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <algorithm>
+ #include <vector>
+@@ -226,7 +227,8 @@
+ 
+ BrowserLayoutParams BrowserFrameViewMac::GetBrowserLayoutParams() const {
+   auto params = BrowserFrameView::GetBrowserLayoutParams();
+-  if (GetBrowserView()->IsWinmuxManaged()) {
++  if (GetBrowserView()->IsWinmuxManaged() &&
++      !GetBrowserView()->GetProperty(winmux::kIntegratedToolbar)) {
+     params.leading_exclusion = {};
+     params.trailing_exclusion = {};
+     return params;
+--- a/chrome/browser/ui/views/extensions/extensions_toolbar_button.cc
++++ b/chrome/browser/ui/views/extensions/extensions_toolbar_button.cc
+@@ -11,6 +11,7 @@
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/layout_constants.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/browser/ui/view_ids.h"
+ #include "chrome/browser/ui/views/extensions/extensions_menu_coordinator.h"
+ #include "chrome/browser/ui/views/extensions/extensions_menu_view.h"
+@@ -184,7 +185,8 @@
+   // Winmux presents its navigation controls in a separate native panel. The
+   // retained Chromium toolbar is hidden, so use the page window's top corner.
+   if (auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser_);
+-      browser_view && browser_view->IsWinmuxManaged()) {
++      browser_view && browser_view->IsWinmuxManaged() &&
++      !browser_view->GetProperty(winmux::kIntegratedToolbar)) {
+     if (auto* bubble = menu->widget_delegate()->AsBubbleDialogDelegate()) {
+       const auto bounds = browser_view->GetBoundsInScreen();
+       bubble->SetAnchorView(nullptr);
+--- a/chrome/browser/ui/views/extensions/extension_popup.cc
++++ b/chrome/browser/ui/views/extensions/extension_popup.cc
+@@ -11,6 +11,7 @@
+ #include "chrome/browser/extensions/extension_view_host.h"
+ #include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "components/javascript_dialogs/app_modal_dialog_queue.h"
+ #include "components/web_modal/web_modal_utils.h"
+ #include "content/public/browser/browser_context.h"
+@@ -89,7 +90,8 @@
+   auto* popup = new ExtensionPopup(browser, std::move(host), anchor, arrow,
+                                    show_action, std::move(callback));
+   if (auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+-      browser_view && browser_view->IsWinmuxManaged()) {
++      browser_view && browser_view->IsWinmuxManaged() &&
++      !browser_view->GetProperty(winmux::kIntegratedToolbar)) {
+     const auto bounds = browser_view->GetBoundsInScreen();
+     popup->SetAnchorView(nullptr);
+     popup->SetAnchorWidget(browser_view->GetWidget());
+--- a/chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc
++++ b/chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc
+@@ -40,6 +40,7 @@
+ #include "chrome/browser/ui/views/download/bubble/download_bubble_contents_view.h"
+ #include "chrome/browser/ui/views/download/bubble/download_bubble_started_animation_views.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
+ #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
+ #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+@@ -948,7 +949,8 @@
+   }
+ 
+   // The native WinMux header is outside Chromium's hidden toolbar.
+-  if (browser_view_->IsWinmuxManaged()) {
++  if (browser_view_->IsWinmuxManaged() &&
++      !browser_view_->GetProperty(winmux::kIntegratedToolbar)) {
+     pending_bubble_ = true;
+     OnBubbleAnchorAssembled(views::BubbleAnchor(browser_view_));
+     return;
+@@ -992,7 +994,8 @@
+       anchor.value(), views::BubbleBorder::TOP_RIGHT,
+       views::BubbleBorder::DIALOG_SHADOW,
+       /*autosize=*/true);
+-  if (browser_view_->IsWinmuxManaged()) {
++  if (browser_view_->IsWinmuxManaged() &&
++      !browser_view_->GetProperty(winmux::kIntegratedToolbar)) {
+     const auto bounds = browser_view_->GetBoundsInScreen();
+     bubble_delegate->SetAnchorView(nullptr);
+     bubble_delegate->SetAnchorWidget(browser_view_->GetWidget());
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -567,6 +567,7 @@
+   ]
+ 
+   deps = [
++    "//chrome/browser/winmux:managed_toolbar",
+     "//chrome/browser/winmux:tab_identity",
+     ":browser_element_identifiers",
+     ":browser_otr_state",

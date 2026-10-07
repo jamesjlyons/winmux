@@ -41,6 +41,36 @@ final class BrowserLayoutSessionTests: XCTestCase {
         }
     }
 
+    @MainActor func testIntegratedToolbarRequiresNegotiatedCapabilityAndNativeHostOwnership() throws {
+        let fixture = Fixture()
+        func hosts(nativeControls: Bool = true) -> [BrowserHostPlacement] {
+            [.init(containerID: fixture.container, surfaces: [fixture.surface], selected: fixture.surface,
+                   frame: .init(x: 10, y: 20, width: 600, height: 700), visible: true,
+                   nativeControls: nativeControls, integratedToolbar: true)]
+        }
+        var outcome: BrowserActionReply?
+        fixture.session.requestLayout(hosts()) { outcome = $0 }
+        XCTAssertEqual(outcome, .unsupported)
+        XCTAssertTrue(fixture.requests.isEmpty)
+        fixture.session.supportsIntegratedToolbar = true
+        outcome = nil
+        fixture.session.requestLayout(hosts(nativeControls: false)) { outcome = $0 }
+        XCTAssertEqual(outcome, .unsupported)
+        XCTAssertTrue(fixture.requests.isEmpty)
+
+        fixture.session.requestLayout(hosts()) { outcome = $0 }
+        XCTAssertEqual(fixture.requests.count, 1)
+        fixture.replies[0](.issued)
+        XCTAssertEqual(outcome, .issued)
+        let data = try JSONEncoder().encode(fixture.requests[0].hosts[0])
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(legacy["integrated_toolbar"] as? Bool, true)
+        legacy.removeValue(forKey: "integrated_toolbar")
+        let decoded = try JSONDecoder().decode(BrowserHostPlacement.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertFalse(decoded.integratedToolbar, "Older wire records must retain their existing chrome contract")
+        XCTAssertTrue(decoded.nativeControls)
+    }
+
     @MainActor func testDriftInvalidationReappliesAcknowledgedFrameAtSameInventoryRevision() {
         let fixture = Fixture(), hosts = fixture.hosts()
         fixture.session.requestLayout(hosts) { _ in }

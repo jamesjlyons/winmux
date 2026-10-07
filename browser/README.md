@@ -1,38 +1,35 @@
-# WinMux Browser Alpha
+# WinMux Browser
 
-Browser Alpha combines independent Chromium page windows and Mac app windows in
-WinMux's **Spaces → Groups → Windows** interface. The Swift helper manages shared
-placement, selection, splits, stacks, pins, native page controls, and restoration;
-Chromium owns page contents, navigation, profiles, and extensions.
+The development workspace uses **Spaces containing Views**. A View contains a
+page, an app window, or a split/stack arrangement. Pinning saves that arrangement
+and its launch descriptors. WorkspaceCore owns organization and layout;
+Chromium owns page windows, navigation, profiles, and extensions.
 
-The views trial lets each Space choose **Shared** or a named browser profile in
-**Space → Manage Space → Browser Profile**. Create profiles such as Work and
-Personal, then reuse them across Spaces. New tabs and tabs sent from another
-Space use the selected profile. Cross-profile moves reopen the current URL and
-close the original after every replacement is available; same-profile moves
-preserve the live page. Changing the profile setting alone leaves existing tabs
-and pins unchanged. Chromium keeps each profile's
-history, cookies, extensions, settings, and saved passwords separately.
+Protocol 11 integrates a compact toolbar in each Chromium window, without a
+singleton tab row. Only explicit WinMux stacks show stack tabs. Chromium owns
+address editing and autocomplete; the page menu retains Keep Active, site
+blocking, and Privacy Settings. Earlier protocol peers temporarily retain their
+existing controls while native interaction qualification remains open.
 
-The native address bar autocompletes from the current profile's existing Chromium
-history and open pages. Use Up/Down to select a result, Return to open it, or Tab
-on an open-page match to switch to that tab. Escape restores the current address.
-The dropdown also offers Kagi search; typing a query makes no search-suggestion
-network request. Saved-history results require browser and helper protocol 10;
-older browsers still provide open-page matches. Private pages only suggest open
-pages in that private profile and never query saved history.
+Each Space chooses **Shared** or a named browser profile in **Space → Manage
+Space → Browser Profile**. Same-profile moves preserve the live page;
+cross-profile moves reopen the current URL and close the original only after
+all replacements are available. Changing the setting alone leaves existing
+pages and pins unchanged. Private pages retain a distinct profile boundary.
 
-Use **Option–Command–T** from any app to create a page in the current regular Group.
-Each Space has one ordered pin shelf. An app or page pin owns a full desktop;
-pinning an existing split, stack, or Group preserves its shared layout. Closed
-members retain their saved launch destinations and slots across restarts.
+Use **Option–Command–T** from any app to create a page. Each Space has an ordered
+pin shelf. Closed pinned members retain their saved launch destinations and
+layout slots across restarts; ordinary restart restoration does not open closed
+pages. **New View** creates an intentional empty View.
 
 Workspace Setup asks before enabling background component, extension, or filter
-updates. The page menu exposes Privacy Settings, per-site blocking, and Keep Active.
-New profiles use Kagi search, local blank tabs, and blocked third-party cookies.
-The lifecycle policy retains twelve recent eligible background pages, then freezes
-and discards older eligible pages while protecting active work. These additions
-require bridge protocol 6; the historical runtime measurements below predate them.
+updates. New profiles use Kagi, local blank pages, and blocked third-party cookies.
+The lifecycle policy protects active work while freezing and discarding eligible
+older background pages.
+
+The [simplification implementation record](../docs/simplification-plan.md) tracks
+current verification and remaining work. The release and performance records
+below describe earlier builds and do not qualify the integrated toolbar.
 
 The [October 4 draft candidate guide](../docs/browser/alpha-release-2026-10-04.md)
 covers installation, first launch, testing on another Mac, and rollback. The app
@@ -48,7 +45,7 @@ used existing data and warm OS caches, and do not measure page load or input rea
 Broader extension compatibility, physical input, display changes, and long-running
 daily use still need qualification.
 
-[Spaces, Groups, and shared moves](../docs/browser/fork-interface.md) ·
+[Spaces, Views, and shared moves](../docs/browser/fork-interface.md) ·
 [Page controls and pins](../docs/browser/page-windows.md) ·
 [Workspace Setup](../docs/browser/workspace-setup.md)
 

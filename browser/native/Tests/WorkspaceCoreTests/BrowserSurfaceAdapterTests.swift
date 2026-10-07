@@ -4,6 +4,23 @@ import XCTest
 
 @MainActor
 final class BrowserSurfaceAdapterTests: XCTestCase {
+    func testIntegratedAddressFocusRequiresCapabilityAndCannotRetryAfterNewFocus() {
+        var requests: [BrowserActionRequest] = []
+        var replies: [@MainActor (BrowserActionReply) -> Void] = []
+        let session = BrowserSurfaceSession { requests.append($0); replies.append($1) }
+        let epoch = UUID(), page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.supportsBrowserControls = true
+        session.connect(epoch: epoch)
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(page)]), epoch: epoch))
+        XCTAssertEqual(session.request(.focusAddress, surfaceID: page), .unsupported)
+        session.supportsIntegratedToolbar = true
+        XCTAssertEqual(session.request(.focusAddress, surfaceID: page), .issued)
+        XCTAssertEqual(requests.first?.generation, 1)
+        replies[0](.staleRevision)
+        _ = session.focusCoordinator.select(.nativeWindow(UUID()))
+        XCTAssertTrue(session.reconcile(.init(revision: 2, full: false, tabs: []), epoch: epoch))
+        XCTAssertEqual(requests.count, 1, "A delayed new-tab address request cannot steal later native focus")
+    }
     func testCloseRetriesOnlyAnExplicitStaleRejectionForTheSameTab() {
         var requests: [BrowserActionRequest] = []
         var replies: [@MainActor (BrowserActionReply) -> Void] = []

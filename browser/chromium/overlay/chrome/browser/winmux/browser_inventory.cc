@@ -41,6 +41,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -56,6 +57,8 @@
 #include "chrome/browser/winmux/tab_identity.h"
 #include "chrome/browser/winmux/profile_identity_lookup.h"
 #include "chrome/browser/winmux/host_window.h"
+#include "chrome/browser/winmux/managed_toolbar.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/navigation_controller.h"
@@ -364,7 +367,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
       if (previous->second.first != request) return "operation_conflict";
       return previous->second.second;
     }
-    if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus" &&
+    if (request.action != "focus" && request.action != "focus_address" && request.action != "close" && request.action != "cancel_focus" &&
         request.action != "back" && request.action != "forward" && request.action != "reload" &&
         request.action != "stop" && request.action != "navigate" && request.action != "new_tab" &&
         request.action != "downloads" && request.action != "extension_action" && request.action != "unpin_extension" &&
@@ -388,7 +391,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
           target.SchemeIs("about") || target.SchemeIs("chrome") || target.SchemeIs("chrome-extension")))
         return "invalid_request";
     }
-    if (request.action == "focus" || request.action == "cancel_focus") {
+    if (request.action == "focus" || request.action == "focus_address" || request.action == "cancel_focus") {
       if (!request.generation || request.generation <= highest_focus_)
         return "stale_focus";
       highest_focus_ = request.generation;
@@ -453,17 +456,22 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
     Remember(request);
-    if (request.action == "focus") {
+    if (request.action == "focus" || request.action == "focus_address") {
       strip->ActivateTabAt(index);
       if (IsBrowserHostMinimized(browser)) RestoreMinimizedBrowserHost(browser);
       // BrowserView::Show activates an already visible window and shows hidden
       // windows actively. A second Activate repeats Cocoa window ordering and
       // transaction synchronization for the same focus request.
       browser->GetWindow()->Show();
-      // A detached one-page host may retain focus in Chromium's now-hidden
-      // toolbar. Managed surfaces own their controls in Swift; selecting the
-      // page must explicitly give its renderer keyboard focus.
-      if (IsBrowserHostManaged(browser)) contents->Focus();
+      auto* view = BrowserView::GetBrowserViewForBrowser(browser);
+      if (request.action == "focus_address") {
+        chrome::FocusLocationBar(browser);
+      } else if (IsBrowserHostManaged(browser) &&
+                 (!view || !view->GetProperty(kIntegratedToolbar))) {
+        // Legacy helper chrome needs renderer focus; integrated hosts retain
+        // Chromium's native focus restoration, including an edited address.
+        contents->Focus();
+      }
     } else if (request.action == "close") {
       strip->CloseWebContents(contents, TabCloseTypes::CLOSE_USER_GESTURE |
                                           TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);

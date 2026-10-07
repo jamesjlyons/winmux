@@ -1,5 +1,12 @@
 # WinMux Browser: a Chromium browser and native window manager
 
+> **October 7 simplification update:** [The current plan](../simplification-plan.md)
+> supersedes the terminology, layout ownership, and separate Swift page controls
+> described below. Spaces contain Views, shared layout is authoritative, and
+> protocol 11 integrates a compact Chromium toolbar without a singleton tab row.
+> The historical requirements and verification records below remain reference
+> material; see [current page windows](page-windows.md) for implementation status.
+
 > **October 1 page-window update:** The user subsequently requested each page
 > in its own Chromium-owned native window, with Swift navigation, address,
 > extension and page controls, and WinMux grouping/resizing. This supersedes the

@@ -224,7 +224,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:10 remote:remote generation:generation];
+  [self negotiate:11 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -235,7 +235,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 10 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 11 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -392,7 +392,7 @@ NSString* OwnTeam() {
                       epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
                  generation:(uint64_t)focusGeneration reply:(void (^)(NSString*))reply {
   [self dispatchAction:action surface:surface url:url epoch:epoch operation:operation
-              revision:revision generation:focusGeneration minimumVersion:([@[@"downloads", @"extension_action", @"unpin_extension"] containsObject:action] ? 9 : [@[@"search", @"privacy", @"keep_active", @"site_blocking"] containsObject:action] ? 8 : 4) reply:reply];
+              revision:revision generation:focusGeneration minimumVersion:([action isEqualToString:@"focus_address"] ? 11 : [@[@"downloads", @"extension_action", @"unpin_extension"] containsObject:action] ? 9 : [@[@"search", @"privacy", @"keep_active", @"site_blocking"] containsObject:action] ? 8 : 4) reply:reply];
 }
 
 - (void)dispatchAction:(NSString*)action surface:(NSString*)surface url:(NSString*)url
@@ -407,7 +407,7 @@ NSString* OwnTeam() {
         (url && [url lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 16384)) {
       reply(@"invalid_request"); return;
     }
-    if ([action isEqualToString:@"focus"] || [action isEqualToString:@"cancel_focus"]) {
+    if ([action isEqualToString:@"focus"] || [action isEqualToString:@"focus_address"] || [action isEqualToString:@"cancel_focus"]) {
       if (!focusGeneration || focusGeneration < self->_latestFocus.load()) {
         reply(@"stale_focus"); return;
       }
@@ -420,7 +420,7 @@ NSString* OwnTeam() {
         [](WMChromiumWorkspaceBridge* bridge, uint64_t activeGeneration, std::string requestEpoch,
            winmux::BrowserSurfaceAction request, void (^completion)(NSString*)) {
           if (bridge->_activeGeneration.load() != activeGeneration) { completion(@"stale_epoch"); return; }
-          if (request.action == "focus" && request.generation < bridge->_latestFocus.load()) {
+          if ((request.action == "focus" || request.action == "focus_address") && request.generation < bridge->_latestFocus.load()) {
             completion(@"stale_focus"); return;
           }
           winmux::PerformBrowserSurfaceActionAsync(requestEpoch, std::move(request), base::BindOnce(

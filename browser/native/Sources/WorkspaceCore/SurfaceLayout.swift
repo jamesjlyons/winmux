@@ -74,7 +74,8 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
     public let x: Int, y: Int, width: Int, height: Int
     public let visible: Bool
     public let nativeControls: Bool
-    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible, nativeControls = "native_controls" }
+    public let integratedToolbar: Bool
+    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible, nativeControls = "native_controls", integratedToolbar = "integrated_toolbar" }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.init(containerID: try values.decode(UUID.self, forKey: .containerID),
@@ -83,10 +84,12 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
                   frame: .init(x: try values.decode(Int.self, forKey: .x), y: try values.decode(Int.self, forKey: .y),
                                width: try values.decode(Int.self, forKey: .width), height: try values.decode(Int.self, forKey: .height)),
                   visible: try values.decode(Bool.self, forKey: .visible),
-                  nativeControls: try values.decodeIfPresent(Bool.self, forKey: .nativeControls) ?? false)
+                  nativeControls: try values.decodeIfPresent(Bool.self, forKey: .nativeControls) ?? false,
+                  integratedToolbar: try values.decodeIfPresent(Bool.self, forKey: .integratedToolbar) ?? false)
     }
-    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool, nativeControls: Bool = false) {
+    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool, nativeControls: Bool = false, integratedToolbar: Bool = false) {
         self.nativeControls = nativeControls
+        self.integratedToolbar = integratedToolbar
         self.containerID = containerID; self.surfaces = surfaces; self.selected = selected
         x = frame.x; y = frame.y; width = frame.width; height = frame.height; self.visible = visible
     }

@@ -1,4 +1,6 @@
 #include "chrome/browser/winmux/host_window.h"
+#include "chrome/browser/winmux/managed_toolbar.h"
+#include "chrome/browser/winmux/page_menu.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -39,6 +41,7 @@ bool SetHostPresentation(BrowserWindowInterface* browser, bool managed) {
   if (view->IsWinmuxManaged() == managed) return true;
   // Save per native window, not globally: release restores its own presentation.
   if (managed) {
+    const bool integrated = view->GetProperty(kIntegratedToolbar);
     NSDictionary* saved = @{
       @"close": @([native standardWindowButton:NSWindowCloseButton].hidden),
       @"minimize": @([native standardWindowButton:NSWindowMiniaturizeButton].hidden),
@@ -52,17 +55,16 @@ bool SetHostPresentation(BrowserWindowInterface* browser, bool managed) {
     };
     objc_setAssociatedObject(native, &kSavedWindowPresentation, saved,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    [native standardWindowButton:NSWindowCloseButton].hidden = YES;
-    [native standardWindowButton:NSWindowMiniaturizeButton].hidden = YES;
-    [native standardWindowButton:NSWindowZoomButton].hidden = YES;
+    [native standardWindowButton:NSWindowCloseButton].hidden = !integrated;
+    [native standardWindowButton:NSWindowMiniaturizeButton].hidden = !integrated;
+    [native standardWindowButton:NSWindowZoomButton].hidden = !integrated;
     native.titleVisibility = NSWindowTitleHidden;
     native.titlebarAppearsTransparent = YES;
-    // Tiled pages use the Swift shell edge rather than a WindowServer shadow.
+    // Tiled pages do not need an overlapping WindowServer shadow.
     native.hasShadow = NO;
-    // The content window and Swift chrome form one managed surface. Letting
-    // AppKit drag the content alone separates it from its header and backing.
-    // Winmux owns surface movement through the authenticated layout channel.
-    native.movable = NO;
+    // Integrated controls move with their content in the same native window.
+    // Legacy helper chrome still owns movement for older peers.
+    native.movable = integrated;
     native.movableByWindowBackground = NO;
     // Cocoa's document-window ordering animation scales and bounces every page
     // during a group switch, including its disappearance. The workspace owns
@@ -167,13 +169,33 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
         NSWindowWillMiniaturizeNotification, NSWindowDidMiniaturizeNotification,
         NSWindowDidDeminiaturizeNotification, NSWindowWillEnterFullScreenNotification,
         NSWindowDidEnterFullScreenNotification, NSWindowWillExitFullScreenNotification,
-        NSWindowDidExitFullScreenNotification, NSWindowDidResizeNotification]) {
+        NSWindowDidExitFullScreenNotification, NSWindowDidResizeNotification,
+        @"WinMuxWindowWillZoom", @"WinMuxWindowDidZoom"]) {
       id observer = [NSNotificationCenter.defaultCenter
           addObserverForName:name object:native queue:nil
           usingBlock:^(NSNotification* notification) {
             if (!host || host->IsDeleteScheduled()) return;
             NSWindow* window = NativeWindow(host.get());
-            if ([notification.name isEqualToString:NSWindowWillMiniaturizeNotification]) {
+            auto* view = BrowserView::GetBrowserViewForBrowser(host.get());
+            if ([notification.name isEqualToString:@"WinMuxWindowWillZoom"]) {
+              if (!view || !view->GetProperty(kIntegratedToolbar) ||
+                  IsBrowserHostFullscreen(host.get())) return;
+              objc_setAssociatedObject(window, &kZoomTransition, @YES,
+                                       OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+              if (!IsBrowserHostZoomed(host.get())) {
+                const bool managed = IsBrowserHostManaged(host.get());
+                objc_setAssociatedObject(window, &kOwnedZoom, @YES,
+                                         OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                objc_setAssociatedObject(window, &kRestoreManagedAfterZoom,
+                                         managed ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                SetHostPresentation(host.get(), false);
+              }
+            } else if ([notification.name isEqualToString:@"WinMuxWindowDidZoom"]) {
+              if (!view || !view->GetProperty(kIntegratedToolbar)) return;
+              objc_setAssociatedObject(window, &kZoomTransition, nil,
+                                       OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+              ReconcileZoomPresentation(host.get());
+            } else if ([notification.name isEqualToString:NSWindowWillMiniaturizeNotification]) {
               objc_setAssociatedObject(window, &kMinimizeTransition, @YES,
                                        OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             } else if ([notification.name isEqualToString:NSWindowDidMiniaturizeNotification]) {
@@ -283,9 +305,21 @@ void ShowBrowserDownloads(BrowserWindowInterface* browser) {
   if (auto* downloads = DownloadToolbarUIController::From(browser)) downloads->InvokeUI();
 }
 
-bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed) {
+bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed, bool integrated_toolbar) {
   NSWindow* native = NativeWindow(browser);
-  if (!native) return false;
+  auto* view = browser ? BrowserView::GetBrowserViewForBrowser(browser) : nullptr;
+  if (!native || !view) return false;
+  const bool integrated = managed && integrated_toolbar;
+  if (view->GetProperty(kIntegratedToolbar) != integrated) {
+    // Restore the saved native presentation before changing control ownership.
+    // Temporary fullscreen and zoom use SetHostPresentation directly, retaining
+    // this capability until the workspace actually releases the page.
+    SetHostPresentation(browser, false);
+    view->SetProperty(kIntegratedToolbar, integrated);
+    if (integrated) view->SetProperty(kManagedPageMenu, CreateManagedPageMenu(browser));
+    else view->ClearProperty(kManagedPageMenu);
+    view->InvalidateLayout();
+  }
   // The page retains its workspace identity while native fullscreen owns its
   // presentation. Chromium controls provide the native way to leave that Space.
   const bool fullscreen = IsBrowserHostFullscreen(browser);

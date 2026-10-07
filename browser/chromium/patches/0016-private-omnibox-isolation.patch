@@ -1,0 +1,28 @@
+--- a/components/omnibox/browser/autocomplete_controller.cc
++++ b/components/omnibox/browser/autocomplete_controller.cc
+@@ -550,6 +550,13 @@
+       steady_state_omnibox_position_(OEP::UNKNOWN_POSITION),
+       config_(config) {
+   config_.provider_types &= ~OmniboxFieldTrial::GetDisabledProviderTypes();
++  // WinMux private pages suggest only typed navigation/search and pages in the
++  // same private profile. Do not import regular-profile history, shortcuts,
++  // bookmarks, top sites, documents, or remote suggestion providers.
++  if (provider_client_->IsOffTheRecord()) {
++    config_.provider_types &= AutocompleteProvider::TYPE_SEARCH |
++        AutocompleteProvider::TYPE_HISTORY_URL | AutocompleteProvider::TYPE_OPEN_TAB;
++  }
+ 
+   // Providers run in the order they're added. Async providers should run first
+   // so their async requests can be kicked off before waiting a few milliseconds
+--- a/chrome/browser/autocomplete/chrome_autocomplete_provider_client.cc
++++ b/chrome/browser/autocomplete/chrome_autocomplete_provider_client.cc
+@@ -290,6 +290,9 @@
+ }
+ 
+ history::HistoryService* ChromeAutocompleteProviderClient::GetHistoryService() {
++  // HistoryURLProvider still supplies typed-URL fixup without a history service.
++  // Explicit access would otherwise redirect an incognito profile to its parent.
++  if (profile_->IsOffTheRecord()) return nullptr;
+   return HistoryServiceFactory::GetForProfile(
+       profile_, ServiceAccessType::EXPLICIT_ACCESS);
+ }

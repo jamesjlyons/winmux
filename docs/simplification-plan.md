@@ -379,3 +379,69 @@ exclusions. Dependency resolution left `Package.resolved` unchanged and
 `git diff --check` passed. Release model reconciliation plus sidebar projection
 measured median 0.694 ms for 50 Views and 2.388 ms for 200 Views. These are
 synthetic measurements; live desktop qualification is still required.
+
+### Stage 6 integrated Chromium toolbar
+
+Protocol 11 now places navigation, address entry, extensions, downloads, and the
+browser menu in the page's Chromium window. Managed pages have no singleton tab
+row or bookmark bar. Native window buttons share that window; fullscreen and
+zoom retain the tabless presentation. The host restores its original native
+attributes and conventional Chromium presentation when management ends.
+
+The browser menu retains Keep Active, site blocking with the observed blocked
+count, and profile Privacy Settings in a native sheet. Private omnibox providers
+are restricted to typed navigation/search and open pages in the same private
+profile; the history client refuses regular-profile history access for private
+profiles. This preserves the existing suggestion boundary while moving editing
+and accessibility into Chromium.
+
+The helper sends complete page frames, including toolbar space, and honors the
+owner's reported minimum. It does not create helper toolbar/backing windows for
+protocol 11 peers. Native page gestures resolve authenticated process/window
+identities directly. A new address-focus action participates in the existing
+focus generation fence; delayed retries cannot override a later native selection.
+Older peers retain their existing presentation during qualification.
+
+Verification on 2026-10-07:
+
+- App Debug and Release: 1,122 tests passed in each configuration.
+- WorkspaceCore: 193 tests passed in both configurations; BridgeCore: 22 in both.
+- Python tooling: 84 tests passed, including the final fixture update.
+- The pinned Chromium build and signed package completed successfully. GN header
+  dependency checks passed for the owned bridge, browser menu, and downloads.
+- The final signed package passed 93 regular-profile and six private-profile
+  headless fixture outcomes. Checks include integrated host adoption/release,
+  exact window identity and geometry, 20 repeated layout switches, address-focus
+  dispatch, stale focus/layout rejection, profile isolation, and reconnect.
+- Dependency resolution left `Package.resolved` unchanged; `git diff --check`
+  passed.
+
+The fixture now restarts only its temporary helper after all actions finish.
+Its previous ten-second disconnect timer could interrupt the final profile
+checks; the initial failed run and corrected rerun are retained under `.local`.
+No enrolled helper or existing browser profile was modified.
+
+All Swift runs retain the locked-console exclusions documented above. Headless
+focus acknowledgements do not establish keyboard readiness, toolbar appearance,
+autocomplete presentation, accessibility, menu anchoring, native zoom/fullscreen,
+or drag/resize behavior. The older helper controls and standalone compatibility
+runtime remain until that live qualification permits their retirement.
+
+Current browser guidance now describes Spaces, Views, saved pins, and integrated
+controls. The October 4 Alpha/Trial guides and earlier performance measurements
+are explicitly historical. Final retirement and unfiltered desktop qualification
+remain open; the complete simplification goal has not been achieved.
+
+The final package also passed the same 93 outcomes after restarting its synthetic
+multi-profile data and after URL-free workspace startup with the profile-picker
+preference enabled. Cookies, history, profile names, and identities remained
+isolated and preserved. Each fixture exited its browser normally and removed its
+temporary service. [The verification record](browser/evidence/2026-10-07-integrated-toolbar.json)
+contains source/package hashes and exact test counts.
+
+The next required step is unlocked native qualification of the integrated
+window. After that, retire helper-owned page panels and their synchronization,
+finish compatibility-model cleanup, run unfiltered `make check`, and compare live
+interaction behavior with the recorded baseline. The locked console has remained
+an external blocker across successive implementation slices; headless checks
+cannot substitute for these remaining acceptance checks.

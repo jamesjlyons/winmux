@@ -9,6 +9,8 @@ public enum BrowserSurfaceAction: String, Sendable {
     case newTab = "new_tab"
     case manageExtensions = "manage_extensions"
     case cancelFocus = "cancel_focus"
+    case focusAddress = "focus_address"
+    var changesFocus: Bool { self == .focus || self == .focusAddress }
 }
 
 public struct BrowserActionRequest: Equatable, Sendable {
@@ -63,6 +65,7 @@ public final class BrowserSurfaceSession {
     public var supportsBrowserControls = false
     public var supportsToolbarActions = false
     public var supportsHistory = false
+    public var supportsIntegratedToolbar = false
     public typealias HistoryTransport = @MainActor (BrowserHistoryRequest, @escaping @MainActor ([BrowserHistoryEntry]) -> Void) -> Void
     private let sendHistory: HistoryTransport?
     public var supportsPrivacy = false
@@ -189,6 +192,9 @@ public final class BrowserSurfaceSession {
 
     public func requestLayout(_ hosts: [BrowserHostPlacement], completion: @escaping @MainActor (BrowserActionReply) -> Void) {
         guard supportsLayout, sendLayout != nil else { completion(.unsupported); return }
+        guard !hosts.contains(where: { $0.integratedToolbar && (!supportsIntegratedToolbar || !$0.nativeControls) }) else {
+            completion(.unsupported); return
+        }
         if desiredLayout != hosts { layoutAttemptRevision = nil }
         desiredLayout = hosts
         layoutCompletion = completion
@@ -277,6 +283,7 @@ public final class BrowserSurfaceSession {
         guard action == .focus || action == .close || supportsBrowserControls else {
             completion?(.unsupported); return .unsupported
         }
+        if action == .focusAddress, !supportsIntegratedToolbar { completion?(.unsupported); return .unsupported }
         if [.downloads, .extensionAction, .unpinExtension].contains(action), !supportsToolbarActions {
             completion?(.unsupported); return .unsupported
         }
@@ -294,13 +301,13 @@ public final class BrowserSurfaceSession {
         guard action != .back || tab.canGoBack,
               action != .forward || tab.canGoForward else { completion?(.unavailable); return .unavailable }
         var generation: UInt64 = 0
-        if action == .focus {
+        if action.changesFocus {
             guard let next = focusCoordinator.select(surfaceID) else { return .unavailable }
             generation = next
         }
         let request = BrowserActionRequest(epoch: epoch, operation: UUID(), surfaceID: surfaceID, action: action,
                                            revision: inventory.revision, generation: generation, url: url)
-        if action == .focus { focusIntent = BrowserFocusIntent(request: request) }
+        if action.changesFocus { focusIntent = BrowserFocusIntent(request: request) }
         // A stale revision is rejected before dispatch, including close. Retry
         // once against newer inventory for this same persistent tab and epoch;
         // never replay issued closes or ambiguous transport failures.
@@ -315,7 +322,7 @@ public final class BrowserSurfaceSession {
         send(request) { [weak self] reply in
             guard let self, self.epoch == request.epoch else { return }
             if reply == .staleRevision, canRetry, self.pendingActions.count < 16 {
-                if request.action == .focus,
+                if request.action.changesFocus,
                    (!self.canRetryFocus() || !self.focusCoordinator.isCurrent(request.generation, target: request.surfaceID) ||
                     self.focusIntent?.request.operation != request.operation) {
                     completion?(.staleFocus)
@@ -325,7 +332,7 @@ public final class BrowserSurfaceSession {
                 self.flushPendingActions()
                 return
             }
-            if request.action == .focus,
+            if request.action.changesFocus,
                self.focusCoordinator.isCurrent(request.generation, target: request.surfaceID),
                self.focusIntent?.request.operation == request.operation {
                 self.focusIntent?.reply = reply
@@ -343,7 +350,7 @@ public final class BrowserSurfaceSession {
                 pending.completion?(.unavailable); continue
             }
             var generation = request.generation
-            if request.action == .focus {
+            if request.action.changesFocus {
                 // Chromium rejected this before dispatch, but consumed its
                 // focus generation. Retry only the still-current intent with
                 // a fresh generation; a newer page or native selection wins.
@@ -360,7 +367,7 @@ public final class BrowserSurfaceSession {
                                              surfaceID: request.surfaceID, action: request.action,
                                              revision: inventory.revision, generation: generation,
                                              url: request.url)
-            if request.action == .focus { focusIntent = BrowserFocusIntent(request: retry) }
+            if request.action.changesFocus { focusIntent = BrowserFocusIntent(request: retry) }
             // stale_revision is returned before Chromium dispatches anything.
             // A single retry consumes newer authoritative inventory; issued
             // commands and uncertain transport failures are never replayed.

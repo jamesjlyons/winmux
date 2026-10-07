@@ -10,7 +10,7 @@ namespace winmux {
 uint32_t BrowserHostWindowID(ui::BaseWindow* window);
 gfx::Size BrowserHostMinimumSize(ui::BaseWindow* window);
 gfx::Size BrowserManagedHostMinimumSize();
-bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed);
+bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed, bool integrated_toolbar = false);
 bool IsBrowserHostManaged(BrowserWindowInterface* browser);
 bool IsBrowserHostMinimized(BrowserWindowInterface* browser);
 bool IsBrowserHostFullscreen(BrowserWindowInterface* browser);

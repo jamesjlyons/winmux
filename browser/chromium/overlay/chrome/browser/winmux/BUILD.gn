@@ -1,5 +1,13 @@
 import("//testing/test.gni")
 
+source_set("managed_toolbar") {
+  sources = [
+    "managed_toolbar.cc",
+    "managed_toolbar.h",
+  ]
+  public_deps = [ "//ui/base" ]
+}
+
 source_set("one_password_native_messaging") {
   sources = [
     "one_password_native_messaging.cc",
@@ -59,6 +67,8 @@ source_set("tab_identity") {
 
 source_set("workspace_bridge") {
   sources = [
+    "page_menu.h",
+    "page_menu.mm",
     "filter_updates.cc",
     "filter_updates.h",
     "page_lifetime.cc",
@@ -79,6 +89,7 @@ source_set("workspace_bridge") {
     "workspace_bridge_state.h",
   ]
   deps = [
+    ":managed_toolbar",
     "//chrome/browser/search_engines",
     "//chrome/browser/history",
     "//components/history/core/browser",
@@ -103,7 +114,10 @@ source_set("workspace_bridge") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/extensions",
+    "//chrome/browser/ui/profiles",
+    "//chrome/browser/ui/startup",
     "//chrome/browser/ui/toolbar",
+    "//chrome/browser/ui/views/download",
     "//components/download/content/public",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -116,6 +130,7 @@ source_set("workspace_bridge") {
     "//mojo/public/cpp/bindings",
     "//ui/base",
     "//ui/gfx",
+    "//ui/menus",
     "//url",
   ]
   frameworks = [

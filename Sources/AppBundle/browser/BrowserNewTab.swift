@@ -89,6 +89,10 @@ extension BrowserWorkspaceController {
     func focusCreatedBrowserTabAddress() {
         guard let id = pendingBrowserTabAddress else { return }
         guard focusCoordinator.target == id, owner(of: id) != nil else { pendingBrowserTabAddress = nil; return }
+        if let session = owner(of: id), session.supportsIntegratedToolbar {
+            if session.request(.focusAddress, surfaceID: id) == .issued { pendingBrowserTabAddress = nil }
+            return
+        }
         if BrowserToolbarController.shared.focusAddress(for: id) { pendingBrowserTabAddress = nil }
     }
 }

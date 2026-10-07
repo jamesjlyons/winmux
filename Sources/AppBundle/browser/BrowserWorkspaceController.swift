@@ -231,6 +231,7 @@ public final class BrowserWorkspaceController {
         session.supportsBrowserControls = protocolVersion >= 4
         session.supportsToolbarActions = protocolVersion >= 9
         session.supportsHistory = protocolVersion >= 10
+        session.supportsIntegratedToolbar = protocolVersion >= 11
         session.supportsPrivacy = protocolVersion >= 8
         session.supportsTabCreation = protocolVersion >= 5
         session.supportsWorkspaceProfiles = protocolVersion >= 7
@@ -1170,7 +1171,7 @@ public final class BrowserWorkspaceController {
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             if case .browserTab = id {
                 let minimum = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
-                if owner(of: id)?.supportsBrowserControls == true {
+                if owner(of: id)?.supportsBrowserControls == true && owner(of: id)?.supportsIntegratedToolbar != true {
                     result[id] = .init(width: min(30000, max(160, minimum.width) + BrowserPageChromeGeometry.widthOverhead),
                                        height: min(30000, max(120, minimum.height) + BrowserPageChromeGeometry.heightOverhead))
                 } else {
@@ -1311,6 +1312,7 @@ public final class BrowserWorkspaceController {
         for session in sessions.values where session.supportsLayout {
             let owned = placements.filter { owner(of: $0.surfaceID) === session }
             let hosts = browserHostPlacements(owned, hasNativeToolbar: session.supportsBrowserControls,
+                                              integratedToolbar: session.supportsIntegratedToolbar,
                                               bodyFrameOverrides: BrowserWindowDragController.shared.bodyFrameOverrides)
             if force { session.invalidateLayoutAcknowledgement() }
             let target = focusCoordinator.target, generation = focusCoordinator.generation

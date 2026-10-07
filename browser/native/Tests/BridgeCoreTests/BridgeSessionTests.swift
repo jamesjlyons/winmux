@@ -2,6 +2,14 @@ import BridgeCore
 import XCTest
 
 final class BridgeSessionTests: XCTestCase {
+    func testVersionElevenNegotiatesIntegratedToolbarOnlyInNewEpoch() {
+        let current = BridgeSession(), previous = BridgeSession()
+        let epoch = current.negotiate(version: 11)!
+        XCTAssertTrue(current.accept(epoch: epoch, sequence: 1, minimumVersion: 11))
+        let old = previous.negotiate(version: 10)!
+        XCTAssertFalse(previous.accept(epoch: old, sequence: 1, minimumVersion: 11))
+        XCTAssertNil(previous.negotiate(version: 11))
+    }
     func testVersionSevenAllowsPrivateInventoryOnlyInNewEpoch() {
         let current = BridgeSession(), previous = BridgeSession()
         let epoch = current.negotiate(version: 7)!

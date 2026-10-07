@@ -1,0 +1,148 @@
+{
+  "scope": "integrated_chromium_toolbar_development",
+  "date": "2026-10-07",
+  "base_commit": "bbde574f9568f30372b369aaa1294ea2bdcb3c8c",
+  "source_sha256": {
+    "Sources/AppBundle/browser/BrowserNewTab.swift": "f48b4e9e3eb22956e7deabc02224fb54dafc02dc5baf9686720f653c9bef4d4b",
+    "Sources/AppBundle/browser/BrowserPagePresentation.swift": "35fb475e8f76a046e6590278ae7d99f6b8d043fa1ddee04bba489f4819e8fd57",
+    "Sources/AppBundle/browser/BrowserWindowDragController.swift": "c9d29d0fd29ac952c3698d3973067c62ba6a3f8224de0797730c67f88d6e5d9a",
+    "Sources/AppBundle/browser/BrowserWorkspaceController.swift": "3314dc8b78511a96fdd66df5f31692f7a39faed4acb9b4d82c2b864368a39216",
+    "Sources/AppBundleTests/tree/BrowserPagePresentationTest.swift": "6e74433b29007454bd441e695cf0b1bdda8f0b20580513808c7daca09d292977",
+    "browser/chromium/overlay/chrome/browser/winmux/BUILD.gn": "9bdce17e9e669038dbf0d37992aad38dc20a0365e64dfba1c93f69e2821022d4",
+    "browser/chromium/overlay/chrome/browser/winmux/browser_inventory.cc": "ea96b91cb30abed54c245389f0b4b8bdc4cc07b064fe821bd725b706cbc17f7d",
+    "browser/chromium/overlay/chrome/browser/winmux/host_layout.cc": "e2847fda5046005d4f74000213cf2c47f52f56e9073816185ff66bebab5220f7",
+    "browser/chromium/overlay/chrome/browser/winmux/host_window.h": "0e2a2249586fa9dca945b0d4211f0ca9c72a59ea594af8caac58bc6c2a85916f",
+    "browser/chromium/overlay/chrome/browser/winmux/host_window.mm": "f5fd1435fbb4c1f01da7cf28a1e5e3189db869406fdf8fde1db9975d11bdeab0",
+    "browser/chromium/overlay/chrome/browser/winmux/managed_toolbar.cc": "37a3710db406257f1a70dd88d912819e9d0df985c2b0da3bf3e4418d18ebbfa0",
+    "browser/chromium/overlay/chrome/browser/winmux/managed_toolbar.h": "58b721a68a00c379d57b5bfe2e1c19f3776241f18a122011a7aea26a8661de70",
+    "browser/chromium/overlay/chrome/browser/winmux/page_menu.h": "e553950d24f3dc301d5917442bdd92ecac13001ed116216155a26be75337a491",
+    "browser/chromium/overlay/chrome/browser/winmux/page_menu.mm": "6933b87c23bdb11df9bba8b801cc802dc418160faebfede416cbbb623c9552e0",
+    "browser/chromium/overlay/chrome/browser/winmux/workspace_bridge.mm": "7af7de302cef7a7a6433a60bd1de1ec9c22ebae7ef3f2cca7d386b9644804a4e",
+    "browser/chromium/patches/0013-integrated-page-toolbar.patch": "ed447ae4b774ddcbcafa137acbe26bbdf1b6248d64213474ef0941cc84eb6f88",
+    "browser/chromium/patches/0014-integrated-page-menu.patch": "485fadb37973627c58133aa4dacf8aa283eae6cf7bad5a6ffccc8fc4196c1e00",
+    "browser/chromium/patches/0015-integrated-toolbar-dependencies.patch": "a7bda571a17eba1b64a774d791a746f940b105052a2be443973844ae5bb47a9e",
+    "browser/chromium/patches/0016-private-omnibox-isolation.patch": "198e63ff6200c0e794074e665ba0564d6d6ca5fc0bbb080aeac67ebb4921ff4d",
+    "browser/native/Sources/BridgeCore/BridgeSession.swift": "3adda458ec50478f6a6fe6466b0796f4bc4e5d43469b570e22769898092fdfb6",
+    "browser/native/Sources/BridgeProtocol/include/WMBridgeProtocol.h": "5cdb499f8df045e8858570110c5deacd3b15eadf5ccbe0805e52867de8ee7ae0",
+    "browser/native/Sources/WorkspaceCore/BrowserSurfaceAdapter.swift": "e2ce51b121bec5aa4d2c5f84b0dfa178fbe078580af06adcc17719c4bc931f46",
+    "browser/native/Sources/WorkspaceCore/SurfaceLayout.swift": "f4601ea666c4021dc52d477ee1467f09879eb73785c019aaa19521159ed9739f",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "1b34f8a1075b6f20e59019c02a6edfd19397dd912562b00c38fd7d6bdb732117",
+    "browser/native/Tests/BridgeCoreTests/BridgeSessionTests.swift": "36f517948fc554aa8d4dc6de3c325078d29bb702aa2417dc2cc8dbe0a10ccd36",
+    "browser/native/Tests/WorkspaceCoreTests/BrowserLayoutSessionTests.swift": "245e65cb9c00ade57b605cd16e97993d20dd5701fec8af1e6f6ef953389fdb63",
+    "browser/native/Tests/WorkspaceCoreTests/BrowserSurfaceAdapterTests.swift": "f6d6600d95eb5a45096e9718013b618614b54fa969f86c3f53c6f745928318c3",
+    "browser/tools/test_browser_inventory.py": "71efbc28168189580f64af7e0ca999308855587694694c90b32ad504545be4f0"
+  },
+  "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+  "chromium_build_succeeded": true,
+  "package_manifest_sha256": "f382cf0ba0a5277f9a89490df805495b996bcc7e0bb40febb7253e935585bb02",
+  "package_signature_verified": true,
+  "notarized": false,
+  "swift_tests": {
+    "app": {
+      "debug": 1122,
+      "release": 1122
+    },
+    "workspace_core": {
+      "debug": 193,
+      "release": 193
+    },
+    "bridge_core": {
+      "debug": 22,
+      "release": 22
+    },
+    "excluded_due_to_locked_console": [
+      "BrowserAddressAutocompleteTest.testFocusingAddressShowsHistoryWithoutChoosingItAndLosingFocusDismisses",
+      "BrowserAddressAutocompleteTest.testNativePopupRetainsEditorRendersBothAppearancesAndDismissesWithToolbar",
+      "BrowserToolbarControlsTest.testCommandLReselectsDraftAndEscapeReturnsToPage",
+      "WorkspaceActivationTests.testExistingTrialWorkspaceKeepsItsProfileAndSavedActivation",
+      "WorkspaceActivationTests.testFreshStartPreparesPrivateDirectoriesBeforeSavingConsent",
+      "WorkspaceActivationTests.testStartRepairsRC1DirectoriesAndPreservesProfileContents",
+      "WorkspaceActivationTests.testStoreIsPrivateAndPreservesRequestAndProfile"
+    ]
+  },
+  "python_tests": 84,
+  "dependency_lock_unchanged": true,
+  "gn_header_checks": [
+    "//chrome/browser/winmux:*",
+    "//chrome/browser/ui/toolbar:impl",
+    "//chrome/browser/ui/views/download:download"
+  ],
+  "headless_fixtures": {
+    "regular": {
+      "passed": true,
+      "outcome_count": 93,
+      "report_sha256": "b80220f69c73d0f3acd2c8be6a72f0bc962f990a0f9ec8f899144f2b4765d2ac",
+      "authenticated_connections": 2,
+      "protocol_version": 11,
+      "profile_isolation": {
+        "cookies_isolated": true,
+        "history_isolated": true,
+        "names_and_identities_preserved": true,
+        "history_entries": {
+          "work": 2,
+          "personal": 1,
+          "shared": 1
+        },
+        "resumed": false
+      },
+      "test_service_removed": true,
+      "browser_exit_code": 0
+    },
+    "private": {
+      "passed": true,
+      "outcome_count": 6,
+      "report_sha256": "488d19e75a2f7ef31cb750523ffae1e0da9ad7f29fbca571b1f2dbc1105a49fa",
+      "authenticated_connections": 2,
+      "protocol_version": 11,
+      "profile_isolation": null,
+      "test_service_removed": true,
+      "browser_exit_code": 0
+    },
+    "restart": {
+      "passed": true,
+      "outcome_count": 93,
+      "report_sha256": "bef4ab1b427b1e66e52a5bd6ee26ed0bb75bae7bfeaeb8c4c8867eeb14eb1945",
+      "authenticated_connections": 2,
+      "protocol_version": 11,
+      "profile_isolation": {
+        "cookies_isolated": true,
+        "history_isolated": true,
+        "names_and_identities_preserved": true,
+        "history_entries": {
+          "work": 4,
+          "personal": 2,
+          "shared": 2
+        },
+        "resumed": true
+      },
+      "test_service_removed": true,
+      "browser_exit_code": 0
+    },
+    "workspace_startup": {
+      "passed": true,
+      "outcome_count": 93,
+      "report_sha256": "080188bcadd79cc1ce1742351ccf5181165bedc7f39574bc3ed4375a0e5ef541",
+      "authenticated_connections": 2,
+      "protocol_version": 11,
+      "profile_isolation": {
+        "cookies_isolated": true,
+        "history_isolated": true,
+        "names_and_identities_preserved": true,
+        "history_entries": {
+          "work": 6,
+          "personal": 3,
+          "shared": 3
+        },
+        "resumed": true
+      },
+      "test_service_removed": true,
+      "browser_exit_code": 0
+    }
+  },
+  "limits": [
+    "Console remains locked; no live native input, accessibility, toolbar appearance, popup anchoring, or multi-display qualification.",
+    "Headless address-focus acknowledgements do not establish input readiness or private autocomplete presentation.",
+    "Helper-owned toolbar compatibility and standalone layout retirement remain open until native qualification.",
+    "No current-build interaction latency or daily-use readiness claim."
+  ]
+}

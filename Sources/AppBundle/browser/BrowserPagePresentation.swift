@@ -7,6 +7,7 @@ import WorkspaceCore
 /// stack. Group membership never transfers WebContents between native windows.
 @MainActor
 func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: Bool,
+                           integratedToolbar: Bool = false,
                            bodyFrameOverrides: [SurfaceID: SurfaceFrame] = [:]) -> [BrowserHostPlacement] {
     if !hasNativeToolbar {
         // Protocol 3 peers still expose conventional Chromium controls. Preserve
@@ -24,6 +25,12 @@ func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: B
     }
     return placements.sorted { $0.surfaceID.description < $1.surfaceID.description }.compactMap { placement in
         guard case .browserTab = placement.surfaceID else { return nil }
+        if integratedToolbar {
+            return .init(containerID: placement.containerID, surfaces: [placement.surfaceID],
+                selected: placement.visible ? placement.surfaceID : nil,
+                frame: bodyFrameOverrides[placement.surfaceID] ?? placement.frame, visible: placement.visible,
+                nativeControls: true, integratedToolbar: true)
+        }
         guard let geometry = BrowserPageChromeGeometry(frame: placement.frame) else { return nil }
         return .init(containerID: placement.containerID, surfaces: [placement.surfaceID],
                      selected: placement.visible ? placement.surfaceID : nil,
@@ -63,6 +70,7 @@ extension BrowserWorkspaceController {
         let screenTop = NSScreen.screens.first?.frame.maxY ?? 0
         let items = placements.compactMap { placement -> BrowserToolbarItem? in
             guard placement.visible, let session = owner(of: placement.surfaceID), session.supportsBrowserControls,
+                  !session.supportsIntegratedToolbar,
                   let record = session.inventory.tabs[placement.surfaceID], record.hostManaged,
                   !record.hostMinimized, !record.hostFullscreen, !record.hostZoomed,
                   let hostWindowID = record.hostWindowID,

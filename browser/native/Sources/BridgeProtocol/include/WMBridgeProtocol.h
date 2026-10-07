@@ -8,6 +8,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Version 7 adds memory-only private tabs in ephemeral Incognito Spaces.
 // Version 8 unifies profiles with privacy/lifecycle controls (the Alpha and Trial
 // version 6 protocols diverged; feature dispatch must not infer both from 6).
+// Version 11 integrates the toolbar in the Chromium page window and adds the
+// generation-fenced focus_address action; older owners retain helper chrome.
 @protocol WMBrowserSurfaceOwner
 // Version 10. Read-only, local history for the surface's owning regular profile.
 // The JSON reply is a bounded array; private surfaces return an empty array.

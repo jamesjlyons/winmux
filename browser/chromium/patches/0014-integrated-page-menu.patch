@@ -1,0 +1,82 @@
+--- a/chrome/browser/ui/toolbar/app_menu_model.cc
++++ b/chrome/browser/ui/toolbar/app_menu_model.cc
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/toolbar/app_menu_model.h"
++#include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <algorithm>
+ #include <cmath>
+@@ -225,6 +227,12 @@
+ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpMenuModel, kReportUnsafeSiteMenuItem);
+ 
+ namespace {
++winmux::ManagedPageMenu* GetManagedPageMenu(BrowserWindowInterface* browser) {
++  auto* view = BrowserView::GetBrowserViewForBrowser(browser);
++  return view && view->GetProperty(winmux::kIntegratedToolbar)
++      ? view->GetProperty(winmux::kManagedPageMenu) : nullptr;
++}
++
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+ // AddItemWithStringIdAndVectorIcon
+@@ -1381,6 +1389,10 @@
+ }
+ 
+ void AppMenuModel::ExecuteCommand(int command_id, int event_flags) {
++  if (winmux::ManagedPageMenu::Handles(command_id)) {
++    if (auto* menu = GetManagedPageMenu(browser_)) menu->Execute(command_id);
++    return;
++  }
+   GlobalError* error =
+       GlobalErrorServiceFactory::GetForProfile(browser_->GetProfile())
+           ->GetGlobalErrorByMenuItemCommandID(command_id);
+@@ -2102,6 +2114,10 @@
+ }
+ 
+ bool AppMenuModel::IsCommandIdChecked(int command_id) const {
++  if (winmux::ManagedPageMenu::Handles(command_id)) {
++    auto* menu = GetManagedPageMenu(browser_);
++    return menu && menu->IsChecked(command_id);
++  }
+   PrefService* prefs = browser_->GetProfile()->GetPrefs();
+   if (command_id == IDC_SHOW_BOOKMARK_BAR) {
+     return prefs->GetBoolean(bookmarks::prefs::kShowBookmarkBar);
+@@ -2130,6 +2146,10 @@
+ }
+ 
+ bool AppMenuModel::IsCommandIdEnabled(int command_id) const {
++  if (winmux::ManagedPageMenu::Handles(command_id)) {
++    auto* menu = GetManagedPageMenu(browser_);
++    return menu && menu->IsEnabled(command_id);
++  }
+   GlobalError* error =
+       GlobalErrorServiceFactory::GetForProfile(browser_->GetProfile())
+           ->GetGlobalErrorByMenuItemCommandID(command_id);
+@@ -2195,6 +2215,7 @@
+ void AppMenuModel::Build() {
+   // Build (and, by extension, Init) should only be called once.
+   DCHECK_EQ(0u, GetItemCount());
++  if (auto* menu = GetManagedPageMenu(browser_)) menu->Build(this);
+ 
+   if (app_menu_icon_controller_ &&
+       app_menu_icon_controller_->GetTypeAndSeverity().type ==
+--- a/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
++++ b/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
+@@ -608,6 +608,14 @@
+ // Override sendEvent to intercept window drag events and allow key events to be
+ // forwarded to a toolkit-views menu while it is active, and while still
+ // allowing any native subview to retain firstResponder status.
++// The workspace observes only windows it owns. These action notifications
++// distinguish a user zoom from an ordinary tiled frame matching the zoom size.
++- (void)zoom:(id)sender {
++  [NSNotificationCenter.defaultCenter postNotificationName:@"WinMuxWindowWillZoom" object:self];
++  [super zoom:sender];
++  [NSNotificationCenter.defaultCenter postNotificationName:@"WinMuxWindowDidZoom" object:self];
++}
++
+ - (void)sendEvent:(NSEvent*)event {
+   // TODO(bokan): Tracing added temporarily to diagnose crbug.com/1039833.
+   TRACE_EVENT1("browser", "NSWindow::sendEvent", "WindowNum",

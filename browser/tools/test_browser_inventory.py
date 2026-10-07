@@ -159,14 +159,13 @@ def main():
                "--no-first-run", "--no-default-browser-check", "--enable-logging=stderr",
                "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service,
                "--winmux-trace-layout"]
-    command += (["--winmux-sidebar-preview"] if args.native_window_controls else
-                ["--headless=new", "--winmux-bridge-test-disconnect-once"])
+    command += (["--winmux-sidebar-preview"] if args.native_window_controls else ["--headless=new"])
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
     if args.private:
         command += ["--winmux-tab-report=" + str(output / "private-identities.jsonl")]
     # A URL suppresses Chromium's picker by itself, masking launch regressions.
     command += ["--restore-last-session"] if args.workspace_startup else ["about:blank"]
-    expected = {"focus": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
+    expected = {"focus": "issued", "focus_address": "issued", "stale_focus": "stale_focus", "close": "issued", "repeated_close": "issued",
                 "operation_conflict": "operation_conflict", "foreign_epoch": "stale_epoch",
                 "native_focus_fence": "issued", "repeated_fence": "issued",
                 "layout_split": "issued", "layout_repeat": "issued", "layout_stale": "stale_layout",
@@ -225,8 +224,8 @@ def main():
                     "private_managed": "yes", "private_close": "issued", "private_cleanup": "yes"}
     fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
                            "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
-    result = {"scope": ("actual_signed_browser_protocol9_native_window_controls" if args.native_window_controls else
-                        "actual_signed_browser_protocol9_page_windows_profiles"), "passed": False,
+    result = {"scope": ("actual_signed_browser_protocol11_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol11_page_windows_profiles"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
@@ -242,6 +241,7 @@ def main():
             bootstrapped = True
             process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             start, previous, recovered_at, completed_at = time.monotonic(), None, None, None
+            disconnected = False
             while time.monotonic() - start < 45:
                 if process.poll() is not None:
                     raise RuntimeError(f"Test browser exited early: {process.returncode}")
@@ -255,8 +255,15 @@ def main():
                                         report.get("outcomes") == expected and report.get("tab_count") == expected_count)
                     if actions_complete:
                         result["actions"] = report
+                        if not args.native_window_controls and not disconnected:
+                            # Restart only this fixture's freshly registered helper,
+                            # after every action has completed. A fixed browser timer
+                            # can cut a slow run in half and accidentally replay tests.
+                            subprocess.run(["launchctl", "kickstart", "-k",
+                                            f"gui/{os.getuid()}/{service}"], check=True)
+                            disconnected = True
                     if args.native_window_controls:
-                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 10
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 11
                                 and report.get("full_messages") == 1):
                             if completed_at is None:
                                 completed_at = time.monotonic()
@@ -268,7 +275,7 @@ def main():
                             raise RuntimeError("Completed native window controls did not remain stable")
                         time.sleep(.1)
                         continue
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 10
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 11
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == (expected if args.private else {})):
                         if recovered_at is None:
@@ -289,7 +296,7 @@ def main():
                 }
                 result["passed"] = result["privacy_consent_persisted"]
             if not result["passed"]:
-                result["error"] = "Expected protocol9 isolated fixture outcomes were not observed"
+                result["error"] = "Expected protocol11 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}

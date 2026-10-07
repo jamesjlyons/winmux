@@ -13,7 +13,17 @@ This fork of [WinMux](https://github.com/ZimengXiong/winmux) adds a more flexibl
 easier ways to organize windows, trackpad gestures, and layout restoration when you restart
 the app. Browser Alpha adds Chromium pages to the same workspace as Mac app windows.
 
-### Browser Alpha
+### Browser development
+
+The current simplification uses **Spaces containing Views**, shared native/browser
+layout, saved View pins, and a compact toolbar inside each Chromium page window.
+See the [implementation and verification record](docs/simplification-plan.md) and
+[current page-window guide](docs/browser/page-windows.md). Native interaction
+qualification and retirement of compatibility controls remain open.
+
+The following candidate and audit results describe the earlier October 4 build.
+
+### Earlier Browser Alpha candidate
 
 The October 4, 2026 draft candidate packages **WinMux Browser Alpha.app** for testing
 on another Mac. See the [download, installation, and test guide](docs/browser/alpha-release-2026-10-04.md).
@@ -46,7 +56,7 @@ for the interface.
   Labels, buttons, icons, and the clock adjust to narrower widths.
 - **Drag the edge to resize it.** Your width is saved when you let go. Press Escape to
   cancel or double-click the edge to reset. Windows make room when the sidebar stays expanded.
-- **Change its behavior with a right-click.** Toggle Compact Mode and Auto-hide directly
+- **Change its behavior with a right-click.** Choose Auto-hide, Compact, or Expanded directly
   from the sidebar.
 - **Choose a menu bar look.** An optional translucent style uses smaller controls and a
   simple clock. It follows your Mac's appearance and accessibility settings, with Liquid
@@ -64,8 +74,8 @@ for the interface.
 
 ### Organizing windows
 
-- **Spaces → Groups → Windows.** Projects are now called Spaces, and Workspaces are
-  called Groups. Your existing names and layouts carry over. CLI commands and config
+- **Spaces → Views.** Projects are called Spaces, and Workspaces are
+  called Views. Your existing names and layouts carry over. CLI commands and config
   keys keep their old names so existing setups continue to work.
 - **One menu for your spaces.** Switch, create, rename, color, or delete spaces from the
   menu at the top of the sidebar. Display filters live there too, replacing the duplicate

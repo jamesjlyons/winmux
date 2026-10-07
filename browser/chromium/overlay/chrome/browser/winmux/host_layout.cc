@@ -117,6 +117,7 @@ struct Placement {
   gfx::Rect bounds;
   bool visible = false;
   bool managed = false;
+  bool integrated_toolbar = false;
 };
 
 void Release(ManagedHost& host) {
@@ -162,6 +163,10 @@ std::string ApplyHostLayout(const std::string& json) {
     // Older helpers cannot provide Swift navigation controls. Keep Chromium's
     // own controls until this placement explicitly opts into the native UI.
     const bool managed = dict.FindBool("native_controls").value_or(false);
+    const auto* integrated_value = dict.Find("integrated_toolbar");
+    if (integrated_value && !integrated_value->is_bool()) return "invalid_request";
+    const bool integrated = dict.FindBool("integrated_toolbar").value_or(false);
+    if (integrated && !managed) return "invalid_request";
     auto x = dict.FindInt("x"), y = dict.FindInt("y");
     auto width = dict.FindInt("width"), height = dict.FindInt("height");
     if (!container || !base::Uuid::ParseCaseInsensitive(*container).is_valid() ||
@@ -190,8 +195,9 @@ std::string ApplyHostLayout(const std::string& json) {
       selected_found |= is_selected;
       p.visible = *visible && is_selected;
       p.managed = managed;
-      const auto minimum = p.managed ? BrowserManagedHostMinimumSize()
-                                     : BrowserHostMinimumSize(source->GetWindow());
+      p.integrated_toolbar = integrated;
+      const auto minimum = p.managed && !p.integrated_toolbar
+          ? BrowserManagedHostMinimumSize() : BrowserHostMinimumSize(source->GetWindow());
       if (p.bounds.width() < minimum.width() || p.bounds.height() < minimum.height())
         return "unsupported";
       plan.push_back(std::move(p));
@@ -215,7 +221,7 @@ std::string ApplyHostLayout(const std::string& json) {
       // Native Dock minimize and fullscreen own the host's presentation. A
       // workspace replan must neither restore nor resize it during that time.
       if (host.get() == source && IsBrowserHostSuspended(source)) {
-        SetBrowserHostManaged(source, p.managed);
+        SetBrowserHostManaged(source, p.managed, p.integrated_toolbar);
         claimed.insert(source);
         continue;
       }
@@ -254,7 +260,7 @@ std::string ApplyHostLayout(const std::string& json) {
     }
     if (!host || host->IsDeleteScheduled() ||
         host->GetTabStripModel()->count() != 1) return "unavailable";
-    if (!SetBrowserHostManaged(host.get(), p.managed)) return "unsupported";
+    if (!SetBrowserHostManaged(host.get(), p.managed, p.integrated_toolbar)) return "unsupported";
     auto& managed = Hosts()[p.surface];
     if (managed.browser.get() != host.get()) {
       Release(managed);
