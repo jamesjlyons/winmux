@@ -786,13 +786,17 @@ public final class BrowserWorkspaceController {
     /// Preflight the complete subtree before synchronously moving either owner.
     /// Intermediate leaf moves would dissolve the stack and prune its metadata.
     @discardableResult
-    func moveGroup(_ id: UUID, to destination: Workspace, edit: @escaping (inout SurfaceTree) -> Bool = { _ in true }) -> Bool {
+    func moveGroup(_ id: UUID, to destination: Workspace, following selected: SurfaceID? = nil, atStart: Bool = false,
+                   edit: @escaping (inout SurfaceTree) -> Bool = { _ in true }) -> Bool {
         guard !destination.isArchived, canMoveGroup(id), let group = surfaceTree.group(id),
               let sourceName = surfaceTree.workspace(ofGroup: id), sourceName != destination.name,
               let source = Workspace.existing(byName: sourceName) else { return false }
+        guard selected.map(group.surfaces.contains) ?? true else { return false }
+        let focusGeneration = focusCoordinator.generation
         if let accepted = moveUsingDestinationProfile(group.surfaces, to: destination, commit: { [weak self] in
             guard let self, self.surfaceTree.group(id) == group else { return false }
-            return self.moveGroup(id, to: destination, edit: edit)
+            return self.moveGroup(id, to: destination,
+                following: self.focusCoordinator.generation == focusGeneration ? selected : nil, atStart: atStart, edit: edit)
         }) { return accepted }
         let affected = Set([sourceName, destination.name])
         guard let reservations = organizationReservations(in: affected) else { return false }
@@ -813,12 +817,13 @@ public final class BrowserWorkspaceController {
             }
         }
         guard let change = candidate.preparingOrganizationChange(in: affected, reserving: reservations,
-            selected: focusCoordinator.target, { $0.moveGroupToRoot(id, in: destination.name) && edit(&$0) }) else { return false }
+            selected: focusCoordinator.target, { $0.moveGroupToRoot(id, in: destination.name, atStart: atStart) && edit(&$0) }) else { return false }
         let members = Set(group.surfaces)
         let movedSelection = (focusCoordinator.target ?? focus.windowOrNil?.surfaceID).map(members.contains) == true
         guard commitOrganizationChange(change) else { return false }
         restoredSelection = nil
-        if movedSelection { retainSourceSelection(in: source) }
+        if let selected { _ = select(selected) }
+        else if movedSelection { retainSourceSelection(in: source) }
         scheduleRefresh()
         return true
     }

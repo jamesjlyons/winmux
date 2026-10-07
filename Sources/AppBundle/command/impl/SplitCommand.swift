@@ -9,6 +9,20 @@ struct SplitCommand: Command {
         if config.enableNormalizationFlattenContainers {
             return io.err("'split' has no effect when 'enable-normalization-flatten-containers' normalization enabled. My recommendation: keep the normalizations enabled, and prefer 'join-with' over 'split'.")
         }
+        let controller = BrowserWorkspaceController.shared
+        if let id = args.sharedOrganizationTarget(env), let name = controller.surfaceTree.workspace(of: id) {
+            let current = controller.surfaceTree.containingGroup(of: id).flatMap { controller.surfaceTree.layouts[$0] } ?? .horizontal
+            // Shared Views do not retain invisible singleton containers. The
+            // legacy split spelling changes the selected arrangement's axis.
+            return controller.editOrganization(of: id) { tree in
+                if (tree.roots[name] ?? []).flatMap(\.surfaces).count == 1 { return true }
+                switch args.arg.val {
+                case .horizontal: return tree.setLayout(containing: id, to: .horizontal)
+                case .vertical: return tree.setLayout(containing: id, to: .vertical)
+                case .opposite: return tree.setLayout(containing: id, to: current == .vertical ? .horizontal : .vertical)
+                }
+            } || io.err("Cannot split this View: an owner is unavailable")
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else {
             return io.err(noWindowIsFocused)

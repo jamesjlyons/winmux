@@ -1,5 +1,6 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 struct MoveCommand: Command {
     let args: MoveCmdArgs
@@ -7,6 +8,7 @@ struct MoveCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         let direction = args.direction.val
+        if let id = args.sharedOrganizationTarget(env) { return moveSharedSurface(id, direction: direction, io) }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let currentWindow = target.windowOrNil else {
             return io.err(noWindowIsFocused)
@@ -37,6 +39,43 @@ struct MoveCommand: Command {
                 return io.err(moveOutMacosUnconventionalWindow)
             case .macosPopupWindowsContainer:
                 return false // Impossible
+        }
+    }
+
+    @MainActor
+    private func moveSharedSurface(_ id: SurfaceID, direction: CardinalDirection, _ io: CmdIo) -> Bool {
+        let controller = BrowserWorkspaceController.shared
+        var outcome = SurfaceMoveOutcome.unavailable
+        if controller.editOrganization(of: id, { tree in
+            outcome = tree.move(id, toward: direction.surfaceDirection,
+                creatingContainerAtBoundary: args.boundaries == .workspace && args.boundariesAction == .createImplicitContainer)
+            return outcome == .moved
+        }) { return true }
+        guard outcome == .boundary else { return io.err("Cannot move this item: its layout or owner is unavailable") }
+        if args.boundaries == .allMonitorsOuterFrame {
+            guard let name = controller.workspaceName(for: id), let workspace = Workspace.existing(byName: name),
+                  let (monitors, index) = workspace.workspaceMonitor.findRelativeMonitor(inDirection: direction) else {
+                return io.err("Cannot resolve the current monitor")
+            }
+            if monitors.indices.contains(index) {
+                if let group = controller.surfaceTree.containingGroup(of: id),
+                   (controller.surfaceTree.layouts[group] ?? .stack) == .stack {
+                    return controller.moveGroup(group, to: monitors[index].activeWorkspace,
+                        following: controller.focusCoordinator.target == id ? id : nil,
+                        atStart: direction.isPositive && direction.orientation == .h)
+                }
+                return moveSurfaceToWorkspace(id, monitors[index].activeWorkspace, io,
+                    focusFollowsSurface: controller.focusCoordinator.target == id, failIfNoop: false,
+                    atStart: direction.isPositive && direction.orientation == .h)
+            }
+        }
+        switch args.boundariesAction {
+        case .stop: return true
+        case .fail: return false
+        case .createImplicitContainer:
+            return controller.editOrganization(of: id) {
+                $0.move(id, toward: direction.surfaceDirection, creatingContainerAtBoundary: true) == .moved
+            }
         }
     }
 }

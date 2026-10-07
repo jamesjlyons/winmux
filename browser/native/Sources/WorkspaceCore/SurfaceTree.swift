@@ -154,7 +154,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
 
     /// Transfer one complete subtree without pruning its identity or metadata
     /// between removing it from the source and inserting it at the destination.
-    @discardableResult public mutating func moveGroupToRoot(_ target: UUID, in destination: String) -> Bool {
+    @discardableResult public mutating func moveGroupToRoot(_ target: UUID, in destination: String, atStart: Bool = false) -> Bool {
         guard !destination.isEmpty, destination.utf8.count <= 4096,
               let source = workspace(ofGroup: target), source != destination,
               let subtree = group(target) else { return false }
@@ -168,7 +168,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         }
         var candidate = self
         candidate.roots[source] = removing(roots[source] ?? [])
-        candidate.roots[destination, default: []].append(subtree)
+        candidate.roots[destination, default: []].insert(subtree, at: atStart ? 0 : (candidate.roots[destination] ?? []).count)
         candidate.pruneMetadata()
         guard candidate.isValidOrganization else { return false }
         self = candidate
@@ -466,7 +466,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return true
     }
 
-    private mutating func pruneMetadata() {
+    mutating func pruneMetadata() {
         var groups: [UUID: Set<SurfaceID>] = [:]
         func visit(_ node: SurfaceTreeNode) {
             if case .group(let id, let children) = node { groups[id] = Set(node.surfaces); children.forEach(visit) }

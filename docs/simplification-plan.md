@@ -166,9 +166,23 @@ requested.
 
 This slice passed 1,067 app tests in Debug and Release and 158 WorkspaceCore plus 21
 BridgeCore tests in both configurations, with the locked-console exclusions
-above. Stage 4 still includes directional
-move/split compatibility, native drag paths, remaining ownership adapters, and
+above. Stage 4 still includes native drag paths, remaining ownership adapters, and
 retirement of native layout authority after adoption. Stages 5–7 remain open.
+
+Directional movement now runs in WorkspaceCore, preserving stacks as units,
+entering adjacent splits, and leaving nested containers before reaching a View
+boundary. Monitor-boundary moves transfer a complete stack and preserve its
+selection. The `split` compatibility spelling changes the current arrangement's
+axis; shared Views do not create invisible singleton containers. Existing
+normalization guards still apply.
+
+A deterministic 500-move test covers nested mixed layouts and serialized state
+validity. It exposed stale container selection when a leaf left a nonempty
+container; movement now prunes that metadata explicitly. App Debug and Release
+passed 1,070 tests; the final monitor-stack change passed all 25 surface-command
+tests. Native Debug passed 166 WorkspaceCore and 21 BridgeCore tests after the
+final change; Release passed the same suites before the monitor insertion
+adjustment. All runs retain the locked-console exclusions above.
 
 ### Stage 5 sidebar visibility
 
@@ -181,5 +195,6 @@ Settings edits preserve legacy lines, inline comments, and dotted TOML keys.
 
 All 160 targeted configuration, sidebar, monitor-layout, and native-management
 tests passed, followed by the full 1,069-test Debug suite with the existing
-locked-console exclusions. Optimized and unlocked desktop qualification remain
-open. Arrival policy migration and unified View terminology are still pending.
+locked-console exclusions. Optimized verification passed with the directional
+movement slice above. Unlocked desktop qualification, arrival policy migration,
+and unified View terminology remain open.

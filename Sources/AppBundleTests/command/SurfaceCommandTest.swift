@@ -52,8 +52,7 @@ import XCTest
     }
 
     func testUnsupportedLegacyActionsNeverTargetPriorNativeWindow() async throws {
-        for command in [["move", "left"], ["split", "horizontal"],
-                        ["macos-native-minimize"], ["close-all-windows-but-current"], ["close", "--quit-if-last-window"]] {
+        for command in [["macos-native-minimize"], ["close-all-windows-but-current"], ["close", "--quit-if-last-window"]] {
             let result = try await run(command)
             XCTAssertEqual(result.exitCode, 1, command.description)
             XCTAssertFalse(result.stderr.isEmpty)
@@ -299,6 +298,27 @@ import XCTest
         XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
     }
 
+    func testDirectionalMovementAndSplitAliasChangeOnlySharedArrangement() async throws {
+        let previousNormalization = config.enableNormalizationFlattenContainers
+        defer { config.enableNormalizationFlattenContainers = previousNormalization }
+        let native = try XCTUnwrap(Window.get(byId: 71)), workspace = focus.workspace
+        let parent = native.parent
+        try await checkCommand(["move", "left"])
+        XCTAssertEqual(controller.surfaceTree.roots[workspace.name]?.flatMap(\.surfaces), [tab, native.surfaceID])
+        let boundary = controller.surfaceTree
+        try await checkCommand(["move", "left", "--boundaries-action", "fail"], exit: 1)
+        try await checkCommand(["move", "left", "--boundaries-action", "stop"])
+        XCTAssertEqual(controller.surfaceTree, boundary)
+        try await checkCommand(["move", "up"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .vertical)
+        config.enableNormalizationFlattenContainers = false
+        try await checkCommand(["split", "horizontal"])
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .horizontal)
+        XCTAssertTrue(native.parent === parent)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+    }
+
     func testNativeFloatingTogglePreservesMixedBrowserOwnersAndSourceFocus() async throws {
         let native = try XCTUnwrap(Window.get(byId: 71)), source = focus.workspace
         let otherPage = SurfaceID.browserTab(profile: UUID(), tab: UUID())
@@ -421,6 +441,32 @@ import XCTest
         controller.organize(other.surfaceID, before: Window.get(byId: 71)!.surfaceID)
         XCTAssertEqual(other.nodeWorkspace?.name, source)
         XCTAssertEqual(controller.surfaceTree.workspace(of: other.surfaceID), source)
+    }
+
+    func testDirectionalMoveTransfersWholeStackAcrossMonitorBoundary() async throws {
+        let main = TestMonitor(monitorAppKitNsScreenScreensId: 1, name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080), isMain: true)
+        let second = TestMonitor(monitorAppKitNsScreenScreensId: 2, name: "Second",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080), isMain: false)
+        setMonitorsForTests([main, second])
+        let source = focus.workspace, destination = Workspace.get(byName: "External")
+        _ = second.setActiveWorkspace(destination)
+        let native = try XCTUnwrap(Window.get(byId: 71))
+        let resident = TestWindow.new(id: 72, parent: destination.rootTilingContainer)
+        refreshModel()
+        XCTAssertTrue(controller.editOrganization(of: tab) { $0.insertIntoStack(tab, with: native.surfaceID) })
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        try await checkCommand(["move", "right", "--boundaries", "all-monitors-outer-frame"])
+        XCTAssertEqual(controller.surfaceTree.workspace(ofGroup: group), destination.name)
+        XCTAssertEqual(controller.surfaceTree.roots[destination.name]?.first, controller.surfaceTree.group(group))
+        XCTAssertEqual(controller.surfaceTree.roots[destination.name]?.last, .surface(resident.surfaceID))
+        XCTAssertEqual(Set(controller.surfaceTree.group(group)?.surfaces ?? []), [native.surfaceID, tab])
+        XCTAssertEqual(controller.surfaceTree.roots[source.name], [])
+        XCTAssertEqual(native.nodeWorkspace, destination)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertEqual(focus.workspace, destination)
     }
 
     func testBrowserMonitorAndProjectMovesPreserveNativeSource() async throws {
