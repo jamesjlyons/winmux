@@ -13,7 +13,7 @@ extension BrowserWorkspaceController {
     func isGroupedPin(_ id: UUID) -> Bool { spacePinnedGroups.contains { $0.views.contains { $0.members.values.contains(id) } } }
 
     func canCombinePinnedView(containing surface: SurfaceID) -> Bool {
-        if let desktop = pinnedDesktops.first(where: { $0.workspaceName == workspaceName(for: surface) }) {
+        if let desktop = pinnedViews.first(where: { $0.workspaceName == workspaceName(for: surface) }) {
             let live = livePinSurfaces()
             return desktop.memberIDs.allSatisfy { live[$0] != nil }
         }
@@ -77,7 +77,7 @@ extension BrowserWorkspaceController {
     }
 
     func restorePinnedViewLayout(containing pin: UUID?) {
-        if let pin, let desktop = pinnedDesktops.first(where: { $0.memberIDs.contains(pin) }) {
+        if let pin, let desktop = pinnedViews.first(where: { $0.memberIDs.contains(pin) }) {
             restorePinnedDesktopLayout(workspace: desktop.workspaceName)
             return
         }

@@ -29,10 +29,10 @@ final class SpacePinnedGroupTest: XCTestCase {
         let controller = BrowserWorkspaceController()
         let legacy = SurfaceWorkspaceSnapshot(tree: tree, layoutWorkspaces: [], selected: live, closedBrowserTabs: [], browserPins: [pin, closed, isolated])
         controller.restorePlacementSnapshot(legacy)
-        XCTAssertEqual(controller.pinnedDesktops.count, 3)
+        XCTAssertEqual(controller.pinnedViews.count, 3)
         XCTAssertEqual(Set(controller.pinShelves.first { $0.spaceID == regular.projectId.rawValue }!.desktopOrder), [pin.id, closed.id])
         XCTAssertEqual(controller.surfaceTree.roots[regular.name]?.flatMap(\.surfaces), [sibling])
-        XCTAssertEqual(controller.surfaceTree.workspace(of: live), controller.pinnedDesktops.first { $0.id == pin.id }?.workspaceName)
+        XCTAssertEqual(controller.surfaceTree.workspace(of: live), controller.pinnedViews.first { $0.id == pin.id }?.workspaceName)
         XCTAssertEqual(controller.pinShelves.first { $0.spaceID == otherSpace.id.rawValue }?.desktopOrder, [isolated.id])
         let saved = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
         controller.restorePlacementSnapshot(saved)
@@ -77,7 +77,7 @@ final class SpacePinnedGroupTest: XCTestCase {
         let snapshot = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
         let restored = BrowserWorkspaceController(); restored.restorePlacementSnapshot(snapshot)
         XCTAssertEqual(restored.pinShelves, controller.pinShelves)
-        XCTAssertEqual(restored.pinnedDesktops, controller.pinnedDesktops)
+        XCTAssertEqual(restored.pinnedViews, controller.pinnedViews)
 
     }
 
@@ -176,7 +176,7 @@ final class SpacePinnedGroupTest: XCTestCase {
         var tree = SurfaceTree(); tree.reconcile([a.surfaceID, b.surfaceID], in: regular.name)
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [regular.name], selected: nil, closedBrowserTabs: []))
         XCTAssertTrue(controller.pinWorkspace(regular.name))
-        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        let desktop = try XCTUnwrap(controller.pinnedViews.first)
         XCTAssertEqual(desktop.workspaceName, regular.name)
         XCTAssertEqual(desktop.kind, .group)
         XCTAssertEqual(controller.surfaceTree, tree)

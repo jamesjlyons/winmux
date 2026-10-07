@@ -4,7 +4,7 @@ import Foundation
 public typealias PinnedLayoutNode = ViewLayoutNode
 
 public struct PinnedDesktop: Codable, Equatable, Sendable, Identifiable {
-    public enum Kind: String, Codable, Sendable { case app, tab, group }
+    public typealias Kind = SavedView.Kind
     public var id: UUID
     public var spaceID: String
     public var workspaceName: String

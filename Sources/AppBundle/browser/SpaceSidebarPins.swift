@@ -12,7 +12,7 @@ extension BrowserWorkspaceController {
     }
 
     func pinWorkspaceName(_ id: UUID) -> String? {
-        pinnedDesktops.first { $0.id == id }?.workspaceName ?? savedPinnedView(id)?.workspace ?? browserSidebarPins.first { $0.id == id }?.workspaceName ?? nativeAppSidebarPins.first { $0.id == id }?.workspaceName
+        pinnedViews.first { $0.id == id }?.workspaceName ?? savedPinnedView(id)?.workspace ?? browserSidebarPins.first { $0.id == id }?.workspaceName ?? nativeAppSidebarPins.first { $0.id == id }?.workspaceName
     }
 
     func pinnedGroup(for space: WorkspaceProjectId, source: Workspace? = nil) -> Workspace {
@@ -88,7 +88,7 @@ extension BrowserWorkspaceController {
     }
 
     func hasPins(in workspace: String) -> Bool {
-        pinnedDesktops.contains { $0.workspaceName == workspace } || browserSidebarPins.contains { $0.workspaceName == workspace } || nativeAppSidebarPins.contains { $0.workspaceName == workspace }
+        pinnedViews.contains { $0.workspaceName == workspace } || browserSidebarPins.contains { $0.workspaceName == workspace } || nativeAppSidebarPins.contains { $0.workspaceName == workspace }
     }
 
     func canAdoptNativePinWindow(_ window: Window) -> Bool {

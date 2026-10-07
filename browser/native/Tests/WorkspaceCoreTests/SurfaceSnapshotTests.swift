@@ -40,4 +40,22 @@ final class SurfaceSnapshotTests: XCTestCase {
         tree.importStack([a, b], in: "a")
         XCTAssertEqual(tree, mixed)
     }
+
+    func testSavedViewsRejectDuplicateBindingsAndConflictingOwnership() {
+        let native = SurfaceID.nativeWindow(UUID()), member = ViewMember(title: "Editor", surfaceID: native)
+        var tree = SurfaceTree()
+        tree.reconcile([native], in: "one")
+        let first = SavedView(spaceID: "work", workspaceName: "one", title: "One",
+            members: [member], layout: [.member(member.id, 1)])
+        var second = first
+        second.id = UUID(); second.workspaceName = "two"
+        second.members = [.init(title: "Other", surfaceID: native)]
+        second.layout = [.member(second.members[0].id, 1)]
+        XCTAssertThrowsError(try SurfaceWorkspaceSnapshot(tree: tree, layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [], savedViews: [first, second]).validated())
+        XCTAssertThrowsError(try SurfaceWorkspaceSnapshot(tree: tree, layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [], savedViews: [second]).validated())
+        XCTAssertNoThrow(try SurfaceWorkspaceSnapshot(tree: tree, layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [], savedViews: [first]).validated())
+    }
 }

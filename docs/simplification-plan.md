@@ -119,8 +119,29 @@ moving to their new workspace. A version migration preserves the original
 session bytes in a version-specific backup, in addition to the rotating backup.
 Checkpoints refuse to replace a file from an unsupported newer build.
 
-App Debug and Release passed 1,060 tests each; native Release passed 150 WorkspaceCore tests and
+The foundation was committed and pushed as `f3f466f8`. App Debug and Release
+passed 1,060 tests each; native Release passed 150 WorkspaceCore tests and
 21 BridgeCore tests, using the same locked-console exclusions described above.
-These changes do not complete stage 3: ordinary View persistence and the
-remaining runtime pin adapters still need consolidation. Stages 4–7 remain
-pending.
+
+The v6 checkpoint format now stores ordinary and pinned Views in `savedViews`.
+Members, launch descriptors, and saved arrangements have one owner; legacy pin
+records remain only for unresolved migration or as computed compatibility
+adapters. Ordinary Views keep stable identities and intentional empty Views
+survive restart. Pinning, unpinning, and moving members preserve their IDs;
+unpinned members discard closed slots and launch descriptors. Profile moves
+transfer the saved member identity to the replacement page after the existing
+transaction completes.
+
+The migration tests cover v5 backup byte preservation, v6 round trips without
+duplicated pin records, closed slots, unresolved native discovery, and duplicate
+or conflicting owner rejection. The remaining adapters will be retired as
+commands move to shared ownership in stages 4 and 7. Native desktop
+qualification remains open; stages 4–7 remain pending.
+
+The canonical storage change passed 1,065 app tests in Debug and Release, and
+151 WorkspaceCore plus 21 BridgeCore tests in both configurations. A final
+profile-binding identity fix then passed 34 targeted regressions and the full
+1,065-test Debug suite; it still needs optimized verification with the next
+command consolidation. All runs use the locked-console exclusions above.
+The Release model-plus-sidebar benchmark measured 0.715 ms median for 50 Views
+and 2.421 ms for 200 Views; this includes saved-member reconciliation.

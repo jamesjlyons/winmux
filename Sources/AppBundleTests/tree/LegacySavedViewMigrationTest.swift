@@ -30,7 +30,7 @@ import XCTest
 
         controller.restorePlacementSnapshot(snapshot)
 
-        let desktop = try XCTUnwrap(controller.pinnedDesktops.first { $0.id == groupID })
+        let desktop = try XCTUnwrap(controller.pinnedViews.first { $0.id == groupID })
         XCTAssertEqual(controller.pinShelves.first?.desktopOrder, [pins[0].id, groupID, pins[3].id])
         XCTAssertEqual(desktop.memberIDs, [pins[1].id, pins[2].id])
         XCTAssertEqual(desktop.selectedMember, pins[2].id)
@@ -68,12 +68,12 @@ import XCTest
 
         RestartSessionController.shared.prepare(nativeRestart)
         controller.restorePlacementSnapshot(snapshot)
-        XCTAssertTrue(controller.pinnedDesktops.isEmpty)
+        XCTAssertTrue(controller.pinnedViews.isEmpty)
         XCTAssertEqual(controller.spacePinnedGroups.first?.views.map(\.id), [id])
         try await RestartSessionController.shared.restoreAfterDiscovery()
         controller.reconcileSharedOrganization()
 
-        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        let desktop = try XCTUnwrap(controller.pinnedViews.first)
         XCTAssertEqual(native.nodeWorkspace?.name, desktop.workspaceName)
         XCTAssertEqual(controller.surfaceTree.workspace(of: native.surfaceID), desktop.workspaceName)
         XCTAssertEqual(desktop.memberIDs, [app.id, browser.id])

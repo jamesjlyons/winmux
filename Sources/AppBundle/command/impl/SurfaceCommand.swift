@@ -13,7 +13,7 @@ struct SurfaceCommand: Command {
             let rows = controller.knownSurfaces.sorted { $0.description < $1.description }.map { id in
                 SurfaceReference(id: id.description, workspace: controller.workspaceName(for: id),
                     available: controller.isAvailable(id), selected: (controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID) == id,
-                    pinnedDesktopID: controller.pinnedDesktops.first { controller.pinBindings(in: $0.workspaceName).values.contains(id) }?.id,
+                    pinnedDesktopID: controller.pinnedViews.first { controller.pinBindings(in: $0.workspaceName).values.contains(id) }?.id,
                     nativeWindowID: Window.get(bySurfaceID: id)?.windowId,
                     browser: controller.owner(of: id).flatMap { BrowserSurfaceState(session: $0, id: id) })
             }
@@ -32,7 +32,7 @@ struct SurfaceCommand: Command {
         case "close": return reportSurfaceAction(controller.close(id), io)
         case "pin": return reportOrganization(controller.pinSurface(id), io)
         case "unpin":
-            guard let desktop = controller.pinnedDesktops.first(where: { controller.pinBindings(in: $0.workspaceName).values.contains(id) }) else {
+            guard let desktop = controller.pinnedViews.first(where: { controller.pinBindings(in: $0.workspaceName).values.contains(id) }) else {
                 return io.err("Surface does not belong to a pinned desktop")
             }
             return reportOrganization(controller.unpin(desktop.id), io)

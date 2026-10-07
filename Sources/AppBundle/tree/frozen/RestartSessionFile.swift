@@ -70,7 +70,7 @@ struct RestartSessionFile: Sendable {
                 }
                 return RestartSessionSnapshot(version: 1, savedAt: modified, bootSession: currentBootSession(), world: legacy.world,
                                               windows: nil, projects: nil, focusedWindowId: nil, focusedWorkspace: nil)
-            case 2, 3, 4, 5:
+            case 2, 3, 4, 5, 6:
                 let snapshot = try decoder.decode(RestartSessionSnapshot.self, from: data)
                 guard version >= 4 || snapshot.bootSession == currentBootSession() else { throw RestartSessionFileError.previousBoot }
                 if version >= 3 {

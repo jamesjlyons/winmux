@@ -45,23 +45,27 @@ public struct ViewMember: Codable, Equatable, Sendable, Identifiable {
 /// Both regular and pinned Views use member identities for their saved layout.
 /// A live layout is a projection; closing a binding never deletes a saved slot.
 public struct SavedView: Codable, Equatable, Sendable, Identifiable {
+    public enum Kind: String, Codable, Sendable { case app, tab, group }
     public var id: UUID
     public var spaceID: String
     public var workspaceName: String
     public var title: String
     public var isPinned: Bool
+    public var kind: Kind
     public var members: [ViewMember]
     public var layout: [ViewLayoutNode]
     public var selectedMember: UUID?
     public var formerRegularIndex: Int?
 
     public init(id: UUID = UUID(), spaceID: String, workspaceName: String, title: String,
-                isPinned: Bool = false, members: [ViewMember] = [], layout: [ViewLayoutNode] = [],
+                isPinned: Bool = false, kind: Kind = .group, members: [ViewMember] = [], layout: [ViewLayoutNode] = [],
                 selectedMember: UUID? = nil, formerRegularIndex: Int? = nil) {
         self.id = id; self.spaceID = spaceID; self.workspaceName = workspaceName; self.title = title
-        self.isPinned = isPinned; self.members = members; self.layout = layout
+        self.isPinned = isPinned; self.kind = kind; self.members = members; self.layout = layout
         self.selectedMember = selectedMember; self.formerRegularIndex = formerRegularIndex
     }
+
+    public var memberIDs: [UUID] { members.map(\.id) }
 
     public var isValid: Bool {
         let ids = members.map(\.id), surfaces = members.compactMap(\.surfaceID)
@@ -121,4 +125,3 @@ public struct SavedView: Codable, Equatable, Sendable, Identifiable {
         return tree
     }
 }
-

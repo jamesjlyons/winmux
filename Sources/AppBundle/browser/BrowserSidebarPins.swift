@@ -73,7 +73,7 @@ extension BrowserWorkspaceController {
             if let record = owner(of: id)?.inventory.tabs[id], record.url == browserSidebarPins[index].url,
                let icon = record.iconPNGBase64 { browserSidebarPins[index].iconPNGBase64 = icon }
             if let workspace = workspaceName(for: id), workspace != browserSidebarPins[index].workspaceName {
-                if pinnedDesktops.contains(where: { $0.workspaceName == workspace }) {
+                if pinnedViews.contains(where: { $0.workspaceName == workspace }) {
                     browserSidebarPins[index].workspaceName = workspace
                     changedOwnership = true
                 } else if let group = spacePinnedGroups.first(where: { $0.workspaceName == workspace }) {
@@ -90,7 +90,7 @@ extension BrowserWorkspaceController {
                 continue
             }
             if let workspace = window.nodeWorkspace?.name, workspace != nativeAppSidebarPins[index].workspaceName {
-                if pinnedDesktops.contains(where: { $0.workspaceName == workspace }) {
+                if pinnedViews.contains(where: { $0.workspaceName == workspace }) {
                     nativeAppSidebarPins[index].workspaceName = workspace
                     changedOwnership = true
                 } else { removed.append(nativeAppSidebarPins[index].id) }
@@ -106,22 +106,6 @@ extension BrowserWorkspaceController {
         }
         if changedOwnership || !removed.isEmpty {
             prunePinnedMembers()
-            for index in pinnedDesktops.indices {
-                let workspace = pinnedDesktops[index].workspaceName
-                let owned = browserSidebarPins.filter { $0.workspaceName == workspace }.map(\.id) +
-                    nativeAppSidebarPins.filter { $0.workspaceName == workspace }.map(\.id)
-                let added = Set(owned).subtracting(pinnedDesktops[index].memberIDs)
-                guard !added.isEmpty else { continue }
-                pinnedDesktops[index].memberIDs += owned.filter { added.contains($0) }
-                pinnedDesktops[index].kind = .group
-                // Keep closed slots while recording the newly joined members.
-                // A complete live group is captured with its current layout below.
-                let bindings = pinBindings(in: workspace)
-                pinnedDesktops[index].layout += owned.filter { added.contains($0) }.map { member in
-                    bindings[member].flatMap { PinnedLayoutNode.capture(.surface($0), tree: surfaceTree, members: [$0: member]) }
-                        ?? .member(member, 1)
-                }
-            }
             capturePinnedLayouts()
         }
         syncPinnedViewGroups()

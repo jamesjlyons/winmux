@@ -60,7 +60,7 @@ extension BrowserWorkspaceController {
         guard let name = workspaceName(for: id), let source = Workspace.existing(byName: name),
               canSeparateView(id) else { return false }
         if source.isPinnedGroup {
-            if pinnedDesktops.contains(where: { $0.workspaceName == name }) {
+            if pinnedViews.contains(where: { $0.workspaceName == name }) {
                 let changed = separatePinnedDesktopMember(id)
                 if changed { _ = select(id) }
                 return changed

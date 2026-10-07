@@ -24,9 +24,11 @@ public final class BrowserWorkspaceController {
 
     var privateSurfaces: Set<SurfaceID> = []
     var incognitoReturnWorkspaces: [WorkspaceProjectId: String] = [:]
-    var browserSidebarPins: [BrowserSidebarPin] = []
-    var nativeAppSidebarPins: [NativeAppSidebarPin] = []
-    var pinnedDesktops: [PinnedDesktop] = []
+    var savedViews: [SavedView] = []
+    var legacyBrowserPins: [BrowserSidebarPin] = []
+    var legacyAppPins: [NativeAppSidebarPin] = []
+    var browserMemberOrder: [UUID] = []
+    var appMemberOrder: [UUID] = []
     var pinShelves: [SpacePinShelf] = []
     var spacePinnedGroups: [SpacePinnedGroup] = []
     var browserProfiles: [WorkspaceBrowserProfile] = []
@@ -71,16 +73,18 @@ public final class BrowserWorkspaceController {
         guard usesSurfaceTree else { return nil }
         syncSidebarPins()
         capturePinnedLayouts()
+        reconcileSavedViews()
         let selected = restoredSelection ?? focusCoordinator.target
         var savedTree = surfaceTree
         for id in privateSurfaces { savedTree.remove(id) }
         for name in savedTree.roots.keys where Workspace.existing(byName: name)?.isIncognito == true { savedTree.removeWorkspace(name) }
         return .init(tree: savedTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(savedTree.roots.keys),
                      selected: selected.flatMap { savedTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs,
-                     browserPins: browserSidebarPins, appPins: nativeAppSidebarPins, pinnedGroups: spacePinnedGroups,
-                     pinnedDesktops: pinnedDesktops, pinShelves: pinShelves,
+                     browserPins: legacyBrowserPins, appPins: legacyAppPins, pinnedGroups: spacePinnedGroups,
+                     pinShelves: pinShelves,
                      selectedByWorkspace: selectedByWorkspace.filter { savedTree.workspace(of: $0.value) == $0.key },
-                     browserProfiles: browserProfiles, browserProfileBySpace: browserProfileBySpace)
+                     browserProfiles: browserProfiles, browserProfileBySpace: browserProfileBySpace,
+                     savedViews: savedViews.filter { Workspace.existing(byName: $0.workspaceName)?.isIncognito != true })
     }
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
@@ -90,15 +94,13 @@ public final class BrowserWorkspaceController {
         surfaceTree = snapshot.tree
         mixedLayoutWorkspaces = snapshot.layoutWorkspaces
         closedBrowserTabs = snapshot.closedBrowserTabs
-        browserSidebarPins = snapshot.browserPins
-        nativeAppSidebarPins = snapshot.appPins
+        restoreSavedPinState(snapshot)
         spacePinnedGroups = snapshot.pinnedGroups
-        pinnedDesktops = snapshot.pinnedDesktops
         pinShelves = snapshot.pinShelves
-        for desktop in pinnedDesktops {
+        for desktop in savedViews {
             let workspace = Workspace.get(byName: desktop.workspaceName)
             workspace.assignProject(WorkspaceProjectId(desktop.spaceID))
-            workspace.isPinnedGroup = true; workspace.lifecycle = .durable
+            workspace.isPinnedGroup = desktop.isPinned; workspace.lifecycle = .durable
         }
         browserProfiles = snapshot.browserProfiles
         browserProfileBySpace = snapshot.browserProfileBySpace
@@ -143,6 +145,7 @@ public final class BrowserWorkspaceController {
         for session in sessions.values where session.inventory.revision > 0 {
             reconcileRestoredBrowserPlacements(session.inventory)
         }
+        reconcileSavedViews()
         scheduleRefresh()
     }
 
@@ -658,6 +661,7 @@ public final class BrowserWorkspaceController {
         }
         syncSidebarPins()
         migratePinnedDesktops()
+        reconcileSavedViews()
     }
 
     /// Project the current organization without changing it. Stale native rows
@@ -975,6 +979,7 @@ public final class BrowserWorkspaceController {
     func installProfileMoveReplacements(_ move: BrowserProfileMove) {
         let selected = focusCoordinator.target
         for (old, new) in move.replacements {
+            replaceSavedBinding(old, with: new)
             let destination = placements[old] ?? move.destination.name
             surfaceTree.remove(new)
             if !surfaceTree.replaceSurface(old, with: new) {

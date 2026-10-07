@@ -12,28 +12,60 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
     public var selectedByWorkspace: [String: SurfaceID]
     public var closedBrowserTabs: Set<SurfaceID>
 
-    public var browserPins: [BrowserSidebarPin]
-    public var appPins: [NativeAppSidebarPin]
+    public var savedViews: [SavedView]
+    private var legacyBrowserPins: [BrowserSidebarPin]
+    private var legacyAppPins: [NativeAppSidebarPin]
+    private var legacyPinnedDesktops: [PinnedDesktop]
     public var pinnedGroups: [SpacePinnedGroup]
-    public var pinnedDesktops: [PinnedDesktop]
     public var pinShelves: [SpacePinShelf]
     public var browserProfiles: [WorkspaceBrowserProfile]
     public var browserProfileBySpace: [String: UUID]
+
+    public var browserPins: [BrowserSidebarPin] {
+        legacyBrowserPins + savedViews.filter(\.isPinned).flatMap { view in
+            view.members.compactMap { $0.browserPin(in: view.workspaceName) }
+        }
+    }
+    public var appPins: [NativeAppSidebarPin] {
+        legacyAppPins + savedViews.filter(\.isPinned).flatMap { view in
+            view.members.compactMap { $0.appPin(in: view.workspaceName) }
+        }
+    }
+    public var pinnedDesktops: [PinnedDesktop] { legacyPinnedDesktops + savedViews.filter(\.isPinned).map(\.legacyDesktop) }
 
     public init(tree: SurfaceTree, layoutWorkspaces: Set<String>, selected: SurfaceID?, closedBrowserTabs: Set<SurfaceID>,
                 browserPins: [BrowserSidebarPin] = [], appPins: [NativeAppSidebarPin] = [], pinnedGroups: [SpacePinnedGroup] = [],
                 pinnedDesktops: [PinnedDesktop] = [], pinShelves: [SpacePinShelf] = [],
                 selectedByWorkspace: [String: SurfaceID] = [:], browserProfiles: [WorkspaceBrowserProfile] = [],
-                browserProfileBySpace: [String: UUID] = [:]) {
+                browserProfileBySpace: [String: UUID] = [:], savedViews: [SavedView] = []) {
         self.tree = tree; self.layoutWorkspaces = layoutWorkspaces
         self.selected = selected; self.closedBrowserTabs = closedBrowserTabs
         self.selectedByWorkspace = selectedByWorkspace
-        self.browserPins = browserPins; self.appPins = appPins; self.pinnedGroups = pinnedGroups
-        self.pinnedDesktops = pinnedDesktops; self.pinShelves = pinShelves
+        self.legacyBrowserPins = browserPins; self.legacyAppPins = appPins; self.pinnedGroups = pinnedGroups
+        self.legacyPinnedDesktops = pinnedDesktops; self.pinShelves = pinShelves; self.savedViews = savedViews
         self.browserProfiles = browserProfiles; self.browserProfileBySpace = browserProfileBySpace
     }
 
-    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, pinnedDesktops, pinShelves, selectedByWorkspace, browserProfiles, browserProfileBySpace }
+    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, pinnedDesktops, pinShelves, selectedByWorkspace, browserProfiles, browserProfileBySpace, savedViews }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(tree, forKey: .tree)
+        try values.encode(layoutWorkspaces, forKey: .layoutWorkspaces)
+        try values.encodeIfPresent(selected, forKey: .selected)
+        try values.encode(selectedByWorkspace, forKey: .selectedByWorkspace)
+        try values.encode(closedBrowserTabs, forKey: .closedBrowserTabs)
+        try values.encode(savedViews, forKey: .savedViews)
+        // Retain only unresolved legacy records. Migrated launch descriptors and
+        // layouts are encoded once, in their owning saved View.
+        if !legacyBrowserPins.isEmpty { try values.encode(legacyBrowserPins, forKey: .browserPins) }
+        if !legacyAppPins.isEmpty { try values.encode(legacyAppPins, forKey: .appPins) }
+        if !legacyPinnedDesktops.isEmpty { try values.encode(legacyPinnedDesktops, forKey: .pinnedDesktops) }
+        try values.encode(pinnedGroups, forKey: .pinnedGroups)
+        try values.encode(pinShelves, forKey: .pinShelves)
+        try values.encode(browserProfiles, forKey: .browserProfiles)
+        try values.encode(browserProfileBySpace, forKey: .browserProfileBySpace)
+    }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -48,10 +80,24 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                   pinShelves: try values.decodeIfPresent([SpacePinShelf].self, forKey: .pinShelves) ?? [],
                   selectedByWorkspace: try values.decodeIfPresent([String: SurfaceID].self, forKey: .selectedByWorkspace) ?? [:],
                   browserProfiles: try values.decodeIfPresent([WorkspaceBrowserProfile].self, forKey: .browserProfiles) ?? [],
-                  browserProfileBySpace: try values.decodeIfPresent([String: UUID].self, forKey: .browserProfileBySpace) ?? [:])
+                  browserProfileBySpace: try values.decodeIfPresent([String: UUID].self, forKey: .browserProfileBySpace) ?? [:],
+                  savedViews: try values.decodeIfPresent([SavedView].self, forKey: .savedViews) ?? [])
     }
 
     public func validated() throws -> Self {
+        let savedMembers = savedViews.flatMap(\.members)
+        let memberIDs = savedMembers.map(\.id) + legacyBrowserPins.map(\.id) + legacyAppPins.map(\.id)
+        let bindings = savedMembers.compactMap(\.surfaceID) + legacyBrowserPins.compactMap(\.surfaceID) + legacyAppPins.compactMap(\.surfaceID)
+        var savedGroups = Set<UUID>()
+        guard savedViews.count <= 20000, savedViews.allSatisfy(\.isValid),
+              Set(savedViews.map(\.id)).count == savedViews.count,
+              Set(savedViews.map(\.workspaceName)).count == savedViews.count,
+              memberIDs.count <= 20000, Set(memberIDs).count == memberIDs.count,
+              Set(bindings).count == bindings.count, Set(bindings).isDisjoint(with: closedBrowserTabs),
+              savedViews.flatMap(\.layout).allSatisfy({ $0.validate(depth: 0, groups: &savedGroups) }),
+              savedViews.allSatisfy({ view in view.members.allSatisfy { member in
+                  member.surfaceID.flatMap { tree.workspace(of: $0) }.map { $0 == view.workspaceName } ?? true
+              } }) else { throw SurfaceSnapshotError.invalidTree }
         let profiles = Set(browserProfiles.map(\.id))
         guard browserProfiles.count <= WorkspaceBrowserProfile.maximumCount, profiles.count == browserProfiles.count,
               browserProfiles.allSatisfy(\.isValid), browserProfileBySpace.count <= 1024,

@@ -77,6 +77,8 @@ import XCTest
         for inventoryFirst in [true, false] {
             let f = try Fixture(); defer { f.stop() }
             let old = f.add()
+            f.controller.reconcileSavedViews()
+            let memberID = try XCTUnwrap(f.controller.savedMemberID(for: old))
             XCTAssertTrue(moveSidebarSurface(old, to: f.destination, controller: f.controller))
             XCTAssertEqual(f.requests.first?.workspaceProfile, .named(f.personal))
             XCTAssertEqual(f.requests.first?.url, "https://example.test/account")
@@ -91,6 +93,8 @@ import XCTest
             f.records.removeAll { $0.surfaceID == old }; f.publish()
             XCTAssertNil(f.controller.workspaceName(for: old))
             XCTAssertEqual(f.controller.surfaceTree.workspace(of: new), f.destination.name)
+            XCTAssertNoThrow(try f.controller.capturePlacementSnapshot()?.validated())
+            XCTAssertEqual(f.controller.savedMemberID(for: new), memberID)
         }
     }
 
@@ -225,14 +229,14 @@ import XCTest
         XCTAssertTrue(f.controller.editOrganization(of: a) { $0.group(a, with: b, layout: .horizontal) })
         let group = try XCTUnwrap(f.controller.surfaceTree.containingGroup(of: a))
         XCTAssertTrue(f.controller.pinSurfaceGroup(group))
-        let desktop = try XCTUnwrap(f.controller.pinnedDesktops.first)
+        let desktop = try XCTUnwrap(f.controller.pinnedViews.first)
         XCTAssertTrue(f.controller.movePin(desktop.id, to: f.destination.projectId))
         XCTAssertEqual(f.requests.count, 2)
         let first = f.replacement(0)
-        XCTAssertEqual(f.controller.pinnedDesktops.first?.spaceID, f.source.projectId.rawValue)
+        XCTAssertEqual(f.controller.pinnedViews.first?.spaceID, f.source.projectId.rawValue)
         XCTAssertTrue(f.closed.isEmpty)
         let second = f.replacement(1)
-        let moved = try XCTUnwrap(f.controller.pinnedDesktops.first)
+        let moved = try XCTUnwrap(f.controller.pinnedViews.first)
         XCTAssertEqual(moved.id, desktop.id)
         XCTAssertEqual(moved.spaceID, f.destination.projectId.rawValue)
         XCTAssertEqual(Set(f.controller.surfaceTree.group(group)?.surfaces ?? []), [first, second])

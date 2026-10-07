@@ -110,7 +110,7 @@ import XCTest
     func testPinCommandCreatesDedicatedDesktopAndUnpinRetainsItsLayout() async throws {
         let regular = focus.workspace.name
         try await checkCommand(["surface", "pin", tab.description])
-        let desktop = try XCTUnwrap(controller.pinnedDesktops.first)
+        let desktop = try XCTUnwrap(controller.pinnedViews.first)
         XCTAssertNotEqual(desktop.workspaceName, regular)
         XCTAssertEqual(controller.workspaceName(for: tab), desktop.workspaceName)
         XCTAssertEqual(Window.get(byId: 71)?.nodeWorkspace?.name, regular)
@@ -121,7 +121,7 @@ import XCTest
         XCTAssertEqual(row["pinnedDesktopID"] as? String, desktop.id.uuidString)
         XCTAssertEqual((row["browser"] as? [String: Any])?["lifecycle"] as? String, "active")
         try await checkCommand(["surface", "unpin", tab.description])
-        XCTAssertTrue(controller.pinnedDesktops.isEmpty)
+        XCTAssertTrue(controller.pinnedViews.isEmpty)
         XCTAssertEqual(controller.surfaceTree, tree)
         XCTAssertTrue(controller.isAvailable(tab))
         try await checkCommand(["surface", "unpin", tab.description], exit: 1)
@@ -135,7 +135,7 @@ import XCTest
         try await checkCommand(["surface", "group", tab.description, other.description, "horizontal"])
         let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
         try await checkCommand(["surface", "pin", tab.description])
-        XCTAssertEqual(controller.pinnedDesktops.first?.memberIDs.count, 2)
+        XCTAssertEqual(controller.pinnedViews.first?.memberIDs.count, 2)
         XCTAssertEqual(controller.workspaceName(for: tab), controller.workspaceName(for: other))
         XCTAssertEqual(controller.surfaceTree.containingGroup(of: other), group)
         XCTAssertEqual(controller.surfaceTree.layouts[group], .horizontal)

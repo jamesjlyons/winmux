@@ -14,8 +14,38 @@ extension PinnedDesktop {
         let members = memberIDs.compactMap { indexed[$0] }
         guard members.count == memberIDs.count else { return nil }
         let view = SavedView(id: id, spaceID: spaceID, workspaceName: workspaceName, title: title,
-            isPinned: true, members: members, layout: layout, selectedMember: selectedMember, formerRegularIndex: formerRegularIndex)
+            isPinned: true, kind: kind, members: members, layout: layout, selectedMember: selectedMember, formerRegularIndex: formerRegularIndex)
         return view.isValid ? view : nil
+    }
+}
+
+extension ViewMember {
+    public init(_ pin: BrowserSidebarPin) {
+        self.init(id: pin.id, title: pin.title, launch: .browser(profileID: pin.profileID, url: pin.url),
+            surfaceID: pin.surfaceID, iconPNGBase64: pin.iconPNGBase64)
+    }
+
+    public init(_ pin: NativeAppSidebarPin) {
+        self.init(id: pin.id, title: pin.title, launch: .application(bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath),
+            surfaceID: pin.surfaceID)
+    }
+
+    public func browserPin(in workspace: String) -> BrowserSidebarPin? {
+        guard case .browser(let profile, let url) = launch else { return nil }
+        return .init(id: id, profileID: profile, workspaceName: workspace, title: title,
+            url: url, surfaceID: surfaceID, iconPNGBase64: iconPNGBase64)
+    }
+
+    public func appPin(in workspace: String) -> NativeAppSidebarPin? {
+        guard case .application(let bundle, let path) = launch else { return nil }
+        return .init(id: id, workspaceName: workspace, bundleIdentifier: bundle, bundlePath: path, title: title, surfaceID: surfaceID)
+    }
+}
+
+extension SavedView {
+    public var legacyDesktop: PinnedDesktop {
+        .init(id: id, spaceID: spaceID, workspaceName: workspaceName, title: title, kind: kind,
+            memberIDs: memberIDs, layout: layout, selectedMember: selectedMember, formerRegularIndex: formerRegularIndex)
     }
 }
 
