@@ -22,5 +22,6 @@ private func makeWindowTabChromeTab(
         appName: appName,
         appBundleIdentifier: window.app.rawAppBundleId,
         isActive: window.windowId == activeWindowId,
+        isFocused: focus.windowOrNil?.windowId == window.windowId && !BrowserWorkspaceController.shared.hasBrowserSelection,
     )
 }

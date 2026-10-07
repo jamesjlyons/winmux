@@ -20,7 +20,8 @@ struct WorkspaceSidebarDropPreviewView: View {
                 if let label = preview.intentLabel {
                     Text(label).font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+                        .padding(.leading, workspaceSidebarRowLeadingPadding)
+                        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
                 }
                 previewRows
             }
@@ -113,7 +114,8 @@ struct WorkspaceSidebarDropPreviewView: View {
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Color.primary.opacity(0.50))
         }
-        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+        .padding(.leading, workspaceSidebarRowLeadingPadding)
+        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +142,8 @@ struct WorkspaceSidebarDropPreviewView: View {
                 .truncationMode(.tail)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+        .padding(.leading, workspaceSidebarRowLeadingPadding)
+        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)

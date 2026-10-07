@@ -17,6 +17,5 @@ struct WorkspaceSidebarContextMenu: View {
             get: { configuration.autoHide },
             set: { actions.send(.setAutoHide($0)) },
         ))
-        .disabled(!configuration.isCompactMode)
     }
 }

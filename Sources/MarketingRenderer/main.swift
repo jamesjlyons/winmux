@@ -21,8 +21,14 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--workspace-views-proof") {
-            try renderWinMuxWorkspaceViewsProofImages(in: outputURL)
+        if arguments.contains("--toolbar-controls-proof") {
+            try renderWinMuxToolbarControlsProofImages(in: outputURL)
+        } else if arguments.contains("--chrome-state-proof") {
+            try renderWinMuxChromeStateProofImages(in: outputURL)
+        } else if arguments.contains("--chrome-refresh-proof") {
+            try renderWinMuxChromeRefreshProofImages(in: outputURL)
+        } else if arguments.contains("--workspace-views-proof") || arguments.contains("--workspace-single-view-proof") {
+            try renderWinMuxWorkspaceViewsProofImages(in: outputURL, focusSingleView: arguments.contains("--workspace-single-view-proof"))
         } else if arguments.contains("--sidebar-context-proof") {
             try renderWinMuxSidebarContextProofImages(in: outputURL)
         } else if isSidebarProof || isMenuBarProof || isProjectIconProof {

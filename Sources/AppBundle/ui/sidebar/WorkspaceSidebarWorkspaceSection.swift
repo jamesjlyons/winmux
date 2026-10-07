@@ -45,9 +45,8 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var compactMetrics: WorkspaceSidebarCompactMetrics { .init(sectionWidth: sectionWidth) }
     var density: WorkspaceSidebarDensity { .init(sectionWidth: sectionWidth) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
-    var showsWindowRows: Bool { expansionProgress >= workspaceSidebarRowsRevealProgress }
     var sectionMinHeight: CGFloat? {
-        if !isCompact, allowsWorkspaceActivation, isInUseOnOtherDisplay, workspace.items.isEmpty {
+        if allowsWorkspaceActivation, isInUseOnOtherDisplay, workspace.items.isEmpty {
             return workspaceSidebarInUseOverrideEmptySectionMinHeight
         }
         return nil
@@ -62,6 +61,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
             } == true)
     }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
+    var showsStandaloneViewRow: Bool { workspace.isSingleWindowView && !isCompact && !isRenamingWorkspace }
     var participatesInReorder: Bool { allowsWorkspaceReordering && reorderState.applies(to: targetMonitorScopeId) }
     var isReorderingWorkspace: Bool { participatesInReorder && reorderState.sourceName == workspace.name }
     var reorderOffset: CGFloat { participatesInReorder ? reorderState.offset(for: workspace.name) : 0 }
@@ -78,7 +78,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
 
     var body: some View {
         interactiveSectionContent
-            .padding(.vertical, isCompact ? 3 : 4)
+            .padding(.vertical, 1)
             .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
@@ -115,6 +115,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 isSettling: $isDropSettling,
             ))
             .environment(\.workspaceSidebarDensity, density)
+            .environment(\.workspaceSidebarCompactRows, isCompact)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
             .animation(isCompact ? workspaceSidebarCollapseAnimation : workspaceSidebarExpansionAnimation, value: expansionProgress)
@@ -214,7 +215,7 @@ extension WorkspaceSidebarWorkspaceSection {
         sectionShape
             .fill(sectionBackgroundFill)
             .overlay {
-                if isActiveWorkspaceSelection && !layout.menuBarStyle {
+                if isActiveWorkspaceSelection && !layout.menuBarStyle && !showsStandaloneViewRow {
                     sectionShape
                         .strokeBorder(Color.primary.opacity(isCompact ? 0.15 : 0.10), lineWidth: StrokeToken.control)
                 }
@@ -229,6 +230,7 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var sectionBackgroundFill: Color {
+        if showsStandaloneViewRow && !isDropTarget && !isInUseOnOtherDisplay { return .clear }
         if layout.menuBarStyle {
             if isDropTarget { return Color.primary.opacity(0.12) }
             if isSearchSelectedWorkspace { return Color.primary.opacity(0.08) }
@@ -399,16 +401,18 @@ extension WorkspaceSidebarWorkspaceSection {
 extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var windowRows: some View {
-        if showsWindowRows, !workspace.items.isEmpty {
+        if !workspace.items.isEmpty {
             VStack(alignment: .leading, spacing: 1) {
                 if !pinnedItems.isEmpty {
-                    if !density.isNarrow {
                         Text("Pinned")
                             .font(.system(size: 10.5, weight: .medium))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+                            .padding(.leading, workspaceSidebarRowLeadingPadding)
+                            .padding(.trailing, workspaceSidebarRowHorizontalPadding)
                             .padding(.top, 3)
-                    }
+                            .opacity(isCompact ? 0 : 1)
+                            .frame(height: 16)
+                            .accessibilityHidden(isCompact)
                     ForEach(pinnedItems) { item in workspaceItemView(item) }
                     if !ordinaryItems.isEmpty { Divider().padding(.vertical, 4) }
                 }
@@ -434,7 +438,8 @@ extension WorkspaceSidebarWorkspaceSection {
             case .browserTab(let tab):
                 sharedSurfaceItemView(.init(kind: .surface(.init(
                     surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64
+                    appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64,
+                    isSelected: tab.isSelected, isLoading: tab.isLoading
                 ))))
             case .window(let window):
                 workspaceWindowButton(window, allowsDrag: true)
@@ -487,22 +492,8 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
-    @ViewBuilder
     var interactiveSectionContent: some View {
-        if isCompact && !workspace.isViewMode {
-            Button(action: handleSectionClick) {
-                sectionContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .contentShape(sectionShape)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(workspace.displayName)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .contentShape(sectionShape)
-            .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name, isEnabled: allowsWorkspaceReordering, actions: actions))
-        } else {
-            sectionContent.contentShape(sectionShape)
-        }
+        sectionContent.contentShape(sectionShape)
     }
 
     var sectionActivationButton: some View {
@@ -515,15 +506,15 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var sectionContent: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 1) {
             if workspace.isViewMode, !workspace.viewSurfaces.isEmpty, !isRenamingWorkspace {
                 viewSummary
-                if !isCompact && !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
+                if !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
                     windowRows
                 }
             } else {
             headerSlot
-                .frame(height: isCompact ? compactMetrics.controlHeight - 6 : headerHeight)
+                .frame(height: headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
                 .background {
                     if layout.menuBarStyle && !isCompact {
@@ -542,7 +533,7 @@ extension WorkspaceSidebarWorkspaceSection {
             if !isCompact && !workspace.isSingleWindowView {
                 Button { isViewExpanded.toggle() } label: {
                     Image(systemName: isViewExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .medium)).frame(width: 20, height: 28)
+                        .font(.system(size: 10, weight: .medium)).frame(width: 20, height: rowHeight)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isViewExpanded ? "Collapse arrangement" : "Expand arrangement")
@@ -557,17 +548,19 @@ extension WorkspaceSidebarWorkspaceSection {
                         } else {
                             Image(systemName: workspace.isSingleWindowView ? "globe" : "rectangle.split.2x1")
                         }
-                    }.frame(maxWidth: .infinity, minHeight: 28)
+                    }.frame(maxWidth: .infinity, minHeight: rowHeight)
                 } else {
                     WorkspaceSidebarWindowRow(title: workspace.displayName,
                         badge: workspace.isSingleWindowView ? nil : "\(workspace.viewSurfaceCount)",
-                        isFocused: workspace.isFocused, suppressFocusedStyle: isSearchFiltering,
-                        rowHeight: workspaceSidebarWorkspaceRowHeight,
-                        isHovered: isHovered || isSearchSelectedWorkspace,
+                        isFocused: workspace.isFocused, rowHeight: workspaceSidebarWorkspaceRowHeight,
+                        isHovered: isHovered,
                         style: workspace.isSingleWindowView ? .window : .tabGroupHeader,
                         appBundleIds: viewIconSurfaces.map(\.appBundleId),
                         appBundlePaths: viewIconSurfaces.map(\.appBundlePath),
-                        favicons: viewIconSurfaces.map(\.iconPNGBase64), fallbackSystemImage: "globe")
+                        favicons: viewIconSurfaces.map(\.iconPNGBase64), fallbackSystemImage: "globe",
+                        isSelected: isActiveOnTargetMonitor,
+                        isKeyboardTarget: isSearchSelectedWorkspace,
+                        isLoading: workspace.isSingleWindowView && viewIconSurface?.isLoading == true)
                 }
             }
             .buttonStyle(.plain)
@@ -580,7 +573,9 @@ extension WorkspaceSidebarWorkspaceSection {
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragEnded(.surface(id), value) }
                 }))
             .modifier(WorkspaceSidebarHoverClose(surface: workspace.isSingleWindowView && !isCompact ? workspace.viewSurfaces.first?.surfaceID : nil,
-                title: workspace.displayName, actions: actions))
+                title: workspace.displayName, actions: actions,
+                selection: .init(isSelected: isActiveOnTargetMonitor, isFocused: workspace.isFocused,
+                    isHovered: isHovered, isKeyboardTarget: isSearchSelectedWorkspace)))
             .contextMenu {
                 if !workspace.isSingleWindowView, !workspace.projectId.isIncognito {
                     Button("Pin Group") { actions.send(.pinWorkspaceView(workspace.name)) }
@@ -596,7 +591,7 @@ extension WorkspaceSidebarWorkspaceSection {
             }
             if !isCompact && !workspace.isSingleWindowView {
                 Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 20, height: 28)
+                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 20, height: rowHeight)
                     .help("Drag to reorder arrangement")
                     .modifier(WorkspaceSidebarWorkspaceDragModifier(name: workspace.name,
                         isEnabled: allowsWorkspaceReordering, actions: actions))
@@ -618,7 +613,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var headerSlot: some View {
-        if !isCompact && !isRenamingWorkspace {
+        if !isRenamingWorkspace {
             headerButton
         } else {
             header
@@ -644,7 +639,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     tab,
                     allowsDrag: true,
                     subject: .window,
-                    leadingHitInset: density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent,
+                    leadingHitInset: isCompact ? 0 : density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent,
                 )
             }
         }
@@ -671,11 +666,8 @@ extension WorkspaceSidebarWorkspaceSection {
                 title: "\(group.windowCount) \(group.windowCount == 1 ? "window" : "windows")",
                 badge: nil,
                 isFocused: group.isFocused,
-                suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredTabGroupId == group.representativeWindowId || group.tabs.contains {
-                    $0.windowId == group.representativeWindowId && selectedSearchTarget == .surface($0.surfaceID)
-                },
+                isHovered: hoveredTabGroupId == group.representativeWindowId,
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
@@ -733,12 +725,16 @@ extension WorkspaceSidebarWorkspaceSection {
                 title: window.title ?? window.appName,
                 badge: nil,
                 isFocused: window.isFocused,
-                suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredWindowId == window.windowId || selectedSearchTarget == .surface(window.surfaceID),
+                isHovered: hoveredWindowId == window.windowId,
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [window.appBundleId],
                 appBundlePaths: [window.appBundlePath],
+                isSelected: workspace.items.contains { item in
+                    if case .tabGroup(let group) = item.kind { return group.representativeWindowId == window.windowId }
+                    return false
+                },
+                isKeyboardTarget: selectedSearchTarget == .surface(window.surfaceID),
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -768,7 +764,12 @@ extension WorkspaceSidebarWorkspaceSection {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
         .help(window.title ?? window.appName)
-        .modifier(WorkspaceSidebarHoverClose(surface: window.surfaceID, title: window.title ?? window.appName, actions: actions))
+        .modifier(WorkspaceSidebarHoverClose(surface: window.surfaceID, title: window.title ?? window.appName, actions: actions,
+            selection: .init(isSelected: workspace.items.contains { item in
+                if case .tabGroup(let group) = item.kind { return group.representativeWindowId == window.windowId }
+                return false
+            }, isFocused: window.isFocused, isHovered: hoveredWindowId == window.windowId,
+                isKeyboardTarget: selectedSearchTarget == .surface(window.surfaceID))))
         .contextMenu {
             if layout.showsBrowserControls {
                 Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }

@@ -62,6 +62,7 @@ struct RefreshSessionFocusSnapshot: Sendable {
     let prevFocus: FrozenFocus?
     let prevPrevFocus: FrozenFocus?
     let fallbackWhenFocusedWindowCloses: FrozenFocus?
+    let surfaceClosureFocus: SurfaceClosureFocusSnapshot
 }
 
 @TaskLocal
@@ -76,6 +77,7 @@ func captureRefreshSessionFocusSnapshot() -> RefreshSessionFocusSnapshot {
         prevFocus: _prevFocus,
         prevPrevFocus: _prevPrevFocus,
         fallbackWhenFocusedWindowCloses: currentFocus.windowOrNil.map { currentFocus.workspace.toLiveFocus(excluding: $0).frozen },
+        surfaceClosureFocus: BrowserWorkspaceController.shared.captureClosureFocus(),
     )
 }
 

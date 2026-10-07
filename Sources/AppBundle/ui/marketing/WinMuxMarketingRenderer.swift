@@ -5,7 +5,7 @@ import WorkspaceCore
 /// Render the actual experimental sidebar without starting a native manager or
 /// opening user windows. Companion live tests use the scoped fixture launcher.
 @MainActor
-public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
+public func renderWinMuxWorkspaceViewsProofImages(in directory: URL, focusSingleView: Bool = false) throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let previousMode = config.workspaceInteractionMode
     config.workspaceInteractionMode = .views
@@ -20,7 +20,7 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
     }
     let favicon = websiteIcon.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) }?.base64EncodedString()
     for light in [false, true] {
-        for width: CGFloat in [240, 140, 40] {
+        for width: CGFloat in [240, 190, 140, 40] {
             var snapshot = MarketingFixtures.sidebarSnapshot
             let original = snapshot.workspaces[0]
             func surface(_ title: String, app: String, bundle: String) -> WorkspaceSidebarItemViewModel {
@@ -51,9 +51,9 @@ public func renderWinMuxWorkspaceViewsProofImages(in directory: URL) throws {
                 isFocused: false, isOpen: false, isLoading: false, isUnavailable: false, isBrowser: false, groupMembers: members))
             snapshot.configuration.showsBrowserControls = true
             snapshot.workspaces = [pins,
-                workspace("proof-notes", title: "Project notes", items: [items[0]], focused: false),
+                workspace("proof-notes", title: "Project notes", items: [items[0]], focused: focusSingleView),
                 workspace("proof-web", title: "Website reference", items: [website], focused: false),
-                workspace("proof-build", title: "Implementation + Reference documentation", items: Array(items.dropFirst()), focused: true)]
+                workspace("proof-build", title: "Implementation + Reference documentation", items: Array(items.dropFirst()), focused: !focusSingleView)]
             snapshot.configuration.expandedWidth = width < 120 ? 240 : width
             snapshot.configuration.collapsedWidth = 40
             snapshot.configuration.showsClock = false
@@ -200,7 +200,7 @@ public func renderWinMuxSafariPlasticityProofImage(to outputURL: URL) throws {
 }
 
 @MainActor
-private func renderMarketingView<Content: View>(
+func renderMarketingView<Content: View>(
     _ rootView: Content,
     to outputURL: URL,
     size: CGSize = CGSize(width: 1_600, height: 900),
@@ -1168,7 +1168,7 @@ private struct MarketingFeatureCard: View {
 }
 
 @MainActor
-private enum MarketingFixtures {
+enum MarketingFixtures {
     private final class TabGroupIdentity {}
 
     private static let codeIdentity = TabGroupIdentity()

@@ -43,7 +43,11 @@ func workspaceHasLifecycleWindows(_ workspace: Workspace) -> Bool {
 func isUserFacingWorkspace(_ workspace: Workspace, focusedWorkspace: Workspace? = nil) -> Bool {
     if workspaceShouldRemoveEmptyView(workspace) { return false }
     if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
-    if config.workspaceInteractionMode == .views && !workspace.usesAutomaticDisplayName && !workspace.isArchived { return true }
+    if config.workspaceInteractionMode == .views && !workspace.isArchived {
+        return workspaceHasSidebarVisibleWindows(workspace) || !workspaceOwnedMinimizedWindows(workspace).isEmpty ||
+            workspace.isConfiguredPersistent || (!workspaceHasLifecycleWindows(workspace) &&
+                (!workspace.usesAutomaticDisplayName || workspaceIsRetainedEmptySlot(workspace)))
+    }
     return !workspace.isArchived &&
         (
             workspaceHasSidebarVisibleWindows(workspace) ||
@@ -62,10 +66,13 @@ func userFacingWorkspaces(_ workspaces: [Workspace], focusedWorkspace: Workspace
         guard !workspace.isArchived else { return false }
         if workspaceShouldRemoveEmptyView(workspace) { return false }
         if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
-        if config.workspaceInteractionMode == .views && !workspace.usesAutomaticDisplayName { return true }
-        if workspaceHasSidebarVisibleWindows(workspace) || workspace.isVisible ||
+        if workspaceHasSidebarVisibleWindows(workspace) ||
             workspace.isConfiguredPersistent || minimizedNames.contains(workspace.name)
         { return true }
+        if config.workspaceInteractionMode == .views {
+            if workspaceHasLifecycleWindows(workspace) { return false }
+            if !workspace.usesAutomaticDisplayName { return true }
+        } else if workspace.isVisible { return true }
         // Most occupied groups short-circuit above. Resolve empty slots only when needed,
         // once for this pass, without scanning every minimized window for every group.
         if retainedIds == nil { retainedIds = retainedEmptyWorkspaceIdsByScope(minimizedWorkspaceNames: minimizedNames) }

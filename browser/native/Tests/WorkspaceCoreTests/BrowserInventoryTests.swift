@@ -43,6 +43,34 @@ final class BrowserInventoryTests: XCTestCase {
         BrowserTabRecord(surfaceID: id, hostID: "host:1", title: title, selected: true, privateBrowsing: privateBrowsing)
     }
 
+    func testToolbarInventoryRoundTripsAndRejectsInvalidUpdatesAtomically() throws {
+        var record = tab()
+        let pin = BrowserPinnedExtension(id: String(repeating: "a", count: 32), title: "Example extension", canUnpin: false)
+        record.pinnedExtensions = [pin]
+        record.activeDownloads = 2
+        let data = try JSONEncoder().encode(record)
+        XCTAssertEqual(try JSONDecoder().decode(BrowserTabRecord.self, from: data), record)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        legacy.removeValue(forKey: "pinned_extensions")
+        legacy.removeValue(forKey: "active_downloads")
+        let decoded = try JSONDecoder().decode(BrowserTabRecord.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(decoded.pinnedExtensions, [])
+        XCTAssertEqual(decoded.activeDownloads, 0)
+
+        var inventory = BrowserInventory()
+        XCTAssertTrue(inventory.apply(.init(revision: 1, full: true, tabs: [record])))
+        var duplicate = record; duplicate.pinnedExtensions = [pin, pin]
+        var badID = record; badID.pinnedExtensions = [.init(id: "not-an-extension-id", title: "Invalid")]
+        var badCount = record; badCount.activeDownloads = -1
+        var oversized = record
+        oversized.pinnedExtensions = [.init(id: pin.id, title: pin.title, iconPNGBase64: String(repeating: "x", count: 16385))]
+        for invalid in [duplicate, badID, badCount, oversized] {
+            XCTAssertFalse(inventory.apply(.init(revision: 2, full: false, tabs: [invalid])))
+            XCTAssertEqual(inventory.revision, 1)
+            XCTAssertEqual(inventory.tabs[record.surfaceID], record)
+        }
+    }
+
     func testFullThenDeltasAndRemovalAreAuthoritative() throws {
         var inventory = BrowserInventory()
         let a = tab(), b = tab()

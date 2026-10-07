@@ -6,7 +6,7 @@ import XCTest
 @MainActor
 final class BrowserToolbarPerformanceTest: XCTestCase {
     private func item(_ id: SurfaceID) -> BrowserToolbarItem {
-        .init(surfaceID: id, frame: .init(x: 0, y: 0, width: 500, height: 28),
+        .init(surfaceID: id, frame: .init(x: 0, y: 0, width: 500, height: BrowserToolbarController.height),
               url: "https://example.com", canGoBack: false, canGoForward: false,
               isLoading: false, isFocused: false)
     }
@@ -49,7 +49,7 @@ final class BrowserToolbarPerformanceTest: XCTestCase {
     func testUnchangedToolbarDoesNotRecreateSymbolsOrRequestLayout() throws {
         _ = NSApplication.shared
         let toolbar = BrowserToolbarView()
-        let host = NSWindow(contentRect: .init(x: 0, y: 0, width: 500, height: 28),
+        let host = NSWindow(contentRect: .init(x: 0, y: 0, width: 500, height: BrowserToolbarController.height),
                             styleMask: .borderless, backing: .buffered, defer: false)
         host.isReleasedWhenClosed = false
         host.contentView = toolbar
@@ -79,6 +79,31 @@ final class BrowserToolbarPerformanceTest: XCTestCase {
         let encoded = data.base64EncodedString()
         let first = try XCTUnwrap(cache.image(for: encoded))
         XCTAssertTrue(cache.image(for: encoded) === first)
+        XCTAssertNil(cache.image(for: "invalid base64"))
+    }
+
+    func testMonochromeExtensionArtworkPreservesDetailAlphaAndOriginalFavicon() throws {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 1,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        bitmap.setColor(NSColor(deviceRed: 1, green: 0, blue: 0, alpha: 1), atX: 0, y: 0)
+        bitmap.setColor(NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 0.5), atX: 1, y: 0)
+        let encoded = try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).base64EncodedString()
+        let original = try XCTUnwrap(WorkspaceSidebarFaviconCache.shared.image(for: encoded))
+        let cache = BrowserToolbarIconCache()
+        let image = try XCTUnwrap(cache.image(for: encoded))
+        XCTAssertTrue(cache.image(for: encoded) === image)
+        XCTAssertFalse(image === original)
+        let rendered = NSBitmapImageRep(cgImage: try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil)))
+        let first = try XCTUnwrap(rendered.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        let second = try XCTUnwrap(rendered.colorAt(x: 1, y: 0)?.usingColorSpace(.deviceRGB))
+        XCTAssertEqual(first.redComponent, first.greenComponent, accuracy: 0.01)
+        XCTAssertEqual(first.greenComponent, first.blueComponent, accuracy: 0.01)
+        XCTAssertGreaterThan(second.redComponent, first.redComponent, "Preserve detail inside an opaque logo")
+        XCTAssertEqual(second.alphaComponent, 0.5, accuracy: 0.01)
+        let source = NSBitmapImageRep(cgImage: try XCTUnwrap(original.cgImage(forProposedRect: nil, context: nil, hints: nil)))
+        let originalRed = try XCTUnwrap(source.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        XCTAssertGreaterThan(originalRed.redComponent, originalRed.greenComponent)
         XCTAssertNil(cache.image(for: "invalid base64"))
     }
 }

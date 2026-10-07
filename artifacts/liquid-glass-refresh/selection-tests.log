@@ -1,0 +1,40 @@
+warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible
+swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)
+Target: arm64-apple-macosx27.0.0
+Building for debugging...
+[Computing dependencies]
+[Using on-disk description]
+[1 / 2] MASShortcut_MASShortcut
+[1 / 39] HashTreeCollections
+[2 / 18] AppBundle
+[7 / 23] AppBundle
+[10 / 23] AppBundle
+[11 / 23] AppBundle
+[12 / 23] AppBundle
+[17 / 22] AppBundle-product
+[17 / 22] WinMuxWorkspaceHelper-product
+[18 / 25]
+[20 / 25] AppBundleTests-product
+[25 / 29] AppBundleTests-product
+[27 / 29] AppBundleTests-product
+[30 / 30] WinMuxApp-product
+Build complete! (12.39 sec)
+Test Suite 'Selected tests' started at 2026-10-06 17:35:28.930.
+Test Suite 'AppBundleTests.xctest' started at 2026-10-06 17:35:28.931.
+Test Suite 'ChromeSelectionTest' started at 2026-10-06 17:35:28.931.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' passed (0.171 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' passed (0.014 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' passed (0.010 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' passed (0.001 seconds).
+Test Suite 'ChromeSelectionTest' passed at 2026-10-06 17:35:29.130.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.198 (0.198) seconds
+Test Suite 'AppBundleTests.xctest' passed at 2026-10-06 17:35:29.130.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.198 (0.198) seconds
+Test Suite 'Selected tests' passed at 2026-10-06 17:35:29.130.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.198 (0.199) seconds

@@ -747,7 +747,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
 
     func testAlwaysExpandedSidebarUsesExpandedRestingAndActivationWidths() {
         var sidebarConfig = WorkspaceSidebarConfig()
-        sidebarConfig.autoHide = true
+        sidebarConfig.autoHide = false
         sidebarConfig.alwaysExpanded = true
         sidebarConfig.collapsedWidth = 36
         sidebarConfig.width = 260
@@ -757,6 +757,20 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarCollapsedContentWidth(sidebarConfig), 36)
         XCTAssertFalse(workspaceSidebarAllowsLeftEdgeTrap(sidebarConfig))
 
+    }
+
+    func testAutoHideAlsoHidesExpandedModeAndUsesTheEdgeActivationArea() {
+        var sidebarConfig = WorkspaceSidebarConfig()
+        sidebarConfig.alwaysExpanded = true
+        sidebarConfig.autoHide = true
+        sidebarConfig.collapsedWidth = 36
+        sidebarConfig.width = 260
+
+        XCTAssertEqual(workspaceSidebarRestingWidth(sidebarConfig), 0)
+        XCTAssertEqual(workspaceSidebarHoverActivationWidth(sidebarConfig), 36)
+        XCTAssertEqual(workspaceSidebarCollapsedContentWidth(sidebarConfig), 0)
+        XCTAssertTrue(workspaceSidebarAllowsLeftEdgeTrap(sidebarConfig))
+        XCTAssertFalse(workspaceSidebarKeepsExpandedAtRest(sidebarConfig))
     }
 
     func testCollapsedAndAutoHiddenSidebarsAllowLeftEdgeTrap() {

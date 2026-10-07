@@ -13,9 +13,11 @@ struct WorkspaceSidebarPinnedBrowserTabRow: View {
     var body: some View {
         Button { onActivate(tab.id) } label: {
             WorkspaceSidebarWindowRow(title: tab.title, badge: nil, isFocused: tab.isFocused,
-                suppressFocusedStyle: isSearchFiltering, rowHeight: workspaceSidebarWorkspaceRowHeight,
-                isHovered: isHovered || selectedSearchTarget == .pinnedBrowserTab(tab.id), style: .window,
-                appBundleIds: [], appBundlePaths: [], favicons: [tab.pin.iconPNGBase64], fallbackSystemImage: "pin.fill")
+                rowHeight: workspaceSidebarWorkspaceRowHeight,
+                isHovered: isHovered, style: .window,
+                appBundleIds: [], appBundlePaths: [], favicons: [tab.isOpen ? tab.iconPNGBase64 : tab.pin.iconPNGBase64], fallbackSystemImage: "pin.fill",
+                isSelected: tab.isOpen && tab.isSelected,
+                isKeyboardTarget: selectedSearchTarget == .pinnedBrowserTab(tab.id), isLoading: tab.isOpen && tab.isLoading)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pinned browser tab: \(tab.title)\(tab.isOpen ? "" : ", closed")")

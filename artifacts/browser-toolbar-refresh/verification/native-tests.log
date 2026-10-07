@@ -1,0 +1,429 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 1]
+[2 / 5] WinMuxWorkspaceHelper-product
+[3 / 8]
+[5 / 8] WinMuxWorkspaceHelper-product
+[6 / 8] WinMuxWorkspaceHelper-product
+[8 / 10] WinMuxWorkspaceHelper-product
+Build complete! (4.34 sec)
+Test Suite 'All tests' started at 2026-10-06 20:37:44.745.
+Test Suite 'WorkspaceCoreTests.xctest' started at 2026-10-06 20:37:44.747.
+Test Suite 'BrowserInventoryTests' started at 2026-10-06 20:37:44.747.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testFullThenDeltasAndRemovalAreAuthoritative]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testFullThenDeltasAndRemovalAreAuthoritative]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testHostWindowBindingMustBeConsistentWithinConnection]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testHostWindowBindingMustBeConsistentWithinConnection]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testNativeDuplicateAndConflictingRecordsAreRejected]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testNativeDuplicateAndConflictingRecordsAreRejected]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testNavigationStateRoundTripsAndLegacyInventoryDefaults]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testNavigationStateRoundTripsAndLegacyInventoryDefaults]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testPrivateRecordsRemainConnectionScopedAndFlagged]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testPrivateRecordsRemainConnectionScopedAndFlagged]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testStaleMissingAndOutOfOrderUpdatesCannotPartiallyMutateState]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testStaleMissingAndOutOfOrderUpdatesCannotPartiallyMutateState]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testToolbarInventoryRoundTripsAndRejectsInvalidUpdatesAtomically]' started.
+Test Case '-[WorkspaceCoreTests.BrowserInventoryTests testToolbarInventoryRoundTripsAndRejectsInvalidUpdatesAtomically]' passed (0.001 seconds).
+Test Suite 'BrowserInventoryTests' passed at 2026-10-06 20:37:44.751.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+Test Suite 'BrowserLayoutSessionTests' started at 2026-10-06 20:37:44.751.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testDriftInvalidationReappliesAcknowledgedFrameAtSameInventoryRevision]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testDriftInvalidationReappliesAcknowledgedFrameAtSameInventoryRevision]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testFailedRepairDoesNotRetryUntilExplicitlyInvalidatedAgain]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testFailedRepairDoesNotRetryUntilExplicitlyInvalidatedAgain]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidatedIdenticalReplacementRecoversAfterMissingReply]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidatedIdenticalReplacementRecoversAfterMissingReply]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidatedInFlightReplyCannotAcknowledgeIdenticalReplacement]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidatedInFlightReplyCannotAcknowledgeIdenticalReplacement]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidationWithoutFreshPlanDoesNotReplayWhenOldReplyArrives]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidationWithoutFreshPlanDoesNotReplayWhenOldReplyArrives]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidationWithoutReplacementDoesNotReplayOnTimeout]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInvalidationWithoutReplacementDoesNotReplayOnTimeout]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInventoryAdvanceBeforeStaleReplyRetriesUnchangedPlan]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testInventoryAdvanceBeforeStaleReplyRetriesUnchangedPlan]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testLostReplyRecoveryIsBoundedAndNewPlanCanResume]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testLostReplyRecoveryIsBoundedAndNewPlanCanResume]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testLostReplyRetriesLatestPlanAndInventoryWithoutRepeatingOldFocus]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testLostReplyRetriesLatestPlanAndInventoryWithoutRepeatingOldFocus]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewGroupDuringFinalAttemptReceivesItsOwnRecoveryBudget]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewGroupDuringFinalAttemptReceivesItsOwnRecoveryBudget]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewInventoryAllowsRecoveryAfterDeadlineBudgetExhausted]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewInventoryAllowsRecoveryAfterDeadlineBudgetExhausted]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewInventoryDoesNotRetryUnsupportedOrUnavailablePlan]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewInventoryDoesNotRetryUnsupportedOrUnavailablePlan]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewRevisionDuringFinalAttemptIsNotMarkedAlreadyAttempted]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testNewRevisionDuringFinalAttemptIsNotMarkedAlreadyAttempted]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testRepeatedInvalidationCoalescesToLatestPlanDespiteStaleRevisionReply]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testRepeatedInvalidationCoalescesToLatestPlanDespiteStaleRevisionReply]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testReplyAndDisconnectCancelDeadlinesAndFenceAlreadyQueuedExpirations]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testReplyAndDisconnectCancelDeadlinesAndFenceAlreadyQueuedExpirations]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testStaleReplyWithoutNewInventoryWaitsForNextRevision]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testStaleReplyWithoutNewInventoryWaitsForNextRevision]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testTimeoutRepairsReturningToPreviouslyAcknowledgedGroup]' started.
+Test Case '-[WorkspaceCoreTests.BrowserLayoutSessionTests testTimeoutRepairsReturningToPreviouslyAcknowledgedGroup]' passed (0.000 seconds).
+Test Suite 'BrowserLayoutSessionTests' passed at 2026-10-06 20:37:44.755.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'BrowserNewTabTests' started at 2026-10-06 20:37:44.755.
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testCreationRequiresV5AndRejectsInvalidSourceOrPayload]' started.
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testCreationRequiresV5AndRejectsInvalidSourceOrPayload]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testEmptyInventoryCanCreateAndReturnsOwnerIdentityWithoutFabricatingInventory]' started.
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testEmptyInventoryCanCreateAndReturnsOwnerIdentityWithoutFabricatingInventory]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testReconnectAndMismatchedReturnedProfileCannotAssociateCreatedPin]' started.
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testReconnectAndMismatchedReturnedProfileCannotAssociateCreatedPin]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testRemovedSourceRetriesOnceWithExactProfileAfterFreshInventory]' started.
+Test Case '-[WorkspaceCoreTests.BrowserNewTabTests testRemovedSourceRetriesOnceWithExactProfileAfterFreshInventory]' passed (0.000 seconds).
+Test Suite 'BrowserNewTabTests' passed at 2026-10-06 20:37:44.756.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'BrowserSidebarPinTests' started at 2026-10-06 20:37:44.756.
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testExistingReferenceOnlySnapshotsDecodeWithoutPins]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testExistingReferenceOnlySnapshotsDecodeWithoutPins]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testRejectsDuplicatePinIdentityAndConflictingLiveBindings]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testRejectsDuplicatePinIdentityAndConflictingLiveBindings]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testSnapshotRoundTripPreservesClosedPinsWithoutLayoutMembership]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSidebarPinTests testSnapshotRoundTripPreservesClosedPinsWithoutLayoutMembership]' passed (0.000 seconds).
+Test Suite 'BrowserSidebarPinTests' passed at 2026-10-06 20:37:44.758.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'BrowserSurfaceAdapterTests' started at 2026-10-06 20:37:44.758.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testBrowserControlsRequireCapabilityAndDoNotChangeFocusOrRemoveTab]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testBrowserControlsRequireCapabilityAndDoNotChangeFocusOrRemoveTab]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testCloseRetriesOnlyAnExplicitStaleRejectionForTheSameTab]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testCloseRetriesOnlyAnExplicitStaleRejectionForTheSameTab]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testClosureWaitsForOwnerAndRemovedIdentityCannotBeSelected]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testClosureWaitsForOwnerAndRemovedIdentityCannotBeSelected]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testExtensionActionsRequireVersionNineAndAValidID]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testExtensionActionsRequireVersionNineAndAValidID]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testInvalidNavigationPayloadAndUnavailableHistoryNeverReachTransport]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testInvalidNavigationPayloadAndUnavailableHistoryNeverReachTransport]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testIssuedOrUncertainFocusIsNeverReplayed]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testIssuedOrUncertainFocusIsNeverReplayed]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testLateAcknowledgementCannotReplaceNewerFocusIntent]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testLateAcknowledgementCannotReplaceNewerFocusIntent]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingCloseCannotCrossRemovalOrReconnect]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingCloseCannotCrossRemovalOrReconnect]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingNavigationCannotCrossReconnectOrRetargetRemovedTab]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingNavigationCannotCrossReconnectOrRetargetRemovedTab]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotCrossAnotherBrowserConnection]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotCrossAnotherBrowserConnection]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotCrossNativeFocusFence]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotCrossNativeFocusFence]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotReplaceNewerBrowserSelection]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotReplaceNewerBrowserSelection]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotSurviveRemovalOrReconnect]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusCannotSurviveRemovalOrReconnect]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusRespectsShellInputOwnership]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPendingStaleFocusRespectsShellInputOwnership]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPrivacyControlsRequireNegotiatedCapabilityAndStayBoundToTheirPage]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testPrivacyControlsRequireNegotiatedCapabilityAndStayBoundToTheirPage]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testProfileOwnershipAndNativeIdentityCannotBeSubstituted]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testProfileOwnershipAndNativeIdentityCannotBeSubstituted]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testReconnectionRejectsOldInventoryDisconnectAndReply]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testReconnectionRejectsOldInventoryDisconnectAndReply]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleFocusRetriesOnceWithFreshRevisionAndGeneration]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleFocusRetriesOnceWithFreshRevisionAndGeneration]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleFocusUsesInventoryThatArrivedBeforeItsReply]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleFocusUsesInventoryThatArrivedBeforeItsReply]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleNavigationRetriesOnceAfterFreshInventoryWithoutReplayingIssuedActions]' started.
+Test Case '-[WorkspaceCoreTests.BrowserSurfaceAdapterTests testStaleNavigationRetriesOnceAfterFreshInventoryWithoutReplayingIssuedActions]' passed (0.000 seconds).
+Test Suite 'BrowserSurfaceAdapterTests' passed at 2026-10-06 20:37:44.763.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'PinnedDesktopTests' started at 2026-10-06 20:37:44.763.
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testBootstrapConsentIsOffUntilExplicitlySavedAndMalformedFailsClosed]' started.
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testBootstrapConsentIsOffUntilExplicitlySavedAndMalformedFailsClosed]' passed (0.006 seconds).
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testClosedMemberRestoresItsOriginalSlotWeightAndActiveStack]' started.
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testClosedMemberRestoresItsOriginalSlotWeightAndActiveStack]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testShelfMustCoverEveryDesktopAndRoundTripsClosedMembers]' started.
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testShelfMustCoverEveryDesktopAndRoundTripsClosedMembers]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testTemplateRejectsDuplicateMembersGroupsAndInvalidWeights]' started.
+Test Case '-[WorkspaceCoreTests.PinnedDesktopTests testTemplateRejectsDuplicateMembersGroupsAndInvalidWeights]' passed (0.000 seconds).
+Test Suite 'PinnedDesktopTests' passed at 2026-10-06 20:37:44.771.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'PinnedViewGroupTests' started at 2026-10-06 20:37:44.771.
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testClosedMembersAndReplacementKeepSplitAndStackTemplate]' started.
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testClosedMembersAndReplacementKeepSplitAndStackTemplate]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testOldSpacePinsDecodeWithoutSavedArrangements]' started.
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testOldSpacePinsDecodeWithoutSavedArrangements]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testSavedGroupRejectsUnknownOrOverlappingPinReferences]' started.
+Test Case '-[WorkspaceCoreTests.PinnedViewGroupTests testSavedGroupRejectsUnknownOrOverlappingPinReferences]' passed (0.000 seconds).
+Test Suite 'PinnedViewGroupTests' passed at 2026-10-06 20:37:44.773.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ProcessLaunchIdentityTests' started at 2026-10-06 20:37:44.773.
+Test Case '-[WorkspaceCoreTests.ProcessLaunchIdentityTests testDirectProcessGetsStableKernelIdentityAndExitInvalidatesIt]' started.
+Test Case '-[WorkspaceCoreTests.ProcessLaunchIdentityTests testDirectProcessGetsStableKernelIdentityAndExitInvalidatesIt]' passed (0.069 seconds).
+Test Suite 'ProcessLaunchIdentityTests' passed at 2026-10-06 20:37:44.841.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.069 (0.069) seconds
+Test Suite 'SelectedRootLayoutTests' started at 2026-10-06 20:37:44.841.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testCombiningWholeArrangementsPreservesNestedLayoutsAndWeights]' started.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testCombiningWholeArrangementsPreservesNestedLayoutsAndWeights]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testExplicitSplitResizesWithoutHiddenRootSiblings]' started.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testExplicitSplitResizesWithoutHiddenRootSiblings]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testExplicitStackOnlyListsItsOwnMembersAndSelectionFallback]' started.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testExplicitStackOnlyListsItsOwnMembersAndSelectionFallback]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testHiddenRootsRemainInPlanWithoutSyntheticTabs]' started.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testHiddenRootsRemainInPlanWithoutSyntheticTabs]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testSelectionSnapshotValidatesMembershipAndReadsLegacy]' started.
+Test Case '-[WorkspaceCoreTests.SelectedRootLayoutTests testSelectionSnapshotValidatesMembershipAndReadsLegacy]' passed (0.000 seconds).
+Test Suite 'SelectedRootLayoutTests' passed at 2026-10-06 20:37:44.845.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'SpacePinnedGroupTests' started at 2026-10-06 20:37:44.845.
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testLegacySnapshotsHaveNoAppPinsOrPinnedGroupMetadata]' started.
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testLegacySnapshotsHaveNoAppPinsOrPinnedGroupMetadata]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testMixedPinsOrderAndLastRegularGroupRoundTrip]' started.
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testMixedPinsOrderAndLastRegularGroupRoundTrip]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testRejectsDuplicateGroupsAppsCrossGroupBindingsAndForeignOrder]' started.
+Test Case '-[WorkspaceCoreTests.SpacePinnedGroupTests testRejectsDuplicateGroupsAppsCrossGroupBindingsAndForeignOrder]' passed (0.000 seconds).
+Test Suite 'SpacePinnedGroupTests' passed at 2026-10-06 20:37:44.846.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SurfaceIDTests' started at 2026-10-06 20:37:44.846.
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testKindsAndProfilesHaveSeparateNamespaces]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testKindsAndProfilesHaveSeparateNamespaces]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testNativeItemsDoNotAdvertiseBrowserActions]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testNativeItemsDoNotAdvertiseBrowserActions]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testNumericAndMalformedIdentitiesAreRejected]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceIDTests testNumericAndMalformedIdentitiesAreRejected]' passed (0.000 seconds).
+Test Suite 'SurfaceIDTests' passed at 2026-10-06 20:37:44.846.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SurfaceLayoutTests' started at 2026-10-06 20:37:44.846.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testAdaptiveRootKeepsExplicitStacksAndSplitFallbacks]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testAdaptiveRootKeepsExplicitStacksAndSplitFallbacks]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testAllocationsStayBoundedAcrossDifferentCapacities]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testAllocationsStayBoundedAcrossDifferentCapacities]' passed (0.009 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testIndependentMixedRootItemsTileInRowsWithoutChangingSavedOrganization]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testIndependentMixedRootItemsTileInRowsWithoutChangingSavedOrganization]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testIndependentStacksDoNotIncludeOtherVisiblePanes]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testIndependentStacksDoNotIncludeOtherVisiblePanes]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testInsufficientSplitBecomesTemporarySelectedStackAndExpandsAgain]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testInsufficientSplitBecomesTemporarySelectedStackAndExpandsAgain]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testInvalidOwnerMinimumRejectsWholeInventoryRevision]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testInvalidOwnerMinimumRejectsWholeInventoryRevision]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testLargeRootInventoryUsesBoundedDeterministicPlanning]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testLargeRootInventoryUsesBoundedDeterministicPlanning]' passed (0.351 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testLayoutCoalescesAndRejectsReplyFromPreviousEpoch]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testLayoutCoalescesAndRejectsReplyFromPreviousEpoch]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testMinimumWidthsRedistributeSpaceWithoutOverlap]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testMinimumWidthsRedistributeSpaceWithoutOverlap]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testNestedTemporaryStackOverridesOuterSavedStackForNavigation]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testNestedTemporaryStackOverridesOuterSavedStackForNavigation]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRememberedOverflowMemberDoesNotOverrideExplicitStackSelection]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRememberedOverflowMemberDoesNotOverrideExplicitStackSelection]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootAndVerticalFallbackKeepSelectedOwnerReachable]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootAndVerticalFallbackKeepSelectedOwnerReachable]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootOverflowRetainsOtherCellsSelectionsAsFocusMoves]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootOverflowRetainsOtherCellsSelectionsAsFocusMoves]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootOverflowRetainsSeveralTilesAndReachableSelectedStacks]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootOverflowRetainsSeveralTilesAndReachableSelectedStacks]' passed (0.003 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootUsesVerticalSpaceBeforeStackingAndSingleLeafDoesNotInventAStack]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testRootUsesVerticalSpaceBeforeStackingAndSingleLeafDoesNotInventAStack]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testSplitUsesEveryPointAndStackSelectionHidesOtherOwner]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testSplitUsesEveryPointAndStackSelectionHidesOtherOwner]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testVerticalNestedSplitAndInvalidFrame]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceLayoutTests testVerticalNestedSplitAndInvalidFrame]' passed (0.000 seconds).
+Test Suite 'SurfaceLayoutTests' passed at 2026-10-06 20:37:45.216.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.369 (0.370) seconds
+Test Suite 'SurfaceResizingTests' started at 2026-10-06 20:37:45.216.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveGridResizesBothAxesAndRestoresWithoutChangingOrganization]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveGridResizesBothAxesAndRestoresWithoutChangingOrganization]' passed (0.002 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveSingleRowOverflowStacksResizeAsCells]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveSingleRowOverflowStacksResizeAsCells]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveVerticalRootCanResizeHeight]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testAdaptiveVerticalRootCanResizeHeight]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testFractionalResizeWeightsKeepTheFinalPoint]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testFractionalResizeWeightsKeepTheFinalPoint]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testLegacySnapshotAndInvalidWeights]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testLegacySnapshotAndInvalidWeights]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testNestedSmartAndOppositeResizeTargetMatchingContainer]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testNestedSmartAndOppositeResizeTargetMatchingContainer]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testNewPageGetsNormalShareBesideResizedSiblings]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testNewPageGetsNormalShareBesideResizedSiblings]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testPartialGridResizePreservesOtherAxis]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testPartialGridResizePreservesOtherAxis]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testResizeClampsToBothOwnerMinimumsAndRejectsTemporaryStack]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testResizeClampsToBothOwnerMinimumsAndRejectsTemporaryStack]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testResizeMixedPagesPreservesTotalAndRestoresWeights]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testResizeMixedPagesPreservesTotalAndRestoresWeights]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testUnrepresentablePartialGridResizeDoesNotDistortOtherAxis]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceResizingTests testUnrepresentablePartialGridResizeDoesNotDistortOtherAxis]' passed (0.001 seconds).
+Test Suite 'SurfaceResizingTests' passed at 2026-10-06 20:37:45.223.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+Test Suite 'SurfaceSnapshotTests' started at 2026-10-06 20:37:45.223.
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testNativeImportPreservesExistingMixedOrganization]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testNativeImportPreservesExistingMixedOrganization]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testRejectsDuplicateReferencesAndConflictingTombstones]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testRejectsDuplicateReferencesAndConflictingTombstones]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testRoundTripPreservesNestedGeometrySelectionAndReferencesOnly]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceSnapshotTests testRoundTripPreservesNestedGeometrySelectionAndReferencesOnly]' passed (0.001 seconds).
+Test Suite 'SurfaceSnapshotTests' passed at 2026-10-06 20:37:45.224.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SurfaceTreeDropTests' started at 2026-10-06 20:37:45.224.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testDirectionalSplitsAllocateTheRequestedSideAndPreserveIdentities]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testDirectionalSplitsAllocateTheRequestedSideAndPreserveIdentities]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testDropOperationsRejectStaleSelfAndCrossWorkspaceWithoutMutation]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testDropOperationsRejectStaleSelfAndCrossWorkspaceWithoutMutation]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testMinimumSizeFallbackDoesNotDiscardSavedSplit]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testMinimumSizeFallbackDoesNotDiscardSavedSplit]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSplittingTabOutOfItsOwnStackCollapsesOldContainer]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSplittingTabOutOfItsOwnStackCollapsesOldContainer]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSplitWrapsExistingStackWithoutLosingItsInactivePages]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSplitWrapsExistingStackWithoutLosingItsInactivePages]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testStackInsertionAppendsWithoutNestedGroupsAndKeepsTwoTabIdentity]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testStackInsertionAppendsWithoutNestedGroupsAndKeepsTwoTabIdentity]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSwapKeepsPositionsWeightsAndStackVisibility]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeDropTests testSwapKeepsPositionsWeightsAndStackVisibility]' passed (0.000 seconds).
+Test Suite 'SurfaceTreeDropTests' passed at 2026-10-06 20:37:45.227.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'SurfaceTreeGroupMoveTests' started at 2026-10-06 20:37:45.228.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testMoveToFreshRootCollapsesOnlySourceAncestorsAndInvalidMovesAreAtomic]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testMoveToFreshRootCollapsesOnlySourceAncestorsAndInvalidMovesAreAtomic]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testMovingNestedSubtreePreservesIdentitySelectionLayoutAndWeights]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testMovingNestedSubtreePreservesIdentitySelectionLayoutAndWeights]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testNativeImportKeepsNestedOrganizationAndRejectsDuplicateIdentity]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeGroupMoveTests testNativeImportKeepsNestedOrganizationAndRejectsDuplicateIdentity]' passed (0.000 seconds).
+Test Suite 'SurfaceTreeGroupMoveTests' passed at 2026-10-06 20:37:45.229.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'SurfaceTreeTests' started at 2026-10-06 20:37:45.229.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testChangingLayoutPreservesNearestGroupIdentityAndRestores]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testChangingLayoutPreservesNearestGroupIdentityAndRestores]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testCrossWorkspaceReconciliationNeverDuplicatesLeaves]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testCrossWorkspaceReconciliationNeverDuplicatesLeaves]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testDisconnectRetainsOrganizationButAuthoritativeClosePrunesIt]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testDisconnectRetainsOrganizationButAuthoritativeClosePrunesIt]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testInvalidOrStaleOperationsAreAtomic]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testInvalidOrStaleOperationsAreAtomic]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testMixedOrderSurvivesOwnerRefreshAndMetadataChanges]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testMixedOrderSurvivesOwnerRefreshAndMetadataChanges]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testNestedGroupingRemovalAndUngroupKeepExactProfileIdentities]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testNestedGroupingRemovalAndUngroupKeepExactProfileIdentities]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testReorderStaysInsideContainingGroup]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testReorderStaysInsideContainingGroup]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testReplacementPreservesNestedLayoutSelectionWeightsAndPersistence]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testReplacementPreservesNestedLayoutSelectionWeightsAndPersistence]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testRootLayoutWrapsExistingNodesWithoutFlatteningNestedGroups]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testRootLayoutWrapsExistingNodesWithoutFlatteningNestedGroups]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testUnchangedReconciliationPreservesMetadataAndLaterRemovalStillPrunes]' started.
+Test Case '-[WorkspaceCoreTests.SurfaceTreeTests testUnchangedReconciliationPreservesMetadataAndLaterRemovalStillPrunes]' passed (0.001 seconds).
+Test Suite 'SurfaceTreeTests' passed at 2026-10-06 20:37:45.234.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'WorkspaceBrowserLifetimeTests' started at 2026-10-06 20:37:45.234.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testOtherBrowserOwnerKeepsWorkspaceAliveUntilLastProcessExits]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testOtherBrowserOwnerKeepsWorkspaceAliveUntilLastProcessExits]' passed (0.067 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testReconnectDoesNotStopLiveOwnerAndActualProcessExitStopsOnce]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testReconnectDoesNotStopLiveOwnerAndActualProcessExitStopsOnce]' passed (0.001 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testStaleExitCannotStopReplacementProcessOrUnstartedWorkspace]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserLifetimeTests testStaleExitCannotStopReplacementProcessOrUnstartedWorkspace]' passed (0.068 seconds).
+Test Suite 'WorkspaceBrowserLifetimeTests' passed at 2026-10-06 20:37:45.371.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.136 (0.137) seconds
+Test Suite 'WorkspaceBrowserProfileTests' started at 2026-10-06 20:37:45.371.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testNamedRequestKeepsProfileAcrossRetryAndRejectsAnotherAccount]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testNamedRequestKeepsProfileAcrossRetryAndRejectsAnotherAccount]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testSnapshotMigrationAndInvalidProfileReferences]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testSnapshotMigrationAndInvalidProfileReferences]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testWorkspaceRoutingRequiresVersionSixAndExcludesSourceAccount]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceBrowserProfileTests testWorkspaceRoutingRequiresVersionSixAndExcludesSourceAccount]' passed (0.000 seconds).
+Test Suite 'WorkspaceBrowserProfileTests' passed at 2026-10-06 20:37:45.372.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'WorkspaceLaunchPresentationTests' started at 2026-10-06 20:37:45.372.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testDeadRegistrationCanRecoverOnceWithoutOpeningSetup]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testDeadRegistrationCanRecoverOnceWithoutOpeningSetup]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testExplicitSetupRemainsAvailableInAnyLaunchState]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testExplicitSetupRemainsAvailableInAnyLaunchState]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testNormalLaunchAndReadinessNeverRequireSetup]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testNormalLaunchAndReadinessNeverRequireSetup]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testOwnershipOrStartupFailureIsVisibleInsteadOfPromptingForPermissions]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testOwnershipOrStartupFailureIsVisibleInsteadOfPromptingForPermissions]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testPermissionSequenceReturnsToInvisibleStartup]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testPermissionSequenceReturnsToInvisibleStartup]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testRecoveryPreservesLiveOtherAndPendingWorkspaces]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceLaunchPresentationTests testRecoveryPreservesLiveOtherAndPendingWorkspaces]' passed (0.000 seconds).
+Test Suite 'WorkspaceLaunchPresentationTests' passed at 2026-10-06 20:37:45.373.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'WorkspaceSetupPollingTests' started at 2026-10-06 20:37:45.373.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testAutomaticLaunchUsesFastChecksOnlyForFirstTenSeconds]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testAutomaticLaunchUsesFastChecksOnlyForFirstTenSeconds]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testCompletedCancelledOrIdleLaunchUsesNormalCadenceImmediately]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testCompletedCancelledOrIdleLaunchUsesNormalCadenceImmediately]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testFreshRequestGetsNewBoundedWindowWithoutExtendingOldRequest]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupPollingTests testFreshRequestGetsNewBoundedWindowWithoutExtendingOldRequest]' passed (0.000 seconds).
+Test Suite 'WorkspaceSetupPollingTests' passed at 2026-10-06 20:37:45.373.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'WorkspaceSetupStartIntentTests' started at 2026-10-06 20:37:45.373.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testCancelOrClosePreventsDelayedPermissionGrantFromStartingWorkspace]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testCancelOrClosePreventsDelayedPermissionGrantFromStartingWorkspace]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testExistingPermissionAllowsExplicitStartWithoutASecondPrompt]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testExistingPermissionAllowsExplicitStartWithoutASecondPrompt]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testExplicitStartWaitsForPermissionAndContinuesOnlyOnce]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testExplicitStartWaitsForPermissionAndContinuesOnlyOnce]' passed (0.000 seconds).
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testPermissionAloneDoesNotCreateAStartupIntent]' started.
+Test Case '-[WorkspaceCoreTests.WorkspaceSetupStartIntentTests testPermissionAloneDoesNotCreateAStartupIntent]' passed (0.000 seconds).
+Test Suite 'WorkspaceSetupStartIntentTests' passed at 2026-10-06 20:37:45.374.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'WorkspaceCoreTests.xctest' passed at 2026-10-06 20:37:45.374.
+	 Executed 140 tests, with 0 failures (0 unexpected) in 0.617 (0.627) seconds
+Test Suite 'All tests' passed at 2026-10-06 20:37:45.374.
+	 Executed 140 tests, with 0 failures (0 unexpected) in 0.617 (0.629) seconds
+Test Suite 'All tests' started at 2026-10-06 20:37:45.518.
+Test Suite 'BridgeCoreTests.xctest' started at 2026-10-06 20:37:45.519.
+Test Suite 'BridgeSessionTests' started at 2026-10-06 20:37:45.519.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testDuplicateStaleAndForeignMessagesRejected]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testDuplicateStaleAndForeignMessagesRejected]' passed (0.001 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testHandshakeRequiredAndUnsupportedVersionRejected]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testHandshakeRequiredAndUnsupportedVersionRejected]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testReconnectRotatesEpochAndRenegotiationDoesNotResetSequence]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testReconnectRotatesEpochAndRenegotiationDoesNotResetSequence]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testRequirementsCannotBeInjectedOrAcceptAdHocIdentities]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testRequirementsCannotBeInjectedOrAcceptAdHocIdentities]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionEightEnablesPrivacyWithoutUpgradingExistingEpochs]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionEightEnablesPrivacyWithoutUpgradingExistingEpochs]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionFiveEnablesCreationWithoutUpgradingExistingEpochs]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionFiveEnablesCreationWithoutUpgradingExistingEpochs]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionFourEnablesNavigationWithoutWideningLegacyEpochs]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionFourEnablesNavigationWithoutWideningLegacyEpochs]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionNineEnablesToolbarActionsWithoutUpgradingAnEpoch]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionNineEnablesToolbarActionsWithoutUpgradingAnEpoch]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionOneCannotPublishInventoryOrUpgradeAnExistingEpoch]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionOneCannotPublishInventoryOrUpgradeAnExistingEpoch]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionSevenAllowsPrivateInventoryOnlyInNewEpoch]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionSevenAllowsPrivateInventoryOnlyInNewEpoch]' passed (0.000 seconds).
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionSixEnablesProfilesWithoutUpgradingExistingEpochs]' started.
+Test Case '-[BridgeCoreTests.BridgeSessionTests testVersionSixEnablesProfilesWithoutUpgradingExistingEpochs]' passed (0.000 seconds).
+Test Suite 'BridgeSessionTests' passed at 2026-10-06 20:37:45.522.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'WorkspaceActivationTests' started at 2026-10-06 20:37:45.522.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testDamagedLegacyActivationIsNotSilentlyReplaced]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testDamagedLegacyActivationIsNotSilentlyReplaced]' passed (0.003 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testDecodedRequestsCannotWidenValidationScope]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testDecodedRequestsCannotWidenValidationScope]' passed (0.001 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testEarlierUnmanagedBrowserDirectoryDoesNotBlockFreshWorkspace]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testEarlierUnmanagedBrowserDirectoryDoesNotBlockFreshWorkspace]' passed (0.002 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testExistingTrialWorkspaceKeepsItsProfileAndSavedActivation]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testExistingTrialWorkspaceKeepsItsProfileAndSavedActivation]' passed (0.011 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testFreshStartPreparesPrivateDirectoriesBeforeSavingConsent]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testFreshStartPreparesPrivateDirectoriesBeforeSavingConsent]' passed (0.011 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryDoesNotAdoptAnUnmarkedRoot]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryDoesNotAdoptAnUnmarkedRoot]' passed (0.001 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryRejectsExternallyWritableDirectoriesWithoutChangingThem]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryRejectsExternallyWritableDirectoriesWithoutChangingThem]' passed (0.005 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryRejectsLinkedWorkspaceOrProfileWithoutTouchingTarget]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testRecoveryRejectsLinkedWorkspaceOrProfileWithoutTouchingTarget]' passed (0.006 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testStartRepairsRC1DirectoriesAndPreservesProfileContents]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testStartRepairsRC1DirectoriesAndPreservesProfileContents]' passed (0.013 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testStoreIsPrivateAndPreservesRequestAndProfile]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testStoreIsPrivateAndPreservesRequestAndProfile]' passed (0.008 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testUnmarkedAndSymlinkDirectoriesAreRejectedWithoutWriting]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testUnmarkedAndSymlinkDirectoriesAreRejectedWithoutWriting]' passed (0.004 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testValidationRequiresCompleteLaunchBoundScope]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testValidationRequiresCompleteLaunchBoundScope]' passed (0.001 seconds).
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testViewsTrialUsesSeparateProfileStateAndActivationFiles]' started.
+Test Case '-[BridgeCoreTests.WorkspaceActivationTests testViewsTrialUsesSeparateProfileStateAndActivationFiles]' passed (0.001 seconds).
+Test Suite 'WorkspaceActivationTests' passed at 2026-10-06 20:37:45.589.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.066 (0.067) seconds
+Test Suite 'BridgeCoreTests.xctest' passed at 2026-10-06 20:37:45.589.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.068 (0.070) seconds
+Test Suite 'All tests' passed at 2026-10-06 20:37:45.589.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.068 (0.072) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

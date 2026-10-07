@@ -8,17 +8,18 @@ native window ID. Native app windows can occupy the same workspace and groups.
 
 ## Controls
 
-Each visible managed page has a continuous rounded frame and a 28-point native
+Each visible managed page has a continuous rounded frame and a 36-point native
 AppKit header. Four-point outer insets and a one-point frame separate neighboring
 pages. AppKit's standard red, yellow and green window controls sit at the leading
-edge, followed by compact navigation and a flat address/search field. A full-height
-move grip sits beside the address field, followed by the window-actions menu.
+edge, followed by compact navigation and a 26-point rounded address/search field.
+Pinned extension icons, Extensions, Downloads and the window-actions menu follow
+the field. A full-height move grip stays at the far-right edge.
 Navigation, menu and drag icons use 13-point SF Symbols, sized alongside the
 native window buttons.
-The address field caps at 540 points so spare header space remains draggable.
-The grip reserves 56 points when space allows and stays at least 24 points wide
-in narrow panes. At the smallest widths, the actions button moves into the drag
-area's context menu. Extensions, new-page and sizing actions are available there. The
+The address field expands to fill available space. The grip keeps a 24-point target
+with a five-point trailing inset at every width. At the smallest widths, secondary
+buttons move into the drag area's context menu. Extensions, Downloads, new-page
+and sizing actions remain available there. The
 address field gains a background on hover and a focus outline while editing.
 Red closes the page, yellow minimizes its native window to the Dock, and green
 enters fullscreen. Option-click green to zoom. Selecting a minimized page in the
@@ -26,8 +27,13 @@ sidebar restores it. Minimize, fullscreen and zoom preserve its group and stack;
 normal tiling resumes when the page returns. Fullscreen and zoom use Chromium’s
 conventional native controls until the page returns to its tiled position. Narrow windows move secondary controls into
 that menu instead of squeezing the address field. The address field supports local development addresses. Cmd+L
-focuses it while the managed browser is foreground; a configured WinMux binding
-takes precedence. Escape restores the current URL and returns focus to the page.
+focuses it and selects all text while the managed browser is foreground; a
+configured WinMux binding takes precedence. Clicking the field initially selects
+the address; subsequent clicks position the caret. Standard select/copy/paste/cut
+and undo/redo shortcuts work while editing. Return navigates or searches using the
+profile's search provider. Escape restores the current URL and returns focus to
+the page. Command-R, Command-T, Command-W and Command-Shift-J remain available
+while editing for reload, new page, close page and downloads respectively.
 
 Browser headers, WinMux window controls and the sidebar follow macOS light/dark
 appearance by default, including changes while the workspace is running. The
@@ -45,10 +51,22 @@ the helper panels do not become the browser's key window. Managed Chromium windo
 omit the broad system shadow; releasing management restores each window's original
 shadow. Small stretchable material masks keep rounded corners stable during resize.
 
-Extensions opens Chromium's real extension menu when extensions are installed;
+The puzzle-piece Extensions button opens Chromium's real extension menu when extensions are installed;
 otherwise it opens the extension manager. Chromium still owns extension APIs,
 permissions, menus and extension popups. Managed extension bubbles anchor to the
-page window because Chromium's conventional toolbar is hidden.
+page window because Chromium's conventional toolbar is hidden. Pin extensions in
+that menu to display their icons in the native header; right-click an icon to
+unpin it. Pin order and persistence belong to the Chromium profile. Policy-pinned
+extensions and incognito windows cannot change pins. Narrow panes hide overflowing
+pins, which remain accessible from the Extensions menu.
+
+All toolbar icons are monochrome, including extension artwork. Active downloads
+use a filled icon with stronger neutral contrast instead of an accent color.
+Downloads opens Chromium's recent-download bubble, or its downloads page when
+there are no recent items. Active transfers emphasize the button and show their
+count in its tooltip and accessibility label. The bubble anchors beneath the
+managed page header. Pinned icons and native downloads require bridge protocol 9;
+older engines retain the Extensions menu and open the downloads page.
 
 Drag header whitespace or the trailing move grip to move a page with its controls.
 WinMux previews the same drop zones as native windows: left/right and top/bottom

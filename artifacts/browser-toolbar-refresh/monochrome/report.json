@@ -1,0 +1,28 @@
+{
+  "completed_utc": "2026-10-07T04:00:57.300558+00:00",
+  "change": "Monochrome browser toolbar icons; cached grayscale extension artwork preserves logo detail and alpha; active Downloads uses neutral contrast.",
+  "focused_toolbar_tests": 32,
+  "passed": true,
+  "light_and_dark_fixtures_reviewed": true,
+  "release_url": "https://github.com/jamesjlyons/winmux/releases/tag/untagged-2024411f75989940fb0e",
+  "github_draft": true,
+  "remote_asset_digests_verified": true,
+  "local_archive": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-monochrome-toolbar-2026-10-06-rc1/WinMux-Browser-Alpha-Monochrome-Toolbar-2026-10-06-rc1-arm64.zip",
+  "archive_sha256": "be3a05ee84863bd65443d36017df30a1b1fa3047eba36b027eeeaeec4c35b66e",
+  "strict_nested_signatures_verified": true,
+  "archive_round_trip_verified": true,
+  "native_source_fingerprints_verified": 654,
+  "media_playback_passed": [
+    "mp4_h264_aac",
+    "mse_h264_aac",
+    "webm_vp9_opus"
+  ],
+  "browser_integration_passed": true,
+  "notarized": false,
+  "installed": false,
+  "source_sha256": {
+    "Sources/AppBundle/browser/BrowserToolbarIcon.swift": "bbed99170a5504fca50ece7e28c06d3f4864115faaaab296c8d0b64a1474016d",
+    "Sources/AppBundle/browser/BrowserToolbarView.swift": "228a5745c93ba12afaec78f05c871ee01a471b470cef9e0cb71bfd6ccdd4c53c",
+    "Sources/AppBundleTests/ui/BrowserToolbarPerformanceTest.swift": "bdbb7d9306eba8fec72fa8fb6797d9bd55527a30174bdc5a7aa0e25a971a713f"
+  }
+}

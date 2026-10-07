@@ -329,6 +329,7 @@ extension BrowserWorkspaceController {
         tile.groupMembers = tile.members
         tile.isGroup = desktop.kind == .group; tile.memberCount = desktop.memberIDs.count
         tile.isFocused = members.contains(where: \.isFocused); tile.isOpen = members.contains(where: \.isOpen)
+        tile.isSelected = members.contains(where: \.isSelected)
         tile.isLoading = members.contains(where: \.isLoading); tile.isUnavailable = members.allSatisfy(\.isUnavailable)
         tile.surfaceID = members.first(where: \.isFocused)?.surfaceID ?? members.first(where: \.isOpen)?.surfaceID
         return [tile]

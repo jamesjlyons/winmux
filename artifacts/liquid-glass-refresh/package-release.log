@@ -1,0 +1,82 @@
+Freezing signed package with all requested UI source hashes.
+Checking decoded video and audio in the frozen release app.
+{
+  "passed": true,
+  "app": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-glass-video-2026-10-06/staging/WinMux Browser Alpha.app",
+  "browser_version": "153.0.8010.53",
+  "fixture_chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+  "fixtures_sha256": {
+    "/bear-1280x720.mp4": "bcb75d3db0a1a5056f4cd5c770ceccdb4cae920f21abb8139b29cd9ad39e3857",
+    "/bear-1280x720-av_frag.mp4": "affc4ce6c872f9d4160a92a7b959523b3cac2d171e89177e4cd211e55f756175",
+    "/bear-vp9-opus.webm": "c7fd18fbb644ca6f49c56cf386e679c0290e79cd50234ddfed9945f71bf07deb"
+  },
+  "command": [
+    "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-glass-video-2026-10-06/staging/WinMux Browser Alpha.app/Contents/MacOS/Chromium",
+    "--headless=new",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--profile-directory=Default",
+    "--user-data-dir=/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-glass-video-2026-10-06/media-check/profile",
+    "--winmux-test-service=com.jameslyons.winmux.browser.alpha.workspace.test.53956f94-ff0f-4286-8831-d420126f8668",
+    "--winmux-bridge-report=/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-glass-video-2026-10-06/media-check/bridge.json",
+    "http://127.0.0.1:58674/"
+  ],
+  "media": {
+    "passed": true,
+    "capabilities": {
+      "h264": {
+        "canPlayType": "probably",
+        "mediaSource": true
+      },
+      "aac": {
+        "canPlayType": "probably",
+        "mediaSource": true
+      },
+      "h264_aac": {
+        "canPlayType": "probably",
+        "mediaSource": true
+      },
+      "vp9_opus": {
+        "canPlayType": "probably",
+        "mediaSource": true
+      }
+    },
+    "playback": [
+      {
+        "name": "mp4_h264_aac",
+        "passed": true,
+        "ended": true,
+        "currentTime": 2.763175,
+        "frames": 82,
+        "audioBytes": 25053
+      },
+      {
+        "name": "mse_h264_aac",
+        "passed": true,
+        "ended": true,
+        "currentTime": 2.802799,
+        "frames": 82,
+        "audioBytes": 25886
+      },
+      {
+        "name": "webm_vp9_opus",
+        "passed": true,
+        "ended": true,
+        "currentTime": 2.736,
+        "frames": 82,
+        "audioBytes": 32842
+      }
+    ]
+  },
+  "browser_cleanup": true
+}
+Creating versioned ZIP and verifying its extracted contents.
+WinMux-Browser-Alpha-Glass-Video-2026-10-06-rc1-arm64.zip: OK
+release-manifest.json: OK
+RELEASE-NOTES.md: OK
+package-manifest.json: OK
+bundle-inventory.json: OK
+media-verification.json: OK
+ui-verification.json: OK
+package-request.json: OK
+{"archive": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-glass-video-2026-10-06/WinMux-Browser-Alpha-Glass-Video-2026-10-06-rc1-arm64.zip", "verified": true, "bytes": 284609221}

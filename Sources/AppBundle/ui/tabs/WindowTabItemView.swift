@@ -20,9 +20,10 @@ struct WindowTabItemView: View {
         .padding(.horizontal, 10)
         .frame(width: width, height: height, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
-                .fill(tabBackgroundStyle)
+            ChromeSelectionBackground(state: .init(isSelected: tab.isActive,
+                isFocused: tab.isFocused, isHovered: isHovered), cornerRadius: height / 2)
         }
+        .accessibilityAddTraits(tab.isActive ? .isSelected : [])
         .opacity(isDragSource ? 0.55 : 1.0)
         .contentShape(Rectangle())
     }
@@ -32,9 +33,4 @@ struct WindowTabItemView: View {
         return .secondary
     }
 
-    private var tabBackgroundStyle: Color {
-        if tab.isActive { return Color.primary.opacity(0.10) }
-        if isHovered { return Color.primary.opacity(0.055) }
-        return .clear
-    }
 }

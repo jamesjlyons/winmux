@@ -14,6 +14,14 @@ preserve the live page. Changing the profile setting alone leaves existing tabs
 and pins unchanged. Chromium keeps each profile's
 history, cookies, extensions, settings, and saved passwords separately.
 
+The native address bar autocompletes from the current profile's existing Chromium
+history and open pages. Use Up/Down to select a result, Return to open it, or Tab
+on an open-page match to switch to that tab. Escape restores the current address.
+The dropdown also offers Kagi search; typing a query makes no search-suggestion
+network request. Saved-history results require browser and helper protocol 10;
+older browsers still provide open-page matches. Private pages only suggest open
+pages in that private profile and never query saved history.
+
 Use **Option–Command–T** from any app to create a page in the current regular Group.
 Each Space has one ordered pin shelf. An app or page pin owns a full desktop;
 pinning an existing split, stack, or Group preserves its shared layout. Closed
@@ -159,6 +167,25 @@ unchanged; the alpha manifest records both argument hashes and
 `configuration_changed_from_control`. Such builds are no longer a matched
 configuration performance comparison with the archived control. The flag does
 not bypass source ownership, revision, or archive validation.
+
+The browser enables H.264/AAC with `proprietary_codecs = true` and
+`ffmpeg_branding = "Chrome"`, while retaining unbranded Chromium. These codecs
+are required for MP4 and Media Source video on sites such as Twitter/X. Existing
+builds that omitted them need an engine rebuild and a new package; changing the
+native helper or a runtime preference does not add codec support.
+
+Check actual decoding in the signed package with the pinned Chromium fixtures:
+
+```sh
+python3 browser/tools/test_browser_media.py \
+  --app '/path/to/WinMux Browser Alpha.app' \
+  --chromium-source /path/to/apfs/winmux-engine/chromium/src \
+  --output .local/browser/new-media-check
+```
+
+This creates a fresh profile and loopback fixture server, checks codec support,
+and requires MP4 H.264/AAC, Media Source H.264/AAC, and WebM VP9/Opus playback to
+finish with decoded audio and video frames. It leaves existing sessions alone.
 
 The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite

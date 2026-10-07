@@ -27,6 +27,7 @@ struct WindowTabItemViewModel: Hashable, Identifiable {
     let appBundlePath: String?
     let title: String
     let isActive: Bool
+    var isFocused = false
 
     var id: UInt32 { windowId }
 }

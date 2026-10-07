@@ -224,7 +224,7 @@ NSString* OwnTeam() {
       [bridge retryGeneration:generation state:@"connection_rejected" detail:error.localizedDescription];
     });
   }];
-  [self negotiate:8 remote:remote generation:generation];
+  [self negotiate:10 remote:remote generation:generation];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.queue, ^{
     if (self->_state.IsConnecting(generation))
       [self retryGeneration:generation state:@"timeout" detail:@"Helper did not reply within 15 seconds"];
@@ -235,7 +235,7 @@ NSString* OwnTeam() {
   [remote negotiateVersion:requested reply:^(NSInteger version, NSString* epoch) {
     dispatch_async(self.queue, ^{
       if (self->_stopped.load() || !self->_state.IsConnecting(generation)) return;
-      if (requested > version && version >= 1 && version <= 8 && !epoch.length) {
+      if (requested > version && version >= 1 && version <= 10 && !epoch.length) {
         [self negotiate:version remote:remote generation:generation];
         return;
       }
@@ -356,6 +356,29 @@ NSString* OwnTeam() {
   });
 }
 
+- (void)queryHistory:(NSString*)query surface:(NSString*)surface epoch:(NSString*)epoch
+                reply:(void (^)(NSData*))reply {
+  dispatch_async(self.queue, ^{
+    const uint64_t generation = self->_activeGeneration.load();
+    if (self.protocolVersion < 10 || !self.connection || self->_stopped.load() ||
+        ![epoch isEqualToString:self.epoch] || query.length > 2048 || surface.length > 128) {
+      reply(nil); return;
+    }
+    const bool posted = content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+        [](WMChromiumWorkspaceBridge* bridge, uint64_t generation, std::string epoch,
+           std::string surface, std::string query, void (^completion)(NSData*)) {
+          if (bridge->_stopped.load() || generation != bridge->_activeGeneration.load()) { completion(nil); return; }
+          winmux::QueryBrowserHistory(epoch, surface, query, base::BindOnce(
+              [](WMChromiumWorkspaceBridge* bridge, uint64_t generation, void (^completion)(NSData*), std::string json) {
+                if (bridge->_stopped.load() || generation != bridge->_activeGeneration.load()) { completion(nil); return; }
+                completion([NSData dataWithBytes:json.data() length:json.size()]);
+              }, bridge, generation, [completion copy]));
+        }, self, generation, base::SysNSStringToUTF8(epoch), base::SysNSStringToUTF8(surface),
+        base::SysNSStringToUTF8(query), [reply copy]));
+    if (!posted) reply(nil);
+  });
+}
+
 - (void)performAction:(NSString*)action surface:(NSString*)surface epoch:(NSString*)epoch
            operation:(NSString*)operation revision:(uint64_t)revision generation:(uint64_t)focusGeneration
                reply:(void (^)(NSString*))reply {
@@ -369,7 +392,7 @@ NSString* OwnTeam() {
                       epoch:(NSString*)epoch operation:(NSString*)operation revision:(uint64_t)revision
                  generation:(uint64_t)focusGeneration reply:(void (^)(NSString*))reply {
   [self dispatchAction:action surface:surface url:url epoch:epoch operation:operation
-              revision:revision generation:focusGeneration minimumVersion:([@[@"search", @"privacy", @"keep_active", @"site_blocking"] containsObject:action] ? 8 : 4) reply:reply];
+              revision:revision generation:focusGeneration minimumVersion:([@[@"downloads", @"extension_action", @"unpin_extension"] containsObject:action] ? 9 : [@[@"search", @"privacy", @"keep_active", @"site_blocking"] containsObject:action] ? 8 : 4) reply:reply];
 }
 
 - (void)dispatchAction:(NSString*)action surface:(NSString*)surface url:(NSString*)url

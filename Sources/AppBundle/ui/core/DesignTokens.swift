@@ -8,7 +8,7 @@ enum GlassToken {
     // Surface recipe (originally the sidebar surface, now shared by all chrome)
     static let tint = Color(hue: 0, saturation: 0, brightness: 0.50)
     static let tintOpacity: Double = 0.025
-    static let scrimOpacity: Double = 0.12
+    static let scrimOpacity: Double = 0.06
     static let highlightPeak: Double = 0.025
     static let borderOpacity: Double = 0.09
     static let separatorOpacity: Double = 0.07
@@ -152,6 +152,8 @@ extension Color {
 /// readable in either appearance without layering another glossy card over it.
 struct GlassSurface<S: Shape>: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
     let shape: S
     var hasHighlight: Bool = false
     var hasBorder: Bool = true
@@ -161,12 +163,12 @@ struct GlassSurface<S: Shape>: View {
     var body: some View {
         ZStack {
             base
-            if style == .liquidGlass {
+            if style == .liquidGlass && !reduceTransparency {
                 shape.fill((colorScheme == .dark ? Color.black : .white).opacity(GlassToken.scrimOpacity))
                 shape.fill(GlassToken.tint.opacity(GlassToken.tintOpacity))
                     .blendMode(.plusLighter)
             }
-            if hasHighlight, style == .liquidGlass {
+            if hasHighlight, style == .liquidGlass, !reduceTransparency {
                 shape.fill(
                     LinearGradient(
                         stops: [
@@ -196,7 +198,9 @@ struct GlassSurface<S: Shape>: View {
         case .solid:
             shape.fill(solidColor)
         case .liquidGlass:
-            if #available(macOS 26.0, *) {
+            if reduceTransparency {
+                shape.fill(Color(nsColor: ChromePalette.background))
+            } else if #available(macOS 26.0, *) {
                 Color.clear.glassEffect(.regular.interactive(false), in: shape)
             } else {
                 shape.fill(.ultraThinMaterial)
@@ -205,6 +209,6 @@ struct GlassSurface<S: Shape>: View {
     }
 
     private var borderEdge: some View {
-        shape.stroke(Color.primary.opacity(GlassToken.borderOpacity), lineWidth: StrokeToken.hairline)
+        shape.stroke(Color.primary.opacity(contrast == .increased ? 0.5 : GlassToken.borderOpacity), lineWidth: StrokeToken.hairline)
     }
 }

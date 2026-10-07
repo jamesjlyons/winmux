@@ -1,0 +1,192 @@
+{
+  "baseline_revision": "3163f2b8b088deb0e15d572d35d35ad964b75d74",
+  "baseline_working_tree_modified": true,
+  "baseline_source_changes": "baseline-working-tree.patch",
+  "capture_type": "Production AppKit and SwiftUI components hosted in dedicated live WindowServer-composited proof windows. Document contents are fixed fixtures, not live Chromium sessions.",
+  "scene": {
+    "logical_size": [
+      1200,
+      760
+    ],
+    "backing_scale": 2,
+    "sidebar_width": 240,
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "background": "Fixed lavender-to-peach light gradient; fixed violet-to-slate dark gradient",
+    "content": "Sources/AppBundle/ui/marketing/WinMuxChromeRefreshProof.swift",
+    "clock": "Hidden; proof renderer freezes its date",
+    "before_sidebar_row_height": 24,
+    "after_sidebar_row_height": 28,
+    "before_browser_header_height": 32,
+    "after_browser_header_height": 36,
+    "address_field_height": 26
+  },
+  "capture_commands": [
+    ".build/debug/winmux-marketing-renderer --chrome-refresh-proof artifacts/liquid-glass-refresh/after",
+    ".build/debug/winmux-marketing-renderer --chrome-state-proof artifacts/liquid-glass-refresh/after",
+    ".build/debug/winmux-marketing-renderer --workspace-views-proof artifacts/liquid-glass-refresh/after/widths"
+  ],
+  "visual_review": {
+    "matched_light_dark_comparisons": "passed",
+    "keyboard_target_and_loading": "passed",
+    "solid_themes": "passed",
+    "sidebar_widths": [
+      40,
+      140,
+      240
+    ],
+    "live_chromium_window_stacking": "Not captured; automated panel ordering, retention, drag, and accessibility tests cover the controller behavior.",
+    "system_accessibility_settings": "Native accessibility adaptations implemented; solid fallback captured without changing system preferences."
+  },
+  "images": [
+    {
+      "file": "after/chrome-dark.png",
+      "pixels": [
+        2400,
+        1520
+      ],
+      "sha256": "75352dc7a8a256a83f1c5d611f12204b39e8c43220468d7041a9ea4d8da703bc"
+    },
+    {
+      "file": "after/chrome-light.png",
+      "pixels": [
+        2400,
+        1520
+      ],
+      "sha256": "e3c58fed0edd815dccc89af37a7d6d74515de1cdd5b58d11521054a3ac30cbbd"
+    },
+    {
+      "file": "after/states-dark-glass.png",
+      "pixels": [
+        880,
+        920
+      ],
+      "sha256": "f978c4992f42e93b6b7bb7b9088529d7bc0a811014525b23a7176d8411c6a7a2"
+    },
+    {
+      "file": "after/states-dark-solid.png",
+      "pixels": [
+        880,
+        920
+      ],
+      "sha256": "4ce3c67e0a48965e9d12a3841c87d90b4f90f601d5410693e5a88b972bf5fd0e"
+    },
+    {
+      "file": "after/states-light-glass.png",
+      "pixels": [
+        880,
+        920
+      ],
+      "sha256": "aa0cce35f35210efb8480535f78e2432634db6f4d230ef250ae668cc71e9d493"
+    },
+    {
+      "file": "after/states-light-solid.png",
+      "pixels": [
+        880,
+        920
+      ],
+      "sha256": "c426d77aaacb6ffbda9cfba69395543975f8f523fd44cbfc568e4452d92542f2"
+    },
+    {
+      "file": "after/widths/views-140-dark.png",
+      "pixels": [
+        280,
+        1400
+      ],
+      "sha256": "c206ca4a5d96f356bc1afac38ef4109a13808c5c0b9abd240d471fe15ffc83c0"
+    },
+    {
+      "file": "after/widths/views-140-light.png",
+      "pixels": [
+        280,
+        1400
+      ],
+      "sha256": "b354875312baf146bbf417be527d5a16a18f7d2b18674212c9aa98fc8c2f51e1"
+    },
+    {
+      "file": "after/widths/views-240-dark.png",
+      "pixels": [
+        480,
+        1400
+      ],
+      "sha256": "03de2d1d95c7d6152e8470d0f034a68a967112606c7052aef9cd80a6dd145391"
+    },
+    {
+      "file": "after/widths/views-240-light.png",
+      "pixels": [
+        480,
+        1400
+      ],
+      "sha256": "b8d26bb344b50c4ab89a081bbf85cd28e390814fb1e522e86c909dee61bdc71a"
+    },
+    {
+      "file": "after/widths/views-40-dark.png",
+      "pixels": [
+        80,
+        1400
+      ],
+      "sha256": "2808a09127187fb5aefa406e31fa640e9539f164e83be1e6e72981cbeed477a9"
+    },
+    {
+      "file": "after/widths/views-40-light.png",
+      "pixels": [
+        80,
+        1400
+      ],
+      "sha256": "9d7dc836550adbe3840a921c5d602cdf59a743e7deef5d85154c13adc72938ad"
+    },
+    {
+      "file": "before/chrome-dark.png",
+      "pixels": [
+        2400,
+        1520
+      ],
+      "sha256": "5d7ab481a3446e3c0388d3736f134b431e6d0fdff9515ef760278e90c5e9e636"
+    },
+    {
+      "file": "before/chrome-light.png",
+      "pixels": [
+        2400,
+        1520
+      ],
+      "sha256": "3fbefd28e8819b62f270dbe23c3da1eeada56e29775e8911ef7e7b8892fcc08d"
+    }
+  ],
+  "verification": {
+    "make_check": "passed",
+    "new_selection_tests": {
+      "count": 5,
+      "failures": 0
+    },
+    "debug_suite": {
+      "count": 1015,
+      "failures": 0
+    },
+    "optimized_suite": {
+      "count": 1015,
+      "failures": 0
+    },
+    "python_checks": "passed",
+    "dependency_lockfile_check": "passed",
+    "git_diff_check": "passed",
+    "log": "make-check.log"
+  },
+  "after_revision": "3163f2b8b088deb0e15d572d35d35ad964b75d74",
+  "implementation_committed": false,
+  "refinement": {
+    "changes": [
+      "Square lower corners on the horizontal tab strip in the component fixture, matching production geometry.",
+      "Sidebar row leading padding increased from 4 to 10 points; drag previews and pinned headings align with rows."
+    ],
+    "build": "passed",
+    "focused_tests": {
+      "count": 82,
+      "failures": 0,
+      "log": "refinement-tests.log"
+    },
+    "screenshots": "after/ refreshed for light, dark, solid, and 40/140/240-point widths",
+    "full_suite": "Prior make check results retained; focused checks rerun for this refinement."
+  }
+}

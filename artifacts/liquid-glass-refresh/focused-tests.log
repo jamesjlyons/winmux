@@ -1,0 +1,250 @@
+warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible
+swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)
+Target: arm64-apple-macosx27.0.0
+Building for debugging...
+[Computing dependencies]
+[Provisioning 5 / 41]
+[Pre-planning 1 / 949]
+[Planning 229 / 949]
+[Planning deferred tasks]
+[Starting]
+[1 / 54] HotKey
+[6 / 67]
+[7 / 27] AppBundle
+[18 / 38] AppBundle
+[20 / 48] AppBundle
+[21 / 48] AppBundle
+[23 / 48] AppBundle
+[24 / 48] AppBundle
+[26 / 48] AppBundle
+[27 / 48] AppBundle
+[28 / 48] AppBundle
+[32 / 49] AppBundle
+[33 / 49] AppBundle
+[34 / 49] AppBundle
+[36 / 47] AppBundleTests-product
+[37 / 58]
+[47 / 58] AppBundleTests-product
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/BrowserToolbarPerformanceTest.swift:30:17: warning: 'liveIDs' mutated after capture by sendable closure
+15 |         _ = NSApplication.shared
+16 |         let id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+17 |         var liveIDs: Set<SurfaceID> = [id]
+   |             `- note: variable defined here
+18 |         let controller = BrowserToolbarController(isAvailable: { liveIDs.contains($0) })
+   |                                                                | `- note: capturing use
+   |                                                                `- note: variable captured by sendable closure
+19 |         defer { controller.hideAll() }
+20 |         controller.update(items: [item(id)]) { _, _ in }
+   :
+28 |             XCTAssertTrue(controller.panels[id] === panel)
+29 |         }
+30 |         liveIDs.remove(id)
+   |                 `- warning: 'liveIDs' mutated after capture by sendable closure
+31 |         controller.update(items: []) { _, _ in }
+32 |         XCTAssertNil(controller.panels[id])
+[53 / 57] AppBundleTests-product
+[55 / 57] AppBundleTests-product
+[56 / 58] winmux-marketing-renderer-product
+[58 / 59] winmux-marketing-renderer-product
+[59 / 61] winmux-marketing-renderer-product
+[62 / 62]
+[63 / 65] WinMuxApp-product
+[65 / 66] WinMuxApp-product
+[66 / 68] WinMuxApp-product
+[68 / 68] WinMuxApp-product
+[70 / 71] WinMuxWorkspaceHelper-product
+[72 / 72] WinMuxWorkspaceHelper-product
+[74 / 77] WinMuxWorkspaceHelper-product
+[76 / 77] WinMuxWorkspaceHelper-product
+[78 / 78] winmux-marketing-renderer-product
+Build complete! (19.03 sec)
+Test Suite 'Selected tests' started at 2026-10-06 17:34:40.914.
+Test Suite 'AppBundleTests.xctest' started at 2026-10-06 17:34:40.915.
+Test Suite 'BrowserPagePresentationTest' started at 2026-10-06 17:34:40.915.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testAddressNormalizationSupportsLocalDevelopmentAndRejectsActiveSchemes]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testAddressNormalizationSupportsLocalDevelopmentAndRejectsActiveSchemes]' passed (0.303 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testDelayedInventoryCannotTakeSelectionFromAnotherApp]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testDelayedInventoryCannotTakeSelectionFromAnotherApp]' passed (0.003 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testDenseMixedLayoutFitsManagedMinimumBeforeConventionalHostsAreAdopted]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testDenseMixedLayoutFitsManagedMinimumBeforeConventionalHostsAreAdopted]' passed (0.014 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testNeighboringPageShellsHaveIndependentGutters]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testNeighboringPageShellsHaveIndependentGutters]' passed (0.006 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testNewPageActionAllowsEngineToSelectItsNewWindow]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testNewPageActionAllowsEngineToSelectItsNewWindow]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testPageChromeUnifiesHeaderAndBodyAcrossNegativeScreenCoordinates]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testPageChromeUnifiesHeaderAndBodyAcrossNegativeScreenCoordinates]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testPageMinimumIncludesItsChromeWithoutShrinkingChromiumBelowItsMinimum]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testPageMinimumIncludesItsChromeWithoutShrinkingChromiumBelowItsMinimum]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testProtocolFourAdoptsFirstPageWithoutManualGroupingAndReflectsNativeFocus]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testProtocolFourAdoptsFirstPageWithoutManualGroupingAndReflectsNativeFocus]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testStackRetainsIndependentHostsAndReservesNativeToolbar]' started.
+Test Case '-[AppBundleTests.BrowserPagePresentationTest testStackRetainsIndependentHostsAndReservesNativeToolbar]' passed (0.007 seconds).
+Test Suite 'BrowserPagePresentationTest' passed at 2026-10-06 17:34:41.260.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.343 (0.345) seconds
+Test Suite 'BrowserSidebarIntegrationTest' started at 2026-10-06 17:34:41.260.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testAuthenticatedProcessRemainsExcludedAcrossTransientDisconnect]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testAuthenticatedProcessRemainsExcludedAcrossTransientDisconnect]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testBrowserRowsShareNativeSidebarAndSearchWithoutNativeBindings]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testBrowserRowsShareNativeSidebarAndSearchWithoutNativeBindings]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testClosedOrReusedNativeLeafCannotBeReorganized]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testClosedOrReusedNativeLeafCannotBeReorganized]' passed (0.012 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testCurrentWebsiteFaviconReachesSharedRowsAndSearchAfterNavigation]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testCurrentWebsiteFaviconReachesSharedRowsAndSearchAfterNavigation]' passed (0.009 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testDisconnectAndDuplicateOwnersCannotResurrectOrMisrouteRows]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testDisconnectAndDuplicateOwnersCannotResurrectOrMisrouteRows]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testMixedOrganizationUsesLiveOwnersAndSurvivesDisconnect]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testMixedOrganizationUsesLiveOwnersAndSurvivesDisconnect]' passed (0.004 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testMultipleBrowserFencesReaffirmOnlyTheCurrentOwner]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testMultipleBrowserFencesReaffirmOnlyTheCurrentOwner]' passed (0.008 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testNativeFocusFencesBrowserAndLateReplyCannotRefocusAnOlderNativeTarget]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testNativeFocusFencesBrowserAndLateReplyCannotRefocusAnOlderNativeTarget]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testOpenPinUsesCurrentWebsiteIconWhileClosedPinKeepsSavedIcon]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testOpenPinUsesCurrentWebsiteIconWhileClosedPinKeepsSavedIcon]' passed (0.008 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testSidebarProjectionMatchesLiveRowsAndRefreshesOwnershipAndIcons]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testSidebarProjectionMatchesLiveRowsAndRefreshesOwnershipAndIcons]' passed (0.006 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testUnifiedSearchAndTypedDragIncludeBothKindsInsideGroups]' started.
+Test Case '-[AppBundleTests.BrowserSidebarIntegrationTest testUnifiedSearchAndTypedDragIncludeBothKindsInsideGroups]' passed (0.001 seconds).
+Test Suite 'BrowserSidebarIntegrationTest' passed at 2026-10-06 17:34:41.327.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.066 (0.067) seconds
+Test Suite 'BrowserSidebarPinsTest' started at 2026-10-06 17:34:41.327.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testBrowserProcessRestartCanRetireTheOldPinReservation]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testBrowserProcessRestartCanRetireTheOldPinReservation]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosedPinOpensSavedURLInItsSpaceAndWaitsForInventoryBeforeAnotherOpen]' started.
+2026-10-06 17:34:41.335 xctest[73021:6480187] WinMux new tab: dispatch
+2026-10-06 17:34:41.335 xctest[73021:6480187] WinMux new tab: issued
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosedPinOpensSavedURLInItsSpaceAndWaitsForInventoryBeforeAnotherOpen]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosedTemplateDoesNotReclaimAGroupMovedToAnotherDesktop]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosedTemplateDoesNotReclaimAGroupMovedToAnotherDesktop]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosingPinPreservesItsOriginalURLProfileIconAndSearchIdentity]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testClosingPinPreservesItsOriginalURLProfileIconAndSearchIdentity]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testDraggingLivePinIntoRegularGroupUnpinsWithoutClosing]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testDraggingLivePinIntoRegularGroupUnpinsWithoutClosing]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testFailedOpenCanRetryAndUnpinDuringCreationDoesNotRecreateShortcut]' started.
+2026-10-06 17:34:41.353 xctest[73021:6480187] WinMux new tab: dispatch
+2026-10-06 17:34:41.353 xctest[73021:6480187] WinMux new tab: unavailable
+2026-10-06 17:34:41.353 xctest[73021:6480187] WinMux new tab: dispatch
+2026-10-06 17:34:41.353 xctest[73021:6480187] WinMux new tab: issued
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testFailedOpenCanRetryAndUnpinDuringCreationDoesNotRecreateShortcut]' passed (0.007 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testMovingMemberIntoAnotherPinUpdatesDurableOwnership]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testMovingMemberIntoAnotherPinUpdatesDurableOwnership]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testMovingPinDuringCreationUsesLatestSpaceWithoutOverridingNewFocus]' started.
+2026-10-06 17:34:41.363 xctest[73021:6480187] WinMux new tab: dispatch
+2026-10-06 17:34:41.363 xctest[73021:6480187] WinMux new tab: issued
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testMovingPinDuringCreationUsesLatestSpaceWithoutOverridingNewFocus]' passed (0.008 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testOtherOwnerInventoryDoesNotCloseLivePinAndDisconnectDoesNotDuplicateIt]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testOtherOwnerInventoryDoesNotCloseLivePinAndDisconnectDoesNotDuplicateIt]' passed (0.008 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testPartialGroupReopenRestoresSlotWithoutStealingLiveFocus]' started.
+2026-10-06 17:34:41.380 xctest[73021:6480187] WinMux new tab: dispatch
+2026-10-06 17:34:41.380 xctest[73021:6480187] WinMux new tab: issued
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testPartialGroupReopenRestoresSlotWithoutStealingLiveFocus]' passed (0.008 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testPinningGroupedMemberPreservesBothPanesAndUnpinKeepsDesktop]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testPinningGroupedMemberPreservesBothPanesAndUnpinKeepsDesktop]' passed (0.013 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testRestoredMissingLivePinBecomesClosedShortcutWithoutGhostPane]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testRestoredMissingLivePinBecomesClosedShortcutWithoutGhostPane]' passed (0.012 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testUnpinDuringLostConnectionMovesReservedPageToRegularGroup]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testUnpinDuringLostConnectionMovesReservedPageToRegularGroup]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testUnpinSelectedPageReturnsItsFocusToRegularGroup]' started.
+Test Case '-[AppBundleTests.BrowserSidebarPinsTest testUnpinSelectedPageReturnsItsFocusToRegularGroup]' passed (0.007 seconds).
+Test Suite 'BrowserSidebarPinsTest' passed at 2026-10-06 17:34:41.415.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.087 (0.088) seconds
+Test Suite 'BrowserToolbarDragTest' started at 2026-10-06 17:34:41.415.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testCancelledOrReleasedGestureCannotRestartFromStrayEvents]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testCancelledOrReleasedGestureCannotRestartFromStrayEvents]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testInteractiveHeaderHasWindowAndToolbarAccessibilityWhileBackingIsIgnored]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testInteractiveHeaderHasWindowAndToolbarAccessibilityWhileBackingIsIgnored]' passed (0.081 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testMovedAndResizedBodyKeepsContinuousChromeAcrossDisplays]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testMovedAndResizedBodyKeepsContinuousChromeAcrossDisplays]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testSmallPointerMotionRemainsClickAndFirstDragKeepsOriginalAnchor]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testSmallPointerMotionRemainsClickAndFirstDragKeepsOriginalAnchor]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testStandardWindowControlsDispatchTheirWindowActions]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testStandardWindowControlsDispatchTheirWindowActions]' passed (0.060 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testTrafficLightsAndAddressRemainUsableInNarrowSplits]' started.
+Test Case '-[AppBundleTests.BrowserToolbarDragTest testTrafficLightsAndAddressRemainUsableInNarrowSplits]' passed (0.068 seconds).
+Test Suite 'BrowserToolbarDragTest' passed at 2026-10-06 17:34:41.625.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.209 (0.209) seconds
+Test Suite 'BrowserToolbarPerformanceTest' started at 2026-10-06 17:34:41.625.
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testHiddenToolbarCacheIsBounded]' started.
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testHiddenToolbarCacheIsBounded]' passed (1.349 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testPinFaviconIsReusedAndInvalidImagesAreIgnored]' started.
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testPinFaviconIsReusedAndInvalidImagesAreIgnored]' passed (0.006 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testSwitchingGroupsHidesAndReusesControlsThenEvictsClosedPages]' started.
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testSwitchingGroupsHidesAndReusesControlsThenEvictsClosedPages]' passed (0.108 seconds).
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testUnchangedToolbarDoesNotRecreateSymbolsOrRequestLayout]' started.
+Test Case '-[AppBundleTests.BrowserToolbarPerformanceTest testUnchangedToolbarDoesNotRecreateSymbolsOrRequestLayout]' passed (0.013 seconds).
+Test Suite 'BrowserToolbarPerformanceTest' passed at 2026-10-06 17:34:43.101.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 1.476 (1.477) seconds
+Test Suite 'ChromeSelectionTest' started at 2026-10-06 17:34:43.101.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' passed (0.054 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' passed (0.006 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' started.
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/ChromeSelectionTest.swift:76: error: -[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading] : XCTAssertTrue failed
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/ChromeSelectionTest.swift:77: error: -[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading] : XCTUnwrap failed: expected non-nil value of type "BrowserSidebarPin"
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' failed (1.926 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' passed (0.013 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' passed (0.001 seconds).
+Test Suite 'ChromeSelectionTest' failed at 2026-10-06 17:34:45.102.
+	 Executed 5 tests, with 2 failures (0 unexpected) in 2.000 (2.001) seconds
+Test Suite 'SurfaceSidebarInteractionTest' started at 2026-10-06 17:34:45.102.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testMoveMenusKeepNativeAndBrowserOwnerIdentitiesAndTargetScope]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testMoveMenusKeepNativeAndBrowserOwnerIdentitiesAndTargetScope]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSearchFilteredStackRetainsFullCountIconsAndSavedRepresentative]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSearchFilteredStackRetainsFullCountIconsAndSavedRepresentative]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedActivationHonorsEditingDragAndOtherDisplayGuards]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedActivationHonorsEditingDragAndOtherDisplayGuards]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedStackIconMetadataPreservesNestedOwnerOrder]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedStackIconMetadataPreservesNestedOwnerOrder]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testStackMenuMovesWholeSubtreeRatherThanItsRepresentative]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testStackMenuMovesWholeSubtreeRatherThanItsRepresentative]' passed (0.000 seconds).
+Test Suite 'SurfaceSidebarInteractionTest' passed at 2026-10-06 17:34:45.105.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'WindowTabPanelRetentionTest' started at 2026-10-06 17:34:45.105.
+Test Case '-[AppBundleTests.WindowTabPanelRetentionTest testHiddenLiveGroupKeepsItsPanelsAndDeletedGroupReleasesThem]' started.
+Test Case '-[AppBundleTests.WindowTabPanelRetentionTest testHiddenLiveGroupKeepsItsPanelsAndDeletedGroupReleasesThem]' passed (0.018 seconds).
+Test Case '-[AppBundleTests.WindowTabPanelRetentionTest testVisualContentTracksLocalOcclusionWithoutDependingOnSelectedTab]' started.
+Test Case '-[AppBundleTests.WindowTabPanelRetentionTest testVisualContentTracksLocalOcclusionWithoutDependingOnSelectedTab]' passed (0.007 seconds).
+Test Suite 'WindowTabPanelRetentionTest' passed at 2026-10-06 17:34:45.131.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.026 (0.026) seconds
+Test Suite 'WorkspaceSidebarTransitionTest' started at 2026-10-06 17:34:45.131.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testExpansionBookkeepingDoesNotInvalidateRenderedSnapshot]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testExpansionBookkeepingDoesNotInvalidateRenderedSnapshot]' passed (0.095 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testHoverCollapseReachesRestingState]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testHoverCollapseReachesRestingState]' passed (0.135 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testMenuAndEditorLocksPreventHoverCollapse]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testMenuAndEditorLocksPreventHoverCollapse]' passed (0.026 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testPendingExitKeepsContentAndItsOriginalDeadline]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testPendingExitKeepsContentAndItsOriginalDeadline]' passed (0.026 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testPointerMovementDuringCloseDoesNotScheduleAnotherCollapse]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testPointerMovementDuringCloseDoesNotScheduleAnotherCollapse]' passed (0.026 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testReentryCancelsExitWithoutAnotherExpansion]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testReentryCancelsExitWithoutAnotherExpansion]' passed (0.024 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testReentryDuringCloseCancelsFinalizationAndRestoresWidth]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testReentryDuringCloseCancelsFinalizationAndRestoresWidth]' passed (0.032 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testRepeatedExpansionRequestsDoNotPublishOrRestartTransition]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarTransitionTest testRepeatedExpansionRequestsDoNotPublishOrRestartTransition]' passed (0.032 seconds).
+Test Suite 'WorkspaceSidebarTransitionTest' passed at 2026-10-06 17:34:45.529.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.396 (0.397) seconds
+Test Suite 'WorkspaceSidebarWidthTest' started at 2026-10-06 17:34:45.529.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDensityUsesSectionWidthAfterInsets]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDensityUsesSectionWidthAfterInsets]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDottedWidthIsUpdatedWithoutDuplicateTable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDottedWidthIsUpdatedWithoutDuplicateTable]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testMissingWidthIsInsertedInSidebarTable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testMissingWidthIsInsertedInSidebarTable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testResizeClampsToUsableWidthsAndDisplay]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testResizeClampsToUsableWidthsAndDisplay]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testWidthEditPreservesCommentAndUnrelatedSettings]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testWidthEditPreservesCommentAndUnrelatedSettings]' passed (0.000 seconds).
+Test Suite 'WorkspaceSidebarWidthTest' passed at 2026-10-06 17:34:45.530.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'AppBundleTests.xctest' failed at 2026-10-06 17:34:45.530.
+	 Executed 69 tests, with 2 failures (0 unexpected) in 4.607 (4.615) seconds
+Test Suite 'Selected tests' failed at 2026-10-06 17:34:45.530.
+	 Executed 69 tests, with 2 failures (0 unexpected) in 4.607 (4.616) seconds
+SIDEBAR_CLOSE_BENCHMARK elapsed=0.102900125 seconds
+SIDEBAR_TRANSITION_BENCHMARK requests=100 publications=0 expansionNotifications=0
+Note: Some test targets reported failures:
+  - AppBundleTests (XCTest)

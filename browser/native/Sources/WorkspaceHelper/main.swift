@@ -48,6 +48,9 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 }, sendNewTab: { [weak self] request, completion in
                     guard let self else { completion(.unavailable, nil); return }
                     self.sendNewTab(request, completion: completion)
+                }, sendHistory: { [weak self] request, completion in
+                    guard let self else { completion([]); return }
+                    self.queryHistory(request, completion: completion)
                 }) { [weak self] request, completion in
                     guard let self else { completion(.unavailable); return }
                     self.send(request, completion: completion)
@@ -90,6 +93,21 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                                 revision: request.revision, generation: request.generation, reply: reply)
         } else {
             completion(.unsupported)
+        }
+    }
+
+    @MainActor private func queryHistory(_ request: BrowserHistoryRequest,
+                                        completion: @escaping @MainActor ([BrowserHistoryEntry]) -> Void) {
+        guard (session.version ?? 0) >= 10, !lock.withLock({ closed }), let connection,
+              let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+                  DispatchQueue.main.async { completion([]) }
+              }) as? WMBrowserSurfaceOwner else { completion([]); return }
+        proxy.queryHistory(request.query, surface: request.surfaceID.description, epoch: request.epoch.uuidString) { data in
+            let entries: [BrowserHistoryEntry]
+            if let data, data.count <= 655_360 {
+                entries = (try? JSONDecoder().decode([BrowserHistoryEntry].self, from: data)) ?? []
+            } else { entries = [] }
+            DispatchQueue.main.async { completion(entries) }
         }
     }
 
@@ -601,6 +619,31 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         noteTest("new_tab_close", await testAction("close", surface: newPage.surfaceID, remote: remote, epoch: epoch))
         guard await waitForTestInventory({ Set($0.tabs.keys) == Set(ids) }) != nil else {
             noteTest("new_tab_cleanup", "timed_out"); return false
+        }
+        if (session.version ?? 0) >= 9 {
+            noteTest("toolbar_empty_inventory", lock.withLock {
+                inventory.tabs.values.allSatisfy { $0.pinnedExtensions.isEmpty && $0.activeDownloads == 0 }
+            } ? "yes" : "no")
+            noteTest("extension_invalid_id", await testAction("extension_action", surface: id, remote: remote,
+                epoch: epoch, url: "invalid"))
+            noteTest("extension_unavailable", await testAction("extension_action", surface: id, remote: remote,
+                epoch: epoch, url: String(repeating: "a", count: 32)))
+            noteTest("unpin_unavailable", await testAction("unpin_extension", surface: id, remote: remote,
+                epoch: epoch, url: String(repeating: "a", count: 32)))
+            noteTest("downloads_invalid_payload", await testAction("downloads", surface: id, remote: remote,
+                epoch: epoch, url: "https://example.invalid/"))
+            noteTest("downloads_open", await testAction("downloads", surface: id, remote: remote, epoch: epoch))
+            guard let downloads = await waitForTestInventory({ state in
+                state.tabs.count == 3 && state.tabs.values.contains { $0.url == "chrome://downloads/" && !$0.isLoading }
+            }), let page = downloads.tabs.values.first(where: { $0.url == "chrome://downloads/" }) else {
+                noteTest("downloads_page", "timed_out"); return false
+            }
+            noteTest("downloads_page", "yes")
+            noteTest("downloads_close", await testAction("close", surface: page.surfaceID, remote: remote, epoch: epoch))
+            guard await waitForTestInventory({ Set($0.tabs.keys) == Set(ids) }) != nil else {
+                noteTest("downloads_cleanup", "timed_out"); return false
+            }
+            noteTest("downloads_cleanup", "yes")
         }
         return true
     }

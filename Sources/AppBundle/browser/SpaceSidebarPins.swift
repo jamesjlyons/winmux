@@ -345,12 +345,15 @@ extension BrowserWorkspaceController {
     }
 
     func makeMemberPinTiles(in workspace: String, browserPins: [BrowserSidebarPin], nativePins: [NativeAppSidebarPin]) -> [WorkspaceSidebarPinViewModel] {
+        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         var tiles = browserPins.map { pin in
             let record = pin.surfaceID.flatMap { owner(of: $0)?.inventory.tabs[$0] }
             return WorkspaceSidebarPinViewModel(id: pin.id, workspaceName: workspace, title: record?.title ?? pin.title,
                 bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: record != nil ? record?.iconPNGBase64 : pin.iconPNGBase64,
                 surfaceID: pin.surfaceID, isFocused: pin.surfaceID.map { focusCoordinator.target == $0 && record != nil } ?? false,
-                isOpen: record != nil, isLoading: pendingSidebarPinOpenings.contains(pin.id), isUnavailable: false, isBrowser: true, url: pin.url)
+                isOpen: record != nil, isLoading: record?.isLoading == true || pendingSidebarPinOpenings.contains(pin.id),
+                isUnavailable: false, isBrowser: true, url: pin.url,
+                isSelected: record.map { selected.contains($0.surfaceID) } ?? false)
         }
         tiles += nativePins.map { pin in
             let window = pin.surfaceID.flatMap { Window.get(bySurfaceID: $0) }
@@ -358,7 +361,8 @@ extension BrowserWorkspaceController {
                 bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath, iconPNGBase64: nil,
                 surfaceID: window?.surfaceID, isFocused: window.map { focusCoordinator.target == $0.surfaceID || focus.windowOrNil?.surfaceID == $0.surfaceID } ?? false,
                 isOpen: window != nil, isLoading: pendingNativePinLaunches[pin.id] != nil,
-                isUnavailable: failedNativePinLaunches.contains(pin.id) || appBundleURL(for: pin) == nil, isBrowser: false)
+                isUnavailable: failedNativePinLaunches.contains(pin.id) || appBundleURL(for: pin) == nil, isBrowser: false,
+                isSelected: window.map { selected.contains($0.surfaceID) } ?? false)
         }
         let order = pinTileOrder(in: workspace)
         let ranks = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($0.element, $0.offset) })

@@ -14,8 +14,13 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     // suspension below can let an old inventory resurrect a just-closed tab.
     let pinsByWorkspace = BrowserWorkspaceController.shared.pinTilesByWorkspace()
     let browserProjection = BrowserWorkspaceController.shared.sidebarProjection()
+    // Views may retain unresolved placement internally while discovery is still
+    // running. Do not turn those reservations into empty, clickable sidebar rows.
+    let visibleWorkspaces = config.workspaceInteractionMode == .views
+        ? userFacingWorkspaces(orderedWorkspaces, focusedWorkspace: currentFocus.workspace) : orderedWorkspaces
+    let visibleIDs = Set(visibleWorkspaces.map(\.id))
     var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
-    for workspace in orderedWorkspaces {
+    for workspace in orderedWorkspaces where workspace.isPinnedGroup || visibleIDs.contains(workspace.id) {
         workspaces.append(makeWorkspaceSidebarWorkspaceViewModel(
             workspace,
             currentFocus: currentFocus,
@@ -46,9 +51,16 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     let workspaceMonitor = workspace.workspaceMonitor
     let items = BrowserWorkspaceController.shared.organizedRows(native: nativeItems, in: workspace.name, projection: browserProjection)
     let titles = items.flatMap(\.surfaceItems).map(\.title)
-    let viewName = workspace.usesAutomaticDisplayName && config.workspaceInteractionMode == .views && !titles.isEmpty
-        ? titles.prefix(2).joined(separator: " + ") + (titles.count > 2 ? " + \(titles.count - 2)" : "")
-        : workspaceDisplayName(workspace.name, automaticIndices: automaticIndices)
+    let label = workspaceLabels[workspace.name]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let viewName: String
+    if !label.isEmpty {
+        viewName = label
+    } else if workspace.usesAutomaticDisplayName && config.workspaceInteractionMode == .views {
+        viewName = titles.isEmpty ? "Empty View"
+            : titles.prefix(2).joined(separator: " + ") + (titles.count > 2 ? " + \(titles.count - 2)" : "")
+    } else {
+        viewName = workspaceDisplayName(workspace.name, automaticIndices: automaticIndices)
+    }
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,
         projectId: workspace.projectId,

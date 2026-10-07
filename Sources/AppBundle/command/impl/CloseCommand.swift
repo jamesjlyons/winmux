@@ -20,11 +20,8 @@ struct CloseCommand: Command {
             if try await args.quitIfLastWindow.andAsync({ @MainActor @Sendable in try await window.macAppUnsafe.getAxWindowsCount() == 1 }) {
                 let app = window.macAppUnsafe
                 if app.nsApp.terminate() {
-                    for workspace in Workspace.all {
-                        for window in workspace.allLeafWindowsRecursive where window.app.pid == app.pid {
-                            window.asMacWindow().garbageCollect(skipClosedWindowsCache: true)
-                        }
-                    }
+                    // The app can still present a save prompt. Discovery will
+                    // retire its windows together once termination is confirmed.
                     return true
                 } else {
                     return io.err("Failed to quit '\(window.app.name ?? "Unknown app")'")

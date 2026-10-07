@@ -17,6 +17,7 @@ func restoreRestartMetadata(_ snapshot: RestartSessionSnapshot) {
         let workspace = Workspace.get(byName: frozen.name)
         workspace.assignProject(frozen.projectId)
         workspace.restoreNamingStyle(frozen.namingStyle)
+        workspace.hasContainedItems = workspace.hasContainedItems || frozen.hasContainedItems
         workspace.preferredMonitorPoint = restartTargetMonitor(frozen.monitor).rect.topLeftCorner
     }
     for project in snapshot.projects ?? [] {
@@ -32,6 +33,7 @@ func restoreRestartWorkspace(_ frozen: FrozenWorkspace, matchedIds: Set<UInt32>,
     let workspace = Workspace.get(byName: frozen.name)
     workspace.assignProject(frozen.projectId)
     workspace.restoreNamingStyle(frozen.namingStyle)
+    workspace.hasContainedItems = workspace.hasContainedItems || frozen.hasContainedItems
     let monitor = restartTargetMonitor(frozen.monitor)
     let matchingWindows = Dictionary(uniqueKeysWithValues: matchedIds.compactMap { id in Window.get(byId: id).map { (id, $0) } })
     workspace.preferredMonitorPoint = monitor.rect.topLeftCorner

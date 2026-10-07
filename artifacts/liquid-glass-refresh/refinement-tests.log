@@ -1,0 +1,420 @@
+warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible
+swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)
+Target: arm64-apple-macosx27.0.0
+Building for debugging...
+[Computing dependencies]
+[Using on-disk description]
+[1 / 83] TOMLKit
+[11 / 54] WinMuxPackage_AppBundle
+[14 / 50] AppBundle-product
+[14 / 50] BridgeProtocol
+[15 / 50] BridgeProtocol
+[16 / 50] SparkleSupport
+[23 / 57] SparkleSupport
+[27 / 50] BridgeCore
+[33 / 56] winmux-window-capture-product
+[34 / 56] BridgeCore
+[36 / 51] winmux-product
+[40 / 53]
+[43 / 58]
+[47 / 58] WinMuxApp-product
+[48 / 58] WinMuxApp-product
+[50 / 70] winmux-window-capture-product
+[58 / 71] AppBundleTests-product
+[60 / 71] AppBundleTests-product
+[61 / 72] winmux-window-capture-product
+[63 / 73] WinMuxApp-product
+[65 / 73] AppBundleTests-product
+[66 / 73] WinMuxWorkspaceHelper-product
+[68 / 73] AppBundleTests-product
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/TrackpadNavigationTest.swift:79:17: warning: 'matches' mutated after capture by sendable closure
+ 71 |         let backend = FakeTrackpadBackend()
+ 72 |         var activations = 0
+ 73 |         var matches = false
+    |             `- note: variable defined here
+ 74 |         let controller = TrackpadNavigationController(backend: backend, frontmostPID: { matches ? 0 : 999 }, activate: { _, _ in activations += 1 })
+    |                                                                                       | `- note: capturing use
+    |                                                                                       `- note: variable captured by sendable closure
+ 75 |         controller.update(configuration: .init(enabled: true), isActive: true)
+ 76 |         backend.send([.began(1), .committed(1, .left)])
+ 77 |         await drainMainQueue()
+ 78 |         XCTAssertEqual(activations, 0)
+ 79 |         matches = true
+    |                 `- warning: 'matches' mutated after capture by sendable closure
+ 80 |         backend.send([.ended(1), .began(1)])
+ 81 |         await drainMainQueue()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/TrackpadNavigationTest.swift:156:19: warning: 'frontmost' mutated after capture by sendable closure
+143 |         _ = windows[0].focusWindow()
+144 |         let backend = FakeTrackpadBackend()
+145 |         var frontmost: Int32 = 1
+    |             `- note: variable defined here
+146 |         var time = ProcessInfo.processInfo.systemUptime
+147 |         var visited: [UInt32] = []
+148 |         let controller = TrackpadNavigationController(backend: backend, frontmostPID: { frontmost }, now: { time }, activate: { _, destination in
+    |                                                                                       | `- note: capturing use
+    |                                                                                       `- note: variable captured by sendable closure
+149 |             visited.append(destination.windowId)
+150 |             _ = destination.focusWindow()
+    :
+154 |         await drainMainQueue()
+155 |         // macOS is still activating the previous request while fingers land.
+156 |         frontmost = 2
+    |                   `- warning: 'frontmost' mutated after capture by sendable closure
+157 |         controller.applicationActivated(2)
+158 |         backend.send([.committed(1, .left), .ended(1), .began(1), .committed(1, .right), .ended(1)])
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/TrackpadNavigationTest.swift:168:14: warning: 'time' mutated after capture by sendable closure
+144 |         let backend = FakeTrackpadBackend()
+145 |         var frontmost: Int32 = 1
+146 |         var time = ProcessInfo.processInfo.systemUptime
+    |             `- note: variable defined here
+147 |         var visited: [UInt32] = []
+148 |         let controller = TrackpadNavigationController(backend: backend, frontmostPID: { frontmost }, now: { time }, activate: { _, destination in
+    |                                                                                                           | `- note: capturing use
+    |                                                                                                           `- note: variable captured by sendable closure
+149 |             visited.append(destination.windowId)
+150 |             _ = destination.focusWindow()
+    :
+166 |         XCTAssertFalse(controller.shouldIgnoreNativeFocus(unrelated))
+167 |         // The grace period is bounded; failed activation cannot pin logical focus.
+168 |         time += 0.51
+    |              `- warning: 'time' mutated after capture by sendable closure
+169 |         XCTAssertFalse(controller.shouldIgnoreNativeFocus(windows[0]))
+170 |         controller.shutdown()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/TrackpadNavigationTest.swift:188:19: warning: 'frontmost' mutated after capture by sendable closure
+174 |         let windows = group()
+175 |         let backend = FakeTrackpadBackend()
+176 |         var frontmost: Int32 = 0
+    |             `- note: variable defined here
+177 |         var visited: [UInt32] = []
+178 |         let controller = TrackpadNavigationController(backend: backend, frontmostPID: { frontmost }, activate: { _, destination in
+    |                                                                                       | `- note: capturing use
+    |                                                                                       `- note: variable captured by sendable closure
+179 |             visited.append(destination.windowId)
+180 |             _ = destination.focusWindow()
+    :
+186 |         frontmost = 999
+187 |         controller.applicationActivated(frontmost)
+188 |         frontmost = 0
+    |                   `- warning: 'frontmost' mutated after capture by sendable closure
+189 |         backend.send([.committed(1, .left), .ended(1)])
+190 |         await drainMainQueue()
+[70 / 73] AppBundleTests-product
+[70 / 73] WinMuxWorkspaceHelper-product
+[71 / 74] AppBundleTests-product
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/BrowserToolbarPerformanceTest.swift:30:17: warning: 'liveIDs' mutated after capture by sendable closure
+15 |         _ = NSApplication.shared
+16 |         let id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+17 |         var liveIDs: Set<SurfaceID> = [id]
+   |             `- note: variable defined here
+18 |         let controller = BrowserToolbarController(isAvailable: { liveIDs.contains($0) })
+   |                                                                | `- note: capturing use
+   |                                                                `- note: variable captured by sendable closure
+19 |         defer { controller.hideAll() }
+20 |         controller.update(items: [item(id)]) { _, _ in }
+   :
+28 |             XCTAssertTrue(controller.panels[id] === panel)
+29 |         }
+30 |         liveIDs.remove(id)
+   |                 `- warning: 'liveIDs' mutated after capture by sendable closure
+31 |         controller.update(items: []) { _, _ in }
+32 |         XCTAssertNil(controller.panels[id])
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/tree/BrowserRefreshSchedulerTest.swift:50:17: warning: 'isReady' mutated after capture by sendable closure
+ 41 | 
+ 42 |     func testInventoryBeforeRuntimeReadyIsRetainedUntilExplicitStartupResume() async {
+ 43 |         var isReady = false
+    |             `- note: variable defined here
+ 44 |         var passes = 0
+ 45 |         let scheduler = CoalescedBrowserRefreshScheduler(isReady: { isReady }) { passes += 1 }
+    |                                                                   | `- note: capturing use
+    |                                                                   `- note: variable captured by sendable closure
+ 46 |         for _ in 0 ..< 1000 { scheduler.schedule() }
+ 47 |         await scheduler.waitUntilIdle()
+ 48 |         XCTAssertEqual(passes, 0, "Do not consume inventory work while the native model is still initializing")
+ 49 | 
+ 50 |         isReady = true
+    |                 `- warning: 'isReady' mutated after capture by sendable closure
+ 51 |         scheduler.resumePendingRefresh()
+ 52 |         await scheduler.waitUntilIdle()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/tree/BrowserRefreshSchedulerTest.swift:75:17: warning: 'isReady' mutated after capture by sendable closure
+ 58 | 
+ 59 |     func testReadinessLostDuringSuspendedPassPreservesTrailingInventory() async throws {
+ 60 |         var isReady = true
+    |             `- note: variable defined here
+ 61 |         var passes = 0
+ 62 |         var release: CheckedContinuation<Void, Never>?
+ 63 |         let started = expectation(description: "First pass suspended")
+ 64 |         let scheduler = CoalescedBrowserRefreshScheduler(isReady: { isReady }) {
+    |                                                                   | `- note: capturing use
+    |                                                                   `- note: variable captured by sendable closure
+ 65 |             passes += 1
+ 66 |             if passes == 1 { await withCheckedContinuation { release = $0; started.fulfill() } }
+    :
+ 73 |         await scheduler.waitUntilIdle()
+ 74 |         XCTAssertEqual(passes, 1)
+ 75 |         isReady = true
+    |                 `- warning: 'isReady' mutated after capture by sendable closure
+ 76 |         scheduler.resumePendingRefresh()
+ 77 |         await scheduler.waitUntilIdle()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/tree/BrowserRefreshSchedulerTest.swift:98:17: warning: 'isReady' mutated after capture by sendable closure
+ 80 | 
+ 81 |     func testStartupReadinessDoesNotWaitForTrailingInventoryToBecomeIdle() async throws {
+ 82 |         var isReady = false
+    |             `- note: variable defined here
+ 83 |         var passes = 0
+ 84 |         var releaseFirst: CheckedContinuation<Void, Never>?
+    :
+ 87 |         let trailingStarted = expectation(description: "New inventory pass suspended")
+ 88 |         let startupCompleted = expectation(description: "Startup returns before later inventory settles")
+ 89 |         let scheduler = CoalescedBrowserRefreshScheduler(isReady: { isReady }) {
+    |                                                                   | `- note: capturing use
+    |                                                                   `- note: variable captured by sendable closure
+ 90 |             passes += 1
+ 91 |             if passes == 1 {
+    :
+ 96 |         }
+ 97 |         scheduler.schedule()
+ 98 |         isReady = true
+    |                 `- warning: 'isReady' mutated after capture by sendable closure
+ 99 |         let startup = Task { @MainActor in
+100 |             await scheduler.resumePendingRefreshAndWaitForPass()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/tree/NativeGroupFocusOrderingTest.swift:71:20: warning: 'foreground' mutated after capture by sendable closure
+60 | 
+61 |     func testInterveningAppActivationRetiresDeferredTargetAndLateFence() {
+62 |         var foreground: Int32? = -1
+   |             `- note: variable defined here
+63 |         let controller = BrowserWorkspaceController(foregroundProcessID: { foreground })
+   |                                                                          | `- note: capturing use
+   |                                                                          `- note: variable captured by sendable closure
+64 |         let window = TestWindow.new(id: 954, parent: focus.workspace.rootTilingContainer)
+65 |         let page = SurfaceID.browserTab(profile: UUID(), tab: UUID()), connection = UUID()
+   :
+69 |                             epoch: UUID(), connection: connection, protocolVersion: 4)
+70 |         XCTAssertEqual(controller.select(window.surfaceID, deferNativeFocusUntilLayout: true), .issued)
+71 |         foreground = -2
+   |                    `- warning: 'foreground' mutated after capture by sendable closure
+72 |         XCTAssertTrue(controller.finishNativeGroupFocusAfterLayout())
+73 |         XCTAssertNil(TestApp.shared.focusedWindow)
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/WorkspaceSidebarTransitionTest.swift:15:22: warning: mutation of captured var 'expansions' in concurrently-executing code [#SendableClosureCaptures]
+ 13 |             let observer = NotificationCenter.default.addObserver(
+ 14 |                 forName: workspaceSidebarWillExpandNotification, object: panel, queue: .main
+ 15 |             ) { _ in expansions += 1 }
+    |                      `- warning: mutation of captured var 'expansions' in concurrently-executing code [#SendableClosureCaptures]
+ 16 |             defer {
+ 17 |                 subscription.cancel()
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/ui/WorkspaceSidebarTransitionTest.swift:32:22: warning: mutation of captured var 'collapses' in concurrently-executing code [#SendableClosureCaptures]
+ 30 |             let observer = NotificationCenter.default.addObserver(
+ 31 |                 forName: workspaceSidebarWillCollapseNotification, object: panel, queue: .main
+ 32 |             ) { _ in collapses += 1 }
+    |                      `- warning: mutation of captured var 'collapses' in concurrently-executing code [#SendableClosureCaptures]
+ 33 |             defer { NotificationCenter.default.removeObserver(observer) }
+ 34 |             panel.handleHoverExit(collapsedWidth: 28)
+
+[#SendableClosureCaptures]: <https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures>
+/Users/james/Documents/Codex/winmux/Sources/AppBundleTests/model/EventSubscriptionTest.swift:111:18: warning: weak variable 'weakSubscriber' was never mutated; consider changing to 'let' constant [#VariableNeverMutated::WeakMutability]
+109 |             release = nil
+110 |         }, onClose: { registered = nil })
+111 |         weak var weakSubscriber = registered
+    |                  `- warning: weak variable 'weakSubscriber' was never mutated; consider changing to 'let' constant [#VariableNeverMutated::WeakMutability]
+112 |         registered?.enqueue(event(0))
+113 |         await fulfillment(of: [started], timeout: 1)
+
+[#VariableNeverMutated]: <https://docs.swift.org/compiler/documentation/diagnostics/variable-never-mutated>
+[#WeakMutability]: <https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability>
+[73 / 77] AppBundleTests-product
+[74 / 77] AppBundleTests-product
+[75 / 77] AppBundleTests-product
+[77 / 77] winmux-product
+[78 / 78] winmux-window-capture-product
+[80 / 80] WinMuxApp-product
+[81 / 82] WinMuxWorkspaceHelper-product
+[82 / 83] WinMuxWorkspaceHelper-product
+Build complete! (13.76 sec)
+Test Suite 'Selected tests' started at 2026-10-06 17:47:00.631.
+Test Suite 'AppBundleTests.xctest' started at 2026-10-06 17:47:00.634.
+Test Suite 'ChromeSelectionTest' started at 2026-10-06 17:47:00.634.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testBrowserGlassDoesNotInterceptControlsAndAddressFitsHeader]' passed (0.284 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testLayoutSelectionSurvivesFocusInAnotherPaneAndInventorySelectedFlags]' passed (0.015 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testOpenPinShowsLoadingAndClosedPinRetainsIdentityWithoutLoading]' passed (0.005 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSearchTargetAndGroupDoNotCompeteWithSelectedLeaf]' passed (0.015 seconds).
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' started.
+Test Case '-[AppBundleTests.ChromeSelectionTest testSplitContainersDoNotMarkEveryPaneSelected]' passed (0.001 seconds).
+Test Suite 'ChromeSelectionTest' passed at 2026-10-06 17:47:00.955.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.320 (0.320) seconds
+Test Suite 'SurfaceSidebarInteractionTest' started at 2026-10-06 17:47:00.955.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testMoveMenusKeepNativeAndBrowserOwnerIdentitiesAndTargetScope]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testMoveMenusKeepNativeAndBrowserOwnerIdentitiesAndTargetScope]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSearchFilteredStackRetainsFullCountIconsAndSavedRepresentative]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSearchFilteredStackRetainsFullCountIconsAndSavedRepresentative]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedActivationHonorsEditingDragAndOtherDisplayGuards]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedActivationHonorsEditingDragAndOtherDisplayGuards]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedStackIconMetadataPreservesNestedOwnerOrder]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testSharedStackIconMetadataPreservesNestedOwnerOrder]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testStackMenuMovesWholeSubtreeRatherThanItsRepresentative]' started.
+Test Case '-[AppBundleTests.SurfaceSidebarInteractionTest testStackMenuMovesWholeSubtreeRatherThanItsRepresentative]' passed (0.001 seconds).
+Test Suite 'SurfaceSidebarInteractionTest' passed at 2026-10-06 17:47:00.960.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'WorkspaceSidebarDragTest' started at 2026-10-06 17:47:00.960.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testAlwaysExpandedSidebarUsesExpandedRestingAndActivationWidths]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testAlwaysExpandedSidebarUsesExpandedRestingAndActivationWidths]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testBlankSidebarAreaIsNotActionable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testBlankSidebarAreaIsNotActionable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testChromeIsSuppressedForNativeFullscreen]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testChromeIsSuppressedForNativeFullscreen]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testCollapsedAndAutoHiddenSidebarsAllowLeftEdgeTrap]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testCollapsedAndAutoHiddenSidebarsAllowLeftEdgeTrap]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testCompactClockAccessibilityHonorsSecondsVisibility]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testCompactClockAccessibilityHonorsSecondsVisibility]' passed (0.012 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testDifferentWorkspaceSidebarDropTargetIsActionable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testDifferentWorkspaceSidebarDropTargetIsActionable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testLeftMouseButtonPressedUsesBitmask]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testLeftMouseButtonPressedUsesBitmask]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopeResolvesMonitorPoint]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopeResolvesMonitorPoint]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopeSelectionIsPanelLocal]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopeSelectionIsPanelLocal]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopesIncludeFocusFilterWhenEnabled]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopesIncludeFocusFilterWhenEnabled]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopesOmitDisabledFocusAndAllFilters]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorScopesOmitDisabledFocusAndAllFilters]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorSidebarDropTargetIsActionable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMonitorSidebarDropTargetIsActionable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMouseWindowDragInProgressRequiresMoveSessionWindowAndPressedButton]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testMouseWindowDragInProgressRequiresMoveSessionWindowAndPressedButton]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testNewWorkspaceSidebarDropTargetIsActionable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testNewWorkspaceSidebarDropTargetIsActionable]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectColorHexNormalizes]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectColorHexNormalizes]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectColorUsesConfiguredHexWhenPresent]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectColorUsesConfiguredHexWhenPresent]' passed (0.005 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectHueIsStableAndNormalized]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectHueIsStableAndNormalized]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerDragTracksRealAdjacentPagesDirectly]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerDragTracksRealAdjacentPagesDirectly]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerDragUsesResistanceAtProjectEdges]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerDragUsesResistanceAtProjectEdges]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerRendersOnlyCurrentAndSwipeTargetPages]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectPagerRendersOnlyCurrentAndSwipeTargetPages]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeCreatesOnlyPastEdgesAfterBreakPoint]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeCreatesOnlyPastEdgesAfterBreakPoint]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeDirectionRequiresHorizontalIntent]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeDirectionRequiresHorizontalIntent]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeDoesNotCreateOrPreviewAtEitherEdgeWhenDisabled]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeDoesNotCreateOrPreviewAtEitherEdgeWhenDisabled]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeFormationProgressOnlyAtEdges]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeFormationProgressOnlyAtEdges]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeNavigatesWithoutWrapping]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeNavigatesWithoutWrapping]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeScrollDeltaPreservesSystemDirection]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeScrollDeltaPreservesSystemDirection]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeSwitchProgressReachesOneAtNavigationThreshold]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testProjectSwipeSwitchProgressReachesOneAtNavigationThreshold]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSameWorkspaceSidebarDropTargetIsNotActionable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSameWorkspaceSidebarDropTargetIsNotActionable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarContentsFitRailThroughoutExpansionFrom28Points]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarContentsFitRailThroughoutExpansionFrom28Points]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarNewWorkspaceTargetHonorsExplicitMonitorSelection]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarNewWorkspaceTargetHonorsExplicitMonitorSelection]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarNewWorkspaceTargetUsesDropPointMonitorBeforeSourceMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarNewWorkspaceTargetUsesDropPointMonitorBeforeSourceMonitor]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarWorkspaceClickActivatesHiddenWorkspaceOnOwningPanelMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarWorkspaceClickActivatesHiddenWorkspaceOnOwningPanelMonitor]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarWorkspaceClickDoesNotFocusWorkspaceVisibleOnOtherMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testSidebarWorkspaceClickDoesNotFocusWorkspaceVisibleOnOtherMonitor]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testVisibleWorkspacesAreGroupedByProjectAndScope]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testVisibleWorkspacesAreGroupedByProjectAndScope]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowChromeUsesNormalAppWindowLayer]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowChromeUsesNormalAppWindowLayer]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowHoverExitClearsMatchingHoveredWindow]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowHoverExitClearsMatchingHoveredWindow]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowHoverExitDoesNotClearNewerHoveredWindow]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowHoverExitDoesNotClearNewerHoveredWindow]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowIntentPreviewRendersBelowWorkspaceSidebar]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWindowIntentPreviewRendersBelowWorkspaceSidebar]' passed (0.088 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceHoverExitClearsMatchingHoveredWorkspace]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceHoverExitClearsMatchingHoveredWorkspace]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceHoverExitDoesNotClearNewerHoveredWorkspace]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceHoverExitDoesNotClearNewerHoveredWorkspace]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActionsForwardWindowAndTabGroupDragClosures]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActionsForwardWindowAndTabGroupDragClosures]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActivationBlocksWhileAnyWorkspaceIsEditing]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActivationBlocksWhileAnyWorkspaceIsEditing]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActivationRequiresNoEditAndNoDrag]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarActivationRequiresNoEditAndNoDrag]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarAutoHideUsesZeroRestingWidthAndKeepsConfiguredEdgeActivationWidth]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarAutoHideUsesZeroRestingWidthAndKeepsConfiguredEdgeActivationWidth]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarCreateScopeUsesFocusedScopeForSyntheticSelections]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarCreateScopeUsesFocusedScopeForSyntheticSelections]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDefaultScopeShowsWholeProject]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDefaultScopeShowsWholeProject]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragInProgressIgnoresNonSidebarMoves]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragInProgressIgnoresNonSidebarMoves]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragInProgressRecognizesSidebarMoveSession]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragInProgressRecognizesSidebarMoveSession]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragPayloadRoundTripsWindowAndTabGroupIds]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarDragPayloadRoundTripsWindowAndTabGroupIds]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarExpansionDelayOnlyAppliesToPassiveCollapsedHover]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarExpansionDelayOnlyAppliesToPassiveCollapsedHover]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarExplicitMonitorScopeOnlyMatchesThatMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarExplicitMonitorScopeOnlyMatchesThatMonitor]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFallbackWorkspaceNameFindsWindowsAndTabGroups]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFallbackWorkspaceNameFindsWindowsAndTabGroups]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFocusedMonitorScopeOnlyMatchesFocusedMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFocusedMonitorScopeOnlyMatchesFocusedMonitor]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFocusFilterDefaultsOff]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFocusFilterDefaultsOff]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFooterBottomPaddingAddsSpaceWithoutClock]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarFooterBottomPaddingAddsSpaceWithoutClock]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverCueWidthDoesNotProtrudeTowardExpandedWidth]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverCueWidthDoesNotProtrudeTowardExpandedWidth]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverCueWidthStaysCollapsed]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverCueWidthStaysCollapsed]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverExpansionIsSuppressedForSidebarOriginatedDrags]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverExpansionIsSuppressedForSidebarOriginatedDrags]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverExpansionRequiresAtLeastThreeQuarterDepth]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarHoverExpansionRequiresAtLeastThreeQuarterDepth]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarInlineTextDeletesLastWord]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarInlineTextDeletesLastWord]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarInUseOverlayOnlyAppliesToVisibleOtherMonitor]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarInUseOverlayOnlyAppliesToVisibleOtherMonitor]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarIsSuppressedForWinMuxFullscreen]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarIsSuppressedForWinMuxFullscreen]' passed (0.001 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarItemDragCanBeResetAfterMissedEnd]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarItemDragCanBeResetAfterMissedEnd]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarLayerIsAboveAllWinMuxPanels]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarLayerIsAboveAllWinMuxPanels]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSearchFiltersByWindowTitleAndAppName]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSearchFiltersByWindowTitleAndAppName]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSearchKeepsWholeWorkspaceForWorkspaceMatch]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSearchKeepsWholeWorkspaceForWorkspaceMatch]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSnapshotIncludesEmptyWorkspaceInBrowsedProject]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarDragTest testWorkspaceSidebarSnapshotIncludesEmptyWorkspaceInBrowsedProject]' passed (0.035 seconds).
+Test Suite 'WorkspaceSidebarDragTest' passed at 2026-10-06 17:47:01.125.
+	 Executed 67 tests, with 0 failures (0 unexpected) in 0.160 (0.166) seconds
+Test Suite 'WorkspaceSidebarWidthTest' started at 2026-10-06 17:47:01.126.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDensityUsesSectionWidthAfterInsets]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDensityUsesSectionWidthAfterInsets]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDottedWidthIsUpdatedWithoutDuplicateTable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testDottedWidthIsUpdatedWithoutDuplicateTable]' passed (0.002 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testMissingWidthIsInsertedInSidebarTable]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testMissingWidthIsInsertedInSidebarTable]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testResizeClampsToUsableWidthsAndDisplay]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testResizeClampsToUsableWidthsAndDisplay]' passed (0.000 seconds).
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testWidthEditPreservesCommentAndUnrelatedSettings]' started.
+Test Case '-[AppBundleTests.WorkspaceSidebarWidthTest testWidthEditPreservesCommentAndUnrelatedSettings]' passed (0.000 seconds).
+Test Suite 'WorkspaceSidebarWidthTest' passed at 2026-10-06 17:47:01.129.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'AppBundleTests.xctest' passed at 2026-10-06 17:47:01.129.
+	 Executed 82 tests, with 0 failures (0 unexpected) in 0.487 (0.495) seconds
+Test Suite 'Selected tests' passed at 2026-10-06 17:47:01.129.
+	 Executed 82 tests, with 0 failures (0 unexpected) in 0.487 (0.498) seconds

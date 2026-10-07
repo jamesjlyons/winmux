@@ -52,11 +52,33 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 ))
             } else {
                 if let onNewTab {
-                    let row = isCompact ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 6))
-                    row {
-                        createButton
-                        WorkspaceSidebarNewTabButton(isCompact: isCompact || buttonWidth < 90, isPrivate: projectId.isIncognito, onOpen: onNewTab)
-                            .frame(width: buttonWidth, height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded)
+                    if isCompact {
+                        Menu {
+                            Button(config.workspaceInteractionMode == .views ? "New View" : "New Group") {
+                                guard shouldHandleWorkspaceSidebarActivation(isEditing: false, isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()) else { return }
+                                onCreateWorkspace()
+                            }
+                            Button(projectId.isIncognito ? "New Private Tab" : "New Tab", action: onNewTab)
+                        } label: {
+                            Color.clear.frame(width: sectionWidth, height: workspaceSidebarWorkspaceSectionHeightExpanded)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .frame(width: sectionWidth, height: workspaceSidebarWorkspaceSectionHeightExpanded)
+                        .overlay {
+                            Image(systemName: "plus")
+                                .foregroundStyle(.secondary)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                        .accessibilityLabel("New View or Tab")
+                        .help("New View or Tab")
+                    } else {
+                        HStack(spacing: 6) {
+                            createButton
+                            WorkspaceSidebarNewTabButton(isCompact: buttonWidth < 90, isPrivate: projectId.isIncognito, onOpen: onNewTab)
+                                .frame(width: buttonWidth, height: workspaceSidebarWorkspaceSectionHeightExpanded)
+                        }
                     }
                 } else { createButton }
             }
@@ -84,6 +106,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             isTargeted: $isDropTargeted,
             isSettling: $isDropSettling,
         ))
+        .padding(.top, 8)
     }
 
     private var createButton: some View {
@@ -114,7 +137,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : onNewTab != nil ? 8 : workspaceSidebarSectionInnerHorizontalInset + workspaceSidebarHeaderRowLeadingPadding)
             .frame(
                 width: buttonWidth,
-                height: isCompact ? compactMetrics.controlHeight : workspaceSidebarWorkspaceSectionHeightExpanded,
+                height: workspaceSidebarWorkspaceSectionHeightExpanded,
                 alignment: isCompact ? .center : .leading,
             )
             .background {

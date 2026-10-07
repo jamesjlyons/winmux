@@ -2,6 +2,7 @@
 #include "chrome/browser/winmux/page_lifetime.h"
 #include "chrome/browser/winmux/privacy_settings.h"
 
+#include <algorithm>
 #include <deque>
 #include <limits>
 #include <map>
@@ -23,6 +24,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "base/values.h"
@@ -33,6 +35,9 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_types.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
@@ -42,6 +47,10 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
+#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
+#include "components/download/content/public/all_download_item_notifier.h"
+#include "content/public/browser/download_manager.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/winmux/tab_identity.h"
@@ -85,6 +94,65 @@ class TabNavigationObserver final : public content::WebContentsObserver {
   base::RepeatingClosure changed_;
 };
 
+// Chromium owns extension pin preferences and download state. Observe each
+// profile once, including isolated incognito managers, rather than polling.
+class ProfileToolbarObserver final : public ToolbarActionsModel::Observer,
+                                     public download::AllDownloadItemNotifier::Observer {
+ public:
+  ProfileToolbarObserver(Profile* profile, base::RepeatingClosure changed)
+      : model_(ToolbarActionsModel::Get(profile)), changed_(std::move(changed)),
+        downloads_(profile->GetDownloadManager(), this) {
+    if (model_) model_->AddObserver(this);
+    if (auto* manager = downloads_.GetManager()) download_count_ = manager->InProgressCount();
+  }
+  ~ProfileToolbarObserver() override { if (model_) model_->RemoveObserver(this); }
+  void OnToolbarActionAdded(const std::string&) override { changed_.Run(); }
+  void OnToolbarActionRemoved(const std::string&) override { changed_.Run(); }
+  void OnToolbarActionUpdated(const std::string&) override { changed_.Run(); }
+  void OnToolbarModelInitialized() override { changed_.Run(); }
+  void OnToolbarPinnedActionsChanged() override { changed_.Run(); }
+  void OnToolbarActionsModelShutdown() override { model_->RemoveObserver(this); model_ = nullptr; }
+  void OnManagerInitialized(content::DownloadManager* manager) override { RefreshDownloads(manager); }
+  void OnDownloadCreated(content::DownloadManager* manager, download::DownloadItem*) override { RefreshDownloads(manager); }
+  void OnDownloadUpdated(content::DownloadManager* manager, download::DownloadItem*) override { RefreshDownloads(manager); }
+  void OnDownloadRemoved(content::DownloadManager* manager, download::DownloadItem*) override { RefreshDownloads(manager); }
+ private:
+  void RefreshDownloads(content::DownloadManager* manager) {
+    const int count = manager->InProgressCount();
+    if (count != download_count_) { download_count_ = count; changed_.Run(); }
+  }
+  raw_ptr<ToolbarActionsModel> model_;
+  base::RepeatingClosure changed_;
+  // The notifier can synchronously call OnManagerInitialized in its constructor.
+  int download_count_ = 0;
+  download::AllDownloadItemNotifier downloads_;
+};
+
+base::ListValue PinnedExtensions(BrowserWindowInterface* browser, content::WebContents* contents) {
+  base::ListValue result;
+  auto* model = ToolbarActionsModel::Get(browser->GetProfile());
+  auto* container = ExtensionsContainer::From(*browser);
+  if (!model || !container) return result;
+  for (const auto& id : model->pinned_action_ids()) {
+    if (result.size() >= 32) break;
+    auto* action = container->GetActionForId(id);
+    if (!action) continue;
+    base::DictValue item;
+    item.Set("id", id);
+    item.Set("title", base::UTF16ToUTF8(action->GetActionName()).substr(0, 4096));
+    item.Set("enabled", action->IsEnabled(contents));
+    item.Set("can_unpin", !model->IsActionForcePinned(id) && !browser->GetProfile()->IsOffTheRecord());
+    auto icon = action->GetIcon(contents, gfx::Size(16, 16));
+    if (icon.IsImage()) {
+      auto png = icon.GetImage().As1xPNGBytes();
+      if (png && png->size() > 0 && png->size() <= 12288)
+        item.Set("icon_png_base64", base::Base64Encode(base::span(*png)));
+    }
+    result.Append(std::move(item));
+  }
+  return result;
+}
+
 class BrowserInventory final : public BrowserCollectionObserver,
                                public TabStripModelObserver {
  public:
@@ -99,6 +167,45 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
   void Refresh() { Schedule(); }
+
+  void QueryHistory(const std::string& epoch, const std::string& surface,
+                    const std::string& query, base::OnceCallback<void(std::string)> completion) {
+    if (epoch.empty() || epoch != epoch_ || query.size() > 2048 || surface.size() > 128) {
+      std::move(completion).Run("[]"); return;
+    }
+    if (pending_) Update(false);
+    auto found = live_.find(surface);
+    if (found == live_.end()) { std::move(completion).Run("[]"); return; }
+    auto* profile = Profile::FromBrowserContext(found->second->GetBrowserContext());
+    // Never redirect an off-the-record query to the original profile.
+    if (!profile || profile->IsOffTheRecord()) { std::move(completion).Run("[]"); return; }
+    auto* service = HistoryServiceFactory::GetForProfile(profile, ServiceAccessType::EXPLICIT_ACCESS);
+    if (!service) { std::move(completion).Run("[]"); return; }
+    history::QueryOptions options;
+    options.max_count = 50;
+    options.duplicate_policy = history::QueryOptions::REMOVE_ALL_DUPLICATES;
+    options.matching_algorithm = query_parser::MatchingAlgorithm::ALWAYS_PREFIX_SEARCH;
+    service->QueryHistory(base::UTF8ToUTF16(query), options, base::BindOnce(
+        [](base::WeakPtr<BrowserInventory> owner, std::string epoch, std::string surface,
+           base::OnceCallback<void(std::string)> completion, history::QueryResults results) {
+          if (!owner || owner->epoch_ != epoch || !owner->live_.contains(surface)) {
+            std::move(completion).Run("[]"); return;
+          }
+          base::ListValue entries;
+          for (const auto& row : results) {
+            const auto& url = row.url();
+            if (!url.SchemeIsHTTPOrHTTPS() || url.has_username() || url.has_password() ||
+                url.spec().size() > 8192 || entries.size() >= 50) continue;
+            base::DictValue entry;
+            entry.Set("url", url.spec());
+            entry.Set("title", base::UTF16ToUTF8(row.title().substr(0, 1024)));
+            entry.Set("visit_count", std::max(0, row.visit_count()));
+            entry.Set("last_visit", row.last_visit().InSecondsFSinceUnixEpoch());
+            entries.Append(std::move(entry));
+          }
+          std::move(completion).Run(base::WriteJson(entries).value_or("[]"));
+        }, weak_factory_.GetWeakPtr(), epoch, surface, std::move(completion)), &history_tasks_);
+  }
 
   void BeginEpoch(std::string epoch, bool include_private) {
     include_private_ = include_private;
@@ -260,14 +367,18 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (request.action != "focus" && request.action != "close" && request.action != "cancel_focus" &&
         request.action != "back" && request.action != "forward" && request.action != "reload" &&
         request.action != "stop" && request.action != "navigate" && request.action != "new_tab" &&
+        request.action != "downloads" && request.action != "extension_action" && request.action != "unpin_extension" &&
         request.action != "extensions" && request.action != "manage_extensions" &&
         request.action != "minimize" && request.action != "fullscreen" && request.action != "zoom" &&
         request.action != "search" && request.action != "privacy" && request.action != "keep_active" && request.action != "site_blocking")
       return "unsupported";
     if ((request.url && (request.url->size() > 16384 ||
-                         (request.action != "navigate" && request.action != "new_tab" && request.action != "search" && request.action != "privacy" && request.action != "keep_active" && request.action != "site_blocking"))) ||
+                         (request.action != "extension_action" && request.action != "unpin_extension" && request.action != "navigate" && request.action != "new_tab" && request.action != "search" && request.action != "privacy" && request.action != "keep_active" && request.action != "site_blocking"))) ||
         (request.action == "navigate" && (!request.url || request.url->empty())))
       return "invalid_request";
+    if ((request.action == "extension_action" || request.action == "unpin_extension") &&
+        (!request.url || request.url->size() != 32 ||
+         request.url->find_first_not_of("abcdefghijklmnop") != std::string::npos)) return "invalid_request";
     GURL target;
     if (request.url && (request.action == "navigate" || request.action == "new_tab")) {
       target = GURL(*request.url);
@@ -331,6 +442,15 @@ class BrowserInventory final : public BrowserCollectionObserver,
           base::BindOnce(&BrowserInventory::FinishPrivacy, weak_factory_.GetWeakPtr(), epoch, request.operation));
       return "pending_privacy";
     }
+    if (request.action == "extension_action" || request.action == "unpin_extension") {
+      auto* model = ToolbarActionsModel::Get(browser->GetProfile());
+      auto* container = ExtensionsContainer::From(*browser);
+      if (!model || !model->HasAction(*request.url) || !container) return "unavailable";
+      auto* action = container->GetActionForId(*request.url);
+      if (!action || (request.action == "extension_action" && !action->IsEnabled(contents))) return "unavailable";
+      if (request.action == "unpin_extension" &&
+          (model->IsActionForcePinned(*request.url) || browser->GetProfile()->IsOffTheRecord())) return "unsupported";
+    }
     // Cache before invoking the owner; lifecycle callbacks can run reentrantly.
     Remember(request);
     if (request.action == "focus") {
@@ -371,6 +491,20 @@ class BrowserInventory final : public BrowserCollectionObserver,
     } else if (request.action == "new_tab") {
       browser->OpenGURL(request.url ? target : GURL("about:blank"),
                         WindowOpenDisposition::NEW_FOREGROUND_TAB);
+    } else if (request.action == "downloads") {
+      strip->ActivateTabAt(index);
+      browser->GetWindow()->Show();
+      ShowBrowserDownloads(browser);
+    } else if (request.action == "extension_action") {
+      strip->ActivateTabAt(index);
+      browser->GetWindow()->Show();
+      if (auto* container = ExtensionsContainer::From(*browser)) {
+        if (auto* action = container->GetActionForId(*request.url))
+          action->ExecuteUserAction(ToolbarActionViewModel::InvocationSource::kToolbarButton);
+      }
+    } else if (request.action == "unpin_extension") {
+      auto* model = ToolbarActionsModel::Get(browser->GetProfile());
+      if (model && model->IsActionPinned(*request.url)) model->SetActionVisibility(*request.url, false);
     } else if (request.action == "extensions") {
       strip->ActivateTabAt(index);
       browser->GetWindow()->Show();
@@ -582,6 +716,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     std::map<std::string, base::DictValue> next;
     std::set<std::string> observed;
     std::set<int> observed_hosts;
+    std::set<Profile*> observed_profiles;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
@@ -589,6 +724,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
           browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile() || browser->IsDeleteScheduled())
         return true;
       RetainWorkspaceProfile(browser->GetProfile());
+      auto* profile = browser->GetProfile();
+      observed_profiles.insert(profile);
+      if (!toolbar_observers_.contains(profile)) {
+        toolbar_observers_[profile] = std::make_unique<ProfileToolbarObserver>(profile,
+            base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+      }
       const int host_id = browser->GetSessionID().id();
       observed_hosts.insert(host_id);
       auto& host_observer = host_observers_[host_id];
@@ -654,12 +795,15 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("blocked_requests", WorkspaceBlockedCount(contents));
         record.Set("blocking_enabled", WorkspaceSiteBlockingEnabled(browser->GetProfile(), contents->GetLastCommittedURL()));
         record.Set("privacy", WorkspacePrivacyState(browser->GetProfile()));
+        record.Set("pinned_extensions", PinnedExtensions(browser, contents));
+        record.Set("active_downloads", std::clamp(profile->GetDownloadManager()->InProgressCount(), 0, 100000));
         next.emplace(id, std::move(record));
         live_.emplace(id, contents);
       }
       return true;
     });
     std::erase_if(navigation_observers_, [&](const auto& item) { return !observed.contains(item.first); });
+    std::erase_if(toolbar_observers_, [&](const auto& item) { return !observed_profiles.contains(item.first); });
     std::erase_if(host_observers_, [&](const auto& item) { return !observed_hosts.contains(item.first); });
     base::ListValue changed, removed;
     for (const auto& [id, record] : next) {
@@ -700,6 +844,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::map<std::string, base::DictValue> records_;
   std::map<std::string, std::unique_ptr<TabNavigationObserver>> navigation_observers_;
   std::map<int, std::unique_ptr<BrowserHostWindowObserver>> host_observers_;
+  std::map<Profile*, std::unique_ptr<ProfileToolbarObserver>> toolbar_observers_;
   std::map<std::string, raw_ptr<content::WebContents>> live_;
   std::map<base::FilePath, std::unique_ptr<ScopedProfileKeepAlive>> profile_keep_alives_;
   std::map<std::string, PendingCreation> pending_creations_;
@@ -708,6 +853,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::map<std::string, std::pair<BrowserSurfaceAction, std::string>> operations_;
   std::deque<std::string> operation_order_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver> collection_{this};
+  base::CancelableTaskTracker history_tasks_;
   base::WeakPtrFactory<BrowserInventory> weak_factory_{this};
 };
 
@@ -722,6 +868,12 @@ void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string
   }
 }
 void RefreshBrowserInventory() { if (inventory) inventory->Refresh(); }
+void QueryBrowserHistory(const std::string& epoch, const std::string& surface,
+                         const std::string& query, base::OnceCallback<void(std::string)> completion) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (inventory) inventory->QueryHistory(epoch, surface, query, std::move(completion));
+  else std::move(completion).Run("[]");
+}
 void StopBrowserInventory() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delete std::exchange(inventory, nullptr);

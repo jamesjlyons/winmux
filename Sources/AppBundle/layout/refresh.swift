@@ -403,11 +403,8 @@ private func refresh(scope: WindowRefreshScope) async throws {
     let mapping = try await MacApp.refreshAllAndGetAliveWindowIds(frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier, scope: scope)
     let aliveWindowIds = mapping.values.flatMap { $0 }.toSet()
 
-    for window in MacWindow.allWindows where scope.contains(window.macApp.pid) {
-        if !aliveWindowIds.contains(window.windowId) {
-            window.garbageCollect(skipClosedWindowsCache: false)
-        }
-    }
+    let closedWindows = MacWindow.allWindows.filter { scope.contains($0.macApp.pid) && !aliveWindowIds.contains($0.windowId) }
+    MacWindow.garbageCollect(closedWindows, skipClosedWindowsCache: false)
     // One task per app so the per-window AX round-trips of different apps overlap;
     // a single slow app no longer delays every other app's window registration.
     let registration = signposter.beginInterval("Register windows")

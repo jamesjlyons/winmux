@@ -4,11 +4,11 @@ import CoreGraphics
 import SwiftUI
 
 let workspaceSidebarPanelId = "WinMux.workspaceSidebar"
-let workspaceSidebarContentLeadingInset: CGFloat = 12
-let workspaceSidebarContentTrailingInset: CGFloat = 12
+let workspaceSidebarContentLeadingInset: CGFloat = 6
+let workspaceSidebarContentTrailingInset: CGFloat = 6
 let workspaceSidebarCompactRailHorizontalInset: CGFloat = 7
-let workspaceSidebarSectionInnerHorizontalInset: CGFloat = 5
-let workspaceSidebarSectionGap: CGFloat = 5
+let workspaceSidebarSectionInnerHorizontalInset: CGFloat = 0
+let workspaceSidebarSectionGap: CGFloat = 2
 let workspaceSidebarBadgeWidth: CGFloat = 22
 let workspaceSidebarHeaderSpacing: CGFloat = 10
 let workspaceSidebarHeaderRowLeadingPadding: CGFloat = 6
@@ -18,8 +18,9 @@ let workspaceSidebarPlateCornerRadius: CGFloat = RadiusToken.section
 let workspaceSidebarSectionCornerRadius: CGFloat = workspaceSidebarPlateCornerRadius
 let workspaceSidebarRowCornerRadius: CGFloat = RadiusToken.row
 let workspaceSidebarRowHorizontalPadding: CGFloat = 4
+let workspaceSidebarRowLeadingPadding: CGFloat = 8
 let workspaceSidebarWindowRowsLeadingIndent: CGFloat = 8
-let workspaceSidebarAppIconSize: CGFloat = 14
+let workspaceSidebarAppIconSize: CGFloat = 16
 let workspaceSidebarAppIconTextSpacing: CGFloat = 6
 let workspaceSidebarTabGroupChildLeadingIndent: CGFloat = workspaceSidebarAppIconSize + workspaceSidebarAppIconTextSpacing - 2
 let workspaceSidebarControlHeight: CGFloat = 30
@@ -30,9 +31,9 @@ let workspaceSidebarDropdownPadding: CGFloat = 7
 let workspaceSidebarDropdownLabelSize: CGFloat = 11.5
 let workspaceSidebarDropdownSymbolSize: CGFloat = 10.5
 let workspaceSidebarPagerHeight: CGFloat = 32
-let workspaceSidebarWorkspaceSectionHeaderHeight: CGFloat = 32
-let workspaceSidebarWorkspaceRowHeight: CGFloat = 24
-let workspaceSidebarWorkspaceSectionHeightExpanded: CGFloat = 32
+let workspaceSidebarWorkspaceSectionHeaderHeight: CGFloat = 34
+let workspaceSidebarWorkspaceRowHeight: CGFloat = 34
+let workspaceSidebarWorkspaceSectionHeightExpanded: CGFloat = 34
 let workspaceSidebarInUseOverrideEmptySectionMinHeight: CGFloat = 76
 let workspaceSidebarProjectDotFrameWidth: CGFloat = 24
 let workspaceSidebarProjectDotFrameHeight: CGFloat = 24
@@ -729,7 +730,7 @@ extension WorkspaceSidebarPanel {
         pendingExpand?.cancel()
         pendingExpand = nil
         guard Date() >= organizeCollapseSuppressedUntil, !shouldLockExpansionForSidebarDrag() else { return }
-        if config.workspaceSidebar.alwaysExpanded {
+        if workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) {
             cancelExpansionWork()
             resetBrowseMode()
             expandSidebar(to: CGFloat(config.workspaceSidebar.width))
@@ -746,12 +747,12 @@ extension WorkspaceSidebarPanel {
     }
 
     func scheduleCollapse(collapsedWidth: CGFloat) {
-        guard !config.workspaceSidebar.alwaysExpanded, pendingCollapse == nil, pendingCollapseFinalize == nil else { return }
+        guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar), pendingCollapse == nil, pendingCollapseFinalize == nil else { return }
         debugWorkspaceSidebarHoverLog("scheduleCollapse panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) mouse=\(NSEvent.mouseLocation)")
         let collapse = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingCollapse = nil
-            guard !config.workspaceSidebar.alwaysExpanded else { return }
+            guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) else { return }
             debugWorkspaceSidebarHoverLog("collapseFire panel=\(self.monitorScopeId) visible=\(self.viewModel.workspaceSidebarVisibleWidth) mouse=\(NSEvent.mouseLocation) suppressActive=\(Date() < self.organizeCollapseSuppressedUntil)")
             guard Date() >= self.organizeCollapseSuppressedUntil else {
                 debugWorkspaceSidebarHoverLog("collapseFire suppressed panel=\(self.monitorScopeId)")
@@ -778,7 +779,7 @@ extension WorkspaceSidebarPanel {
         let finalize = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingCollapseFinalize = nil
-            guard !config.workspaceSidebar.alwaysExpanded else { return }
+            guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) else { return }
             debugWorkspaceSidebarHoverLog("collapseFinalize panel=\(self.monitorScopeId) visible=\(self.viewModel.workspaceSidebarVisibleWidth) mouse=\(NSEvent.mouseLocation) suppressActive=\(Date() < self.organizeCollapseSuppressedUntil)")
             guard Date() >= self.organizeCollapseSuppressedUntil else { return }
             let inside = self.isMouseInsideHoverRegion()
@@ -955,7 +956,7 @@ extension WorkspaceSidebarPanel {
             setFrame(layout.frame, display: true, animate: false)
             updateDropTargets(dropTargetFrames)
         }
-        if config.workspaceSidebar.alwaysExpanded {
+        if workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) {
             cancelExpansionWork()
             let targetWidth = expandedPresentationWidth
             persistentExpansionWidth = layout.expandedWidth

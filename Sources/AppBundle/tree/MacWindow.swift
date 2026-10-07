@@ -106,7 +106,23 @@ final class MacWindow: Window {
     // skipClosedWindowsCache is an optimization when it's definitely not necessary to cache closed window.
     //                        If you are unsure, it's better to pass `false`
     @MainActor
+    static func garbageCollect(_ windows: [MacWindow], skipClosedWindowsCache: Bool) {
+        let selected = refreshSessionFocusSnapshot?.surfaceClosureFocus.selected
+            ?? BrowserWorkspaceController.shared.captureClosureFocus().selected
+        // When an app exits, retire its background windows before choosing the
+        // active window's replacement. None of the dying app's siblings survive.
+        for window in windows where window.surfaceID != selected {
+            window.garbageCollect(skipClosedWindowsCache: skipClosedWindowsCache)
+        }
+        if let active = windows.first(where: { $0.surfaceID == selected }) {
+            active.garbageCollect(skipClosedWindowsCache: skipClosedWindowsCache)
+        }
+    }
+
+    @MainActor
     func garbageCollect(skipClosedWindowsCache: Bool) {
+        let controller = BrowserWorkspaceController.shared
+        let closureFocus = refreshSessionFocusSnapshot?.surfaceClosureFocus ?? controller.captureClosureFocus()
         if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
             return
         }
@@ -114,6 +130,17 @@ final class MacWindow: Window {
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
+        // A background close must not replace the user's active tab or app.
+        // Use the pre-refresh selection because macOS may already have focused
+        // another window by the time AX confirms this one's destruction.
+        guard closureFocus.selected == surfaceID else { return }
+        switch parent.cases {
+        case .macosPopupWindowsContainer, .macosMinimizedWindowsContainer:
+            return
+        default:
+            break
+        }
+        if controller.restoreFocusAfterClosing([surfaceID], snapshot: closureFocus, workspace: deadWindowWorkspace) { return }
         let currentFocus = focus
         let previousFocus = prevFocus
         let previousPreviousFocus = prevPrevFocus
@@ -173,7 +200,8 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
-        garbageCollect(skipClosedWindowsCache: true)
+        // Destruction/discovery confirms removal after the app's close flow.
+        // A save prompt or rejected AX action must keep the current selection.
         macApp.closeAndUnregisterAxWindow(windowId)
     }
 

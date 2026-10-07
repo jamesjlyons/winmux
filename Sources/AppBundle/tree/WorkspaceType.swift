@@ -20,6 +20,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
         self.name = name
         self.nameLogicalSegments = name.toLogicalSegments()
         super.init(parent: NilTreeNode.instance, adaptiveWeight: 0, index: 0)
+        restoreNamingStyle(.explicit)
     }
 
     @MainActor static var all: [Workspace] {
@@ -123,7 +124,13 @@ extension Workspace {
 
     @MainActor
     func restoreNamingStyle(_ namingStyle: WorkspaceNamingStyle) {
-        self.namingStyle = namingStyle
+        // Older surface-only restores materialized generated IDs with the default
+        // explicit style. In Views these are placement keys, not user-facing names.
+        // User renames live in workspaceLabels and remain authoritative.
+        self.namingStyle = config.workspaceInteractionMode == .views &&
+            (parsePositiveWorkspaceDisplayIndex(name) != nil || isSidebarDraftWorkspaceName(name) ||
+                internalAutomaticWorkspaceIndex(name) != nil || name == "Recovered")
+            ? .automatic : namingStyle
     }
 
     @MainActor

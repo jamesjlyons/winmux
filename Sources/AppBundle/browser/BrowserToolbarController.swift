@@ -24,11 +24,17 @@ struct BrowserToolbarItem {
     /// Nil follows the system. Explicit chrome colors can choose readable controls.
     var chromeAppearance: NSAppearance.Name? = nil
     var isPrivate = false
+    var pinnedExtensions: [BrowserPinnedExtension] = []
+    var activeDownloads = 0
+    var supportsToolbarActions = false
 }
 
 enum BrowserToolbarAction: Equatable {
     case back, forward, reload, stop, extensions, newTab, close, minimize, fullscreen, zoom, focusPage
+    case downloads, manageExtensions
+    case extensionAction(String), unpinExtension(String)
     case navigate(String)
+    case switchToTab(SurfaceID)
     case toggleKeepActive, toggleSiteBlocking, privacySettings
     case resizeWidth(Int), resizeHeight(Int)
     case resize(width: Int, height: Int)
@@ -115,6 +121,9 @@ final class BrowserToolbarController {
             let panel = panels[item.surfaceID] ?? BrowserToolbarPanel(surfaceID: item.surfaceID)
             panels[item.surfaceID] = panel
             panel.onAction = { action in onAction(item.surfaceID, action) }
+            panel.toolbarView.autocomplete.provider = { query, completion in
+                BrowserWorkspaceController.shared.addressSuggestions(query, for: item.surfaceID, completion: completion)
+            }
             panel.onDrag = { phase, point in
                 let drag = BrowserWindowDragController.shared
                 switch phase {

@@ -2,6 +2,8 @@ import Foundation
 
 public enum BrowserSurfaceAction: String, Sendable {
     case focus, close, back, forward, reload, stop, navigate, extensions, minimize, fullscreen, zoom
+    case downloads
+    case extensionAction = "extension_action", unpinExtension = "unpin_extension"
     case search, privacy
     case keepActive = "keep_active", siteBlocking = "site_blocking"
     case newTab = "new_tab"
@@ -59,6 +61,10 @@ public final class BrowserSurfaceSession {
     private let sendLayout: LayoutTransport?
     public var supportsLayout = false
     public var supportsBrowserControls = false
+    public var supportsToolbarActions = false
+    public var supportsHistory = false
+    public typealias HistoryTransport = @MainActor (BrowserHistoryRequest, @escaping @MainActor ([BrowserHistoryEntry]) -> Void) -> Void
+    private let sendHistory: HistoryTransport?
     public var supportsPrivacy = false
     public var supportsTabCreation = false
     public var supportsWorkspaceProfiles = false
@@ -99,12 +105,26 @@ public final class BrowserSurfaceSession {
     private let canRetryFocus: @MainActor () -> Bool
 
     public init(focusCoordinator: SurfaceFocusCoordinator = SurfaceFocusCoordinator(), sendLayout: LayoutTransport? = nil, sendNewTab: NewTabTransport? = nil,
-                canRetryFocus: @escaping @MainActor () -> Bool = { true }, send: @escaping Transport) {
+                sendHistory: HistoryTransport? = nil, canRetryFocus: @escaping @MainActor () -> Bool = { true }, send: @escaping Transport) {
         self.focusCoordinator = focusCoordinator
         self.send = send
         self.sendLayout = sendLayout
         self.sendNewTab = sendNewTab
+        self.sendHistory = sendHistory
         self.canRetryFocus = canRetryFocus
+    }
+
+    public func queryHistory(_ query: String, surfaceID: SurfaceID,
+                             completion: @escaping @MainActor ([BrowserHistoryEntry]) -> Void) {
+        guard supportsHistory, let sendHistory, let epoch,
+              let tab = inventory.tabs[surfaceID], !tab.privateBrowsing,
+              query.utf8.count <= 2048 else { completion([]); return }
+        sendHistory(.init(epoch: epoch, surfaceID: surfaceID, query: query)) { [weak self] entries in
+            guard let self, self.epoch == epoch,
+                  self.inventory.tabs[surfaceID]?.privateBrowsing == false else { completion([]); return }
+            guard entries.count <= 50, entries.allSatisfy(\.isValid) else { completion([]); return }
+            completion(entries)
+        }
     }
 
     public func connect(epoch: UUID) {
@@ -257,11 +277,19 @@ public final class BrowserSurfaceSession {
         guard action == .focus || action == .close || supportsBrowserControls else {
             completion?(.unsupported); return .unsupported
         }
+        if [.downloads, .extensionAction, .unpinExtension].contains(action), !supportsToolbarActions {
+            completion?(.unsupported); return .unsupported
+        }
+        if [.extensionAction, .unpinExtension].contains(action) {
+            guard let url, url.utf8.count == 32, url.utf8.allSatisfy({ (97...112).contains($0) }) else {
+                completion?(.invalidRequest); return .unsupported
+            }
+        }
         guard action != .cancelFocus else { completion?(.invalidRequest); return .unsupported }
         guard let epoch, let tab = inventory.tabs[surfaceID] else { completion?(.unavailable); return .unavailable }
         if [.search, .privacy, .keepActive, .siteBlocking].contains(action), !supportsPrivacy { completion?(.unsupported); return .unsupported }
         guard (action != .navigate || url?.isEmpty == false),
-              url == nil || [.navigate, .newTab, .search, .privacy, .keepActive, .siteBlocking].contains(action),
+              url == nil || [.navigate, .newTab, .search, .privacy, .keepActive, .siteBlocking, .extensionAction, .unpinExtension].contains(action),
               (url?.utf8.count ?? 0) <= 16_384 else { completion?(.invalidRequest); return .unsupported }
         guard action != .back || tab.canGoBack,
               action != .forward || tab.canGoForward else { completion?(.unavailable); return .unavailable }

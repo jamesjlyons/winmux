@@ -5,6 +5,7 @@ import WorkspaceCore
 /// their children directly; only stacks add a window-group header.
 struct WorkspaceSidebarSurfaceTreeView: View {
     @Environment(\.workspaceSidebarDensity) private var density
+    @Environment(\.workspaceSidebarCompactRows) private var isCompact
     let item: WorkspaceSidebarItemViewModel
     let workspaceName: String
     let targetMonitorScopeId: String
@@ -30,7 +31,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     stackHeader(id: id)
                     ForEach(children) { child in
-                        childView(child, indent: density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent)
+                        childView(child, indent: isCompact ? 0 : density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent)
                     }
                 }
                 .padding(.vertical, 1)
@@ -55,12 +56,14 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         Button { onActivate(surface.surfaceID) } label: {
             WorkspaceSidebarWindowRow(
                 title: surface.title, badge: nil, isFocused: surface.isFocused,
-                suppressFocusedStyle: isSearchFiltering, rowHeight: workspaceSidebarWorkspaceRowHeight,
-                isHovered: isHovered || selectedSearchTarget == .surface(surface.surfaceID),
+                rowHeight: workspaceSidebarWorkspaceRowHeight,
+                isHovered: isHovered,
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
                 appBundleIds: [surface.appBundleId], appBundlePaths: [surface.appBundlePath],
                 favicons: [surface.iconPNGBase64],
-                fallbackSystemImage: surface.isBrowser ? "globe" : "app"
+                fallbackSystemImage: surface.isBrowser ? "globe" : "app",
+                isSelected: surface.isSelected, isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID),
+                isLoading: surface.isLoading
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,7 +99,9 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             Divider()
             Button(surface.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface.surfaceID)) }
         }
-        .modifier(WorkspaceSidebarHoverClose(surface: surface.surfaceID, title: surface.title, actions: actions))
+        .modifier(WorkspaceSidebarHoverClose(surface: surface.surfaceID, title: surface.title, actions: actions,
+            selection: .init(isSelected: surface.isSelected, isFocused: surface.isFocused, isHovered: isHovered,
+                isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID))))
         .onHover { isHovered = $0 }
     }
 
@@ -112,9 +117,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         } label: {
             WorkspaceSidebarWindowRow(
                 title: "\(count) \(count == 1 ? "window" : "windows")", badge: nil,
-                isFocused: surfaces.contains(where: \.isFocused), suppressFocusedStyle: isSearchFiltering,
-                rowHeight: workspaceSidebarWorkspaceRowHeight,
-                isHovered: isHovered || representative.map { selectedSearchTarget == .surface($0.surfaceID) } == true,
+                isFocused: surfaces.contains(where: \.isFocused), rowHeight: workspaceSidebarWorkspaceRowHeight,
+                isHovered: isHovered,
                 style: .tabGroupHeader, appBundleIds: [representative?.appBundleId],
                 appBundlePaths: [representative?.appBundlePath], favicons: [representative?.iconPNGBase64],
                 fallbackSystemImage: "square.stack"

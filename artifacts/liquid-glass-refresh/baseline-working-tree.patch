@@ -1,0 +1,51 @@
+diff --git a/browser/README.md b/browser/README.md
+index 80c4b619..313a23a1 100644
+--- a/browser/README.md
++++ b/browser/README.md
+@@ -160,6 +160,25 @@ unchanged; the alpha manifest records both argument hashes and
+ configuration performance comparison with the archived control. The flag does
+ not bypass source ownership, revision, or archive validation.
+ 
++The browser enables H.264/AAC with `proprietary_codecs = true` and
++`ffmpeg_branding = "Chrome"`, while retaining unbranded Chromium. These codecs
++are required for MP4 and Media Source video on sites such as Twitter/X. Existing
++builds that omitted them need an engine rebuild and a new package; changing the
++native helper or a runtime preference does not add codec support.
++
++Check actual decoding in the signed package with the pinned Chromium fixtures:
++
++```sh
++python3 browser/tools/test_browser_media.py \
++  --app '/path/to/WinMux Browser Alpha.app' \
++  --chromium-source /path/to/apfs/winmux-engine/chromium/src \
++  --output .local/browser/new-media-check
++```
++
++This creates a fresh profile and loopback fixture server, checks codec support,
++and requires MP4 H.264/AAC, Media Source H.264/AAC, and WebM VP9/Opus playback to
++finish with decoded audio and video frames. It leaves existing sessions alone.
++
+ The packager requires a successful alpha manifest, an exact certificate SHA-1
+ in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
+ an existing package directory and retains Chromium's nested signing policies.
+diff --git a/browser/chromium/args.gn b/browser/chromium/args.gn
+index 136cb177..24f2e93f 100644
+--- a/browser/chromium/args.gn
++++ b/browser/chromium/args.gn
+@@ -4,11 +4,15 @@ is_component_build = false
+ target_cpu = "arm64"
+ symbol_level = 1
+ is_chrome_branded = false
++# Support H.264/AAC video in both ordinary MP4 and Media Source streams.
++# Chromium's unbranded defaults omit these codecs (including Twitter/X video).
++proprietary_codecs = true
++ffmpeg_branding = "Chrome"
+ # Production alpha must not activate Chromium's forced test field trials.
+ disable_fieldtrial_testing_config = true
+ use_remoteexec = false
+ # Apple's linker supports the arm64e.x1 TAPI targets in the Xcode 27 SDK.
+ # Use the same supported native arm64 linker for control and alpha builds.
+ use_lld = false
+-# Retain upstream sandbox, site isolation, media and extension defaults.
++# Retain upstream sandbox, site isolation and extension defaults.
+ # No --no-sandbox, disabled isolation, mock keychain, or hidden-page foregrounding.

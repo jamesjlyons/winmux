@@ -646,28 +646,31 @@ extension WorkspaceSidebarView {
                     actions.send(.deleteProject(project.id))
                 },
                 onChooseProjectIcon: beginProjectIconPicker,
+                isCompact: expansionProgress < workspaceSidebarRowsRevealProgress,
             )
             if snapshot.selectedMonitorScopeId != workspaceSidebarDefaultScopeId {
                 HStack(spacing: 5) {
                     Image(systemName: "line.3.horizontal.decrease")
-                    Text(snapshot.monitorScopes.first { $0.id == snapshot.selectedMonitorScopeId }?.displayName ?? "Filtered display")
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 0)
-                    Button {
-                        actions.send(.selectMonitorScope(workspaceSidebarDefaultScopeId))
-                    } label: {
-                        Image(systemName: "xmark")
-                            .padding(4)
-                            .contentShape(Rectangle())
+                    if expansionProgress >= workspaceSidebarRowsRevealProgress {
+                        Text(snapshot.monitorScopes.first { $0.id == snapshot.selectedMonitorScopeId }?.displayName ?? "Filtered display")
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer(minLength: 0)
+                        Button {
+                            actions.send(.selectMonitorScope(workspaceSidebarDefaultScopeId))
+                        } label: {
+                            Image(systemName: "xmark")
+                                .padding(4)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show all displays")
+                        .accessibilityLabel("Clear display filter")
                     }
-                    .buttonStyle(.plain)
-                    .help("Show all displays")
-                    .accessibilityLabel("Clear display filter")
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .frame(width: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress))
+                .frame(width: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress), height: 24)
             }
         }
         .padding(.leading, leadingInset)
@@ -694,10 +697,14 @@ extension WorkspaceSidebarView {
             showsDate: snapshot.configuration.showsDate,
             showsWeekday: snapshot.configuration.showsWeekday,
         )
+        .frame(height: snapshot.configuration.menuBarStyle
+            ? (snapshot.configuration.showsSeconds ? 64 : 48)
+            : max(workspaceSidebarExpandedClockCardHeight(showsDate: snapshot.configuration.showsDate,
+                    showsWeekday: snapshot.configuration.showsWeekday), snapshot.configuration.showsSeconds ? 92 : 68))
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
         .padding(.top, 4)
-        .padding(.bottom, leadingInset + 4)
+        .padding(.bottom, workspaceSidebarContentLeadingInset + 4)
     }
 
     func sidebarSearchSection(
@@ -873,13 +880,14 @@ extension WorkspaceSidebarView {
         return VStack(alignment: .leading, spacing: 0) {
             if let pins = workspaceSidebarCombinedPins(workspaces) {
                 WorkspaceSidebarPinGrid(workspace: pins, projects: snapshot.projects, isCompact: isCompact,
-                    availableWidth: max(32, (isOrganizing ? workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration) : snapshot.visibleWidth) - leadingInset - trailingInset - 4),
-                    showsDropWell: isPinDropActive, actions: actions)
+                    availableWidth: max(1, (isOrganizing ? workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration) : snapshot.visibleWidth) - leadingInset - trailingInset - 4),
+                    showsDropWell: isPinDropActive, actions: actions,
+                    expandedAvailableWidth: max(32, snapshot.configuration.expandedWidth - workspaceSidebarContentLeadingInset - workspaceSidebarContentTrailingInset - 4))
                     .padding(.leading, leadingInset)
                     .padding(.trailing, trailingInset)
             }
         ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: workspaceSidebarSectionGap) {
                 if showsPinnedActiveWorkspace,
                    let pinnedActiveWorkspace = pinnedActiveWorkspace(
                     displayedProjectId: projectId,

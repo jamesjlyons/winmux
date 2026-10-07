@@ -80,7 +80,8 @@ extension BrowserWorkspaceController {
                                           config.workspaceSidebar.solidChromeColor != .system
                                           ? config.workspaceSidebar.resolvedSolidChromeNSColor : nil),
                                       chromeAppearance: record.privateBrowsing ? .darkAqua : config.workspaceSidebar.chromeAppearance,
-                                      isPrivate: record.privateBrowsing)
+                                      isPrivate: record.privateBrowsing, pinnedExtensions: record.pinnedExtensions,
+                                      activeDownloads: record.activeDownloads, supportsToolbarActions: session.supportsToolbarActions)
         }
         BrowserToolbarController.shared.update(items: items) { [weak self] id, action in
             self?.performToolbarAction(action, for: id)
@@ -89,6 +90,14 @@ extension BrowserWorkspaceController {
     }
 
     func performToolbarAction(_ action: BrowserToolbarAction, for id: SurfaceID) {
+        if case .switchToTab(let target) = action {
+            guard let current = owner(of: id)?.inventory.tabs[id],
+                  let destination = owner(of: target)?.inventory.tabs[target],
+                  target.browserProfileID == id.browserProfileID,
+                  destination.privateBrowsing == current.privateBrowsing else { return }
+            _ = select(target)
+            return
+        }
         if action == .focusPage { _ = select(id); return }
         if action == .close { _ = close(id); return }
         if action == .newTab, owner(of: id)?.supportsTabCreation == true {
@@ -104,6 +113,12 @@ extension BrowserWorkspaceController {
         case .reload: request = .reload
         case .stop: request = .stop
         case .extensions: request = .extensions
+        case .manageExtensions: request = .manageExtensions
+        case .extensionAction(let id): request = .extensionAction; url = id
+        case .unpinExtension(let id): request = .unpinExtension; url = id
+        case .downloads:
+            if session.supportsToolbarActions { request = .downloads }
+            else { request = .newTab; url = "chrome://downloads/" }
         case .newTab: request = .newTab
         case .minimize: request = .minimize
         case .fullscreen: request = .fullscreen
@@ -143,7 +158,7 @@ extension BrowserWorkspaceController {
             } else {
                 request = .navigate; url = normalized
             }
-        case .focusPage, .close: return
+        case .focusPage, .close, .switchToTab: return
         }
         // Buttons and address submission target their own page, including a
         // visible page that was not the previously focused workspace surface.
@@ -156,7 +171,7 @@ extension BrowserWorkspaceController {
             _ = select(id)
         }
         if request == .fullscreen || request == .zoom { cancelPendingBrowserFocusHold() }
-        if request == .newTab || request == .extensions || request == .manageExtensions {
+        if request == .newTab || request == .extensions || request == .manageExtensions || request == .downloads || request == .extensionAction {
             // These commands can create and activate a different page. Do not
             // let the source page's short focus hold override that new window.
             cancelPendingBrowserFocusHold()

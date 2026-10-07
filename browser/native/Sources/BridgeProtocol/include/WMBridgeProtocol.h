@@ -9,6 +9,12 @@ NS_ASSUME_NONNULL_BEGIN
 // Version 8 unifies profiles with privacy/lifecycle controls (the Alpha and Trial
 // version 6 protocols diverged; feature dispatch must not infer both from 6).
 @protocol WMBrowserSurfaceOwner
+// Version 10. Read-only, local history for the surface's owning regular profile.
+// The JSON reply is a bounded array; private surfaces return an empty array.
+- (void)queryHistory:(NSString *)query
+             surface:(NSString *)surface
+               epoch:(NSString *)epoch
+               reply:(void (^)(NSData *_Nullable entries))reply;
 // Version 7+ in the unified helper. "shared" targets the initial regular profile. A UUID selects a
 // named workspace profile, created lazily without copying any browser data.
 - (void)openBrowserTabInWorkspaceProfile:(NSString *)key

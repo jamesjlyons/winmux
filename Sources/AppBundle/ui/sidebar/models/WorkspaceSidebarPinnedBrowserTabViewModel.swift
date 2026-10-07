@@ -6,5 +6,8 @@ struct WorkspaceSidebarPinnedBrowserTabViewModel: Hashable, Sendable, Identifiab
     let title: String
     let isFocused: Bool
     let isOpen: Bool
+    var isSelected = false
+    var isLoading = false
+    var iconPNGBase64: String? = nil
     var id: UUID { pin.id }
 }

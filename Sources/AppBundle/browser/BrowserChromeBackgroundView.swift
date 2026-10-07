@@ -1,15 +1,18 @@
 import AppKit
 
-/// Native titlebar material and a quiet outline, shared by the page and header.
+/// One native glass surface and a quiet outline, shared by the page and header.
 /// Decorative views never intercept the toolbar's controls or drag gestures.
 @MainActor
 final class BrowserChromeBackgroundView: NSView {
     private let material = BrowserChromeMaterialView()
+    private var glass: NSView?
+    private let headerOnly: Bool
     private let outline: BrowserChromeOutlineView
     private var currentColor: NSColor?
     private var currentFocus: Bool?
 
     init(headerOnly: Bool) {
+        self.headerOnly = headerOnly
         outline = BrowserChromeOutlineView(headerOnly: headerOnly)
         super.init(frame: .zero)
         setAccessibilityElement(false)
@@ -32,29 +35,62 @@ final class BrowserChromeBackgroundView: NSView {
         mask.resizingMode = .stretch
         material.maskImage = mask
         addSubview(material)
+        if #available(macOS 26.0, *) {
+            let effect = BrowserChromeGlassView()
+            effect.style = .regular
+            effect.cornerRadius = radius
+            effect.setAccessibilityElement(false)
+            glass = effect
+            addSubview(effect)
+            wantsLayer = true
+            layer?.mask = CAShapeLayer()
+        }
         addSubview(outline)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(accessibilityChanged),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
     }
 
     required init?(coder: NSCoder) { nil }
+    deinit { NSWorkspace.shared.notificationCenter.removeObserver(self) }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func update(_ item: BrowserToolbarItem) {
         guard currentColor != item.chromeColor || currentFocus != item.isFocused else { return }
         currentColor = item.chromeColor
         currentFocus = item.isFocused
-        material.isHidden = item.chromeColor != nil
+        updateMaterial()
+    }
+
+    @objc private func accessibilityChanged() { updateMaterial() }
+
+    private func updateMaterial() {
+        let opaque = currentColor ?? (NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? ChromePalette.background : nil)
+        material.isHidden = opaque != nil || glass != nil
+        glass?.isHidden = opaque != nil
         // The nonactivating helper panel is never the browser's key window.
-        material.state = item.isFocused ? .active : .inactive
-        outline.color = item.chromeColor
-        outline.focused = item.isFocused
+        material.state = currentFocus == true ? .active : .inactive
+        outline.color = opaque
+        outline.focused = currentFocus == true
+        outline.highContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
         outline.needsDisplay = true
     }
 
     override func layout() {
         super.layout()
         material.frame = bounds
+        if #available(macOS 26.0, *), let glass {
+            let extensionHeight = headerOnly ? BrowserPageChromeGeometry.cornerRadius : 0
+            glass.frame = .init(x: 0, y: -extensionHeight, width: bounds.width, height: bounds.height + extensionHeight)
+            (layer?.mask as? CAShapeLayer)?.path = browserChromeShape(in: bounds, headerOnly: headerOnly).cgPath
+        }
         outline.frame = bounds
     }
+}
+
+@available(macOS 26.0, *)
+@MainActor
+private final class BrowserChromeGlassView: NSGlassEffectView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 @MainActor
@@ -67,6 +103,7 @@ private final class BrowserChromeOutlineView: NSView {
     let headerOnly: Bool
     var color: NSColor?
     var focused = false
+    var highContrast = false
 
     init(headerOnly: Bool) {
         self.headerOnly = headerOnly
@@ -89,7 +126,7 @@ private final class BrowserChromeOutlineView: NSView {
             color.withAlphaComponent(1).setFill()
             shape.fill()
         }
-        NSColor.labelColor.withAlphaComponent(focused ? 0.08 : 0.04).setStroke()
+        NSColor.labelColor.withAlphaComponent(highContrast ? 0.55 : focused ? GlassToken.borderOpacity : 0.05).setStroke()
         shape.lineWidth = 0.5
         shape.stroke()
         if headerOnly {

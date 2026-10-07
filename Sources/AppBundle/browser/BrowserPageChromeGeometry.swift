@@ -7,7 +7,7 @@ import WorkspaceCore
 struct BrowserPageChromeGeometry: Equatable {
     static let gutter = 4
     static let shellInset = 1
-    static let headerHeight = 32
+    static let headerHeight = 36
     static let cornerRadius: CGFloat = 14
     static let widthOverhead = (gutter + shellInset) * 2
     static let heightOverhead = gutter * 2 + headerHeight + shellInset

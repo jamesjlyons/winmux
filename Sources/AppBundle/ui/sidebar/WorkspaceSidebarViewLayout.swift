@@ -7,7 +7,6 @@ extension WorkspaceSidebarView {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
-        let showsProjectSelector = !isCompact
         let projectSwipeDirection = workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,
             verticalTranslation: 0,
@@ -43,13 +42,11 @@ extension WorkspaceSidebarView {
         )
 
         return VStack(alignment: .leading, spacing: 0) {
-            if showsProjectSelector {
-                projectSelectorSection(
-                    expansionProgress: expansionProgress,
-                    leadingInset: leadingInset,
-                    trailingInset: trailingInset,
-                )
-            }
+            projectSelectorSection(
+                expansionProgress: expansionProgress,
+                leadingInset: leadingInset,
+                trailingInset: trailingInset,
+            )
 
             if !isCompact, !searchText.isEmpty {
                 sidebarSearchSection(
@@ -63,7 +60,7 @@ extension WorkspaceSidebarView {
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,
-                topPadding: showsProjectSelector ? 0 : max(snapshot.configuration.topPadding, leadingInset),
+                topPadding: 0,
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
                 swipeDirection: projectSwipeDirection,
             )

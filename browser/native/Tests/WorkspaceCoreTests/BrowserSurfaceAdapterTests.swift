@@ -106,6 +106,28 @@ final class BrowserSurfaceAdapterTests: XCTestCase {
         XCTAssertEqual(BrowserTabSurfaceAdapter(surfaceID: .nativeWindow(tab), session: session).requestClose(), .unavailable)
     }
 
+    func testExtensionActionsRequireVersionNineAndAValidID() {
+        var requests: [BrowserActionRequest] = []
+        let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(.issued) }
+        let epoch = UUID(), id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        session.connect(epoch: epoch); session.supportsBrowserControls = true
+        XCTAssertTrue(session.reconcile(.init(revision: 1, full: true, tabs: [record(id)]), epoch: epoch))
+        let extensionID = String(repeating: "a", count: 32)
+        XCTAssertEqual(session.request(.extensionAction, surfaceID: id, url: extensionID), .unsupported)
+        XCTAssertEqual(session.request(.downloads, surfaceID: id), .unsupported)
+        session.supportsToolbarActions = true
+        for invalid in ["", "javascript:alert(1)", String(repeating: "z", count: 32)] {
+            XCTAssertEqual(session.request(.extensionAction, surfaceID: id, url: invalid), .unsupported)
+        }
+        XCTAssertTrue(requests.isEmpty)
+        XCTAssertEqual(session.request(.extensionAction, surfaceID: id, url: extensionID), .issued)
+        XCTAssertEqual(session.request(.unpinExtension, surfaceID: id, url: extensionID), .issued)
+        XCTAssertEqual(session.request(.downloads, surfaceID: id), .issued)
+        XCTAssertEqual(requests.map(\.surfaceID), [id, id, id])
+        XCTAssertEqual(requests.map(\.action), [.extensionAction, .unpinExtension, .downloads])
+        XCTAssertNil(session.focusIntent)
+    }
+
     func testPrivacyControlsRequireNegotiatedCapabilityAndStayBoundToTheirPage() {
         var requests: [BrowserActionRequest] = []
         let session = BrowserSurfaceSession { request, reply in requests.append(request); reply(.issued) }

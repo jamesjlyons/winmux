@@ -74,6 +74,12 @@ final class BrowserToolbarPanel: NSPanelHud {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func resignKey() {
+        toolbarView.autocomplete.dismiss()
+        super.resignKey()
+        makeFirstResponder(nil)
+    }
+
     // AppKit's standard window buttons ask for this drawing state. The browser
     // owns key focus; its nonactivating header must reflect the page's focus
     // without pretending to be the key window or taking address-entry focus.
@@ -116,16 +122,32 @@ final class BrowserToolbarPanel: NSPanelHud {
     }
 
     func endAddressEditing() {
+        toolbarView.autocomplete.dismiss()
         guard isEditingAddress else { return }
         makeFirstResponder(nil)
         resignKey()
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-           event.charactersIgnoringModifiers?.lowercased() == "l" {
-            return focusAddress()
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        if flags == .command {
+            if key == "l" { return focusAddress() }
+            if let editor = toolbarView.address.currentEditor() as? NSTextView,
+               BrowserToolbarAddressField.performEditingShortcut(with: event, in: editor, sender: self) { return true }
+            let action: BrowserToolbarAction? = switch key {
+            case "r": .reload
+            case "t": .newTab
+            case "w": .close
+            default: nil
+            }
+            if let action { toolbarView.onAction?(action); return true }
         }
+        if flags == [.command, .shift], key == "j" {
+            toolbarView.onAction?(.downloads); return true
+        }
+        if let editor = toolbarView.address.currentEditor() as? NSTextView,
+           BrowserToolbarAddressField.performEditingShortcut(with: event, in: editor, sender: self) { return true }
         return super.performKeyEquivalent(with: event)
     }
 

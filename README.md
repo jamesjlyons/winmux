@@ -212,9 +212,10 @@ To keep the full sidebar visible, reserve its expanded width when laying out til
     width = 240
 ```
 
-`always-expanded` takes precedence over `auto-hide`. The configured `gaps.outer.left` remains
-the spacing between the sticky sidebar and tiled windows, and monitor selection continues to
-control which displays reserve sidebar space.
+`auto-hide` works with both compact and expanded modes. With both options enabled, the full
+sidebar appears at the left display edge and hides when the pointer leaves, without reserving
+space for it. With auto-hide off, `gaps.outer.left` remains the spacing between the sticky
+sidebar and tiled windows, and monitor selection controls which displays reserve sidebar space.
 
 The sidebar clock can be configured independently:
 

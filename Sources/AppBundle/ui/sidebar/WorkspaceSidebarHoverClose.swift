@@ -7,12 +7,17 @@ struct WorkspaceSidebarHoverClose: ViewModifier {
     let surface: SurfaceID?
     let title: String
     let actions: WorkspaceSidebarActions
+    var selection: ChromeItemState? = nil
     @State private var isHovered = false
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
+    @Environment(\.workspaceSidebarCompactRows) private var isCompact
 
     func body(content: Content) -> some View {
-        if let surface {
+        if let surface, !isCompact {
             HStack(spacing: 0) {
-                content.frame(maxWidth: .infinity, alignment: .leading)
+                content
+                    .environment(\.workspaceSidebarExternalRowSelection, selection != nil)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Button { actions.send(.closeSurface(surface)) } label: {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary).frame(width: 24, height: 24)
@@ -24,8 +29,19 @@ struct WorkspaceSidebarHoverClose: ViewModifier {
                 .opacity(isHovered ? 1 : 0)
                 .allowsHitTesting(isHovered)
             }
+            .background {
+                if let selection {
+                    ChromeSelectionBackground(state: hoveredSelection(selection), cornerRadius: menuBarStyle ? 5 : 7)
+                }
+            }
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }
         } else { content }
+    }
+
+    private func hoveredSelection(_ selection: ChromeItemState) -> ChromeItemState {
+        var result = selection
+        result.isHovered = result.isHovered || isHovered
+        return result
     }
 }

@@ -45,6 +45,7 @@ func focusWindowFromTabStrip(_ windowId: UInt32, fallbackWorkspace: String) {
                         appBundlePath: tab.appBundlePath,
                         title: tab.title,
                         isActive: tab.windowId == windowId,
+                        isFocused: tab.windowId == windowId,
                     )
                 },
                 occludingFloatingWindowFrames: strip.occludingFloatingWindowFrames,

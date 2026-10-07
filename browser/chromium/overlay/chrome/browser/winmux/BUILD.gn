@@ -80,6 +80,9 @@ source_set("workspace_bridge") {
   ]
   deps = [
     "//chrome/browser/search_engines",
+    "//chrome/browser/history",
+    "//components/history/core/browser",
+    "//components/query_parser",
     "//components/search_engines",
     "//services/network/public/mojom",
     "//services/network/public/cpp",
@@ -100,6 +103,8 @@ source_set("workspace_bridge") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/extensions",
+    "//chrome/browser/ui/toolbar",
+    "//components/download/content/public",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/common:constants",

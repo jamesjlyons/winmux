@@ -81,8 +81,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--existing-helper-pid", type=int, required=True)
-    parser.add_argument("--existing-helper-executable", type=Path, required=True)
+    parser.add_argument("--existing-helper-pid", type=int,
+                        help="Optionally monitor an already-running helper without touching it")
+    parser.add_argument("--existing-helper-executable", type=Path)
     parser.add_argument("--resume-profiles-from", type=Path,
                         help="Reuse only a previously successful, stopped synthetic fixture to verify profile restart")
     parser.add_argument("--workspace-startup", action="store_true",
@@ -92,6 +93,8 @@ def main():
     modes.add_argument("--native-window-controls", action="store_true",
                        help="Use visible isolated native windows to verify minimize, fullscreen, zoom and restoration")
     args = parser.parse_args()
+    if (args.existing_helper_pid is None) != (args.existing_helper_executable is None):
+        parser.error("Helper monitoring requires both its PID and executable")
     if args.workspace_startup and (not args.resume_profiles_from or args.private or args.native_window_controls):
         parser.error("Workspace startup requires a stopped regular profile fixture")
     profile_root = None
@@ -122,8 +125,8 @@ def main():
             parser.error("Packaged executable changed after signing")
         requirement = f'anchor apple generic and identifier "{identifier}" and certificate leaf[subject.OU] = "{team}"'
         subprocess.run(["codesign", "--verify", "--deep", "--strict", "-R", "=" + requirement, str(path)], check=True)
-    existing = Sampler(args.existing_helper_pid, args.existing_helper_executable)
-    before = identity(existing.read())
+    existing = Sampler(args.existing_helper_pid, args.existing_helper_executable) if args.existing_helper_pid else None
+    before = identity(existing.read()) if existing else None
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
     if args.workspace_startup:
@@ -186,6 +189,10 @@ def main():
                      "keep_active_round_trip": "yes", "privacy_invalid": "invalid_request",
                      "privacy_save": "issued", "privacy_repeat": "issued", "privacy_search_cookie_state": "yes",
                      "privacy_restore": "issued", "privacy_round_trip": "yes"})
+    expected.update({"toolbar_empty_inventory": "yes", "extension_invalid_id": "invalid_request",
+                     "extension_unavailable": "unavailable", "unpin_unavailable": "unavailable",
+                     "downloads_invalid_payload": "invalid_request", "downloads_open": "issued",
+                     "downloads_page": "yes", "downloads_close": "issued", "downloads_cleanup": "yes"})
     expected.update({"create_close_last": "issued", "create_empty_inventory": "yes",
                      "create_foreign_epoch": "stale_epoch", "create_stale_revision": "stale_revision",
                      "create_invalid_url": "invalid_request", "create_unknown_profile": "unavailable",
@@ -218,8 +225,8 @@ def main():
                     "private_managed": "yes", "private_close": "issued", "private_cleanup": "yes"}
     fixture_description = ("Visible synthetic native windows; no native window manager is launched" if args.native_window_controls else
                            "Headless synthetic tabs; focus acknowledgement is not UI/input-ready confirmation")
-    result = {"scope": ("actual_signed_browser_protocol8_native_window_controls" if args.native_window_controls else
-                        "actual_signed_browser_protocol8_page_windows_profiles"), "passed": False,
+    result = {"scope": ("actual_signed_browser_protocol9_native_window_controls" if args.native_window_controls else
+                        "actual_signed_browser_protocol9_page_windows_profiles"), "passed": False,
         "package_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "test_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "command": command, "service": service, "private_inventory_test": args.private,
@@ -249,7 +256,7 @@ def main():
                     if actions_complete:
                         result["actions"] = report
                     if args.native_window_controls:
-                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 8
+                        if (actions_complete and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 10
                                 and report.get("full_messages") == 1):
                             if completed_at is None:
                                 completed_at = time.monotonic()
@@ -261,7 +268,7 @@ def main():
                             raise RuntimeError("Completed native window controls did not remain stable")
                         time.sleep(.1)
                         continue
-                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 8
+                    if ("actions" in result and bridge.get("state") == "authenticated" and bridge.get("protocol_version") == 10
                             and bridge.get("authenticated_connections") == 2 and report.get("tab_count") == expected_count
                             and report.get("full_messages") == 1 and report.get("outcomes") == (expected if args.private else {})):
                         if recovered_at is None:
@@ -282,7 +289,7 @@ def main():
                 }
                 result["passed"] = result["privacy_consent_persisted"]
             if not result["passed"]:
-                result["error"] = "Expected protocol8 isolated fixture outcomes were not observed"
+                result["error"] = "Expected protocol9 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}
                 result["missing_or_incorrect_outcomes"] = {
                     key: {"expected": value, "actual": observed.get(key)}
@@ -307,11 +314,15 @@ def main():
                 cleanup = subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{service}"], capture_output=True, text=True)
                 result["test_service_removed"] = cleanup.returncode == 0
                 result["passed"] = result["passed"] and cleanup.returncode == 0
-            try:
-                result["existing_helper_unchanged"] = identity(existing.read()) == before
-            except OSError:
-                result["existing_helper_unchanged"] = False
-            result["passed"] = result["passed"] and result["existing_helper_unchanged"]
+            if existing:
+                try:
+                    result["existing_helper_unchanged"] = identity(existing.read()) == before
+                except OSError:
+                    result["existing_helper_unchanged"] = False
+                result["passed"] = result["passed"] and result["existing_helper_unchanged"]
+            else:
+                result["existing_helper_unchanged"] = None
+                result["limits"].append("No existing helper was supplied for identity monitoring")
             server.shutdown()
             server.server_close()
             result["profile_cookie_observations"] = server.observations

@@ -23,6 +23,7 @@ extension WindowTabChromeTabItem {
             appBundlePath: window?.app.bundlePath,
             title: title,
             isActive: isActive,
+            isFocused: isFocused,
         )
     }
 }

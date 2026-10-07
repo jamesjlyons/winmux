@@ -1,0 +1,75 @@
+{
+  "completed_utc": "2026-10-07T03:40:54.746112+00:00",
+  "base_revision": "3163f2b8b088deb0e15d572d35d35ad964b75d74",
+  "working_tree_changes_preserved": true,
+  "implementation": [
+    "Command-L and initial-click select-all; Return navigate/search; Escape cancels",
+    "Native text editing with Undo/Redo via undo manager",
+    "Profile-owned pinned extensions, traditional Extensions button and unpin context menu",
+    "Downloads button, active-transfer indicator and Chromium-owned downloads UI",
+    "Right-corner drag handle and responsive overflow"
+  ],
+  "validation": {
+    "make_check": {
+      "passed": true,
+      "debug_tests": 1031,
+      "optimized_tests": 1031
+    },
+    "native_tests": {
+      "passed": true,
+      "workspace_tests": 140,
+      "bridge_tests": 24
+    },
+    "browser_tooling_tests": {
+      "passed": true,
+      "count": 74
+    },
+    "chromium_build": {
+      "passed": true
+    },
+    "strict_nested_signatures": true,
+    "native_source_fingerprints_match": true,
+    "signed_browser_integration": {
+      "passed": true,
+      "protocol": 9,
+      "downloads_page_opened_and_closed": true,
+      "extension_invalid_and_missing_actions_checked": true,
+      "profile_cookie_and_history_isolation": true,
+      "reconnect_stable": true,
+      "test_service_removed": true
+    }
+  },
+  "staged_app": "/Users/james/Documents/Codex/winmux/.local/browser-toolbar-refresh/package-final/WinMux Browser Alpha.app",
+  "helper_sha256": "1367749798368ab1f2f07320153b83e1e80742905c99c4fcc9162e519524bead",
+  "browser_executable_sha256": "fafc0aa7cc24b50689fc189349e9895ce78cdd755d9b239d3379b5f3e9da6c64",
+  "screenshots": {
+    "kind": "production component fixtures; example icons and activity, no live extensions or downloads",
+    "light": "after/toolbar-light.png",
+    "dark": "after/toolbar-dark.png"
+  },
+  "limits": [
+    "No third-party extension installation or live popup interaction was exercised; native pin dispatch, unpin policy, caching and protocol validation were tested.",
+    "Download integration uses an empty history and verifies the downloads-page fallback; the recent-download bubble anchor was built, not exercised with a completed transfer.",
+    "Staged development-signed test app; not installed or published by this update."
+  ],
+  "source_sha256": {
+    "Sources/AppBundle/browser/BrowserPagePresentation.swift": "9ae3a86cbcdc383556465bbf9e89973e903ad659aea6b487ce97bc8909258422",
+    "Sources/AppBundle/browser/BrowserToolbarController.swift": "78b7f73d24d6fa0773bf29317f81010b331d3a1e6149940cbb9a2b3e35e0d5d0",
+    "Sources/AppBundle/browser/BrowserToolbarPanel.swift": "2883c7e90801c2d01820c05290c6cb268d59a1895ce3131cef49bacc1e6ba3ef",
+    "Sources/AppBundle/browser/BrowserToolbarView.swift": "8278b44f1264a7179c9d4596518a2a71f201a397aa78ce75d12e6158685c2514",
+    "Sources/AppBundle/browser/BrowserWorkspaceController.swift": "3dedbec1729da9b5c5e9d5d3e2f0f3a81528263227990386438d9f74bd091c8d",
+    "browser/native/Sources/WorkspaceCore/BrowserInventory.swift": "1243728adaf96dae6d3d357d31c474623c71ce09c401a6490579e24dc712e2f7",
+    "browser/native/Sources/WorkspaceCore/BrowserSurfaceAdapter.swift": "b2e5861b84eb776230502722d3f1d74c5192f7b87f0792e26ac74818ae227fa1",
+    "browser/native/Sources/BridgeCore/BridgeSession.swift": "cc2769aa3e2a34fa5c775f1a69f26b56660ac50245fedb7622f79982d3c399ba",
+    "browser/native/Sources/WorkspaceHelper/main.swift": "b4c1044ca5875e3459e1dbc7335d8ab0c702da615c878238d0d3310d6045c29a",
+    "browser/chromium/overlay/chrome/browser/winmux/browser_inventory.cc": "2a68ae1aa249d347719e81feb71bf3d3f81ab258c816839749f5c7362cb38a4c",
+    "browser/chromium/overlay/chrome/browser/winmux/host_window.mm": "2f3008ebce18eff939656f66883f64437ab170932bb8540ed3fda6e9f44c6b73",
+    "browser/chromium/overlay/chrome/browser/winmux/workspace_bridge.mm": "a20922369555ede6818efe20b5df1901f93f556af4522206425d67cd6a286e1d",
+    "browser/chromium/patches/0012-managed-download-bubble.patch": "5260de706f3ecfc23b531f53f7fd1c9ae1c7fc1a27e93228def16c10ea1d3215",
+    "Sources/AppBundleTests/ui/BrowserToolbarControlsTest.swift": "41b231a463469108d8f9350335898153fbaaf1edb4b3fc2d19a8670853136d8f",
+    "browser/tools/test_browser_inventory.py": "270442476840826942015bdf93ad9401155c53b4330cf650a8f52b291ade4b10",
+    "Sources/AppBundle/ui/marketing/WinMuxToolbarControlsProof.swift": "542871b8c94f70c85ae6d9d1a1c22067928a7948ed0ad7f95a3f967b972ca8f0"
+  },
+  "monochrome_refinement": "monochrome/report.json",
+  "latest_release_url": "https://github.com/jamesjlyons/winmux/releases/tag/untagged-2024411f75989940fb0e"
+}

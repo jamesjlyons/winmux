@@ -196,7 +196,8 @@ extension BrowserWorkspaceController {
                 bundleIdentifier: nil, bundlePath: nil, iconPNGBase64: nil, surfaceID: representative.surfaceID,
                 isFocused: members.contains(where: \.isFocused), isOpen: members.contains(where: \.isOpen),
                 isLoading: members.contains(where: \.isLoading), isUnavailable: members.allSatisfy(\.isUnavailable),
-                isBrowser: false, members: members, isGroup: true, memberCount: members.count, groupMembers: members)
+                isBrowser: false, members: members, isGroup: true, memberCount: members.count, groupMembers: members,
+                isSelected: members.contains(where: \.isSelected))
         }
     }
 

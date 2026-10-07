@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WinMux media playback check</title>
+<script type="module">
+const types = {
+  h264: 'video/mp4; codecs="avc1.64001f"',
+  aac: 'audio/mp4; codecs="mp4a.40.2"',
+  h264_aac: 'video/mp4; codecs="avc1.64001f, mp4a.40.2"',
+  vp9_opus: 'video/webm; codecs="vp9, opus"',
+};
+const capabilities = Object.fromEntries(Object.entries(types).map(([name, type]) =>
+  [name, {canPlayType: document.createElement('video').canPlayType(type),
+          mediaSource: MediaSource.isTypeSupported(type)}]));
+
+async function playback(name, path, streaming = false) {
+  const video = document.createElement('video');
+  video.muted = true;
+  document.body.append(video);
+  let objectURL;
+  let timer;
+  try {
+    const finished = new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('Playback timed out')), 20000);
+      video.addEventListener('ended', resolve, {once: true});
+      video.addEventListener('error', () => reject(new Error(
+        `Media error ${video.error.code}: ${video.error.message}`)), {once: true});
+    });
+    const start = async () => {
+      if (streaming) {
+        const source = new MediaSource();
+        objectURL = URL.createObjectURL(source);
+        const opened = new Promise(resolve => source.addEventListener('sourceopen', resolve, {once: true}));
+        video.src = objectURL;
+        await opened;
+        const buffer = source.addSourceBuffer(types.h264_aac);
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`Fixture request failed: ${response.status}`);
+        const appended = new Promise((resolve, reject) => {
+          buffer.addEventListener('updateend', resolve, {once: true});
+          buffer.addEventListener('error', () => reject(new Error('SourceBuffer append failed')), {once: true});
+        });
+        buffer.appendBuffer(await response.arrayBuffer());
+        await appended;
+        source.endOfStream();
+      } else {
+        video.src = path;
+      }
+      await video.play();
+      await finished;
+    };
+    // Attach handlers to both promises immediately, including setup failures.
+    await Promise.all([finished, start()]);
+    const frames = video.getVideoPlaybackQuality().totalVideoFrames;
+    const audioBytes = video.webkitAudioDecodedByteCount;
+    return {name, passed: video.ended && video.currentTime > 0 && frames > 0 && audioBytes > 0,
+            ended: video.ended, currentTime: video.currentTime, frames, audioBytes};
+  } catch (error) {
+    return {name, passed: false, error: String(error)};
+  } finally {
+    clearTimeout(timer);
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.remove();
+    if (objectURL) URL.revokeObjectURL(objectURL);
+  }
+}
+
+const playbackResults = await Promise.all([
+  playback('mp4_h264_aac', '/bear-1280x720.mp4'),
+  playback('mse_h264_aac', '/bear-1280x720-av_frag.mp4', true),
+  playback('webm_vp9_opus', '/bear-vp9-opus.webm'),
+]);
+const passed = Object.values(capabilities).every(value => value.canPlayType === 'probably' && value.mediaSource)
+  && playbackResults.every(value => value.passed);
+await fetch('/result', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                       body: JSON.stringify({passed, capabilities, playback: playbackResults})});
+</script>

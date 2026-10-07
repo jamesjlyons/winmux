@@ -13,7 +13,7 @@ final class BridgeSessionTests: XCTestCase {
     func testHandshakeRequiredAndUnsupportedVersionRejected() {
         let session = BridgeSession()
         XCTAssertFalse(session.accept(epoch: "invented", sequence: 1))
-        XCTAssertNil(session.negotiate(version: 9))
+        XCTAssertNil(session.negotiate(version: BridgeSession.version + 1))
         let epoch = session.negotiate(version: 1)!
         XCTAssertTrue(session.accept(epoch: epoch, sequence: 1))
     }
@@ -47,6 +47,24 @@ final class BridgeSessionTests: XCTestCase {
         let old = legacy.negotiate(version: 4)!
         XCTAssertFalse(legacy.accept(epoch: old, sequence: 1, minimumVersion: 5))
         XCTAssertNil(legacy.negotiate(version: 5))
+    }
+
+    func testVersionNineEnablesToolbarActionsWithoutUpgradingAnEpoch() {
+        let current = BridgeSession(), previous = BridgeSession()
+        let epoch = current.negotiate(version: 9)!
+        XCTAssertTrue(current.accept(epoch: epoch, sequence: 1, minimumVersion: 9))
+        let old = previous.negotiate(version: 8)!
+        XCTAssertFalse(previous.accept(epoch: old, sequence: 1, minimumVersion: 9))
+        XCTAssertNil(previous.negotiate(version: 9))
+    }
+
+    func testVersionTenEnablesHistoryWithoutUpgradingAnEpoch() {
+        let current = BridgeSession(), previous = BridgeSession()
+        let epoch = current.negotiate(version: 10)!
+        XCTAssertTrue(current.accept(epoch: epoch, sequence: 1, minimumVersion: 10))
+        let old = previous.negotiate(version: 9)!
+        XCTAssertFalse(previous.accept(epoch: old, sequence: 1, minimumVersion: 10))
+        XCTAssertNil(previous.negotiate(version: 10))
     }
 
     func testVersionEightEnablesPrivacyWithoutUpgradingExistingEpochs() {

@@ -10,7 +10,7 @@ func openWorkspaceSidebarFromCommand() {
         ?? WorkspaceSidebarPanel.visiblePanels.first
         ?? WorkspaceSidebarPanel.shared
     if panel.inlineTextEditingActive ||
-        (panel.viewModel.isWorkspaceSidebarExpanded && !config.workspaceSidebar.alwaysExpanded)
+        (panel.viewModel.isWorkspaceSidebarExpanded && !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar))
     {
         closeWorkspaceSidebarFromCommand(panel)
         return
@@ -58,15 +58,16 @@ func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.pendingCollapse = nil
     panel.pendingCollapseFinalize?.cancel()
     panel.pendingCollapseFinalize = nil
-    if !config.workspaceSidebar.alwaysExpanded {
+    let staysExpanded = workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar)
+    if !staysExpanded {
         NotificationCenter.default.post(name: workspaceSidebarWillCollapseNotification, object: panel)
     }
     panel.commandExpansionLocksCollapse = false
     panel.shouldLockNextSidebarSearchExpansion = false
     panel.bufferedCommandSidebarSearchKeys = []
     removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
-    panel.animateVisibleSidebarWidth(workspaceSidebarRestingWidth(config.workspaceSidebar), animation: config.workspaceSidebar.alwaysExpanded ? workspaceSidebarExpansionAnimation : workspaceSidebarCollapseAnimation)
-    panel.viewModel.isWorkspaceSidebarExpanded = config.workspaceSidebar.alwaysExpanded
+    panel.animateVisibleSidebarWidth(workspaceSidebarRestingWidth(config.workspaceSidebar), animation: staysExpanded ? workspaceSidebarExpansionAnimation : workspaceSidebarCollapseAnimation)
+    panel.viewModel.isWorkspaceSidebarExpanded = staysExpanded
     panel.updateMousePassthrough()
 }
 

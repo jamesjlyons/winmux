@@ -1,6 +1,28 @@
 import Foundation
 
+public struct BrowserPinnedExtension: Codable, Equatable, Sendable, Identifiable {
+    public let id: String
+    public let title: String
+    public let iconPNGBase64: String?
+    public let isEnabled: Bool
+    public let canUnpin: Bool
+
+    public init(id: String, title: String, iconPNGBase64: String? = nil, isEnabled: Bool = true, canUnpin: Bool = true) {
+        self.id = id; self.title = title; self.iconPNGBase64 = iconPNGBase64
+        self.isEnabled = isEnabled; self.canUnpin = canUnpin
+    }
+    enum CodingKeys: String, CodingKey {
+        case id, title, iconPNGBase64 = "icon_png_base64", isEnabled = "enabled", canUnpin = "can_unpin"
+    }
+    public var isValid: Bool {
+        id.utf8.count == 32 && id.utf8.allSatisfy { (97...112).contains($0) } &&
+            title.utf8.count <= 4096 && (iconPNGBase64?.utf8.count ?? 0) <= 16384
+    }
+}
+
 public struct BrowserTabRecord: Codable, Equatable, Sendable {
+    public var pinnedExtensions: [BrowserPinnedExtension] = []
+    public var activeDownloads: Int = 0
     public let lifecycle: BrowserPageLifecycle
     public let keepActive: Bool
     public let blockingEnabled: Bool
@@ -51,6 +73,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case pinnedExtensions = "pinned_extensions", activeDownloads = "active_downloads"
         case lifecycle, keepActive = "keep_active", blockingEnabled = "blocking_enabled", privacy
         case blockedRequests = "blocked_requests"
         case surfaceID = "surface_id", hostID = "host_id", title, selected
@@ -91,6 +114,8 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
                   blockingEnabled: try values.decodeIfPresent(Bool.self, forKey: .blockingEnabled) ?? true,
                   blockedRequests: try values.decodeIfPresent(Int.self, forKey: .blockedRequests) ?? 0,
                   privacy: try values.decodeIfPresent(BrowserPrivacySettings.self, forKey: .privacy))
+        pinnedExtensions = try values.decodeIfPresent([BrowserPinnedExtension].self, forKey: .pinnedExtensions) ?? []
+        activeDownloads = try values.decodeIfPresent(Int.self, forKey: .activeDownloads) ?? 0
         isSharedProfile = try values.decodeIfPresent(Bool.self, forKey: .isSharedProfile)
     }
 }
@@ -123,6 +148,11 @@ public struct BrowserInventory: Sendable {
               message.full || message.revision == revision + 1,
               message.tabs.count <= 10_000, message.removed.count <= 10_000,
               !message.full || message.removed.isEmpty else { return false }
+        guard message.tabs.allSatisfy({ record in
+            record.pinnedExtensions.count <= 32 && record.pinnedExtensions.allSatisfy(\.isValid) &&
+                Set(record.pinnedExtensions.map(\.id)).count == record.pinnedExtensions.count &&
+                (0...100_000).contains(record.activeDownloads)
+        }) else { return false }
         let changed = message.tabs.map(\.surfaceID)
         guard Set(changed).count == changed.count,
               Set(message.removed).count == message.removed.count,

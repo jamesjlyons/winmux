@@ -6,6 +6,7 @@ struct WindowTabChromeTabItem: Equatable, Identifiable {
     let appName: String
     let appBundleIdentifier: String?
     let isActive: Bool
+    var isFocused = false
 }
 
 struct WindowTabChromeItem: Equatable, Identifiable {

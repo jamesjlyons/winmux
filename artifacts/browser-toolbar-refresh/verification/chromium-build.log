@@ -1,0 +1,96 @@
+{
+  "build_root": "/Users/james/Documents/Codex/winmux/.local/pins-privacy-engine",
+  "stage": "build",
+  "free_gib": 101.34,
+  "required_free_gib": 100,
+  "machine": "arm64",
+  "os": "27.0.1",
+  "chromium": {
+    "repository": "https://chromium.googlesource.com/chromium/src.git",
+    "channel": "Stable",
+    "platform": "Mac",
+    "version": "153.0.8010.53",
+    "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+  },
+  "blockers": [],
+  "filesystem": "apfs"
+}
+    Finished `release` profile [optimized] target(s) in 0.20s
+/Users/james/Documents/Codex/winmux/.local/browser/libwinmux_blocking.dylib: replacing existing signature
+Done. Made 32560 targets from 4960 files in 8088ms
+offline mode
+ninja: Entering directory `/Users/james/Documents/Codex/winmux/.local/pins-privacy-engine/chromium/src/out/WinMuxControl'
+
+
+disable fast local for non-interactive: fastlocal=1->0
+ use `--fast_local` to enable fast local with non-interactive mode
+schedule pending:1+ready:0 (node:77813 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+
+loading build.ninja... done 2.808158458s
+load siso config done 354.625875ms
+schedule pending:1+ready:0 (node:404878 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+schedule pending:1+ready:0 (node:404878 edge:5)
+build start: Ready 6510 Pending 71806
+[0/1022] 11.98s S CXX obj/chrome/browser/winmux/workspace_bridge/browser_inventory.o
+[0/2] 17.83s F CXX obj/chrome/browser/winmux/workspace_bridge/browser_inventory.o
+build finished
+
+	
+noexec:0 local:1 remote:0 cache:0 skip:78315
+  cache-write:0(err:0) fallback:0 retry:0
+fs: ops: 566(err:2) / r:290(err:0) 99.76MiB / w:0(err:0) 0B
+
+
+shutdown cloud logging/monitoring done 32.875µs
+
+18.55s Build Succeeded: 1 steps - 0.05/s
+offline mode
+ninja: Entering directory `/Users/james/Documents/Codex/winmux/.local/pins-privacy-engine/chromium/src/out/WinMuxControl'
+
+
+disable fast local for non-interactive: fastlocal=1->0
+ use `--fast_local` to enable fast local with non-interactive mode
+schedule pending:1+ready:0 (node:77813 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+
+loading build.ninja... done 4.021628834s
+load siso config done 22.007167ms
+schedule pending:1+ready:0 (node:404878 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+schedule pending:1+ready:0 (node:404878 edge:9)
+schedule pending:76320+ready:0 (node:404878 edge:76333)
+ 1.48s schedule pending:77760+ready:7004 (node:404878 edge:84764)
+
+build start: Ready 7004 Pending 77760
+[0/388] 15.98s S SOLINK 'obj/chrome/chrome_framework_shared_library/Chromium Framework' 'obj/chrome/chrome_framework_shared_library/Chromium Framework.TOC'
+[0/388] 34.16s F SOLINK 'obj/chrome/chrome_framework_shared_library/Chromium Framework' 'obj/chrome/chrome_framework_shared_library/Chromium Framework.TOC'	
+stderr:
+ld: warning: ignoring -lto_library '../../third_party/llvm-build/Release+Asserts/lib/libLTO.dylib', file does not exist
+
+
+[1/282] 34.17s S COPY_BUNDLE_DATA 'obj/chrome/chrome_framework_shared_library/Chromium Framework' 'Chromium Framework.framework/Versions/153.0.8010.53/Chromium Framework'
+[1/80] 34.88s F COPY_BUNDLE_DATA 'obj/chrome/chrome_framework_shared_library/Chromium Framework' 'Chromium Framework.framework/Versions/153.0.8010.53/Chromium Framework'
+[2/78] 34.88s S ACTION //chrome:verify_chrome_framework_order(//build/toolchain/mac:clang_arm64)
+[2/78] 39.85s F ACTION //chrome:verify_chrome_framework_order(//build/toolchain/mac:clang_arm64)
+[3/9] 39.86s S COPY_BUNDLE_DATA 'Chromium Framework.framework' 'Chromium.app/Contents/Frameworks/Chromium Framework.framework'
+[3/9] 40.05s F COPY_BUNDLE_DATA 'Chromium Framework.framework' 'Chromium.app/Contents/Frameworks/Chromium Framework.framework'
+[4/8] 40.05s S ACTION //chrome:verify_libraries_chrome_app(//build/toolchain/mac:clang_arm64)
+[4/8] 40.12s F ACTION //chrome:verify_libraries_chrome_app(//build/toolchain/mac:clang_arm64)
+build finished
+
+	
+noexec:2 local:3 remote:0 cache:0 skip:84759
+  cache-write:0(err:0) fallback:0 retry:0
+fs: ops: 3681(err:561) / r:290(err:0) 2.21GiB / w:2(err:0) 755.10MiB
+
+
+shutdown cloud logging/monitoring done 46.125µs
+
+41.01s Build Succeeded: 5 steps - 0.12/s

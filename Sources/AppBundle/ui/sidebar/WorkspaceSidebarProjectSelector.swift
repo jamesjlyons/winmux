@@ -23,6 +23,7 @@ struct WorkspaceSidebarProjectSelector: View {
     let onSetProjectColor: (WorkspaceSidebarProjectViewModel, String?) -> Void
     let onDeleteProject: (WorkspaceSidebarProjectViewModel) -> Void
     let onChooseProjectIcon: (WorkspaceSidebarProjectViewModel) -> Void
+    var isCompact = false
 
     private var activeProject: WorkspaceSidebarProjectViewModel? {
         projects.first { $0.id == activeProjectId }
@@ -76,25 +77,41 @@ struct WorkspaceSidebarProjectSelector: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 7) {
-                        if let activeProject {
-                            Image(nsImage: WorkspaceSidebarSymbolImages.menuImage(for: activeProject))
-                                .renderingMode(.original)
+                    if isCompact {
+                        Color.clear.frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
+                    } else {
+                        HStack(spacing: 7) {
+                            if let activeProject {
+                                Image(nsImage: WorkspaceSidebarSymbolImages.menuImage(for: activeProject))
+                                    .renderingMode(.original)
+                            }
+                            Text(activeProject?.id.isIncognito == true ? "Incognito · Temporary" : (activeProject?.displayName ?? "Space"))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
-                        Text(activeProject?.id.isIncognito == true ? "Incognito · Temporary" : (activeProject?.displayName ?? "Space"))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(isCompact ? .hidden : .visible)
+                .frame(maxWidth: .infinity)
+                .frame(height: workspaceSidebarDropdownHeight)
+                .overlay {
+                    if isCompact, let activeProject {
+                        // Native menu cells reserve leading space even without an arrow.
+                        // Draw the icon in the full control's coordinate space instead.
+                        WorkspaceSidebarProjectIcon(project: activeProject)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .accessibilityLabel("Space")
                 .accessibilityValue(activeProject?.displayName ?? "Space")
                 .help(activeProject?.id.isIncognito == true ? "Private browsing. This Space disappears when its last private tab closes." : "Switch space")
             }
         }
-        .padding(.horizontal, 7)
+        .padding(.horizontal, isCompact ? 0 : 7)
         .frame(width: sectionWidth, height: workspaceSidebarDropdownHeight)
+        .accessibilityIdentifier("winmux.sidebar.space-selector")
         .background(RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius).fill(Color.primary.opacity(isHovered ? 0.05 : 0)))
         .onHover { isHovered = $0 }
     }

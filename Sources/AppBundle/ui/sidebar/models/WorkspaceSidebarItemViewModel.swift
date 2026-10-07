@@ -36,9 +36,12 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
     let appBundleId: String?
     let appBundlePath: String?
     let iconPNGBase64: String?
+    var isSelected: Bool
+    var isLoading: Bool
 
     init(surfaceID: SurfaceID, title: String, appName: String, isFocused: Bool,
-         appBundleId: String? = nil, appBundlePath: String? = nil, iconPNGBase64: String? = nil) {
+         appBundleId: String? = nil, appBundlePath: String? = nil, iconPNGBase64: String? = nil,
+         isSelected: Bool = false, isLoading: Bool = false) {
         self.surfaceID = surfaceID
         self.title = title
         self.appName = appName
@@ -46,6 +49,8 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
         self.appBundleId = appBundleId
         self.appBundlePath = appBundlePath
         self.iconPNGBase64 = iconPNGBase64
+        self.isSelected = isSelected
+        self.isLoading = isLoading
     }
 
     var isBrowser: Bool {
@@ -75,14 +80,16 @@ extension WorkspaceSidebarItemViewModel {
         case .surfaceGroup(_, let children): children.flatMap(\.surfaceItems)
         case .browserTab(let tab):
             [.init(surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                   appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64)]
+                   appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64,
+                   isSelected: tab.isSelected, isLoading: tab.isLoading)]
         case .window(let window):
             [.init(surfaceID: window.surfaceID, title: window.title ?? window.appName, appName: window.appName,
                    isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)]
         case .tabGroup(let group):
             group.tabs.map { window in
                 .init(surfaceID: window.surfaceID, title: window.title ?? window.appName, appName: window.appName,
-                      isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)
+                      isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath,
+                      isSelected: window.windowId == group.representativeWindowId)
             }
         }
     }

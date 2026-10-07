@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "ui/base/base_window.h"
 #include "ui/gfx/native_ui_types.h"
 
@@ -276,6 +277,10 @@ bool IsBrowserHostZoomed(BrowserWindowInterface* browser) {
   // Only a workspace-owned zoom suspends tiling. Other conventional browser
   // windows can happen to match AppKit's standard frame without being adopted.
   return [objc_getAssociatedObject(NativeWindow(browser), &kOwnedZoom) boolValue];
+}
+
+void ShowBrowserDownloads(BrowserWindowInterface* browser) {
+  if (auto* downloads = DownloadToolbarUIController::From(browser)) downloads->InvokeUI();
 }
 
 bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed) {

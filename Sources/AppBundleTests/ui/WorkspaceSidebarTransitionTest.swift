@@ -108,6 +108,40 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
         }
     }
 
+    func testExpandedModeAutoHidesAfterPointerExitAndCanReopen() async {
+        await withSidebar { panel in
+            config.workspaceSidebar.alwaysExpanded = true
+            config.workspaceSidebar.autoHide = true
+            panel.handleHoverExit(collapsedWidth: workspaceSidebarRestingWidth(config.workspaceSidebar))
+            let start = ContinuousClock.now
+            while panel.viewModel.isWorkspaceSidebarExpanded, start.duration(to: .now) < .seconds(2) {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertFalse(panel.viewModel.isWorkspaceSidebarExpanded)
+            XCTAssertEqual(panel.viewModel.workspaceSidebarVisibleWidth, 0)
+            XCTAssertNil(panel.pendingCollapse)
+            XCTAssertNil(panel.pendingCollapseFinalize)
+
+            panel.expandSidebar(to: 280)
+            XCTAssertTrue(panel.viewModel.isWorkspaceSidebarExpanded)
+            XCTAssertEqual(panel.viewModel.workspaceSidebarVisibleWidth, 280)
+
+            closeWorkspaceSidebarFromCommand(panel)
+            XCTAssertFalse(panel.viewModel.isWorkspaceSidebarExpanded)
+            XCTAssertEqual(panel.viewModel.workspaceSidebarVisibleWidth, 0)
+        }
+    }
+
+    func testExpandedModeStaysOpenWhenAutoHideIsOff() async {
+        await withSidebar { panel in
+            config.workspaceSidebar.alwaysExpanded = true
+            panel.handleHoverExit(collapsedWidth: 280)
+            XCTAssertNil(panel.pendingCollapse)
+            XCTAssertTrue(panel.viewModel.isWorkspaceSidebarExpanded)
+            XCTAssertEqual(panel.viewModel.workspaceSidebarVisibleWidth, 280)
+        }
+    }
+
     func testMenuAndEditorLocksPreventHoverCollapse() async {
         await withSidebar { panel in
             panel.menuTrackingDepth = 1

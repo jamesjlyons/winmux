@@ -33,6 +33,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
     let name: String
     let projectId: WorkspaceProjectId
     let namingStyle: WorkspaceNamingStyle
+    let hasContainedItems: Bool
     let monitor: FrozenMonitor // todo drop this property, once monitor to workspace assignment migrates to TreeNode
     let rootTilingNode: FrozenContainer
     let floatingWindows: [FrozenWindow]
@@ -42,6 +43,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         case name
         case projectId
         case namingStyle
+        case hasContainedItems
         case monitor
         case rootTilingNode
         case floatingWindows
@@ -52,6 +54,7 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         name = workspace.name
         projectId = workspace.projectId
         namingStyle = workspace.namingStyle
+        hasContainedItems = workspace.hasContainedItems || workspaceHasLifecycleWindows(workspace)
         monitor = FrozenMonitor(workspace.workspaceMonitor)
         rootTilingNode = FrozenContainer(workspace.rootTilingContainer)
         floatingWindows = workspace.floatingWindows.map(FrozenWindow.init)
@@ -70,6 +73,8 @@ struct FrozenWorkspace: Codable, Equatable, Sendable {
         rootTilingNode = try container.decode(FrozenContainer.self, forKey: .rootTilingNode)
         floatingWindows = try container.decode([FrozenWindow].self, forKey: .floatingWindows)
         macosUnconventionalWindows = try container.decode([FrozenWindow].self, forKey: .macosUnconventionalWindows)
+        hasContainedItems = try container.decodeIfPresent(Bool.self, forKey: .hasContainedItems) ??
+            (!rootTilingNode.children.isEmpty || !floatingWindows.isEmpty || !macosUnconventionalWindows.isEmpty)
     }
 }
 
@@ -112,6 +117,7 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
         let workspace = Workspace.get(byName: frozenWorkspace.name)
         workspace.assignProject(frozenWorkspace.projectId)
         workspace.restoreNamingStyle(frozenWorkspace.namingStyle)
+        workspace.hasContainedItems = workspace.hasContainedItems || frozenWorkspace.hasContainedItems
         let frozenWindowById = collectFrozenWindows(frozenWorkspace)
         _ = topLeftCornerToMonitor[frozenWorkspace.monitor.topLeftCorner]?
             .singleOrNil()?

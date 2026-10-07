@@ -1,0 +1,261 @@
+warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible
+swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)
+Target: arm64-apple-macosx27.0.0
+Building for debugging...
+[Computing dependencies]
+[Constructing description]
+[Pre-planning 1 / 655]
+[Planning deferred tasks]
+[Starting]
+[19 / 97] MASShortcut_MASShortcut
+[19 / 99] TOMLKit
+[26 / 99] InternalCollectionsUtilities
+[31 / 110] InternalCollectionsUtilities
+[33 / 133]
+[35 / 145]
+[39 / 156] Antlr4
+[41 / 156] WorkspaceCore
+[45 / 148] InternalCollectionsUtilities
+[49 / 148] HotKey
+[56 / 140] TOMLKit
+[59 / 136] WorkspaceCore
+[60 / 136] WorkspaceCore
+[62 / 136] TOMLKit
+[63 / 136] TOMLKit
+[64 / 136] WorkspaceCore
+[69 / 132] TOMLKit
+[71 / 132] InternalCollectionsUtilities
+[72 / 132] InternalCollectionsUtilities
+[77 / 138] ISSoundAdditions
+[83 / 138] HotKey
+[84 / 138] InternalCollectionsUtilities
+[89 / 148] CTOML
+[92 / 148] CTOML
+[95 / 148] Antlr4
+[97 / 148] TOMLKit
+[99 / 148] Antlr4
+[100 / 148] Antlr4
+[102 / 148] Antlr4
+[104 / 148] HotKey
+[106 / 151] ShellParserGenerated
+[108 / 162] OrderedCollections
+[110 / 165] HeapModule
+[112 / 176] OrderedCollections
+[113 / 183] HeapModule
+[116 / 190] ShellParserGenerated
+[119 / 190] _RopeModule
+[120 / 201] DequeModule
+[121 / 212] BitCollections
+[122 / 212] Antlr4
+[125 / 212] _RopeModule
+[127 / 212] _RopeModule
+[129 / 212] BitCollections
+[131 / 208] BitCollections
+[134 / 208] WorkspaceCore
+[138 / 208] OrderedCollections
+[139 / 208] OrderedCollections
+[142 / 208] OrderedCollections
+[145 / 208] OrderedCollections
+[147 / 208] ShellParserGenerated
+[152 / 210] _RopeModule
+[161 / 209] HashTreeCollections
+[163 / 209] HeapModule
+[168 / 210] DequeModule
+[170 / 210] DequeModule
+[172 / 210] DequeModule
+[176 / 211] OrderedCollections
+[180 / 211] BitCollections
+[183 / 211] BitCollections
+[188 / 213] DequeModule
+[192 / 219] HashTreeCollections
+[195 / 215] InternalCollectionsUtilities
+[198 / 218] Collections
+[201 / 220] HashTreeCollections
+[205 / 222] BitCollections
+[206 / 220] Common
+[217 / 231] Common
+/Users/james/Documents/Codex/winmux/Sources/Common/util/commonUtil.swift:59:9: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+ 57 |     if !isUnitTest && !recursionDetectorDuringTermination {
+ 58 |         let semaphore = DispatchSemaphore(value: 0)
+ 59 |         Task {
+    |         |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |         `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+ 60 |             defer { semaphore.signal() }
+ 61 |             try await $recursionDetectorDuringTermination.withValue(true) {
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+[220 / 234] Common
+[222 / 234] AppBundle
+[223 / 257]
+[234 / 257] AppBundle
+[235 / 257] AppBundle
+[236 / 257] AppBundle
+[237 / 257] AppBundle
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/mouse/resize/resizeWithMouse.swift:7:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+  5 |     let notif = notif as String
+  6 |     let windowId = ax.containingWindowId()
+  7 |     Task { @MainActor in
+    |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+  8 |         if WindowMouseInteractionOpacityController.shared.shouldSuppressObserverEvent(windowId: windowId) {
+  9 |             return
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+[239 / 257] AppBundle
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/tabs/WindowTabStripEditActions.swift:4:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+ 2 | func removeWindowFromTabStrip(_ windowId: UInt32, fallbackWorkspace: String) {
+ 3 |     guard let token: RunSessionGuard = .isServerEnabled else { return }
+ 4 |     Task {
+   |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+   |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+ 5 |         try await runLightSession(.menuBarButton, token) {
+ 6 |             guard let window = Window.get(byId: windowId) else {
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/tabs/WindowTabStripEditActions.swift:19:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+17 | func reorderTabInStrip(_ windowId: UInt32, toIndex targetIndex: Int) {
+18 |     guard let token: RunSessionGuard = .isServerEnabled else { return }
+19 |     Task {
+   |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+   |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+20 |         try await runLightSession(.menuBarButton, token) {
+21 |             guard let window = Window.get(byId: windowId),
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+[240 / 257] AppBundle
+[241 / 257] AppBundle
+[242 / 257] AppBundle
+[243 / 257] AppBundle
+[244 / 257] AppBundle
+[246 / 257] AppBundle
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/focus.swift:265:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+263 |     guard let token: RunSessionGuard = .isServerEnabled else { return }
+264 |     // todo potential optimization: don't run runSession if we are already in runSession
+265 |     Task {
+    |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+266 |         try await runLightSession(.onFocusedMonitorChanged, token) {
+267 |             _ = try await config.onFocusedMonitorChanged.runCmdSeq(.defaultEnv.withFocus(focus), .emptyStdin)
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/focus.swift:279:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+277 |     guard let token: RunSessionGuard = .isServerEnabled else { return }
+278 |     // todo potential optimization: don't run runSession if we are already in runSession
+279 |     Task {
+    |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+280 |         try await runLightSession(.onFocusChanged, token) {
+281 |             _ = try await config.onFocusChanged.runCmdSeq(.defaultEnv.withFocus(focus), .emptyStdin)
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/initAppBundle.swift:6:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+  4 | 
+  5 | @MainActor public func initAppBundle() {
+  6 |     Task { try await initializeAppBundle() }
+    |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+  7 | }
+  8 | 
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+[250 / 255] winmux-marketing-renderer-product
+[251 / 257] AppBundle
+[253 / 257] winmux-marketing-renderer-product
+[254 / 257] AppBundle
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/core/DisplayRefreshDriver.swift:92:34: warning: main actor-isolated static property 'shared' can not be referenced from a Sendable closure
+ 25 | @MainActor
+ 26 | final class DisplayRefreshDriver: @unchecked Sendable {
+ 27 |     static let shared = DisplayRefreshDriver()
+    |                `- note: static property declared here
+ 28 | 
+ 29 |     private struct Subscription {
+    :
+ 90 |     private func startFallbackTimer() {
+ 91 |         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
+ 92 |             DisplayRefreshDriver.shared.enqueue(timestamp: CACurrentMediaTime())
+    |                                  `- warning: main actor-isolated static property 'shared' can not be referenced from a Sendable closure
+ 93 |         }
+ 94 |         fallbackTimer = timer
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/hud/SwitcherPalette.swift:111:9: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+109 |     private func select(_ windowId: UInt32) {
+110 |         dismiss()
+111 |         Task { @MainActor in
+    |         |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |         `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+112 |             guard let token: RunSessionGuard = .isServerEnabled else { return }
+113 |             try await runLightSession(.menuBarButton, token) {
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/hud/VolumeView.swift:28:37: warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+25 | 
+26 |     func startTimer() {
+27 |         timer = .scheduledTimer(withTimeInterval: 2 /* seconds */, repeats: false) { _ in
+   |                                                                                    |- note: 'self' implicitly strongly captured here
+   |                                                                                    `- note: add 'self' as a capture list item to silence
+28 |             Task { @MainActor [weak self] in
+   |                                     |- warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+   |                                     `- note: explicitly assign the capture list item to silence
+29 |                 self?.close()
+30 |             }
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/menubar/MenuBar.swift:21:13: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+ 19 |         Divider()
+ 20 |         Button(viewModel.isEnabled ? "Disable" : "Enable") {
+ 21 |             Task {
+    |             |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |             `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+ 22 |                 try await runLightSession(.menuBarButton, .forceRun) { () throws in
+ 23 |                     _ = try await EnableCommand(args: EnableCmdArgs(rawArgs: [], targetState: .toggle))
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/menubar/MenuBar.swift:78:13: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+ 76 |     if let token: RunSessionGuard = .isServerEnabled {
+ 77 |         let button = Button("Reload config") {
+ 78 |             Task {
+    |             |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |             `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+ 79 |                 try await runLightSession(.menuBarButton, token) { _ = try await reloadConfig() }
+ 80 |             }
+
+[#ImplicitStrongCapture]: <https://docs.swift.org/compiler/documentation/diagnostics/implicit-strong-capture>
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/config/HotkeyBinding.swift:112:5: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+110 | @MainActor private func triggerBinding(_ binding: String, _ commands: [any Command]) {
+111 |     if hotkeysSuspended { return }
+112 |     Task {
+    |     |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |     `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+113 |         if let activeMode {
+114 |             broadcastEvent(.bindingTriggered(
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/ui/settings/ShortcutSettingsGeneralView.swift:142:9: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+140 | 
+141 |     private func reloadConfigAction() {
+142 |         Task {
+    |         |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |         `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+143 |             if let token: RunSessionGuard = .isServerEnabled {
+144 |                 try await runLightSession(.menuBarButton, token) {
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/GlobalObserver.swift:31:9: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+ 29 |     private static func onHideApp(_ notification: Notification) {
+ 30 |         let notifName = notification.name.rawValue
+ 31 |         Task { @MainActor in
+    |         |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |         `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+ 32 |             guard let token: RunSessionGuard = .isServerEnabled else { return }
+ 33 |             try await runLightSession(.globalObserver(notifName), token) {
+
+/Users/james/Documents/Codex/winmux/Sources/AppBundle/GlobalObserver.swift:131:13: warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+129 |             //  resetManipulatedWithMouseIfPossible might call its own refreshSession
+130 |             //  The end of the callback calls refreshSession
+131 |             Task { @MainActor in
+    |             |- warning: unstructured throwing task created by 'init(name:priority:operation:)' is not used, which may accidentally ignore errors thrown inside the task [#NoUseUnstructuredThrowingTask]
+    |             `- note: to silence this warning, handle the error inside the task, or store/discard the task value explicitly
+132 |                 finishWorkspaceSidebarDragAfterGlobalMouseUp()
+133 |                 guard let token: RunSessionGuard = .isServerEnabled else { return }
+
+[#NoUseUnstructuredThrowingTask]: <https://docs.swift.org/compiler/documentation/diagnostics/no-use-throwing-unstructured-task>
+[255 / 257]
+[256 / 257] AppBundle
+[257 / 258] winmux-marketing-renderer-product
+[259 / 259] winmux-marketing-renderer-product
+Build complete! (46.34 sec)

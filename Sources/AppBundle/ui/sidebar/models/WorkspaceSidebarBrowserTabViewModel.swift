@@ -6,5 +6,7 @@ struct WorkspaceSidebarBrowserTabViewModel: Hashable, Identifiable {
     let title: String
     let isFocused: Bool
     var iconPNGBase64: String? = nil
+    var isSelected = false
+    var isLoading = false
     var id: SurfaceID { surfaceID }
 }

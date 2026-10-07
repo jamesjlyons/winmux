@@ -17,28 +17,39 @@ struct WorkspaceSidebarPinGrid: View {
     let availableWidth: CGFloat
     let showsDropWell: Bool
     let actions: WorkspaceSidebarActions
+    var expandedAvailableWidth: CGFloat? = nil
     @State private var hoveredPin: UUID?
 
-    private var tileSize: CGFloat { isCompact ? 32 : 44 }
-    private var columnCount: Int { isCompact ? 1 : max(1, Int((availableWidth + 8) / 52)) }
+    private let tileHeight: CGFloat = 40
+    private let tileSpacing: CGFloat = 6
+    private var tileWidth: CGFloat {
+        isCompact ? min(32, availableWidth) : max(32, (availableWidth - CGFloat(columnCount - 1) * tileSpacing) / CGFloat(columnCount))
+    }
+    private var columnCount: Int { isCompact ? 1 : columns(for: availableWidth) }
+    private func columns(for width: CGFloat) -> Int { max(1, Int((width + tileSpacing) / (52 + tileSpacing))) }
+    private var visibleRowCount: Int {
+        let columns = columns(for: expandedAvailableWidth ?? availableWidth)
+        return min(3, max(1, (workspace.pins.count + columns - 1) / columns))
+    }
     private var gridHeight: CGFloat {
-        let rows = max(1, (workspace.pins.count + columnCount - 1) / columnCount)
-        return CGFloat(min(rows, 3)) * (tileSize + 8) - 8
+        // Keep the tabs below the shelf anchored while its icons reflow.
+        CGFloat(visibleRowCount) * (tileHeight + tileSpacing) - tileSpacing
     }
 
     var body: some View {
         if !workspace.pins.isEmpty || showsDropWell {
-            ScrollView(.vertical, showsIndicators: workspace.pins.count > columnCount * 3) {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(tileSize), spacing: 8), count: columnCount),
-                          alignment: isCompact ? .center : .leading, spacing: 8) {
+            ScrollView(.vertical, showsIndicators: workspace.pins.count > columnCount * visibleRowCount) {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(tileWidth), spacing: tileSpacing), count: columnCount),
+                          alignment: isCompact ? .center : .leading, spacing: tileSpacing) {
                     ForEach(workspace.pins) { pin in pinTile(pin) }
                     if workspace.pins.isEmpty {
                         Image(systemName: "pin")
                             .font(.system(size: 18))
                             .foregroundStyle(.secondary)
-                            .frame(width: tileSize, height: tileSize)
+                            .frame(width: tileWidth, height: isCompact ? 32 : tileHeight)
                             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [3])))
                             .accessibilityLabel("Drop here to pin")
+                            .frame(height: tileHeight)
                     }
                 }
                 .padding(2)
@@ -54,7 +65,7 @@ struct WorkspaceSidebarPinGrid: View {
             }
             .workspaceSidebarDropViewport()
             .frame(height: gridHeight + 4)
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Pinned apps, tabs, and groups")
             .accessibilityIdentifier("winmux.sidebar.pins.\(workspace.projectId.rawValue)")
@@ -64,10 +75,16 @@ struct WorkspaceSidebarPinGrid: View {
     private func pinTile(_ pin: WorkspaceSidebarPinViewModel) -> some View {
         Button { actions.send(.selectPin(pin.id)) } label: {
             ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: isCompact ? 8 : 11)
-                    .fill(Color.primary.opacity(pin.isFocused ? 0.15 : hoveredPin == pin.id ? 0.11 : 0.055))
+                RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
+                    .fill(Color.primary.opacity(0.07))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.045), lineWidth: 0.5)
+                    }
+                ChromeSelectionBackground(state: .init(isSelected: pin.isSelected,
+                    isFocused: pin.isFocused, isHovered: hoveredPin == pin.id), cornerRadius: isCompact ? 8 : 10)
                 pinIcon(pin)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 18, height: 18)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(pin.isUnavailable ? 0.45 : 1)
                 if pin.isLoading {
@@ -77,10 +94,11 @@ struct WorkspaceSidebarPinGrid: View {
                         .frame(width: 3, height: 3).padding(.bottom, isCompact ? 2 : 4)
                 }
             }
-            .frame(width: tileSize, height: tileSize)
+            .frame(width: tileWidth, height: isCompact ? 32 : tileHeight)
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .frame(height: tileHeight)
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
         .accessibilityLabel("Pinned \(pin.isGroup ? "group" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")

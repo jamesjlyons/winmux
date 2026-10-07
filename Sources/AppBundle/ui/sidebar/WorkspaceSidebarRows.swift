@@ -2,11 +2,32 @@ import AppKit
 import Common
 import SwiftUI
 
+private struct WorkspaceSidebarExternalRowSelectionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct WorkspaceSidebarCompactRowsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var workspaceSidebarCompactRows: Bool {
+        get { self[WorkspaceSidebarCompactRowsKey.self] }
+        set { self[WorkspaceSidebarCompactRowsKey.self] = newValue }
+    }
+    var workspaceSidebarExternalRowSelection: Bool {
+        get { self[WorkspaceSidebarExternalRowSelectionKey.self] }
+        set { self[WorkspaceSidebarExternalRowSelectionKey.self] = newValue }
+    }
+}
+
 // MARK: - Window Row
 
 struct WorkspaceSidebarWindowRow: View {
     @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     @Environment(\.workspaceSidebarDensity) private var density
+    @Environment(\.workspaceSidebarExternalRowSelection) private var externalSelection
+    @Environment(\.workspaceSidebarCompactRows) private var isCompact
     enum Style {
         case window
         case tabGroupHeader
@@ -16,7 +37,6 @@ struct WorkspaceSidebarWindowRow: View {
     let title: String
     let badge: String?
     let isFocused: Bool
-    let suppressFocusedStyle: Bool
     let rowHeight: CGFloat
     let isHovered: Bool
     let style: Style
@@ -24,42 +44,55 @@ struct WorkspaceSidebarWindowRow: View {
     let appBundlePaths: [String?]
     var favicons: [String?] = []
     var fallbackSystemImage: String = "app"
+    var isSelected = false
+    var isKeyboardTarget = false
+    var isLoading = false
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
-    private var isActiveRow: Bool { isFocused && !suppressFocusedStyle }
-    private var rowShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: menuBarStyle ? 5 : workspaceSidebarRowCornerRadius, style: .continuous)
+    private var isActiveRow: Bool { !isTabGroupHeader && (isSelected || isFocused) }
+    private var chromeState: ChromeItemState {
+        .init(isSelected: isSelected, isFocused: isFocused, isHovered: isHovered,
+              isKeyboardTarget: isKeyboardTarget, isGroup: isTabGroupHeader)
     }
 
     var body: some View {
-        HStack(spacing: workspaceSidebarAppIconTextSpacing) {
-            appIconStack
-                .fixedSize()
-            Text(title)
-                .font(.system(size: menuBarStyle || isTabGroupHeader ? 13 : 12.5, weight: isActiveRow ? (menuBarStyle ? .medium : .semibold) : .regular))
-                .foregroundStyle(rowTextColor)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
-            if !density.isNarrow, let badge {
-                Text(badge)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(isTabGroupHeader ? Color.primary.opacity(0.50) : Color.primary.opacity(0.38))
+        HStack(spacing: isCompact ? 0 : workspaceSidebarAppIconTextSpacing) {
+            Group {
+                if isLoading {
+                    ProgressView().controlSize(.mini)
+                        .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
+                        .accessibilityLabel("Loading")
+                } else {
+                    appIconStack.fixedSize()
+                }
+            }
+            if !isCompact {
+                Text(title)
+                    .font(.system(size: 13, weight: isActiveRow ? .medium : .regular))
+                    .foregroundStyle(rowTextColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+                if !density.isNarrow, let badge {
+                    Text(badge)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(isTabGroupHeader ? Color.primary.opacity(0.50) : Color.primary.opacity(0.38))
+                }
             }
         }
-        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
+        .padding(.leading, isCompact ? 0 : workspaceSidebarRowLeadingPadding)
+        .padding(.trailing, isCompact ? 0 : workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
         .frame(height: rowHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .background {
-            rowShape
-                .fill(rowBackgroundFill)
-            if isHovered {
-                rowShape
-                    .fill(rowHoverOverlayFill)
+            if !externalSelection {
+                ChromeSelectionBackground(state: chromeState, cornerRadius: menuBarStyle ? 5 : 7)
             }
         }
+        .accessibilityAddTraits(isActiveRow ? .isSelected : [])
+        .accessibilityLabel(title)
         .contentShape(Rectangle())
     }
 
@@ -113,37 +146,13 @@ struct WorkspaceSidebarWindowRow: View {
             return Color.primary.opacity(isTabGroupHeader ? 0.96 : 1)
         }
         if isTabGroupChild {
-            return Color.primary.opacity(0.58)
+            return Color.primary.opacity(0.72)
         }
         return Color.primary.opacity(0.78)
     }
 
     private var rowIconOpacity: Double {
-        isTabGroupChild ? (menuBarStyle ? 0.8 : 0.56) : 1
+        isTabGroupChild && !isActiveRow ? 0.8 : 1
     }
 
-    private var rowBackgroundFill: Color {
-        if menuBarStyle { return Color.primary.opacity(isActiveRow ? 0.08 : 0) }
-        if isActiveRow {
-            if isTabGroupHeader {
-                return Color.primary.opacity(0.14)
-            }
-            if isTabGroupChild {
-                return Color.primary.opacity(0.055)
-            }
-            return Color.primary.opacity(0.085)
-        }
-        return Color.clear
-    }
-
-    private var rowHoverOverlayFill: Color {
-        if menuBarStyle { return Color.primary.opacity(0.08) }
-        if isTabGroupHeader {
-            return Color.primary.opacity(0.04)
-        }
-        if isTabGroupChild {
-            return Color.primary.opacity(0.03)
-        }
-        return Color.primary.opacity(0.045)
-    }
 }

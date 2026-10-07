@@ -330,10 +330,8 @@ private func closeWindowsForProjectDeletion(_ windows: [Window]) async -> [Windo
         if axWindowCount == appWindows.count, app.nsApp.terminate() {
             let didTerminate = await waitForAppTermination(app)
             if didTerminate {
-                for window in appWindows {
-                    window.garbageCollect(skipClosedWindowsCache: true)
-                    handledWindowIds.insert(window.windowId)
-                }
+                MacWindow.garbageCollect(appWindows, skipClosedWindowsCache: true)
+                handledWindowIds.formUnion(appWindows.map(\.windowId))
             }
         }
     }

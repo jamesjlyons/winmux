@@ -25,6 +25,9 @@ void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string
 void BeginBrowserInventoryEpoch(std::string epoch, bool include_private);
 void StopBrowserInventory();
 void RefreshBrowserInventory();
+// Read-only local history; the live surface determines the owning profile.
+void QueryBrowserHistory(const std::string& epoch, const std::string& surface,
+                         const std::string& query, base::OnceCallback<void(std::string)> completion);
 std::string PerformBrowserLayout(const std::string& epoch, const std::string& operation,
                                  uint64_t revision, uint64_t generation, const std::string& json);
 void ReleaseBrowserLayout();

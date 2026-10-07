@@ -1,0 +1,28 @@
+--- a/chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc
++++ b/chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc
+@@ -947,6 +947,12 @@
+     return;
+   }
+ 
++  // The native WinMux header is outside Chromium's hidden toolbar.
++  if (browser_view_->IsWinmuxManaged()) {
++    pending_bubble_ = true;
++    OnBubbleAnchorAssembled(views::BubbleAnchor(browser_view_));
++    return;
++  }
+   auto* container = GetPinnedToolbarActions(browser_view_);
+   if (!container) {
+     return;
+@@ -986,6 +992,12 @@
+       anchor.value(), views::BubbleBorder::TOP_RIGHT,
+       views::BubbleBorder::DIALOG_SHADOW,
+       /*autosize=*/true);
++  if (browser_view_->IsWinmuxManaged()) {
++    const auto bounds = browser_view_->GetBoundsInScreen();
++    bubble_delegate->SetAnchorView(nullptr);
++    bubble_delegate->SetAnchorWidget(browser_view_->GetWidget());
++    bubble_delegate->SetAnchorRect(gfx::Rect(bounds.right() - 64, bounds.y(), 1, 1));
++  }
+   bubble_delegate->SetOwnedByWidget(
+       views::WidgetDelegate::OwnedByWidgetPassKey());
+   bubble_delegate->SetTitle(

@@ -117,7 +117,10 @@ public final class BrowserWorkspaceController {
         unresolvedNativeItems = []
         unresolvedBrowserItems = []
         for (workspace, nodes) in surfaceTree.roots {
-            _ = Workspace.get(byName: workspace)
+            // Empty roots are bookkeeping left after moving/closing the last
+            // surface; they must not recreate a named, permanent empty view.
+            guard !nodes.flatMap(\.surfaces).isEmpty else { continue }
+            Workspace.get(byName: workspace).hasContainedItems = true
             for id in nodes.flatMap(\.surfaces) {
                 if case .browserTab = id {
                     placements[id] = workspace
@@ -135,7 +138,7 @@ public final class BrowserWorkspaceController {
             }
             placements[id] = "Recovered"
             closedBrowserTabs.remove(id)
-            _ = Workspace.get(byName: "Recovered")
+            Workspace.get(byName: "Recovered").hasContainedItems = true
         }
         for session in sessions.values where session.inventory.revision > 0 {
             reconcileRestoredBrowserPlacements(session.inventory)
@@ -191,7 +194,7 @@ public final class BrowserWorkspaceController {
 
     func cancelPendingBrowserFocusHold() { browserFocusDeadline = nil }
 
-    public func connected(_ connection: UUID, processID: Int32, sendLayout: BrowserSurfaceSession.LayoutTransport? = nil, sendNewTab: BrowserSurfaceSession.NewTabTransport? = nil, send: @escaping BrowserSurfaceSession.Transport) {
+    public func connected(_ connection: UUID, processID: Int32, sendLayout: BrowserSurfaceSession.LayoutTransport? = nil, sendNewTab: BrowserSurfaceSession.NewTabTransport? = nil, sendHistory: BrowserSurfaceSession.HistoryTransport? = nil, send: @escaping BrowserSurfaceSession.Transport) {
         let processLaunch = NSRunningApplication(processIdentifier: processID)?.launchDate
         for (id, oldConnection) in unresolvedSidebarPinOwners {
             guard let binding = processBindings[oldConnection] else {
@@ -211,7 +214,7 @@ public final class BrowserWorkspaceController {
             binding.pid != processID && NSRunningApplication(processIdentifier: binding.pid)?.isTerminated == false
         }
         processBindings[connection] = (processID, NSRunningApplication(processIdentifier: processID)?.launchDate)
-        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, sendLayout: sendLayout, sendNewTab: sendNewTab,
+        sessions[connection] = BrowserSurfaceSession(focusCoordinator: focusCoordinator, sendLayout: sendLayout, sendNewTab: sendNewTab, sendHistory: sendHistory,
             canRetryFocus: {
                 BrowserToolbarController.shared.focusedControlSurfaceID == nil &&
                     !BrowserWindowDragController.shared.isDragging
@@ -224,11 +227,15 @@ public final class BrowserWorkspaceController {
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
         session.supportsBrowserControls = protocolVersion >= 4
+        session.supportsToolbarActions = protocolVersion >= 9
+        session.supportsHistory = protocolVersion >= 10
         session.supportsPrivacy = protocolVersion >= 8
         session.supportsTabCreation = protocolVersion >= 5
         session.supportsWorkspaceProfiles = protocolVersion >= 7
         let isInitialInventory = session.inventory.revision == 0
         let oldIDs = Set(session.inventory.tabs.keys)
+        let closureFocus = captureClosureFocus()
+        let closingWorkspace = closureFocus.selected.flatMap { workspaceName(for: $0) }.flatMap(Workspace.existing(byName:))
         guard session.reconcile(message, epoch: epoch) else { return }
         unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
         let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection)
@@ -238,7 +245,8 @@ public final class BrowserWorkspaceController {
             // Stale layout/focus replies must not reactivate that page.
             nativeSelectionChanged(nil)
         }
-        for id in oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs) where owner(of: id) == nil {
+        let removedIDs = oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs).filter { owner(of: $0) == nil }
+        for id in removedIDs {
             if privateSurfaces.contains(id) { retirePrivateSurface(id); continue }
             browserPinDidClose(id)
             closedBrowserTabs.insert(id)
@@ -267,7 +275,9 @@ public final class BrowserWorkspaceController {
                 Workspace.existing(byName: destination)?.hasContainedItems = true
             }
         }
-        if usesSurfaceTree && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+        let closedSelection = closureFocus.selected.map(removedIDs.contains) == true
+        restoreFocusAfterClosing(removedIDs, snapshot: closureFocus, workspace: closingWorkspace)
+        if usesSurfaceTree && !closedSelection && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
            !isProfileMoveArrival(focused.surfaceID, session: session),
@@ -472,16 +482,19 @@ public final class BrowserWorkspaceController {
     }
 
     func rows(in workspace: String) -> [WorkspaceSidebarItemViewModel] {
-        sessions.values.flatMap { $0.inventory.tabs.values }
+        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
+        return sessions.values.flatMap { $0.inventory.tabs.values }
             .filter { placements[$0.surfaceID] == workspace && owner(of: $0.surfaceID) != nil }
             .sorted { $0.surfaceID.description < $1.surfaceID.description }
             .map { record in .init(kind: .browserTab(.init(
                 surfaceID: record.surfaceID, workspaceName: workspace,
                 title: record.title.isEmpty ? "New tab" : record.title,
-                isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64))) }
+                isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64,
+                isSelected: selected.contains(record.surfaceID), isLoading: record.isLoading))) }
     }
 
     func sidebarProjection() -> BrowserSidebarProjection {
+        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         var result = BrowserSidebarProjection()
         var ownerCounts: [SurfaceID: Int] = [:]
         for session in sessions.values {
@@ -498,7 +511,8 @@ public final class BrowserWorkspaceController {
                 result.rowsByWorkspace[workspace, default: []].append(.init(kind: .browserTab(.init(
                     surfaceID: record.surfaceID, workspaceName: workspace,
                     title: record.title.isEmpty ? "New tab" : record.title,
-                    isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64))))
+                    isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64,
+                    isSelected: selected.contains(record.surfaceID), isLoading: record.isLoading))))
                 result.appPaths[record.surfaceID] = appPath
             }
         }
@@ -637,7 +651,8 @@ public final class BrowserWorkspaceController {
                     : browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
                 available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
                     title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path, iconPNGBase64: tab.iconPNGBase64)))
+                    appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path, iconPNGBase64: tab.iconPNGBase64,
+                    isSelected: tab.isSelected, isLoading: tab.isLoading)))
             case .tabGroup(let group):
                 nativeGroups.append(group.tabs.map(\.surfaceID))
                 group.tabs.forEach { collect(.init(kind: .window($0))) }
@@ -665,11 +680,15 @@ public final class BrowserWorkspaceController {
             }
             if let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID { surfaceTree.select(selected) }
         }
+        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         func project(_ node: SurfaceTreeNode) -> [WorkspaceSidebarItemViewModel] {
             switch node {
             case .surface(let id):
                 if pinnedIDs.contains(id) { return [] }
-                if let row = available[id] { return [row] }
+                if let row = available[id], case .surface(var surface) = row.kind {
+                    surface.isSelected = selected.contains(id)
+                    return [.init(kind: .surface(surface))]
+                }
                 return []
             case .group(let id, let children):
                 let visible = children.flatMap(project)

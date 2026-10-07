@@ -19,6 +19,7 @@ bool IsBrowserHostSuspended(BrowserWindowInterface* browser);
 void MinimizeBrowserHost(BrowserWindowInterface* browser);
 void RestoreMinimizedBrowserHost(BrowserWindowInterface* browser);
 void ToggleBrowserHostFullscreen(BrowserWindowInterface* browser);
+void ShowBrowserDownloads(BrowserWindowInterface* browser);
 void ZoomBrowserHost(BrowserWindowInterface* browser);
 class BrowserHostWindowObserver {
  public:

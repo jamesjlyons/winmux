@@ -159,12 +159,15 @@ extension BrowserWorkspaceController {
 
     func pinnedBrowserRows(in workspace: String) -> [WorkspaceSidebarItemViewModel] {
         syncSidebarPins()
+        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         return browserSidebarPins.filter { $0.workspaceName == workspace }.map { pin in
             let record = pin.surfaceID.flatMap { owner(of: $0)?.inventory.tabs[$0] }
             return .init(kind: .pinnedBrowserTab(.init(pin: pin,
                 title: record.flatMap { $0.title.isEmpty ? nil : $0.title } ?? pin.title,
                 isFocused: pin.surfaceID.map { focusCoordinator.target == $0 && record != nil } ?? false,
-                isOpen: record != nil)))
+                isOpen: record != nil,
+                isSelected: record.map { selected.contains($0.surfaceID) } ?? false,
+                isLoading: record?.isLoading ?? false, iconPNGBase64: record?.iconPNGBase64)))
         }
     }
 }

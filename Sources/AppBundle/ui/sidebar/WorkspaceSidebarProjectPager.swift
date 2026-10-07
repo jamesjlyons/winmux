@@ -42,9 +42,7 @@ struct WorkspaceSidebarProjectPager: View {
         return max(sectionWidth, 24)
     }
     var compactProjectControlsHeight: CGFloat {
-        let contentHeight = CGFloat(projects.count) * workspaceSidebarProjectDotFrameHeight
-        let maxVisibleHeight = workspaceSidebarProjectDotFrameHeight * 5
-        return min(max(contentHeight, workspaceSidebarPagerHeight), maxVisibleHeight)
+        workspaceSidebarPagerHeight
     }
 
     var body: some View {
