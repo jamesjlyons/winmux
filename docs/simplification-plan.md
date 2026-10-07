@@ -256,3 +256,10 @@ light and dark appearances. Expanded, narrow, and compact samples were visually
 inspected. These fixture images validate layout, not live keyboard, accessibility,
 or window-management behavior. The remaining shared-layout adoption, integrated
 Chromium toolbar, obsolete-path retirement, and unlocked qualification are open.
+
+The arrival-policy slice was committed and pushed as `44245a87`. A follow-up
+regression reproduced New View reusing a blank already visible on another
+monitor. Empty-View allocation now applies the existing monitor-availability
+check before reuse. The regression failed before the fix; the complete app
+Debug and Release suites then passed 1,084 tests each with the same console
+exclusions. Native and Python sources were unchanged by this follow-up.

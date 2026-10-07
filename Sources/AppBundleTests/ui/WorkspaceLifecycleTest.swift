@@ -6,6 +6,29 @@ import XCTest
 final class WorkspaceLifecycleTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests(); focus.workspace.markAsTransientBlank() }
 
+    func testNewViewDoesNotConsumeBlankVisibleOnAnotherMonitor() {
+        let main = WorkspaceNamingTestMonitor(monitorAppKitNsScreenScreensId: 1, name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080), isMain: true)
+        let secondary = WorkspaceNamingTestMonitor(monitorAppKitNsScreenScreensId: 2, name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080), isMain: false)
+        setMonitorsForTests([main, secondary])
+        let source = focus.workspace
+        XCTAssertTrue(main.setActiveWorkspace(source))
+        XCTAssertEqual(retainedEmptyWorkspaceId(in: .init(projectId: source.projectId)), source.id)
+
+        let created = createEmptyView(projectId: source.projectId, monitor: secondary)
+
+        XCTAssertFalse(created === source)
+        XCTAssertFalse(source.retainsEmptyView)
+        XCTAssertTrue(created.retainsEmptyView)
+        XCTAssertTrue(main.activeWorkspace === source)
+        XCTAssertEqual(created.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
+        XCTAssertTrue(secondary.setActiveWorkspace(created))
+        XCTAssertTrue(main.activeWorkspace === source)
+    }
+
     func testReconcilePrunesUnfocusedEmptyWorkspacesWhenProjectHasOccupiedWorkspace() {
         let occupied = Workspace.get(byName: "1")
         occupied.markAsAutomaticallyNamed()

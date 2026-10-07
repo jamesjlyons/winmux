@@ -54,7 +54,7 @@ func getOrCreateAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: M
     let scope = WorkspaceScope(projectId: projectId)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
        let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
-       isValidAssignment(workspace: workspace, screen: monitor.rect.topLeftCorner)
+       workspaceIsAvailableForMonitor(workspace, monitor: monitor)
     {
         return workspace
     }
