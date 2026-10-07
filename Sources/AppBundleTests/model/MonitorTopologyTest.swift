@@ -80,15 +80,12 @@ final class MonitorTopologyTest: XCTestCase {
         )
         setMonitorsForTests([main])
         config.workspaceSidebar.enabled = true
-        config.workspaceSidebar.autoHide = true
+        config.workspaceSidebar.visibility = .autoHide
         config.workspaceSidebar.collapsedWidth = 54
         config.gaps = .zero
 
-        for alwaysExpanded in [false, true] {
-            config.workspaceSidebar.alwaysExpanded = alwaysExpanded
-            XCTAssertEqual(main.workspaceSidebarInset, 0)
-            XCTAssertEqual(main.visibleRectPaddedByOuterGaps, main.visibleRect)
-        }
+        XCTAssertEqual(main.workspaceSidebarInset, 0)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps, main.visibleRect)
     }
 
     func testAlwaysExpandedWorkspaceSidebarReservesExpandedWidthWithGaps() {
@@ -108,8 +105,8 @@ final class MonitorTopologyTest: XCTestCase {
         )
         setMonitorsForTests([main, secondary])
         config.workspaceSidebar.enabled = true
-        config.workspaceSidebar.autoHide = false
-        config.workspaceSidebar.alwaysExpanded = true
+        config.workspaceSidebar.visibility = .compact
+        config.workspaceSidebar.visibility = .expanded
         config.workspaceSidebar.width = 240
         config.workspaceSidebar.monitor = [.sequenceNumber(2)]
         config.gaps = Gaps(

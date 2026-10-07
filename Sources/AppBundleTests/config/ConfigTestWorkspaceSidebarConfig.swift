@@ -4,6 +4,51 @@ import Common
 import XCTest
 
 extension ConfigTest {
+    func testSidebarVisibilityMigrationHasDeterministicPrecedence() {
+        for hidden in [false, true] {
+            for expanded in [false, true] {
+                let legacy = "auto-hide = \(hidden)\nalways-expanded = \(expanded)"
+                let expected: WorkspaceSidebarVisibility = hidden ? .autoHide : expanded ? .expanded : .compact
+                let (parsed, errors) = parseConfig("[workspace-sidebar]\n" + legacy)
+                XCTAssertTrue(errors.isEmpty)
+                XCTAssertEqual(parsed.workspaceSidebar.visibility, expected)
+                for visibility in WorkspaceSidebarVisibility.allCases {
+                    for modernFirst in [false, true] {
+                        let modern = "visibility = '\(visibility.rawValue)'"
+                        let fields = modernFirst ? modern + "\n" + legacy : legacy + "\n" + modern
+                        let (overridden, errors) = parseConfig("[workspace-sidebar]\n" + fields)
+                        XCTAssertTrue(errors.isEmpty)
+                        XCTAssertEqual(overridden.workspaceSidebar.visibility, visibility)
+                    }
+                }
+            }
+        }
+        XCTAssertFalse(parseConfig("[workspace-sidebar]\nvisibility = 'sometimes'").errors.isEmpty)
+        XCTAssertFalse(parseConfig("[workspace-sidebar]\nvisibility = true").errors.isEmpty)
+        XCTAssertFalse(parseConfig("[workspace-sidebar]\nvisibility = 'compact'\nauto-hide = 'yes'").errors.isEmpty)
+    }
+
+    func testSidebarVisibilityEditsPreserveLegacyValuesCommentsAndDottedForm() {
+        for original in [
+            "[workspace-sidebar]\nauto-hide = true # old preference\nalways-expanded = true\n",
+            "workspace-sidebar.visibility = 'compact' # keep this comment\nstart-at-login = true\n",
+            "[workspace-sidebar]\nvisibility = 'compact' # keep this comment\n",
+        ] {
+            for visibility in WorkspaceSidebarVisibility.allCases {
+                let menu = updateWorkspaceSidebarVisibilityConfig(in: original, visibility: visibility)
+                let settings = updateSettingsScalarConfig(in: original, section: "workspace-sidebar", key: "visibility",
+                    renderedValue: "'\(visibility.rawValue)'")
+                XCTAssertEqual(menu, settings)
+                let (parsed, errors) = parseConfig(menu)
+                XCTAssertTrue(errors.isEmpty, errors.description)
+                XCTAssertEqual(parsed.workspaceSidebar.visibility, visibility)
+                if original.contains("# keep this comment") { XCTAssertTrue(menu.contains("# keep this comment")) }
+                if original.contains("# old preference") { XCTAssertTrue(menu.contains("auto-hide = true # old preference")) }
+                XCTAssertEqual(updateWorkspaceSidebarVisibilityConfig(in: menu, visibility: visibility), menu)
+            }
+        }
+    }
+
     func testParseWorkspaceSidebar() {
         let (parsed, errors) = parseConfig(
             """
@@ -41,8 +86,7 @@ extension ConfigTest {
             WorkspaceSidebarConfig(
                 enabled: true,
                 enableFocus: true,
-                autoHide: true,
-                alwaysExpanded: true,
+                visibility: .autoHide,
                 swipeToCreateProjects: true,
                 collapsedWidth: 44,
                 width: 280,
@@ -68,7 +112,7 @@ extension ConfigTest {
             """,
         )
         assertEquals(backwardCompatibleErrors, [])
-        XCTAssertFalse(backwardCompatible.workspaceSidebar.alwaysExpanded)
+        XCTAssertEqual(backwardCompatible.workspaceSidebar.visibility, .compact)
         XCTAssertFalse(backwardCompatible.workspaceSidebar.swipeToCreateProjects)
 
         let (solidChrome, solidChromeErrors) = parseConfig(
@@ -118,7 +162,7 @@ extension ConfigTest {
             """,
         )
         assertEquals(alwaysExpandedWidthErrors.descriptions, [
-            "workspace-sidebar.width: Must be greater than collapsed-width when always-expanded is true",
+            "workspace-sidebar.width: Must be greater than collapsed-width when visibility is 'expanded'",
         ])
 
         let (_, widthErrors) = parseConfig(

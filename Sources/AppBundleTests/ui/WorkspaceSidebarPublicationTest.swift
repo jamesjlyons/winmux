@@ -40,7 +40,7 @@ final class WorkspaceSidebarPublicationTest: XCTestCase {
             panel.resetHiddenSidebarState()
         }
         config.workspaceSidebar.enabled = true
-        config.workspaceSidebar.alwaysExpanded = true
+        config.workspaceSidebar.visibility = .expanded
         TrayMenuModel.shared.isEnabled = true
         panel.refresh(on: mainMonitor)
         XCTAssertTrue(panel.viewModel.isWorkspaceSidebarExpanded)

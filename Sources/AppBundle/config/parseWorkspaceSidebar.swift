@@ -4,8 +4,9 @@ import TOMLKit
 private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebarConfig>] = [
     "enabled": Parser(\.enabled, parseBool),
     "enable-focus": Parser(\.enableFocus, parseBool),
-    "auto-hide": Parser(\.autoHide, parseBool),
-    "always-expanded": Parser(\.alwaysExpanded, parseBool),
+    "visibility": Parser(\.visibility, parseWorkspaceSidebarVisibility),
+    "auto-hide": Parser(\.visibility) { raw, trace in parseBool(raw, trace).map { $0 ? .autoHide : .compact } },
+    "always-expanded": Parser(\.visibility) { raw, trace in parseBool(raw, trace).map { $0 ? .expanded : .compact } },
     "swipe-to-create-projects": Parser(\.swipeToCreateProjects, parseBool),
     "collapsed-width": Parser(\.collapsedWidth, parseWorkspaceSidebarWidth),
     "width": Parser(\.width, parseWorkspaceSidebarWidth),
@@ -38,6 +39,14 @@ func parseWorkspaceSidebar(
     _ errors: inout [TomlParseError],
 ) -> WorkspaceSidebarConfig {
     var parsed = parseTable(raw, WorkspaceSidebarConfig(), workspaceSidebarParser, backtrace, &errors)
+    // Resolve legacy flags once, independently of TOML key order. An explicit
+    // visibility always wins; old auto-hide took precedence over expanded.
+    if let modern = raw.table?["visibility"]?.string.flatMap(WorkspaceSidebarVisibility.init(rawValue:)) {
+        parsed.visibility = modern
+    } else if case nil = raw.table?["visibility"] {
+        parsed.visibility = raw.table?["auto-hide"]?.bool == true ? .autoHide
+            : raw.table?["always-expanded"]?.bool == true ? .expanded : .compact
+    }
     // Preserve the legacy key only when the modern setting is absent. This makes the
     // Appearance setting authoritative for configs that contain both keys.
     if let modernRawValue = raw.table?["chrome-style"]?.string,
@@ -45,13 +54,20 @@ func parseWorkspaceSidebar(
     {
         parsed.chromeStyle = modernStyle
     }
-    if parsed.alwaysExpanded, parsed.width <= parsed.collapsedWidth {
+    if parsed.visibility == .expanded, parsed.width <= parsed.collapsedWidth {
         errors += [.semantic(
             backtrace + .key("width"),
-            "Must be greater than collapsed-width when always-expanded is true",
+            "Must be greater than collapsed-width when visibility is 'expanded'",
         )]
     }
     return parsed
+}
+
+private func parseWorkspaceSidebarVisibility(_ raw: TOMLValueConvertible, _ trace: TomlBacktrace) -> ParsedToml<WorkspaceSidebarVisibility> {
+    parseString(raw, trace).flatMap {
+        WorkspaceSidebarVisibility(rawValue: $0).orFailure(.semantic(trace,
+            "Possible values: auto-hide, compact, expanded"))
+    }
 }
 
 private func parseChromeSolidCustomColor(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<String> {

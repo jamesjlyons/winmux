@@ -169,3 +169,17 @@ BridgeCore tests in both configurations, with the locked-console exclusions
 above. Stage 4 still includes directional
 move/split compatibility, native drag paths, remaining ownership adapters, and
 retirement of native layout authority after adoption. Stages 5–7 remain open.
+
+### Stage 5 sidebar visibility
+
+Sidebar visibility is now one enum and one setting in Appearance and the context
+menu: Auto-hide, Compact, or Expanded. Runtime configuration and presentation
+snapshots no longer store two overlapping flags. Legacy config keys remain
+accepted at the parser boundary. An explicit `visibility` takes precedence;
+otherwise legacy auto-hide wins over always-expanded, independent of key order.
+Settings edits preserve legacy lines, inline comments, and dotted TOML keys.
+
+All 160 targeted configuration, sidebar, monitor-layout, and native-management
+tests passed, followed by the full 1,069-test Debug suite with the existing
+locked-console exclusions. Optimized and unlocked desktop qualification remain
+open. Arrival policy migration and unified View terminology are still pending.

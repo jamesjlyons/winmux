@@ -5,12 +5,12 @@ private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
 private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
 
 @MainActor
-func setWorkspaceSidebarModeFromMenu(key: String, value: Bool) {
+func setWorkspaceSidebarVisibilityFromMenu(_ visibility: WorkspaceSidebarVisibility) {
     Task { @MainActor in
         do {
             let url = preferredWorkspaceSidebarConfigUrl()
             let current = try String(contentsOf: url, encoding: .utf8)
-            let updated = updateWorkspaceSidebarScalarConfig(in: current, key: key, renderedValue: value ? "true" : "false")
+            let updated = updateWorkspaceSidebarVisibilityConfig(in: current, visibility: visibility)
             let parsed = parseConfig(updated)
             guard parsed.errors.isEmpty else {
                 throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
@@ -27,19 +27,12 @@ func setWorkspaceSidebarModeFromMenu(key: String, value: Bool) {
     }
 }
 
+func updateWorkspaceSidebarVisibilityConfig(in text: String, visibility: WorkspaceSidebarVisibility) -> String {
+    updateWorkspaceSidebarScalarConfig(in: text, key: "visibility", renderedValue: "'\(visibility.rawValue)'")
+}
+
 func updateWorkspaceSidebarWidthConfig(in configText: String, width: Int) -> String {
-    // TOML also permits a root-level dotted assignment. Keep its shape and comments.
-    var lines = configText.components(separatedBy: "\n")
-    for index in lines.indices {
-        if lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("[") { break }
-        if workspaceSidebarConfigKey(in: lines[index]) == "workspace-sidebar.width" {
-            let indent = String(lines[index].prefix(while: { $0.isWhitespace }))
-            let comment = trailingTomlComment(in: lines[index]).map { " " + $0 } ?? ""
-            lines[index] = "\(indent)workspace-sidebar.width = \(width)\(comment)"
-            return lines.joined(separator: "\n")
-        }
-    }
-    return updateWorkspaceSidebarScalarConfig(in: configText, key: "width", renderedValue: "\(width)")
+    updateWorkspaceSidebarScalarConfig(in: configText, key: "width", renderedValue: "\(width)")
 }
 
 @MainActor
@@ -77,12 +70,22 @@ func updateWorkspaceSidebarProjectDeletionActionConfig(
     )
 }
 
-private func updateWorkspaceSidebarScalarConfig(
+func updateWorkspaceSidebarScalarConfig(
     in configText: String,
     key: String,
     renderedValue: String,
 ) -> String {
-    let lines = configText.components(separatedBy: "\n")
+    var lines = configText.components(separatedBy: "\n")
+    // TOML also permits a root-level dotted assignment. Keep its shape and comments.
+    for index in lines.indices {
+        if lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("[") { break }
+        if workspaceSidebarConfigKey(in: lines[index]) == "workspace-sidebar.\(key)" {
+            let indent = String(lines[index].prefix(while: { $0.isWhitespace }))
+            let comment = trailingTomlComment(in: lines[index]).map { " " + $0 } ?? ""
+            lines[index] = "\(indent)workspace-sidebar.\(key) = \(renderedValue)\(comment)"
+            return lines.joined(separator: "\n")
+        }
+    }
     guard let sectionIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == workspaceSidebarSectionHeader }) else {
         var result = configText
         if !result.isEmpty, !result.hasSuffix("\n") {

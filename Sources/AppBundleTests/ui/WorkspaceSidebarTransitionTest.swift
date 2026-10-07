@@ -110,8 +110,8 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
 
     func testExpandedModeAutoHidesAfterPointerExitAndCanReopen() async {
         await withSidebar { panel in
-            config.workspaceSidebar.alwaysExpanded = true
-            config.workspaceSidebar.autoHide = true
+            config.workspaceSidebar.visibility = .expanded
+            config.workspaceSidebar.visibility = .autoHide
             panel.handleHoverExit(collapsedWidth: workspaceSidebarRestingWidth(config.workspaceSidebar))
             let start = ContinuousClock.now
             while panel.viewModel.isWorkspaceSidebarExpanded, start.duration(to: .now) < .seconds(2) {
@@ -134,7 +134,7 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
 
     func testExpandedModeStaysOpenWhenAutoHideIsOff() async {
         await withSidebar { panel in
-            config.workspaceSidebar.alwaysExpanded = true
+            config.workspaceSidebar.visibility = .expanded
             panel.handleHoverExit(collapsedWidth: 280)
             XCTAssertNil(panel.pendingCollapse)
             XCTAssertTrue(panel.viewModel.isWorkspaceSidebarExpanded)
@@ -190,10 +190,10 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
             panel.setFrame(oldFrame, display: false)
             if wasVisible { panel.orderFront(nil) }
         }
-        config.workspaceSidebar.alwaysExpanded = false
+        config.workspaceSidebar.visibility = .compact
         config.workspaceSidebar.width = 280
         config.workspaceSidebar.collapsedWidth = 28
-        config.workspaceSidebar.autoHide = false
+        config.workspaceSidebar.visibility = .compact
         panel.cancelExpansionWork()
         panel.hasPendingHoverRecheck = true
         panel.viewModel.workspaceSidebarBrowseMode = .activeProject

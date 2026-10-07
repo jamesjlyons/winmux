@@ -184,14 +184,16 @@ The sidebar is a more interactively-performant and useful alternative to [Sketch
 
 You can drag windows in and out of the sidebar from and to the current group. You can rearrange windows across groups using the sidebar, including tab groups.
 
-By default the sidebar rests as a compact rail and expands when hovered. To hide the rail
-completely until the pointer reaches the left display edge, enable auto-hide. On macOS 26 and
+Choose **Auto-hide**, **Compact**, or **Expanded** in the sidebar context menu or
+**Settings → Appearance → Sidebar → Visibility**. Compact is the default and keeps a
+narrow rail that expands on hover. Auto-hide reveals the sidebar from the left display
+edge; Expanded keeps it open and reserves its full width. On macOS 26 and
 newer, native Liquid Glass is enabled by default. Choose an opaque solid color for greater
 contrast across the sidebar, tab groups, and switcher:
 
 ```toml
 [workspace-sidebar]
-    auto-hide = true
+    visibility = 'auto-hide'
     chrome-style = 'solid'
     solid-chrome-color = 'lavender' # Choose any color shown in Appearance, including custom.
 ```
@@ -208,14 +210,14 @@ To keep the full sidebar visible, reserve its expanded width when laying out til
 
 ```toml
 [workspace-sidebar]
-    always-expanded = true
+    visibility = 'expanded'
     width = 240
 ```
 
-`auto-hide` works with both compact and expanded modes. With both options enabled, the full
-sidebar appears at the left display edge and hides when the pointer leaves, without reserving
-space for it. With auto-hide off, `gaps.outer.left` remains the spacing between the sticky
-sidebar and tiled windows, and monitor selection controls which displays reserve sidebar space.
+Existing `auto-hide` and `always-expanded` keys are still accepted. Auto-hide takes
+precedence when both are true; an explicit `visibility` overrides both legacy keys.
+`gaps.outer.left` remains the spacing between a visible resting sidebar and tiled
+windows, and monitor selection controls which displays reserve sidebar space.
 
 The sidebar clock can be configured independently:
 

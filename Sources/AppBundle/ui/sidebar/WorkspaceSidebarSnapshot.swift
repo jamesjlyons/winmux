@@ -44,8 +44,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var chromeStyle: ChromeStyle
     var solidChromeColor: ChromeSolidColor
     var solidChromeCustomColor: String
-    var isCompactMode = true
-    var autoHide = false
+    var visibility: WorkspaceSidebarVisibility = .compact
     var swipeToCreateProjects = false
     var menuBarStyle = false
     var showsBrowserControls = false
@@ -123,8 +122,7 @@ enum WorkspaceSidebarAction: Equatable {
     case previewWindowDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case previewTabGroupDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case clearDropPreview
-    case setCompactMode(Bool)
-    case setAutoHide(Bool)
+    case setVisibility(WorkspaceSidebarVisibility)
 }
 
 struct WorkspaceSidebarActions {

@@ -115,5 +115,5 @@ private func applyWorkspaceSidebarPreviewWidth(_ width: Int) {
         if panel.persistentExpansionWidth != nil { panel.persistentExpansionWidth = CGFloat(width) }
     }
     WorkspaceSidebarPanel.refreshAll()
-    if config.workspaceSidebar.alwaysExpanded { scheduleRefreshSession(.configAutoReload) }
+    if config.workspaceSidebar.visibility == .expanded { scheduleRefreshSession(.configAutoReload) }
 }

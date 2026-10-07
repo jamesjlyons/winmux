@@ -174,10 +174,8 @@ func handleWorkspaceSidebarAction(
             previewWorkspaceSidebarDrop(windowId, subject: .group, target: target)
         case .clearDropPreview:
             clearWorkspaceSidebarDropPreview()
-        case .setCompactMode(let enabled):
-            setWorkspaceSidebarModeFromMenu(key: "always-expanded", value: !enabled)
-        case .setAutoHide(let enabled):
-            setWorkspaceSidebarModeFromMenu(key: "auto-hide", value: enabled)
+        case .setVisibility(let visibility):
+            setWorkspaceSidebarVisibilityFromMenu(visibility)
     }
 }
 

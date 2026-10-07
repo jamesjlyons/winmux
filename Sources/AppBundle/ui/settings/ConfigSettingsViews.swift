@@ -82,8 +82,7 @@ struct ShortcutAppearanceSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
     @State private var sidebarEnabled = config.workspaceSidebar.enabled
     @State private var sidebarFocusEnabled = config.workspaceSidebar.enableFocus
-    @State private var sidebarAutoHide = config.workspaceSidebar.autoHide
-    @State private var sidebarAlwaysExpanded = config.workspaceSidebar.alwaysExpanded
+    @State private var sidebarVisibility = config.workspaceSidebar.visibility
     @State private var swipeToCreateProjects = config.workspaceSidebar.swipeToCreateProjects
     @State private var showStatusPills = config.workspaceSidebar.showStatusPills
     @State private var showClock = config.workspaceSidebar.showClock
@@ -127,8 +126,11 @@ struct ShortcutAppearanceSettingsView: View {
                 SettingsToggle("Use menu bar style", isOn: $menuBarStyle, help: "Give the sidebar a flat, translucent macOS menu bar look that follows Light and Dark Mode. Overrides the sidebar's chrome style.") { sidebarBool("menu-bar-style", menuBarStyle) }
                 SettingsToggle("Show sidebar", isOn: $sidebarEnabled, help: "Show the sidebar on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
                 SettingsToggle("Focus sidebar monitor only", isOn: $sidebarFocusEnabled, help: "Show the sidebar only on the focused monitor when monitor scope allows it.") { sidebarBool("enable-focus", sidebarFocusEnabled) }
-                SettingsToggle("Auto-hide sidebar", isOn: $sidebarAutoHide, help: "Hide the sidebar until the pointer reaches the left edge. Works in compact and expanded modes.") { sidebarBool("auto-hide", sidebarAutoHide) }
-                SettingsToggle("Keep sidebar expanded", isOn: $sidebarAlwaysExpanded, help: "Use the full sidebar instead of the compact rail. Reserve its width for tiled windows when auto-hide is off.") { sidebarBool("always-expanded", sidebarAlwaysExpanded) }
+                SettingsPicker("Visibility", selection: $sidebarVisibility, help: "Auto-hide reveals the sidebar from the left edge. Compact keeps a narrow rail. Expanded keeps the full sidebar open.") {
+                    ForEach(WorkspaceSidebarVisibility.allCases, id: \.self) { visibility in
+                        Text(visibility.title).tag(visibility)
+                    }
+                } onChange: { persist("workspace-sidebar", "visibility", "'\(sidebarVisibility.rawValue)'") }
                 SettingsToggle("Swipe to create spaces", isOn: $swipeToCreateProjects, help: "Create a space by swiping past the first or last space. Swipes always switch between existing spaces.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
                 SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
                 SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
@@ -464,6 +466,9 @@ func persistSettingsConfig(section: String?, key: String, renderedValue: String,
 }
 
 func updateSettingsScalarConfig(in text: String, section: String?, key: String, renderedValue: String) -> String {
+    if section == "workspace-sidebar", key == "visibility" {
+        return updateWorkspaceSidebarScalarConfig(in: text, key: key, renderedValue: renderedValue)
+    }
     let header = section.map { "[\($0)]" }
     var lines = text.components(separatedBy: "\n")
     let start: Int

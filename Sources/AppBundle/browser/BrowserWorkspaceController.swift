@@ -1363,7 +1363,7 @@ public final class BrowserWorkspaceController {
         snapshot.visibleWidth = 280
         snapshot.configuration.expandedWidth = 280
         snapshot.configuration.collapsedWidth = 40
-        snapshot.configuration.isCompactMode = false
+        snapshot.configuration.visibility = .expanded
         snapshot.configuration.chromeStyle = .solid
         snapshot.configuration.showsBrowserControls = true
         snapshot.projects = [.init(id: workspaceProjectDefaultId, displayName: "WinMux Alpha", colorHex: nil)]

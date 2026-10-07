@@ -9,13 +9,14 @@ struct WorkspaceSidebarContextMenu: View {
             Button("New Tab") { actions.send(.newBrowserTab(workspaceName: nil)) }
             Divider()
         }
-        Toggle("Compact Mode", isOn: Binding(
-            get: { configuration.isCompactMode },
-            set: { actions.send(.setCompactMode($0)) },
-        ))
-        Toggle("Auto-hide", isOn: Binding(
-            get: { configuration.autoHide },
-            set: { actions.send(.setAutoHide($0)) },
-        ))
+        Picker("Sidebar visibility", selection: Binding(
+            get: { configuration.visibility },
+            set: { actions.send(.setVisibility($0)) }
+        )) {
+            ForEach(WorkspaceSidebarVisibility.allCases, id: \.self) { visibility in
+                Text(visibility.title).tag(visibility)
+            }
+        }
+        .pickerStyle(.inline)
     }
 }

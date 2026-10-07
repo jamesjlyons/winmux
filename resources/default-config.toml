@@ -45,10 +45,8 @@ on-mode-changed = []
 
 [workspace-sidebar]
     enabled = true
-    # Hide the sidebar in either mode until the pointer reaches the display's left edge.
-    auto-hide = false
-    # Use the full sidebar; reserve its width for tiled windows when auto-hide is off.
-    always-expanded = false
+    # 'auto-hide', 'compact', or 'expanded'. Expanded reserves the full width.
+    visibility = 'compact'
     # Allow sidebar swipes past the first or last project to create a new project.
     swipe-to-create-projects = false
     collapsed-width = 50

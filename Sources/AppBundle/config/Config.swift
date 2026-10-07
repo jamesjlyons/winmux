@@ -83,8 +83,7 @@ enum ShortcutsPreset: String, Equatable, Sendable {
 struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var enabled: Bool = false
     var enableFocus: Bool = false
-    var autoHide: Bool = false
-    var alwaysExpanded: Bool = false
+    var visibility: WorkspaceSidebarVisibility = .compact
     var swipeToCreateProjects: Bool = false
     var collapsedWidth: Int = 44
     var width: Int = 240
@@ -104,6 +103,20 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
     var projectIcons: [String: String] = [:]
+}
+
+enum WorkspaceSidebarVisibility: String, CaseIterable, Hashable, Sendable {
+    case autoHide = "auto-hide"
+    case compact
+    case expanded
+
+    var title: String {
+        switch self {
+        case .autoHide: "Auto-hide"
+        case .compact: "Compact"
+        case .expanded: "Expanded"
+        }
+    }
 }
 
 enum ChromeStyle: String, CaseIterable, Identifiable, Sendable {

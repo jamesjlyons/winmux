@@ -37,7 +37,7 @@ final class WorkspaceSidebarFullscreenTest: XCTestCase {
     }
 
     func testAlwaysExpandedSidebarKeepsConfiguredGapsWhileFullscreen() {
-        config.workspaceSidebar.alwaysExpanded = true
+        config.workspaceSidebar.visibility = .expanded
         config.workspaceSidebar.width = 280
         config.gaps = Gaps(inner: .zero, outer: Gaps.Outer(left: 8, bottom: 0, top: 0, right: 10))
         let window = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)

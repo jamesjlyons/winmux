@@ -9,10 +9,11 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   fit the remaining space. Padding interpolates with section width during expansion
   so controls stay inside the visible rail throughout the transition. Compact drag
   targets use a highlight instead of showing expanded preview rows in the narrow rail.
-- Right-click the sidebar background for Compact Mode and Auto-hide. Compact Mode
-  controls whether the sidebar collapses; Auto-hide is available while Compact Mode
-  is enabled and hides the resting rail. Both choices use the existing configuration
-  settings, persist across launches, and refresh open Appearance settings.
+- Right-click the sidebar background to choose Auto-hide, Compact, or Expanded.
+  The same Visibility choice appears in Appearance settings. It persists as
+  `visibility = 'auto-hide'`, `'compact'`, or `'expanded'` under `[workspace-sidebar]`.
+  Legacy `auto-hide` and `always-expanded` keys remain readable: auto-hide wins
+  when both are true, and an explicit `visibility` overrides both keys.
 - Window icons keep a fixed size. Narrow rows remove excess indentation, show one
   group icon, and omit secondary counts. Full titles remain in tooltips.
 - Click a group header to activate it. Drag its header (or its compact badge) to
@@ -27,7 +28,7 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   its accessibility description retains the configured information.
 - The trailing 8-point resize surface has a hover grip and horizontal resize
   cursor. Drag previews update the live config and panel model together; the
-  existing layout refresh updates reserved space when always-expanded is on.
+  existing layout refresh updates reserved space when visibility is Expanded.
   Width is clamped to 120–480, above collapsed width, and within the target display
   (Organize uses the same saved column width). Release writes once; Escape cancels; a double
   click resets to the configured default of 240.

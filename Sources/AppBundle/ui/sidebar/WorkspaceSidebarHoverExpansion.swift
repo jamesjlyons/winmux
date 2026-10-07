@@ -1,7 +1,7 @@
 import AppKit
 
 func workspaceSidebarKeepsExpandedAtRest(_ sidebarConfig: WorkspaceSidebarConfig) -> Bool {
-    sidebarConfig.alwaysExpanded && !sidebarConfig.autoHide
+    sidebarConfig.visibility == .expanded
 }
 
 func workspaceSidebarAllowsLeftEdgeTrap(_ sidebarConfig: WorkspaceSidebarConfig) -> Bool {
@@ -9,11 +9,11 @@ func workspaceSidebarAllowsLeftEdgeTrap(_ sidebarConfig: WorkspaceSidebarConfig)
 }
 
 func workspaceSidebarRestingWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CGFloat {
-    if sidebarConfig.autoHide { return 0 }
-    if sidebarConfig.alwaysExpanded {
-        return CGFloat(sidebarConfig.width)
+    switch sidebarConfig.visibility {
+    case .autoHide: 0
+    case .expanded: CGFloat(sidebarConfig.width)
+    case .compact: CGFloat(sidebarConfig.collapsedWidth)
     }
-    return CGFloat(sidebarConfig.collapsedWidth)
 }
 
 func workspaceSidebarHoverActivationWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CGFloat {
@@ -21,7 +21,7 @@ func workspaceSidebarHoverActivationWidth(_ sidebarConfig: WorkspaceSidebarConfi
 }
 
 func workspaceSidebarCollapsedContentWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CGFloat {
-    sidebarConfig.autoHide ? 0 : CGFloat(sidebarConfig.collapsedWidth)
+    sidebarConfig.visibility == .autoHide ? 0 : CGFloat(sidebarConfig.collapsedWidth)
 }
 
 func isWorkspaceSidebarHoverDeepEnoughToExpand(
