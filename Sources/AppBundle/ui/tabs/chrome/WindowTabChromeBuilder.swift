@@ -8,6 +8,8 @@ func buildWindowTabChromeItemsFromSource10Tree() async -> [WindowTabChromeItem] 
 
     var items: [WindowTabChromeItem] = []
     for workspace in Workspace.all where workspace.isVisible {
+        let owner = BrowserWorkspaceController.shared
+        guard !owner.usesSurfaceTree || !owner.hasMixedLayout(in: workspace) else { continue }
         for container in workspace.rootTilingContainer.allTabbedContainersRecursive {
             if let item = await makeWindowTabChromeItem(container: container, workspace: workspace) {
                 items.append(item)

@@ -9,7 +9,7 @@ final class WindowTabGroupVisualPanel: NSPanelHud {
     var currentPanelFrame: CGRect?
     var currentOrderingWindowId: UInt32?
 
-    init(id: ObjectIdentifier) {
+    init(id: WindowTabStripIdentity) {
         super.init()
         identifier = NSUserInterfaceItemIdentifier(windowTabVisualPanelPrefix + String(id.hashValue))
         hasShadow = false

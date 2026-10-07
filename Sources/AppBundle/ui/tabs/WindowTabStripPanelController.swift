@@ -1,4 +1,5 @@
 import AppKit
+import WorkspaceCore
 
 @MainActor
 final class WindowTabStripPanelController {
@@ -9,41 +10,51 @@ final class WindowTabStripPanelController {
         case hidden
     }
 
-    var visualPanels: [ObjectIdentifier: WindowTabGroupVisualPanel] = [:]
-    var stripPanels: [ObjectIdentifier: WindowTabStripPanel] = [:]
-    var transientResizeTabGroupId: ObjectIdentifier? = nil
+    var visualPanels: [WindowTabStripIdentity: WindowTabGroupVisualPanel] = [:]
+    var stripPanels: [WindowTabStripIdentity: WindowTabStripPanel] = [:]
+    var transientResizeTabGroupId: WindowTabStripIdentity? = nil
     var transientResizeTabGroupStrip: WindowTabStripViewModel? = nil
     var mouseInteractionChromeMode: MouseInteractionChromeMode? = nil
-    var hiddenPassiveTabGroupChromeIds: Set<ObjectIdentifier> = []
+    var hiddenPassiveTabGroupChromeIds: Set<WindowTabStripIdentity> = []
 
     private init() {}
 }
 
 extension WindowTabStripPanelController {
-    func visualPanel(for id: ObjectIdentifier) -> WindowTabGroupVisualPanel {
+    func visualPanel(for id: WindowTabStripIdentity) -> WindowTabGroupVisualPanel {
         let panel = visualPanels[id] ?? WindowTabGroupVisualPanel(id: id)
         visualPanels[id] = panel
         return panel
     }
 
-    func stripPanel(for id: ObjectIdentifier) -> WindowTabStripPanel {
+    func stripPanel(for id: WindowTabStripIdentity) -> WindowTabStripPanel {
         let panel = stripPanels[id] ?? WindowTabStripPanel(id: id)
         stripPanels[id] = panel
         return panel
     }
 
-    func orderOutPanels(id: ObjectIdentifier) {
+    func orderOutPanels(id: WindowTabStripIdentity) {
         orderOutIfVisible(visualPanels[id])
         orderOutIfVisible(stripPanels[id])
     }
 
-    func removeStalePanels(activeIds: Set<ObjectIdentifier>) {
+    func removeStalePanels(activeIds: Set<WindowTabStripIdentity>) {
         // A group on a hidden workspace is still alive. Keep its AppKit windows and
         // SwiftUI hosts warm so switching back only restores their ordering. Previously
         // every workspace switch destroyed both panels and rebuilt their view trees.
-        let liveIds = Set(Workspace.all.flatMap {
-            $0.rootTilingContainer.allTabbedContainersRecursive.map(ObjectIdentifier.init)
-        })
+        let owner = BrowserWorkspaceController.shared
+        let nativeIds = Workspace.all.filter { !owner.usesSurfaceTree || !owner.hasMixedLayout(in: $0) }.flatMap {
+            $0.rootTilingContainer.allTabbedContainersRecursive.map { WindowTabStripIdentity.native(ObjectIdentifier($0)) }
+        }
+        func sharedIDs(_ nodes: [SurfaceTreeNode]) -> [WindowTabStripIdentity] {
+            nodes.flatMap { node -> [WindowTabStripIdentity] in
+                guard case .group(let id, let children) = node else { return [] }
+                let own: [WindowTabStripIdentity] = (owner.surfaceTree.layouts[id] ?? .stack) == .stack ? [.shared(id)] : []
+                return own + sharedIDs(children)
+            }
+        }
+        let sharedIds = owner.usesSurfaceTree ? sharedIDs(owner.surfaceTree.roots.values.flatMap { $0 }) : []
+        let liveIds = Set(nativeIds + sharedIds)
         for staleId in visualPanels.keys where !activeIds.contains(staleId) {
             orderOutIfVisible(visualPanels[staleId])
             if !liveIds.contains(staleId) {
@@ -87,7 +98,7 @@ extension WindowTabStripPanelController {
         }
     }
 
-    func refreshInteractiveChrome(strips: [WindowTabStripViewModel], activeIds: Set<ObjectIdentifier>) {
+    func refreshInteractiveChrome(strips: [WindowTabStripViewModel], activeIds: Set<WindowTabStripIdentity>) {
         removeStalePanels(activeIds: activeIds)
         for strip in strips {
             guard !hiddenPassiveTabGroupChromeIds.contains(strip.id) else {
@@ -102,7 +113,7 @@ extension WindowTabStripPanelController {
     func refreshSuppressedChrome(
         mode: MouseInteractionChromeMode,
         strips: [WindowTabStripViewModel],
-        activeIds: Set<ObjectIdentifier>,
+        activeIds: Set<WindowTabStripIdentity>,
     ) {
         switch mode {
             case .frameOnly:
@@ -112,7 +123,7 @@ extension WindowTabStripPanelController {
         }
     }
 
-    func refreshFrameOnlyChrome(strips: [WindowTabStripViewModel], activeIds: Set<ObjectIdentifier>) {
+    func refreshFrameOnlyChrome(strips: [WindowTabStripViewModel], activeIds: Set<WindowTabStripIdentity>) {
         removeStalePanels(activeIds: activeIds)
         for strip in strips {
             guard !hiddenPassiveTabGroupChromeIds.contains(strip.id) else {
@@ -166,7 +177,7 @@ extension WindowTabStripPanelController {
               tabGroup.usesWindowTabBehavior,
               tabGroup.tabActiveWindow == window
         else { return nil }
-        let id = ObjectIdentifier(tabGroup)
+        let id = WindowTabStripIdentity.native(ObjectIdentifier(tabGroup))
         guard let baseStrip = TrayMenuModel.shared.windowTabStrips.first(where: { $0.id == id }) else { return nil }
         return resizingTabGroupStrip(baseStrip: baseStrip, activeWindowRect: activeWindowRect)
     }
@@ -183,6 +194,7 @@ extension WindowTabStripPanelController {
             activeWindowCornerRadius: baseStrip.activeWindowCornerRadius,
             tabs: baseStrip.tabs,
             occludingFloatingWindowFrames: baseStrip.occludingFloatingWindowFrames,
+            sharedStack: baseStrip.sharedStack,
         )
     }
 }
@@ -205,7 +217,7 @@ extension WindowTabStripPanelController {
         refresh()
     }
 
-    func refreshHiddenChrome(activeIds: Set<ObjectIdentifier>) {
+    func refreshHiddenChrome(activeIds: Set<WindowTabStripIdentity>) {
         for panel in visualPanels.values {
             orderOutIfVisible(panel)
         }
@@ -232,7 +244,8 @@ extension WindowTabStripPanelController {
         }
     }
 
-    func setHiddenPassiveTabGroupChrome(_ ids: Set<ObjectIdentifier>) {
+    func setHiddenPassiveTabGroupChrome(_ nativeIds: Set<ObjectIdentifier>) {
+        let ids = Set(nativeIds.map(WindowTabStripIdentity.native))
         guard hiddenPassiveTabGroupChromeIds != ids else { return }
         hiddenPassiveTabGroupChromeIds = ids
         refresh()
@@ -245,6 +258,7 @@ extension WindowTabStripPanelController {
     }
 
     func hideAll() {
+        SharedStackDragController.shared.cancel()
         transientResizeTabGroupId = nil
         transientResizeTabGroupStrip = nil
         mouseInteractionChromeMode = nil

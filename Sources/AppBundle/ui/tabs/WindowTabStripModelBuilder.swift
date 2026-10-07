@@ -11,7 +11,7 @@ func buildWindowTabStripViewModelsFromChromeItems() async -> [WindowTabStripView
             cache: &occlusionsByWorkspace,
         )
         strips.append(WindowTabStripViewModel(
-            id: item.id,
+            id: .native(item.id),
             workspaceName: item.workspaceName,
             frame: windowTabBarFrame(fromGroupFrame: groupFrame),
             groupFrame: groupFrame,
@@ -21,5 +21,6 @@ func buildWindowTabStripViewModelsFromChromeItems() async -> [WindowTabStripView
             occludingFloatingWindowFrames: occlusions,
         ))
     }
+    strips += await buildSharedStackChrome()
     return strips
 }

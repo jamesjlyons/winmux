@@ -5,6 +5,7 @@ struct WindowTabGroupChromeContent: Equatable {
     let activeWindowId: UInt32?
     let activeWindowCornerRadius: CGFloat
     let tabs: [WindowTabItemViewModel]
+    let sharedStack: SharedStackChrome?
     let occludingFloatingWindowFrames: [CGRect]
     let chromeStyle: ChromeStyle
     let solidChromeColor: ChromeSolidColor
@@ -15,6 +16,7 @@ struct WindowTabGroupChromeContent: Equatable {
         activeWindowId = strip.activeWindowId
         activeWindowCornerRadius = strip.activeWindowCornerRadius
         tabs = strip.tabs
+        sharedStack = strip.sharedStack
         occludingFloatingWindowFrames = strip.occludingFloatingWindowFrames
         chromeStyle = config.workspaceSidebar.chromeStyle
         solidChromeColor = config.workspaceSidebar.solidChromeColor

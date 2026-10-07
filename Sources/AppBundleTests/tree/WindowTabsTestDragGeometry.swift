@@ -92,7 +92,7 @@ import XCTest
     func testWindowTabStripViewModelTracksFloatingWindowOcclusionSeparatelyForStripAndFrame() {
         let owner = NSObject()
         let model = WindowTabStripViewModel(
-            id: ObjectIdentifier(owner),
+            id: .native(ObjectIdentifier(owner)),
             workspaceName: "tabs",
             frame: CGRect(x: 100, y: 280, width: 300, height: 28),
             groupFrame: CGRect(x: 100, y: 100, width: 300, height: 208),

@@ -30,6 +30,35 @@ public struct SurfacePlacement: Equatable, Sendable {
     public let navigationStack: [SurfaceID]
 }
 
+/// Space owned by an explicit stack, outside the selected pane's content.
+/// Temporary viewport overflow and single panes never acquire this chrome.
+public struct SurfaceStackChrome: Equatable, Sendable {
+    public let headerHeight: Int, sideInset: Int, bottomInset: Int
+    public init(headerHeight: Int = 0, sideInset: Int = 0, bottomInset: Int = 0) {
+        self.headerHeight = min(1000, max(0, headerHeight))
+        self.sideInset = min(1000, max(0, sideInset))
+        self.bottomInset = min(1000, max(0, bottomInset))
+    }
+}
+
+public struct SurfaceStackPlacement: Equatable, Sendable {
+    public let groupID: UUID
+    public let frame: SurfaceFrame
+    public let headerFrame: SurfaceFrame
+    public let panes: [SurfacePane]
+    public let selected: SurfacePane
+    public let visible: Bool
+}
+
+public struct SurfaceLayoutPlan: Equatable, Sendable {
+    public var surfaces: [SurfacePlacement] = []
+    public var stacks: [SurfaceStackPlacement] = []
+    /// Complete allocations, including any chrome owned by each pane. Resizing
+    /// uses these bounds rather than inferring a group from its inset leaves.
+    public var frames: [SurfacePane: SurfaceFrame] = [:]
+    public init() {}
+}
+
 public struct BrowserHostPlacement: Equatable, Codable, Sendable {
     public let containerID: UUID
     public let surfaces: [SurfaceID]
@@ -58,8 +87,22 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
 extension SurfaceTree {
     public func placements(in workspace: String, frame: SurfaceFrame, visible: Bool = true,
                            minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
-                           recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles) -> [SurfacePlacement] {
-        guard frame.isValid else { return [] }
+                           recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
+                           stackChrome: SurfaceStackChrome = .init()) -> [SurfacePlacement] {
+        layout(in: workspace, frame: frame, visible: visible, minimumSizes: minimumSizes, selectedSurface: selectedSurface,
+               recentSelections: recentSelections, rootPresentation: rootPresentation, stackChrome: stackChrome).surfaces
+    }
+
+    public func layout(in workspace: String, frame: SurfaceFrame, visible: Bool = true,
+                       minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
+                       recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
+                       stackChrome: SurfaceStackChrome = .init()) -> SurfaceLayoutPlan {
+        guard frame.isValid else { return .init() }
+        var result = SurfaceLayoutPlan()
+        func finish(_ surfaces: [SurfacePlacement]) -> SurfaceLayoutPlan {
+            result.surfaces = surfaces
+            return result
+        }
         func minimum(_ node: SurfaceTreeNode) -> SurfaceMinimumSize {
             switch node {
             case .surface(let id):
@@ -67,8 +110,11 @@ extension SurfaceTree {
             case .group(let id, let children):
                 let sizes = children.map(minimum)
                 let style = layouts[id] ?? .stack
-                return .init(width: style == .horizontal ? sizes.reduce(0) { $0 + $1.width } : sizes.map(\.width).max() ?? 1,
-                             height: style == .vertical ? sizes.reduce(0) { $0 + $1.height } : sizes.map(\.height).max() ?? 1)
+                let chrome = style == .stack && children.count > 1 && stackChrome.headerHeight > 0
+                return .init(width: (style == .horizontal ? sizes.reduce(0) { $0 + $1.width } : sizes.map(\.width).max() ?? 1)
+                                + (chrome ? 2 * stackChrome.sideInset : 0),
+                             height: (style == .vertical ? sizes.reduce(0) { $0 + $1.height } : sizes.map(\.height).max() ?? 1)
+                                + (chrome ? stackChrome.headerHeight + stackChrome.bottomInset : 0))
             }
         }
         // Weighted allocation with small panes pinned at their owner minimum. Keep
@@ -114,6 +160,17 @@ extension SurfaceTree {
             let active = (rootSelection ?? selectedSurface).flatMap { id in nodes.contains { $0.surfaces.contains(id) } ? id : nil }
                 ?? container.flatMap { activeSurfaces[$0] }
             let selected = nodes.firstIndex { active.map($0.surfaces.contains) ?? false } ?? 0
+            var frame = frame
+            if layout == .stack, let container, nodes.count > 1, stackChrome.headerHeight > 0, frame.height > 1 {
+                let header = min(stackChrome.headerHeight, frame.height - 1)
+                let side = min(stackChrome.sideInset, (frame.width - 1) / 2)
+                let bottom = min(stackChrome.bottomInset, frame.height - header - 1)
+                result.stacks.append(.init(groupID: container, frame: frame,
+                    headerFrame: .init(x: frame.x, y: frame.y, width: frame.width, height: header),
+                    panes: nodes.map(\.pane), selected: nodes[selected].pane, visible: visible))
+                frame.x += side; frame.y += header
+                frame.width -= 2 * side; frame.height -= header + bottom
+            }
             // New pages/groups inherit a typical sibling weight. Stored values
             // are physical allocations from a resize, so defaulting a new leaf
             // to 1 would collapse it to its minimum beside resized siblings.
@@ -129,6 +186,7 @@ extension SurfaceTree {
                     rect.y += offset; rect.height = spans[index]; offset += spans[index]
                 }
                 let shown = visible && (effective != .stack || selected == index)
+                result.frames[node.pane] = rect
                 switch node {
                 case .surface(let id):
                     let leaf: UUID
@@ -147,27 +205,27 @@ extension SurfaceTree {
                 ?? recentSelections.lazy.compactMap { id in nodes.firstIndex { $0.surfaces.contains(id) } }.first ?? 0
             // Keep hidden placements in the plan so owners receive explicit hide
             // requests. A view switch is not a synthetic stack or saved edit.
-            return nodes.enumerated().flatMap { index, node in
+            return finish(nodes.enumerated().flatMap { index, node in
                 walk([node], frame: frame, visible: visible && index == selected,
                      layout: .horizontal, container: nil, inheritedStack: [])
-            }
+            })
         }
         let sizes = nodes.map(minimum)
         // Retain normal horizontal splits and their saved resize weights. Root
         // overflow is different from an explicit user split: try both axes and
         // a grid before putting every independent page/window in one stack.
         if sizes.reduce(0, { $0 + $1.width }) <= frame.width && sizes.allSatisfy({ $0.height <= frame.height }) {
-            return walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: [])
+            return finish(walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: []))
         }
         guard let grid = adaptiveRootGrid(nodes: nodes, sizes: sizes, frame: frame, weights: weights) else {
-            return walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: [])
+            return finish(walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: []))
         }
         let widths = lengths(grid.columnMinimums, weights: grid.columnWeights, total: frame.width)
         let heights = lengths(grid.rowMinimums, weights: grid.rowWeights, total: frame.height)
         var rowOffsets = [0], columnOffsets = [0]
         for height in heights { rowOffsets.append(rowOffsets.last! + height) }
         for width in widths { columnOffsets.append(columnOffsets.last! + width) }
-        return (0..<grid.cellCount).flatMap { cell -> [SurfacePlacement] in
+        return finish((0..<grid.cellCount).flatMap { cell -> [SurfacePlacement] in
             let column = cell % grid.columns, row = cell / grid.columns
             let start = cell * nodes.count / grid.cellCount, end = (cell + 1) * nodes.count / grid.cellCount
             let members = Array(nodes[start..<end])
@@ -180,7 +238,7 @@ extension SurfaceTree {
                 ?? (members.count > 1 ? recentSelections.first { id in members.contains { $0.surfaces.contains(id) } } : nil)
             return walk(members, frame: rect, visible: visible,
                         layout: .stack, container: nil, inheritedStack: [], rootSelection: cellSelection)
-        }
+        })
     }
 }
 

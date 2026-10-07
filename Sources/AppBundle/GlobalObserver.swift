@@ -91,6 +91,7 @@ enum GlobalObserver {
         runOnMainActor {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
+            SharedStackDragController.shared.notePointerEvent(type: eventType, at: point)
             BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)

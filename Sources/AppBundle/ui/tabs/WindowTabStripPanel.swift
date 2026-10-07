@@ -9,7 +9,7 @@ final class WindowTabStripPanel: NSPanelHud {
     var currentPanelFrame: CGRect?
     var externallyIgnoresMouseEvents = false
 
-    init(id: ObjectIdentifier) {
+    init(id: WindowTabStripIdentity) {
         super.init()
         identifier = NSUserInterfaceItemIdentifier(windowTabStripPanelPrefix + String(id.hashValue))
         hasShadow = false
@@ -32,7 +32,11 @@ final class WindowTabStripPanel: NSPanelHud {
         let nextContent = WindowTabGroupChromeContent(strip: displayStrip)
         guard shouldUpdate(content: nextContent, strip: displayStrip) else { return }
         if currentContent != nextContent {
-            hostingView.rootView = AnyView(WindowTabStripView(strip: displayStrip))
+            if let stack = displayStrip.sharedStack {
+                hostingView.rootView = AnyView(SharedStackStripView(stack: stack, strip: displayStrip))
+            } else {
+                hostingView.rootView = AnyView(WindowTabStripView(strip: displayStrip))
+            }
             currentContent = nextContent
         }
         currentPanelFrame = displayStrip.frame

@@ -1211,15 +1211,25 @@ public final class BrowserWorkspaceController {
     }
 
     func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {
+        plannedLayout(in: workspace).surfaces
+    }
+
+    func stackChrome(in workspace: Workspace) -> SurfaceStackChrome {
+        guard usesSurfaceTree, hasMixedLayout(in: workspace), config.windowTabs.enabled else { return .init() }
+        return .init(headerHeight: Int(resolvedWindowTabBarHeight()), sideInset: Int(windowTabGroupShellHorizontalInset()),
+                     bottomInset: Int(windowTabGroupShellBottomInset()))
+    }
+
+    func plannedLayout(in workspace: Workspace) -> SurfaceLayoutPlan {
         let livePlan = liveLayoutTree(in: workspace)
         let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        return livePlan.placements(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
+        return livePlan.layout(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
             visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace),
             selectedSurface: rootPresentation(in: workspace) == .selectedRoot
                 ? (focusCoordinator.target.flatMap { livePlan.workspace(of: $0) == workspace.name ? $0 : nil } ?? preferredSurface(in: workspace))
                 : focusCoordinator.target,
-            recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace))
+            recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace))
     }
 
     func rootPresentation(in workspace: Workspace) -> SurfaceRootPresentation {

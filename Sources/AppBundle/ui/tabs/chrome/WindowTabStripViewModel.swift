@@ -1,7 +1,13 @@
 import CoreGraphics
+import Foundation
+
+enum WindowTabStripIdentity: Hashable {
+    case native(ObjectIdentifier)
+    case shared(UUID)
+}
 
 struct WindowTabStripViewModel: Identifiable, Equatable {
-    let id: ObjectIdentifier
+    let id: WindowTabStripIdentity
     let workspaceName: String
     let frame: CGRect
     let groupFrame: CGRect
@@ -9,6 +15,7 @@ struct WindowTabStripViewModel: Identifiable, Equatable {
     let activeWindowCornerRadius: CGFloat
     let tabs: [WindowTabItemViewModel]
     let occludingFloatingWindowFrames: [CGRect]
+    var sharedStack: SharedStackChrome? = nil
 
     var tabStripIsOccludedByFloatingWindow: Bool {
         occludingFloatingWindowFrames.contains { $0.intersects(frame) }

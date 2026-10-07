@@ -15,7 +15,7 @@ final class WindowTabPanelRetentionTest: XCTestCase {
         group.layout = .tabGroup
         _ = TestWindow.new(id: 1, parent: group)
         _ = TestWindow.new(id: 2, parent: group)
-        let id = ObjectIdentifier(group)
+        let id = WindowTabStripIdentity.native(ObjectIdentifier(group))
         let visual = controller.visualPanel(for: id)
         let strip = controller.stripPanel(for: id)
 
@@ -38,7 +38,7 @@ final class WindowTabPanelRetentionTest: XCTestCase {
 
     func testVisualContentTracksLocalOcclusionWithoutDependingOnSelectedTab() {
         setUpWorkspacesForTests()
-        let id = ObjectIdentifier(self)
+        let id = WindowTabStripIdentity.native(ObjectIdentifier(self))
         func strip(active: UInt32, originX: CGFloat, occlusions: [CGRect]) -> WindowTabStripViewModel {
             .init(id: id, workspaceName: "tabs",
                   frame: .init(x: originX, y: 400, width: 600, height: 36),

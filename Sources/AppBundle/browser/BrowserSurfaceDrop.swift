@@ -10,6 +10,7 @@ struct BrowserSurfaceDropDestination: Equatable {
     let targetFrame: Rect
     let sourceWorkspace: String
     let targetWorkspace: String
+    var targetStack: UUID? = nil
 
     var overlay: WindowDropIntentOverlayModel {
         .init(targetFrame: targetFrame, activeZone: zone, cornerRadius: nil)
@@ -18,7 +19,8 @@ struct BrowserSurfaceDropDestination: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.source == rhs.source && lhs.target == rhs.target && lhs.zone == rhs.zone &&
             lhs.targetFrame.isEqual(to: rhs.targetFrame) &&
-            lhs.sourceWorkspace == rhs.sourceWorkspace && lhs.targetWorkspace == rhs.targetWorkspace
+            lhs.sourceWorkspace == rhs.sourceWorkspace && lhs.targetWorkspace == rhs.targetWorkspace &&
+            lhs.targetStack == rhs.targetStack
     }
 }
 
@@ -30,6 +32,10 @@ func resolveBrowserSurfaceDrop(source: SurfaceID, pointer: CGPoint,
           controller.workspaceName(for: source) == sourceWorkspace else { return nil }
     let workspace = pointer.monitorApproximation.activeWorkspace
     guard workspace.isVisible else { return nil }
+    if let header = sharedStackHeaderTarget(at: pointer, excluding: [source], in: workspace, controller: controller) {
+        return .init(source: source, target: header.surface, zone: .tab, targetFrame: header.frame,
+            sourceWorkspace: sourceWorkspace, targetWorkspace: workspace.name, targetStack: header.id)
+    }
     // Shared placements include native leaves and Chromium pages, but only the
     // selected member of a stack is a destination that the user can see.
     for placement in controller.plannedSurfaces(in: workspace) where placement.visible && placement.surfaceID != source {
@@ -62,7 +68,8 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
           controller.workspaceName(for: destination.target) == destination.targetWorkspace,
           let workspace = Workspace.existing(byName: destination.targetWorkspace), workspace.isVisible,
           let placement = controller.plannedSurfaces(in: workspace).first(where: { $0.surfaceID == destination.target && $0.visible }),
-          let frame = surfaceDropTargetFrame(placement, workspace: workspace, controller: controller),
+          let frame = destination.targetStack.flatMap({ stackDropTargetFrame($0, containing: destination.target, in: workspace, controller: controller) })
+              ?? (destination.targetStack == nil ? surfaceDropTargetFrame(placement, workspace: workspace, controller: controller) : nil),
           frame.isEqual(to: destination.targetFrame),
           destination.zone != .tab || config.windowTabs.enabled,
           destination.zone != .middle || destination.sourceWorkspace == destination.targetWorkspace else { return false }
@@ -71,7 +78,13 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
 
     let edit: (inout SurfaceTree) -> Bool = { tree in
         switch destination.zone {
-        case .tab: return tree.insertIntoStack(destination.source, with: destination.target)
+        case .tab:
+            if let stack = destination.targetStack {
+                guard tree.insertIntoStack(.surface(destination.source), with: destination.target, inStack: stack) else { return false }
+                tree.select(destination.source)
+                return true
+            }
+            return tree.insertIntoStack(destination.source, with: destination.target)
         case .middle: return tree.swapLeaves(destination.source, destination.target)
         case .left, .right:
             return tree.split(destination.source, beside: destination.target, layout: .horizontal, before: destination.zone == .left)
@@ -92,6 +105,33 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
     return true
 }
 
+/// Explicit headers are drop targets too. Owner content begins below them, so
+/// leaf-frame hit testing alone would turn a header drop into a detach.
+@MainActor
+func sharedStackHeaderTarget(at point: CGPoint, excluding: Set<SurfaceID>, in workspace: Workspace,
+                             controller: BrowserWorkspaceController) -> (id: UUID, surface: SurfaceID, frame: Rect)? {
+    guard config.windowTabs.enabled, controller.hasMixedLayout(in: workspace) else { return nil }
+    let plan = controller.plannedLayout(in: workspace)
+    let live = Set(plan.surfaces.filter(\.visible).map(\.surfaceID)).subtracting(excluding)
+    for stack in plan.stacks where stack.visible {
+        let header = stack.headerFrame
+        guard CGRect(x: header.x, y: header.y, width: header.width, height: header.height).contains(point),
+              let surface = controller.surfaceTree.group(stack.groupID)?.surfaces.first(where: { live.contains($0) && controller.canMoveSurface($0) }) else { continue }
+        let frame = stack.frame
+        return (stack.groupID, surface, Rect(topLeftX: CGFloat(frame.x), topLeftY: CGFloat(frame.y),
+            width: CGFloat(frame.width), height: CGFloat(frame.height)))
+    }
+    return nil
+}
+
+@MainActor
+private func stackDropTargetFrame(_ id: UUID, containing surface: SurfaceID, in workspace: Workspace,
+                                   controller: BrowserWorkspaceController) -> Rect? {
+    guard controller.surfaceTree.group(id)?.surfaces.contains(surface) == true,
+          let frame = controller.plannedLayout(in: workspace).stacks.first(where: { $0.groupID == id && $0.visible })?.frame else { return nil }
+    return Rect(topLeftX: CGFloat(frame.x), topLeftY: CGFloat(frame.y), width: CGFloat(frame.width), height: CGFloat(frame.height))
+}
+
 @MainActor
 private func canDropSurface(_ id: SurfaceID, controller: BrowserWorkspaceController) -> Bool {
     guard controller.isAvailable(id) else { return false }
@@ -100,7 +140,7 @@ private func canDropSurface(_ id: SurfaceID, controller: BrowserWorkspaceControl
 }
 
 @MainActor
-private func surfaceDropTargetFrame(_ placement: SurfacePlacement, workspace: Workspace,
+func surfaceDropTargetFrame(_ placement: SurfacePlacement, workspace: Workspace,
                                     controller: BrowserWorkspaceController) -> Rect? {
     if !controller.hasMixedLayout(in: workspace), case .nativeWindow = placement.surfaceID {
         // A workspace joins shared layout only on commit. Until then its native

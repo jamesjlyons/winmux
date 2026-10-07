@@ -21,7 +21,9 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--toolbar-controls-proof") {
+        if arguments.contains("--shared-stack-proof") {
+            try renderSharedStackChromeProof(in: outputURL)
+        } else if arguments.contains("--toolbar-controls-proof") {
             try renderWinMuxToolbarControlsProofImages(in: outputURL)
         } else if arguments.contains("--chrome-state-proof") {
             try renderWinMuxChromeStateProofImages(in: outputURL)

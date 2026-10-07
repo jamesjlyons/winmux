@@ -12,6 +12,7 @@ extension WindowTabStripViewModel {
             activeWindowCornerRadius: activeWindowCornerRadius,
             tabs: tabs,
             occludingFloatingWindowFrames: occludingFloatingWindowFrames,
+            sharedStack: sharedStack,
         )
     }
 }

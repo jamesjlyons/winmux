@@ -2,7 +2,7 @@ import Combine
 import CoreGraphics
 
 struct WindowTabPendingReorderDrop: Equatable {
-    let stripId: ObjectIdentifier?
+    let stripId: WindowTabStripIdentity?
     let windowId: UInt32
     let sourceIndex: Int
     let targetIndex: Int

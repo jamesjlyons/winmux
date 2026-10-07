@@ -1404,7 +1404,7 @@ enum MarketingFixtures {
         cornerRadius: CGFloat = 16
     ) -> WindowTabStripViewModel {
         WindowTabStripViewModel(
-            id: ObjectIdentifier(identity),
+            id: .native(ObjectIdentifier(identity)),
             workspaceName: workspace,
             frame: CGRect(x: 0, y: 0, width: 400, height: 40),
             groupFrame: CGRect(x: 0, y: 0, width: 400, height: 400),

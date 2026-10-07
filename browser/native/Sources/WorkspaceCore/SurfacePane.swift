@@ -32,6 +32,70 @@ extension SurfaceTreeNode {
 }
 
 extension SurfaceTree {
+    /// Reorder a direct tab, which may itself contain a complete arrangement.
+    /// Preserve the stack's identity, allocation, and intended selection.
+    @discardableResult
+    public mutating func reorder(_ pane: SurfacePane, inStack stack: UUID, toIndex index: Int) -> Bool {
+        guard (layouts[stack] ?? .stack) == .stack, case .group(_, var children) = group(stack),
+              let source = children.firstIndex(where: { $0.pane == pane }) else { return false }
+        let destination = min(max(0, index), children.count - 1)
+        guard source != destination else { return false }
+        children.insert(children.remove(at: source), at: destination)
+        return replacePane(.group(stack), with: .group(stack, children))
+    }
+
+    /// Add a complete pane to the nearest stack without flattening its contents.
+    @discardableResult
+    public mutating func insertIntoStack(_ pane: SurfacePane, with target: SurfaceID, inStack requestedStack: UUID? = nil) -> Bool {
+        guard let moving = node(for: pane), !moving.surfaces.contains(target),
+              let name = workspace(of: pane), workspace(of: target) == name else { return false }
+        // A header identifies its own stack even when the selected tab contains
+        // another stack. Body drops continue to use the nearest stack by default.
+        if let requestedStack {
+            guard (layouts[requestedStack] ?? .stack) == .stack,
+                  group(requestedStack)?.surfaces.contains(target) == true else { return false }
+        }
+        var candidate = self
+        let stack = requestedStack ?? candidate.stack(containing: target)
+        let kept = Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting(moving.surfaces)
+        candidate.roots[name] = candidate.retainingNodes(roots[name] ?? [], keeping: kept, retainingGroup: stack)
+        if let stack, case .group(_, var children) = candidate.group(stack) {
+            children.append(moving)
+            guard candidate.replacePane(.group(stack), with: .group(stack, children)) else { return false }
+        } else {
+            let group = UUID()
+            let anchor = SurfacePane.surface(target)
+            let replacement = SurfaceTreeNode.group(group, [.surface(target), moving])
+            guard candidate.replacePane(anchor, with: replacement) else { return false }
+            candidate.layouts[group] = .stack
+            candidate.weights[replacement.weightKey] = candidate.weights[anchor.weightKey]
+        }
+        return finishPaneEdit(candidate)
+    }
+
+    /// Lift a nested tab to a root while retaining complete child arrangements.
+    @discardableResult
+    public mutating func separate(_ pane: SurfacePane) -> Bool {
+        guard let name = workspace(of: pane), let moving = node(for: pane), !ancestors(of: pane).isEmpty else { return false }
+        var candidate = self
+        let kept = Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting(moving.surfaces)
+        candidate.roots[name] = candidate.retainingNodes(roots[name] ?? [], keeping: kept)
+        candidate.roots[name, default: []].append(moving)
+        candidate.weights[moving.weightKey] = nil
+        return finishPaneEdit(candidate)
+    }
+
+    private mutating func replacePane(_ pane: SurfacePane, with replacement: SurfaceTreeNode) -> Bool {
+        guard let name = workspace(of: pane) else { return false }
+        func visit(_ node: SurfaceTreeNode) -> SurfaceTreeNode {
+            if node.pane == pane { return replacement }
+            if case .group(let id, let children) = node { return .group(id, children.map(visit)) }
+            return node
+        }
+        roots[name] = roots[name]?.map(visit)
+        return true
+    }
+
     public func node(for pane: SurfacePane) -> SurfaceTreeNode? {
         switch pane {
         case .surface(let id): workspace(of: id) == nil ? nil : .surface(id)

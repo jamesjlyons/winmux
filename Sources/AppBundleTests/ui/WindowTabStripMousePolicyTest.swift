@@ -8,9 +8,9 @@ final class WindowTabStripMousePolicyTest: XCTestCase {
         setUpWorkspacesForTests()
         cancelManipulatedWithMouseState()
         _ = NSApplication.shared
-        let panel = WindowTabStripPanel(id: ObjectIdentifier(self))
+        let panel = WindowTabStripPanel(id: .native(ObjectIdentifier(self)))
         let strip = WindowTabStripViewModel(
-            id: ObjectIdentifier(self),
+            id: .native(ObjectIdentifier(self)),
             workspaceName: "tabs",
             frame: CGRect(x: 100, y: 900, width: 1000, height: 36),
             groupFrame: CGRect(x: 100, y: 100, width: 1000, height: 836),

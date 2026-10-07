@@ -10,14 +10,13 @@ extension SurfaceTree {
                                 absolute: Bool = false, frame: SurfaceFrame,
                                 minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:],
                                 rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
+                                stackChrome: SurfaceStackChrome = .init(),
                                 edge: SurfaceDirection? = nil) -> Bool {
         guard amount.isFinite, let workspace = workspace(of: target), let roots = roots[workspace] else { return false }
-        let plan = placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
-        func bounds(_ node: SurfaceTreeNode, in placements: [SurfacePlacement]) -> SurfaceFrame? {
-            let frames = placements.filter { node.surfaces.contains($0.surfaceID) }.map(\.frame)
-            guard let x = frames.map(\.x).min(), let y = frames.map(\.y).min(),
-                  let right = frames.map({ $0.x + $0.width }).max(), let bottom = frames.map({ $0.y + $0.height }).max() else { return nil }
-            return .init(x: x, y: y, width: right - x, height: bottom - y)
+        let plan = layout(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target,
+                          rootPresentation: rootPresentation, stackChrome: stackChrome)
+        func bounds(_ node: SurfaceTreeNode, in plan: SurfaceLayoutPlan) -> SurfaceFrame? {
+            plan.frames[node.pane]
         }
         struct Candidate {
             let siblings: [[SurfaceTreeNode]]
@@ -84,7 +83,9 @@ extension SurfaceTree {
                 return Double(desired == .horizontal ? size.width : size.height)
             case .group(let id, let children):
                 let values = children.map(minimum)
-                return layouts[id] == desired ? values.reduce(0, +) : values.max() ?? 1
+                let chrome = (layouts[id] ?? .stack) == .stack && children.count > 1 && stackChrome.headerHeight > 0
+                let inset = !chrome ? 0 : (desired == .horizontal ? 2 * stackChrome.sideInset : stackChrome.headerHeight + stackChrome.bottomInset)
+                return (layouts[id] == desired ? values.reduce(0, +) : values.max() ?? 1) + Double(inset)
             }
         }
         let extents = candidate.siblings.compactMap(extent)
@@ -186,7 +187,8 @@ extension SurfaceTree {
         var resized = self
         resized.setWeights(interiorWeights)
         resized.setWeights(values)
-        let updated = resized.placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
+        let updated = resized.layout(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target,
+                                     rootPresentation: rootPresentation, stackChrome: stackChrome)
         for node in roots.indices {
             guard let actual = bounds(roots[node], in: updated),
                   let column = columns.firstIndex(where: { $0.contains(node) }),

@@ -167,7 +167,7 @@ private func updateWindowTabReentryPreview(sourceWindowId: UInt32, destination: 
         return
     }
     WindowTabReentryPreviewModel.shared.set(WindowTabPendingReorderDrop(
-        stripId: ObjectIdentifier(parent),
+        stripId: .native(ObjectIdentifier(parent)),
         windowId: windowId,
         sourceIndex: sourceIndex,
         targetIndex: max(0, min(targetIndex, parent.children.count - 1)),

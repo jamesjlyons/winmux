@@ -303,3 +303,43 @@ passed. Release model reconciliation plus sidebar projection measured median
 0.720 ms for 50 Views and 2.413 ms for 200 Views; these remain synthetic timings.
 Native stack chrome, full native adoption, the Chromium toolbar integration,
 obsolete-path retirement, and unlocked desktop qualification remain open.
+
+### Stage 4 shared stack chrome
+
+Views already using shared layout now project their stack headers from
+WorkspaceCore. Headers display native windows, browser pages, and complete nested
+arrangements using typed pane identities. Panels retain stable group IDs across
+View switches and use real owner window IDs only for WindowServer ordering.
+Those Views no longer project tab bars from their old native container tree.
+
+The shared geometry plan includes explicit stack headers and borders in owner
+minimums and resize allocations. Nested stacks, vertical splits, and adaptive
+grids preserve their outer allocations. Single panes and temporary viewport
+overflow do not acquire tab strips. Minimization changes only the live projection;
+restoring an owner returns the same saved stack. Disconnected tabs remain visible
+but unavailable when another member is live; wholly unavailable stacks cannot
+leave orphaned controls behind.
+
+Selection, reorder, detach, and whole-arrangement content drops use shared
+organization and owner validation. Stack headers themselves accept drops, using
+their complete group allocation and identity even when a tab contains another
+stack. A layout change cancels an active content drag
+through release, and reorder rejects a changed tab order. Global mouse release
+finishes drags outside their SwiftUI panel. Sidebar drops use the existing typed
+destination handler and profile transactions, with the same cursor preview and
+expansion lock as sidebar gestures. Move menus retain the source monitor when
+creating a View. The native compatibility UI remains only for Views that have
+not adopted shared layout; full native adoption and retirement are still
+required, followed by the Chromium toolbar integration and desktop qualification.
+
+Production stack controls and frames rendered at widths 360 and 920 in both light
+and dark appearances. These fixture renders validate appearance, not live input,
+accessibility, or compositor timing. The console remained locked during this
+slice. Verification continues with the same documented console exclusions.
+
+The final Debug and Release app suites passed 1,114 tests each. WorkspaceCore
+passed 186 tests and BridgeCore passed 21 tests in both configurations; all
+84 Python tests passed. Dependency resolution left `Package.resolved` unchanged,
+and `git diff --check` passed. Release model reconciliation plus sidebar
+projection measured median 0.706 ms for 50 Views and 2.398 ms for 200 Views;
+these exclude native input and compositor presentation.

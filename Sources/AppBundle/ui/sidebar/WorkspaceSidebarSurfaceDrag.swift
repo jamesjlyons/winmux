@@ -98,7 +98,7 @@ private final class WorkspaceSidebarSurfaceDragDriver {
 
 @MainActor
 func currentWorkspaceSidebarSurfaceDragSubject() -> WorkspaceSidebarSurfaceDragSubject? {
-    WorkspaceSidebarSurfaceDragDriver.shared.state.subject
+    WorkspaceSidebarSurfaceDragDriver.shared.state.subject ?? SharedStackDragController.shared.pane?.sidebarDragSubject
 }
 
 @MainActor
@@ -133,7 +133,7 @@ func noteWorkspaceSidebarSurfaceDragPointerEvent(type: NSEvent.EventType, at poi
 }
 
 @MainActor
-private func workspaceSidebarSurfaceDragTarget(_ subject: WorkspaceSidebarSurfaceDragSubject, at pointer: CGPoint) -> WorkspaceSidebarDropTargetKind? {
+func workspaceSidebarSurfaceDragTarget(_ subject: WorkspaceSidebarSurfaceDragSubject, at pointer: CGPoint) -> WorkspaceSidebarDropTargetKind? {
     guard let target = workspaceSidebarDropTarget(at: pointer)?.kind,
           isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return nil }
     return target
@@ -169,7 +169,7 @@ func isActionableWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceD
 }
 
 @MainActor
-private func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
+func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
     guard isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return }
     if requestWorkspaceViewCombination(subject, target: target) { return }
     let controller = BrowserWorkspaceController.shared
