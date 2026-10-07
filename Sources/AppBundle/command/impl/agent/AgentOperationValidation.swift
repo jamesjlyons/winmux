@@ -3,6 +3,17 @@ import Foundation
 extension AgentOperation {
     @MainActor
     func validate(context: inout AgentValidationContext, appendTo errors: inout [String]) async throws {
+        if let tree = context.sharedTree {
+            do {
+                if let plan = try sharedPaneEdit(in: tree, aliases: context.sharedGroupAliases, floatingWindows: context.floatingWindows) {
+                    context.accept(plan)
+                    return
+                }
+            } catch let error as AgentEditError {
+                errors.append(error.message)
+                return
+            }
+        }
         switch self {
             case .focusWindow(let target):
                 if try await target.resolveWindow() == nil { errors.append("focusWindow: no matching window") }

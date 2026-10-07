@@ -263,3 +263,43 @@ monitor. Empty-View allocation now applies the existing monitor-availability
 check before reuse. The regression failed before the fix; the complete app
 Debug and Release suites then passed 1,084 tests each with the same console
 exclusions. Native and Python sources were unchanged by this follow-up.
+
+### Stage 4 agent organization
+
+Agent queries now project the shared tree when shared organization is active.
+Schema 2 includes typed native/browser identities, complete stack membership,
+stable group IDs, intended selection, and proportions. Native window details and
+legacy window/group references remain available at the compatibility boundary.
+Queries do not reconcile or mutate organization. A change during asynchronous
+title reads invalidates the snapshot; validation also rechecks the world ID
+after window matching and immediately before applying a request.
+
+Placement, whole-pane swaps, proportions, stack creation and selection, View
+moves, parking, and declarative layouts now use WorkspaceCore. Validation carries
+the proposed layout through an operation batch, including temporary group aliases
+and floating-state changes. Declarative layouts accept mixed typed owners and
+preserve unmentioned arrangements. Native floating transitions pass the same
+owner checks before any bindings change. Duplicate owners, overlapping panes,
+invalid arrangements, and unavailable owners cannot partially change a pane edit.
+
+Whole-stack moves and browser parking retain the existing profile transaction.
+Cross-Space browser swaps and declarative layouts require transferring pages with
+`surface move` first; they cannot bypass profile or privacy boundaries. The agent
+command reference documents the new query fields and layout nodes. The native
+fallback remains until all native Views adopt shared authority.
+
+Permanent container collapse now passes the container's outer allocation to its
+surviving child. One shared helper replaces the separate removal implementations
+for movement, stacking, and declarative arrangements. A regression reproduced
+eight incorrect-weight assertions before the fix. Temporary owner absence uses
+a separate read-only projection, preserving exact visible resizing and the saved
+reservation's metadata; the existing reservation regression remains unchanged.
+
+On 2026-10-07, the complete Debug and Release app suites passed 1,099 tests each. WorkspaceCore
+passed 181 tests and BridgeCore passed 21 tests in both Debug and Release; all
+84 Python tests passed. These runs retain the existing locked-console exclusions.
+Dependency resolution left `Package.resolved` unchanged and `git diff --check`
+passed. Release model reconciliation plus sidebar projection measured median
+0.720 ms for 50 Views and 2.413 ms for 200 Views; these remain synthetic timings.
+Native stack chrome, full native adoption, the Chromium toolbar integration,
+obsolete-path retirement, and unlocked desktop qualification remain open.

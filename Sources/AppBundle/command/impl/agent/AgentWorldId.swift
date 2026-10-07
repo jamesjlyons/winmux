@@ -1,5 +1,6 @@
 import Common
 import Foundation
+import WorkspaceCore
 
 @MainActor
 func currentAgentWorldId() -> String {
@@ -8,12 +9,32 @@ func currentAgentWorldId() -> String {
     for workspace in workspaces {
         lines += agentWorldLines(for: workspace)
     }
+    let controller = BrowserWorkspaceController.shared
+    if controller.usesSurfaceTree {
+        let tree = controller.surfaceTree
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        for name in tree.roots.keys.sorted() {
+            let nodes = (tree.roots[name] ?? []).map { AgentSharedRawNode.project($0, tree: tree) }
+            lines.append("shared|\(name)|" + ((try? encoder.encode(nodes))?.base64EncodedString() ?? ""))
+            for id in (tree.roots[name] ?? []).flatMap(\.surfaces) {
+                lines.append("owner|\(id)|available:\(controller.isAvailable(id))|layout:\(controller.canMoveSurface(id))|workspace:\(controller.workspaceName(for: id) ?? "nil")")
+            }
+        }
+        for key in tree.weights.keys.sorted() { lines.append("weight|\(key)|\(tree.weights[key]!)") }
+    }
     return stableAgentHash(lines.joined(separator: "\n"))
 }
 
 @MainActor
 private func agentWorldLines(for workspace: Workspace) -> [String] {
     var lines = ["workspace|\(workspace.name)|visible:\(workspace.isVisible)|monitor:\(workspace.workspaceMonitor.monitorId_oneBased?.description ?? "nil")"]
+    if BrowserWorkspaceController.shared.usesSurfaceTree {
+        lines.append("space|\(workspace.projectId)")
+        for window in workspace.allLeafWindowsRecursive.sortedBy(\.windowId) {
+            lines.append("native|\(window.surfaceID)|\(window.windowId)|floating:\(window.isFloating)|fullscreen:\(window.isFullscreen)|noOuterGaps:\(window.noOuterGapsInFullscreen)")
+        }
+        return lines
+    }
     lines.append(contentsOf: workspace.rootTilingContainer.agentWorldLines(prefix: "tree|\(workspace.name)"))
     for window in workspace.allLeafWindowsRecursive.sortedBy(\.windowId) {
         lines.append(agentWorldLine(for: window))

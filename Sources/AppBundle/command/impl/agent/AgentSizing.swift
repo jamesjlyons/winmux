@@ -35,7 +35,7 @@ func applyAgentSizeRatios(to container: TilingContainer, ratiosByChild: [CGFloat
     }
 }
 
-private func agentResolvedSizeRatios(
+func agentResolvedSizeRatios(
     ratiosByChild: [CGFloat?],
     explicitTotal: CGFloat,
     unspecifiedCount: Int,

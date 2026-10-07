@@ -1,11 +1,14 @@
 import AppKit
 import Common
 import Foundation
+import WorkspaceCore
 
 indirect enum AgentLayoutNode: Codable {
     case split(direction: AgentLayoutDirection, children: [AgentLayoutNode], size: CGFloat?)
     case window(windowId: UInt32, size: CGFloat?)
     case tabGroup(tabGroupId: String?, tabs: [UInt32], activeWindowId: UInt32?, size: CGFloat?)
+    case surface(surfaceId: SurfaceID, size: CGFloat?)
+    case stack(surfaces: [SurfaceID], activeSurfaceId: SurfaceID?, size: CGFloat?)
 
     private enum CodingKeys: String, CodingKey {
         case kind
@@ -17,12 +20,22 @@ indirect enum AgentLayoutNode: Codable {
         case activeWindowId
         case size
         case sizePercent
+        case surfaceId
+        case surfaces
+        case activeSurfaceId
     }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
         switch kind {
+            case "surface":
+                self = .surface(surfaceId: try container.decode(SurfaceID.self, forKey: .surfaceId),
+                    size: try container.decodeAgentSizeRatioIfPresent(sizeKey: .size, percentKey: .sizePercent))
+            case "stack":
+                self = .stack(surfaces: try container.decode([SurfaceID].self, forKey: .surfaces),
+                    activeSurfaceId: try container.decodeIfPresent(SurfaceID.self, forKey: .activeSurfaceId),
+                    size: try container.decodeAgentSizeRatioIfPresent(sizeKey: .size, percentKey: .sizePercent))
             case "split":
                 self = .split(
                     direction: try container.decode(AgentLayoutDirection.self, forKey: .direction),
@@ -49,6 +62,15 @@ indirect enum AgentLayoutNode: Codable {
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+            case .surface(let id, let size):
+                try container.encode("surface", forKey: .kind)
+                try container.encode(id, forKey: .surfaceId)
+                try container.encodeIfPresent(size, forKey: .size)
+            case .stack(let surfaces, let active, let size):
+                try container.encode("stack", forKey: .kind)
+                try container.encode(surfaces, forKey: .surfaces)
+                try container.encodeIfPresent(active, forKey: .activeSurfaceId)
+                try container.encodeIfPresent(size, forKey: .size)
             case .split(let direction, let children, let size):
                 try container.encode("split", forKey: .kind)
                 try container.encode(direction, forKey: .direction)
@@ -69,7 +91,7 @@ indirect enum AgentLayoutNode: Codable {
 
     var sizeRatio: CGFloat? {
         switch self {
-            case .split(_, _, let size), .window(_, let size), .tabGroup(_, _, _, let size):
+            case .split(_, _, let size), .window(_, let size), .tabGroup(_, _, _, let size), .surface(_, let size), .stack(_, _, let size):
                 size
         }
     }
@@ -79,6 +101,8 @@ extension AgentLayoutNode {
     @MainActor
     func bind(into parent: NonLeafTreeNodeObject, index: Int) async throws -> TreeNode? {
         switch self {
+            case .surface, .stack:
+                throw AgentEditError("Typed layouts require shared organization")
             case .split(let direction, let children, _):
                 let container = TilingContainer(parent: parent, adaptiveWeight: WEIGHT_AUTO, direction.orientation, .tiles, index: index)
                 for child in children {
@@ -121,6 +145,7 @@ extension AgentLayoutNode {
 extension AgentLayoutNode {
     func collectWindowIds(result: inout Set<UInt32>) {
         switch self {
+            case .surface, .stack: break
             case .split(_, let children, _):
                 for child in children { child.collectWindowIds(result: &result) }
             case .window(let windowId, _):
@@ -132,6 +157,7 @@ extension AgentLayoutNode {
 
     func collectWindowIds(result: inout [UInt32]) {
         switch self {
+            case .surface, .stack: break
             case .split(_, let children, _):
                 for child in children { child.collectWindowIds(result: &result) }
             case .window(let windowId, _):

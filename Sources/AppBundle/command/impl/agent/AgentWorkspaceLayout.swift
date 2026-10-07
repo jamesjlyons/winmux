@@ -1,5 +1,6 @@
 import Common
 import Foundation
+import WorkspaceCore
 
 struct AgentWorkspaceLayout: Codable {
     let name: String
@@ -16,6 +17,11 @@ struct AgentWorkspaceLayout: Codable {
 
     @MainActor
     func validate(appendTo errors: inout [String]) async throws {
+        if BrowserWorkspaceController.shared.usesSurfaceTree {
+            do { _ = try sharedLayout(in: BrowserWorkspaceController.shared.surfaceTree) }
+            catch let error as AgentEditError { errors.append(error.message) }
+            return
+        }
         var orderedWindowIds: [UInt32] = []
         layout.collectWindowIds(result: &orderedWindowIds)
         for ref in floating ?? [] {
@@ -36,6 +42,24 @@ struct AgentWorkspaceLayout: Codable {
 
     @MainActor
     func apply() async throws {
+        let controller = BrowserWorkspaceController.shared
+        if controller.usesSurfaceTree {
+            let plan = try sharedLayout(in: controller.surfaceTree)
+            for (name, sourceName) in plan.destinations {
+                let source = Workspace.existing(byName: sourceName) ?? focus.workspace
+                let workspace = Workspace.get(byName: name)
+                workspace.assignProject(source.projectId)
+                workspace.retainsEmptyView = true
+                workspace.seedMonitorIfNeeded(source.workspaceMonitor)
+            }
+            guard controller.editOrganization(in: plan.workspaces, selecting: plan.selection,
+                admittingFloating: plan.admittedFloating, floating: plan.floating, { tree in
+                guard tree == plan.before else { return false }
+                tree = plan.after; return true
+            }) else { throw AgentEditError("Cannot apply shared View layout: an owner is unavailable or a profile transfer is required") }
+            if let selection = plan.selection { _ = controller.select(selection) }
+            return
+        }
         let existedBefore = Workspace.existing(byName: name) != nil
         let workspace = Workspace.get(byName: name)
         if !existedBefore {
@@ -54,7 +78,7 @@ struct AgentWorkspaceLayout: Codable {
         switch layout {
             case .split:
                 _ = try await layout.bind(into: workspace, index: INDEX_BIND_LAST)
-            case .window, .tabGroup:
+            case .window, .tabGroup, .surface, .stack:
                 _ = try await layout.bind(into: workspace.rootTilingContainer, index: INDEX_BIND_LAST)
         }
         bindFloatingPanes(to: workspace)

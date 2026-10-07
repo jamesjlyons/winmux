@@ -49,7 +49,7 @@ extension SurfaceTree {
 
         guard creatingContainerAtBoundary else { return .boundary }
         guard editMovementChildren(in: &nodes, parent: parentKey, { $0.remove(at: index) }) else { return .unavailable }
-        let remaining = collapseMovementContainers(nodes)
+        let remaining = retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)))
         guard !remaining.isEmpty else { return .moved }
         let anchor: SurfaceTreeNode
         if remaining.count == 1 { anchor = remaining[0] }
@@ -88,7 +88,7 @@ extension SurfaceTree {
     private mutating func finishMovement(_ nodes: [SurfaceTreeNode], in workspace: String) {
         // Membership can be unchanged while a selected leaf leaves a container.
         // Prune structural metadata even when owner reconciliation would no-op.
-        roots[workspace] = collapseMovementContainers(nodes)
+        roots[workspace] = retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)))
         pruneMetadata()
     }
 }
@@ -129,12 +129,4 @@ private func editMovementChildren(in nodes: inout [SurfaceTreeNode], parent: Str
         }
     }
     return false
-}
-
-private func collapseMovementContainers(_ nodes: [SurfaceTreeNode]) -> [SurfaceTreeNode] {
-    nodes.flatMap { node in
-        guard case .group(let id, let children) = node else { return [node] }
-        let remaining = collapseMovementContainers(children)
-        return remaining.count > 1 ? [.group(id, remaining)] : remaining
-    }
 }

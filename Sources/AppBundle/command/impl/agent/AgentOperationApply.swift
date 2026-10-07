@@ -4,9 +4,47 @@ import Foundation
 extension AgentOperation {
     @MainActor
     func apply(context: inout AgentApplyContext) async throws {
+        let controller = BrowserWorkspaceController.shared
+        if controller.usesSurfaceTree,
+           let plan = try sharedPaneEdit(in: controller.surfaceTree, aliases: context.sharedGroupAliases) {
+            for (name, sourceName) in plan.destinations {
+                guard let source = Workspace.existing(byName: sourceName) else { throw AgentEditError("Source View is unavailable") }
+                let workspace = Workspace.get(byName: name)
+                workspace.assignProject(source.projectId)
+                workspace.retainsEmptyView = true
+                workspace.seedMonitorIfNeeded(source.workspaceMonitor)
+            }
+            if let transfer = plan.groupTransfer {
+                guard let destination = Workspace.existing(byName: transfer.workspace) else { throw AgentEditError("Destination View is unavailable") }
+                if controller.surfaceTree.workspace(ofGroup: transfer.id) != transfer.workspace {
+                    guard controller.moveGroup(transfer.id, to: destination, following: plan.selection) else { throw AgentEditError("Cannot move shared stack") }
+                } else if let selection = plan.selection { _ = controller.select(selection) }
+                return
+            }
+            if let transfer = plan.surfaceTransfer {
+                guard let destination = Workspace.existing(byName: transfer.workspace),
+                      moveSurfaceToWorkspace(transfer.id, destination, CmdIo(stdin: .emptyStdin),
+                          focusFollowsSurface: false, failIfNoop: false) else {
+                    throw AgentEditError("Cannot park browser page")
+                }
+                return
+            }
+            guard controller.editOrganization(in: plan.workspaces, selecting: plan.selection,
+                admittingFloating: plan.admittedFloating, floating: plan.floating, { tree in
+                guard tree == plan.before else { return false }
+                tree = plan.after
+                return true
+            }) else { throw AgentEditError("Cannot edit shared panes: an owner is unavailable or the move needs a profile transaction. Move browser pages between Spaces with 'surface move' first.") }
+            context.sharedGroupAliases.merge(plan.aliases) { _, new in new }
+            if let selection = plan.selection { _ = controller.select(selection) }
+            return
+        }
         switch self {
             case .focusWindow(let target):
-                _ = try await target.resolveWindow()?.focusWindow()
+                if let window = try await target.resolveWindow() {
+                    if controller.usesSurfaceTree { _ = controller.select(window.surfaceID) }
+                    else { _ = window.focusWindow() }
+                }
             case .focusWorkspace(let workspace):
                 _ = Workspace.existing(byName: workspace)?.focusWorkspace()
             case .moveWindowToWorkspace(let windowId, let workspace, let shouldFocus):

@@ -158,16 +158,9 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         guard !destination.isEmpty, destination.utf8.count <= 4096,
               let source = workspace(ofGroup: target), source != destination,
               let subtree = group(target) else { return false }
-        func removing(_ nodes: [SurfaceTreeNode]) -> [SurfaceTreeNode] {
-            nodes.flatMap { node -> [SurfaceTreeNode] in
-                guard case .group(let id, let children) = node else { return [node] }
-                if id == target { return [] }
-                let remaining = removing(children)
-                return remaining.count > 1 ? [.group(id, remaining)] : remaining
-            }
-        }
         var candidate = self
-        candidate.roots[source] = removing(roots[source] ?? [])
+        let kept = Set((roots[source] ?? []).flatMap(\.surfaces)).subtracting(subtree.surfaces)
+        candidate.roots[source] = candidate.retainingNodes(roots[source] ?? [], keeping: kept)
         candidate.roots[destination, default: []].insert(subtree, at: atStart ? 0 : (candidate.roots[destination] ?? []).count)
         candidate.pruneMetadata()
         guard candidate.isValidOrganization else { return false }
@@ -252,7 +245,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     /// Callers retain disconnected browser leaves until authoritative removal.
     public mutating func reconcile(_ ids: [SurfaceID], in workspace: String, retaining: Set<SurfaceID> = []) {
         let allowed = Set(ids).union(retaining)
-        let nodes = Self.filter(roots[workspace] ?? [], keeping: allowed)
+        let nodes = retainingNodes(roots[workspace] ?? [], keeping: allowed)
         var present = Set(nodes.flatMap(\.surfaces))
         let arrivals = ids.filter { !present.contains($0) }
         // Sidebar refreshes reconcile every view even when only its title or
@@ -274,9 +267,21 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
 
     public mutating func remove(_ id: SurfaceID) {
         for name in Array(roots.keys) {
-            roots[name] = Self.filter(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
+            roots[name] = retainingNodes(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
         }
         pruneMetadata()
+    }
+
+    /// Temporary absence is a rendering projection, not a structural edit.
+    /// Keep surviving members' projected resize weights; the saved container
+    /// keeps its own allocation for when its reserved owners return.
+    public func projecting(in workspace: String, excluding ids: Set<SurfaceID>) -> SurfaceTree {
+        var projected = self
+        let nodes = roots[workspace] ?? []
+        projected.roots[workspace] = projected.retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting(ids),
+            inheritAllocation: false)
+        projected.pruneMetadata()
+        return projected
     }
 
     public mutating func mergeWorkspace(_ source: String, into target: String) {
@@ -287,7 +292,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     @discardableResult public mutating func move(_ id: SurfaceID, before target: SurfaceID) -> Bool {
         guard id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
         var nodes = roots[name] ?? []
-        nodes = Self.filter(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
+        nodes = retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
         guard Self.insert(.surface(id), before: target, into: &nodes) else { return false }
         roots[name] = nodes
         pruneMetadata()
@@ -297,7 +302,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     @discardableResult public mutating func group(_ id: SurfaceID, with target: SurfaceID, layout: SurfaceContainerLayout = .stack) -> Bool {
         guard id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
         var nodes = roots[name] ?? []
-        nodes = Self.filter(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
+        nodes = retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting([id]))
         let group = UUID()
         guard Self.replace(target, in: &nodes, with: .group(group, [.surface(target), .surface(id)])) else { return false }
         layouts[group] = layout
@@ -316,16 +321,6 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
             select(id)
             return true
         }
-        func removingSource(_ nodes: [SurfaceTreeNode]) -> [SurfaceTreeNode] {
-            nodes.flatMap { node -> [SurfaceTreeNode] in
-                switch node {
-                case .surface(let leaf): return leaf == id ? [] : [node]
-                case .group(let group, let children):
-                    let remaining = removingSource(children)
-                    return group == stack || remaining.count > 1 ? [.group(group, remaining)] : remaining
-                }
-            }
-        }
         func append(to nodes: inout [SurfaceTreeNode]) -> Bool {
             for index in nodes.indices {
                 guard case .group(let group, var children) = nodes[index] else { continue }
@@ -336,7 +331,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
             }
             return false
         }
-        var nodes = removingSource(roots[name] ?? [])
+        var nodes = retainingNodes(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]), retainingGroup: stack)
         guard append(to: &nodes) else { return false }
         roots[name] = nodes
         pruneMetadata()
@@ -349,7 +344,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     @discardableResult public mutating func split(_ id: SurfaceID, beside target: SurfaceID,
                                                   layout: SurfaceContainerLayout, before: Bool) -> Bool {
         guard layout != .stack, id != target, let name = workspace(of: id), workspace(of: target) == name else { return false }
-        var nodes = Self.filter(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
+        var nodes = retainingNodes(roots[name] ?? [], keeping: Set((roots[name] ?? []).flatMap(\.surfaces)).subtracting([id]))
         let stack = nearestStack(containing: target, in: nodes)
         let group = UUID()
         var anchorKey: String?
@@ -478,13 +473,18 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         weights = weights.filter { keys.contains($0.key) }
     }
 
-    private static func filter(_ nodes: [SurfaceTreeNode], keeping ids: Set<SurfaceID>) -> [SurfaceTreeNode] {
+    /// A surviving child inherits its collapsed parent's allocation in the
+    /// surrounding split. Its old inner weight has no meaning at that level.
+    mutating func retainingNodes(_ nodes: [SurfaceTreeNode], keeping ids: Set<SurfaceID>, retainingGroup: UUID? = nil,
+                                inheritAllocation: Bool = true) -> [SurfaceTreeNode] {
         nodes.flatMap { node -> [SurfaceTreeNode] in
             switch node {
             case .surface(let id): return ids.contains(id) ? [node] : []
             case .group(let group, let children):
-                let remaining = filter(children, keeping: ids)
-                return remaining.count > 1 ? [.group(group, remaining)] : remaining
+                let remaining = retainingNodes(children, keeping: ids, retainingGroup: retainingGroup, inheritAllocation: inheritAllocation)
+                if remaining.count > 1 || group == retainingGroup { return [.group(group, remaining)] }
+                if inheritAllocation, let only = remaining.first { weights[only.weightKey] = weights[node.weightKey] }
+                return remaining
             }
         }
     }

@@ -877,6 +877,30 @@ public final class BrowserWorkspaceController {
         return commitOrganizationChange(change)
     }
 
+    /// Commit a prepared edit spanning complete panes. Browser transfers across
+    /// Spaces must enter the profile transaction path, never this synchronous
+    /// organization boundary. Native owners can move between either Space.
+    func editOrganization(in workspaces: Set<String>, selecting selection: SurfaceID? = nil,
+                          admittingFloating: Set<SurfaceID> = [], floating: Set<SurfaceID> = [],
+                          _ edit: (inout SurfaceTree) -> Bool) -> Bool {
+        guard usesSurfaceTree, let reservations = organizationReservations(in: workspaces) else { return false }
+        var baseline = surfaceTree
+        for id in admittingFloating.sorted(by: { $0.description < $1.description }) {
+            guard let window = Window.get(bySurfaceID: id), window.isFloating, window.toLiveFocusOrNil() != nil,
+                  let source = window.nodeWorkspace?.name, workspaces.contains(source), baseline.workspace(of: id) == nil else { return false }
+            baseline.reconcile((baseline.roots[source] ?? []).flatMap(\.surfaces) + [id], in: source)
+        }
+        guard let change = baseline.preparingOrganizationChange(in: workspaces, reserving: reservations,
+                  selected: selection ?? focusCoordinator.target, edit) else { return false }
+        for effect in change.membership where effect.surfaceID.browserProfileID != nil {
+            guard Workspace.existing(byName: effect.source)?.projectId == Workspace.existing(byName: effect.destination)?.projectId else { return false }
+        }
+        let movedSelection = change.membership.first { $0.surfaceID == (focusCoordinator.target ?? focus.windowOrNil?.surfaceID) }
+        guard commitOrganizationChange(change, admittingFloating: admittingFloating, floating: floating) else { return false }
+        if let source = movedSelection.flatMap({ Workspace.existing(byName: $0.source) }) { retainSourceSelection(in: source) }
+        return true
+    }
+
     /// Prepare the entire cross-workspace edit before changing owner membership.
     /// This synchronous commit has no suspension between validation and binding.
     func editOrganization(of id: SurfaceID, movingTo destination: Workspace,
@@ -896,8 +920,20 @@ public final class BrowserWorkspaceController {
 
     /// The model has decided membership and layout. Revalidate every affected
     /// owner before executing any binding change, with no suspension mid-commit.
-    private func commitOrganizationChange(_ change: SurfaceOrganizationChange) -> Bool {
+    private func commitOrganizationChange(_ change: SurfaceOrganizationChange,
+        admittingFloating: Set<SurfaceID> = [], floating: Set<SurfaceID> = []
+    ) -> Bool {
         var nativeMoves: [(Window, Workspace)] = []
+        var nativeFloats: [(Window, Workspace)] = []
+        for id in admittingFloating.union(floating) {
+            guard let window = Window.get(bySurfaceID: id), window.toLiveFocusOrNil() != nil,
+                  let name = change.tree.workspace(of: id), change.workspaces.contains(name),
+                  let destination = Workspace.existing(byName: name), !destination.isArchived,
+                  canPlaceSurface(id, in: destination), participatesInSharedTiling(window) || window.isFloating else { return false }
+            if admittingFloating.contains(id), !window.isFloating { return false }
+            if floating.contains(id) { nativeFloats.append((window, destination)) }
+            else { nativeMoves.append((window, destination)) }
+        }
         for effect in change.membership {
             guard workspaceName(for: effect.surfaceID) == effect.source,
                   let destination = Workspace.existing(byName: effect.destination), !destination.isArchived,
@@ -907,22 +943,24 @@ public final class BrowserWorkspaceController {
                 guard owner(of: effect.surfaceID)?.supportsLayout == true else { return false }
             case .nativeWindow:
                 guard let window = Window.get(bySurfaceID: effect.surfaceID),
-                      window.toLiveFocusOrNil() != nil, participatesInSharedTiling(window) else { return false }
-                nativeMoves.append((window, destination))
+                      window.toLiveFocusOrNil() != nil, participatesInSharedTiling(window) || admittingFloating.contains(effect.surfaceID) else { return false }
+                if !floating.contains(effect.surfaceID), !admittingFloating.contains(effect.surfaceID) { nativeMoves.append((window, destination)) }
             }
         }
-        if !nativeMoves.isEmpty {
+        if !nativeMoves.isEmpty || !nativeFloats.isEmpty {
             syncClosedWindowsCacheToCurrentWorld()
-            suppressPostDragAxObserverEvents(for: nativeMoves.map { $0.0.windowId })
+            suppressPostDragAxObserverEvents(for: (nativeMoves + nativeFloats).map { $0.0.windowId })
             for (window, destination) in nativeMoves {
                 let binding = workspaceAppendBindingData(targetWorkspace: destination, index: INDEX_BIND_LAST)
                 window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
             }
+            for (window, destination) in nativeFloats { window.bindAsFloatingWindow(to: destination) }
         }
         for effect in change.membership {
             if case .browserTab = effect.surfaceID { placements[effect.surfaceID] = effect.destination }
         }
         surfaceTree = change.tree
+        for id in floating { surfaceTree.remove(id) }
         mixedLayoutWorkspaces.formUnion(change.workspaces)
         scheduleRefresh()
         return true
@@ -1159,17 +1197,17 @@ public final class BrowserWorkspaceController {
     /// The saved tree keeps native reservations until discovery finishes.
     func liveLayoutTree(in workspace: Workspace) -> SurfaceTree {
         retireResolvedNativeReservations()
-        var livePlan = surfaceTree
+        var excluded: Set<SurfaceID> = []
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             // Keep temporary native absence in the saved tree, but never place
             // floating, minimized, fullscreen or unresolved windows as tiles.
             let browser = owner(of: id)?.inventory.tabs[id]
             if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true ||
                 unresolvedNativeItems.contains(id) || Window.get(bySurfaceID: id).map({ !participatesInSharedTiling($0) }) == true {
-                livePlan.remove(id)
+                excluded.insert(id)
             }
         }
-        return livePlan
+        return surfaceTree.projecting(in: workspace.name, excluding: excluded)
     }
 
     func plannedSurfaces(in workspace: Workspace) -> [SurfacePlacement] {

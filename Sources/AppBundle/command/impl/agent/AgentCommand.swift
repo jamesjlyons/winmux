@@ -10,7 +10,9 @@ struct AgentCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         switch args.subcommand.val {
             case .query:
-                let snapshot = try await AgentSnapshot.query()
+                let snapshot: AgentSnapshot
+                do { snapshot = try await AgentSnapshot.query() }
+                catch let error as AgentEditError { return io.err(error.message) }
                 guard let json = JSONEncoder.winMuxDefault.encodeToString(snapshot) else {
                     return io.err("Failed to encode agent snapshot")
                 }
@@ -42,7 +44,8 @@ struct AgentCommand: Command {
                 if !errors.isEmpty {
                     return io.err(errors.joinErrors())
                 }
-                try await request.apply()
+                do { try await request.apply() }
+                catch let error as AgentEditError { return io.err(error.message) }
                 return true
             case .skill:
                 return io.out(agentSkillText)
@@ -118,8 +121,18 @@ private let agentSkillText = """
     Canonical operation type names are camelCase. Common snake_case aliases are accepted, but prefer the exact schemas below.
 
     Pane refs:
+    - Shared native window or browser page: `{ "surfaceId": "<surfaceId from inventory.surfaces>" }`
+    - Shared stack or split: `{ "groupId": "<groupId from reasoning.rawTrees>" }`, or its `group:<uuid>` pane id.
     - Window: `{ "windowId": 123 }` or pane id `"pane-123"`
     - Tab group: `{ "tabGroupId": "tabgroup-123" }` or pane id `"pane-tabgroup-123"`
+
+    Shared-layout queries use schemaVersion 2. `inventory.surfaces` includes native windows and browser pages;
+    `inventory.windows` retains native owner details. A shared stack's `surfaces` is its complete member list;
+    its legacy `tabs` field lists only native window IDs. Use `surfaceId`, `groupId`, or the returned `paneId`
+    for placement, swapping, resizing, and parking. Native-only operation names keep their existing meaning.
+    Browser pages keep their full profile-qualified identities. Move pages between Spaces using
+    `winmux surface move <surfaceId> <workspace>` before a declarative layout or swap; that move runs the
+    browser profile transaction. `moveTabGroupToWorkspace` also uses the profile transaction for a whole stack.
 
     All `edit.operations` commands:
     - `focusWindow`: `{ "type": "focusWindow", "windowId": 123 }`
@@ -170,6 +183,9 @@ private let agentSkillText = """
     - Split node: `{ "kind": "split", "direction": "horizontal", "children": [<layoutNode>, <layoutNode>], "size": 0.5 }`
     - Window node: `{ "kind": "window", "windowId": 123, "size": 0.5 }`
     - Tab group node: `{ "kind": "tabGroup", "tabs": [123, 456], "activeWindowId": 123, "size": 0.5 }`
+    - Shared surface node: `{ "kind": "surface", "surfaceId": "<surfaceId>", "size": 0.5 }`
+    - Shared stack node: `{ "kind": "stack", "surfaces": ["<surfaceId>", "<surfaceId>"], "activeSurfaceId": "<surfaceId>", "size": 0.5 }`
+    - Unmentioned shared members keep their arrangements. Floating refs must identify native windows.
     - Directions: `horizontal`, `vertical`.
     - `size` is a proportional share of the parent split. Use `0.8` for 80%. `80` and `sizePercent: 80` are also accepted. If a sibling omits `size`, it receives an equal share of the remaining space.
     - For `setPaneSize`, add `"axis": "vertical"` when resizing a top/bottom split and `"axis": "horizontal"` when resizing a left/right split. Without `axis`, WinMux uses the nearest split containing the pane.
