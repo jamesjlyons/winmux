@@ -200,7 +200,7 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
         controller.usesSurfaceTree = true
         let tab = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
-        controller.received(.init(revision: 1, full: true, tabs: [record(tab)]), epoch: epoch, connection: connection)
+        controller.received(.init(revision: 1, full: true, tabs: [record(tab)]), epoch: epoch, connection: connection, protocolVersion: 3)
         let native = TestWindow.new(id: 41, parent: focus.workspace.rootTilingContainer)
         let nativeRow = WorkspaceSidebarItemViewModel(kind: .window(await makeWorkspaceSidebarWindowViewModel(
             for: native, workspaceName: focus.workspace.name, currentFocus: focus)))
@@ -216,7 +216,7 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
         XCTAssertEqual(items.flatMap(\.surfaceIDs), [native.surfaceID])
         let reconnect = UUID()
         controller.connected(reconnect, processID: -1) { _, reply in reply(.issued) }
-        controller.received(.init(revision: 2, full: true, tabs: [record(tab)]), epoch: UUID(), connection: reconnect)
+        controller.received(.init(revision: 2, full: true, tabs: [record(tab)]), epoch: UUID(), connection: reconnect, protocolVersion: 3)
         items = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
         XCTAssertEqual(items[0].id, "surface-group:\(group)")
         XCTAssertEqual(items[0].surfaceIDs, [native.surfaceID, tab])

@@ -141,7 +141,31 @@ qualification remains open; stages 4–7 remain pending.
 The canonical storage change passed 1,065 app tests in Debug and Release, and
 151 WorkspaceCore plus 21 BridgeCore tests in both configurations. A final
 profile-binding identity fix then passed 34 targeted regressions and the full
-1,065-test Debug suite; it still needs optimized verification with the next
-command consolidation. All runs use the locked-console exclusions above.
+1,065-test Debug suite; optimized verification passed with the command
+consolidation below. All runs use the locked-console exclusions above.
 The Release model-plus-sidebar benchmark measured 0.715 ms median for 50 Views
 and 2.421 ms for 200 Views; this includes saved-member reconciliation.
+
+### Stage 4 command consolidation
+
+WorkspaceCore now prepares complete organization changes and their membership
+effects. Preparation preserves the set of live identities, keeps unresolved
+native reservations in place, validates tree limits, and rejects changes to
+unrelated workspaces or their metadata. One synchronous app adapter rechecks
+every affected owner before applying native bindings, browser placements, and
+the final tree. Profile copies still commit through the existing transactional
+profile boundary.
+
+Sidebar reordering, group transfers, typed surface moves, and native workspace
+moves use that path. Layout and resize commands target the shared arrangement
+even with an explicit native window ID or environment target. Balance, flatten,
+join, stack, separation from a stack, and swap commands also support mixed
+arrangements. Spatial navigation and its tests now live in WorkspaceCore.
+Cross-View moves preserve the source selection unless focus-following was
+requested.
+
+This slice passed 1,067 app tests in Debug and Release and 158 WorkspaceCore plus 21
+BridgeCore tests in both configurations, with the locked-console exclusions
+above. Stage 4 still includes directional
+move/split compatibility, native drag paths, remaining ownership adapters, and
+retirement of native layout authority after adoption. Stages 5–7 remain open.

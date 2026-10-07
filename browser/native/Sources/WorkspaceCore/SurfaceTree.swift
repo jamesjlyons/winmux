@@ -422,11 +422,13 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return false
     }
 
-    @discardableResult public mutating func moveToRoot(_ id: SurfaceID, in name: String, after source: SurfaceID? = nil) -> Bool {
+    @discardableResult public mutating func moveToRoot(_ id: SurfaceID, in name: String, after source: SurfaceID? = nil, atStart: Bool = false) -> Bool {
         guard workspace(of: id) != nil else { return false }
         remove(id)
         if let source, let index = roots[name]?.firstIndex(where: { $0.surfaces.contains(source) }) {
             roots[name, default: []].insert(.surface(id), at: index + 1)
+        } else if atStart {
+            roots[name, default: []].insert(.surface(id), at: 0)
         } else {
             roots[name, default: []].append(.surface(id))
         }
@@ -438,6 +440,29 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         var nodes = roots[name] ?? []
         guard Self.reorder(id, earlier: earlier, in: &nodes) else { return false }
         roots[name] = nodes
+        return true
+    }
+
+    @discardableResult public mutating func flatten(in workspace: String) -> Bool {
+        guard let nodes = roots[workspace] else { return false }
+        let surfaces = nodes.flatMap(\.surfaces)
+        roots[workspace] = surfaces.map(SurfaceTreeNode.surface)
+        pruneMetadata()
+        for surface in surfaces { weights[surface.description] = 1 }
+        return true
+    }
+
+    @discardableResult public mutating func balance(in workspace: String) -> Bool {
+        guard let nodes = roots[workspace] else { return false }
+        func balancedWeights(_ nodes: [SurfaceTreeNode], layout: SurfaceContainerLayout) {
+            for node in nodes {
+                if layout != .stack { weights[node.weightKey] = 1 }
+                if case .group(let id, let children) = node {
+                    balancedWeights(children, layout: layouts[id] ?? .stack)
+                }
+            }
+        }
+        balancedWeights(nodes, layout: .horizontal)
         return true
     }
 

@@ -149,7 +149,7 @@ import XCTest
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         let connection = UUID()
         controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
-        controller.received(.init(revision: 1, full: true, tabs: [record(tab)]), epoch: UUID(), connection: connection)
+        controller.received(.init(revision: 1, full: true, tabs: [record(tab)]), epoch: UUID(), connection: connection, protocolVersion: 3)
         XCTAssertEqual(controller.select(native.surfaceID), .issued)
         let gesture = try XCTUnwrap(MixedTrackpadTarget.capture(controller))
         XCTAssertTrue(gesture.commit(next: true, controller: controller))

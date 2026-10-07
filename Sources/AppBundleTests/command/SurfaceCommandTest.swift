@@ -219,7 +219,7 @@ import XCTest
         XCTAssertFalse(requests.contains { $0.action == .close })
     }
 
-    func testExistingLayoutShortcutUsesSharedTreeForBothOwnersAndExplicitNativeOverride() async throws {
+    func testLayoutUsesSharedOrganizationForSelectionAndExplicitNativeTarget() async throws {
         let native = try XCTUnwrap(Window.get(byId: 71))
         try await checkCommand(["layout", "horizontal", "vertical"])
         let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
@@ -228,9 +228,75 @@ import XCTest
         try await checkCommand(["layout", "horizontal", "vertical"])
         XCTAssertEqual(controller.surfaceTree.layouts[group], .horizontal)
         XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
-        let shared = controller.surfaceTree
+        let nativeParent = native.parent as? TilingContainer
+        let nativeOrientation = nativeParent?.orientation
         try await checkCommand(["layout", "vertical", "--window-id", "71"])
-        XCTAssertEqual(controller.surfaceTree, shared)
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .vertical)
+        XCTAssertEqual(nativeParent?.orientation, nativeOrientation)
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
+    }
+
+    func testExplicitAndEnvironmentNativeResizeUseSharedWeightsWithoutChangingSelection() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), workspace = focus.workspace
+        let nativeWeight = native.getWeight(.h)
+        let before = try XCTUnwrap(controller.plannedSurfaces(in: workspace).first { $0.surfaceID == native.surfaceID }?.frame.width)
+        try await checkCommand(["resize", "width", "+40", "--window-id", "71"])
+        XCTAssertEqual(controller.plannedSurfaces(in: workspace).first { $0.surfaceID == native.surfaceID }?.frame.width, before + 40)
+        let command = try XCTUnwrap(parseCommand(["resize", "width", "+40"]).cmdOrNil)
+        var env = CmdEnv.defaultEnv
+        env.windowId = 71
+        let result = try await command.run(env, .emptyStdin)
+        XCTAssertEqual(result.exitCode, 0, result.stderr.joined())
+        XCTAssertEqual(controller.plannedSurfaces(in: workspace).first { $0.surfaceID == native.surfaceID }?.frame.width, before + 80)
+        XCTAssertEqual(native.getWeight(.h), nativeWeight)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+    }
+
+    func testBalanceAndFlattenOperateOnMixedArrangementAndKeepNativeBinding() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), workspace = focus.workspace
+        let parent = native.parent
+        try await checkCommand(["surface", "group", "selected", "prev", "horizontal"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        try await checkCommand(["resize", "width", "+60"])
+        try await checkCommand(["balance-sizes"])
+        let frames = controller.plannedSurfaces(in: workspace)
+        XCTAssertEqual(frames.first { $0.surfaceID == tab }?.frame.width,
+                       frames.first { $0.surfaceID == native.surfaceID }?.frame.width)
+        XCTAssertEqual(controller.surfaceTree.containingGroup(of: tab), group)
+        try await checkCommand(["flatten-workspace-tree"])
+        XCTAssertNil(controller.surfaceTree.containingGroup(of: tab))
+        XCTAssertEqual(Set(controller.surfaceTree.roots[workspace.name]?.flatMap(\.surfaces) ?? []), [tab, native.surfaceID])
+        XCTAssertTrue(native.parent === parent)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+    }
+
+    func testNativeMoveCommandCommitsSharedMembershipWithoutChangingBrowserSelection() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71)), source = focus.workspace.name
+        try await checkCommand(["move-node-to-workspace", "NativeTarget", "--window-id", "71"])
+        XCTAssertEqual(native.nodeWorkspace?.name, "NativeTarget")
+        XCTAssertEqual(controller.surfaceTree.workspace(of: native.surfaceID), "NativeTarget")
+        XCTAssertEqual(controller.surfaceTree.workspace(of: tab), source)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertTrue(controller.hasMixedLayout(in: try XCTUnwrap(native.nodeWorkspace)))
+    }
+
+    func testStackSeparateJoinAndSwapUseSharedOwnersWithoutNativeContainers() async throws {
+        let native = try XCTUnwrap(Window.get(byId: 71))
+        let parent = native.parent
+        try await checkCommand(["stack-with", "left"])
+        XCTAssertEqual(controller.surfaceTree.stackItems(containing: tab), [native.surfaceID, tab])
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        try await checkCommand(["stack-with", "right"])
+        XCTAssertNil(controller.surfaceTree.stackItems(containing: tab))
+        try await checkCommand(["join-with", "left"])
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: tab))
+        XCTAssertEqual(controller.surfaceTree.layouts[group], .vertical)
+        try await checkCommand(["swap", "dfs-prev"])
+        XCTAssertEqual(controller.surfaceTree.group(group)?.surfaces, [tab, native.surfaceID])
+        XCTAssertTrue(native.parent === parent)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        try await checkCommand(["swap", "dfs-next", "--swap-focus"])
+        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
     }
 
     func testNativeFloatingTogglePreservesMixedBrowserOwnersAndSourceFocus() async throws {
@@ -345,11 +411,13 @@ import XCTest
         var tree = saved.tree; tree.reconcile([other.surfaceID], in: destination.name)
         saved = .init(tree: tree, layoutWorkspaces: saved.layoutWorkspaces, selected: nil, closedBrowserTabs: [])
         controller.restorePlacementSnapshot(saved)
+        XCTAssertEqual(controller.select(tab), .issued)
         controller.organize(tab, before: other.surfaceID)
         XCTAssertEqual(controller.workspaceName(for: tab), destination.name)
         XCTAssertEqual(controller.surfaceTree.roots[destination.name]?.flatMap(\.surfaces), [tab, other.surfaceID])
         XCTAssertEqual(Window.get(byId: 71)?.nodeWorkspace?.name, source)
         XCTAssertEqual(focus.workspace.name, source)
+        XCTAssertEqual(controller.focusCoordinator.target, Window.get(byId: 71)?.surfaceID)
         controller.organize(other.surfaceID, before: Window.get(byId: 71)!.surfaceID)
         XCTAssertEqual(other.nodeWorkspace?.name, source)
         XCTAssertEqual(controller.surfaceTree.workspace(of: other.surfaceID), source)

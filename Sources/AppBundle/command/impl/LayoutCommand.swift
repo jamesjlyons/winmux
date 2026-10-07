@@ -9,9 +9,7 @@ struct LayoutCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         let controller = BrowserWorkspaceController.shared
         var nativeConversionTarget: LiveFocus?
-        if controller.usesSurfaceTree, args.windowId == nil, env.windowId == nil,
-           args.workspaceName == nil, env.workspaceName == nil,
-           let id = controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID {
+        if let id = args.sharedOrganizationTarget(env) {
             let convertsNativeTiling = args.toggleBetween.val.contains { $0 == .tiling || $0 == .floating }
             if convertsNativeTiling, case .nativeWindow = id {
                 // Resolve the durable selection, including a floating window

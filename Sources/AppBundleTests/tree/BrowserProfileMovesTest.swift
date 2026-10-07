@@ -273,7 +273,7 @@ import XCTest
     func testOrderedCrossSpaceMoveKeepsItsRequestedPosition() throws {
         let f = try Fixture(); defer { f.stop() }
         let old = f.add(), target = f.add(profile: f.personal.id)
-        f.controller.moveBrowserSurface(target, to: f.destination.name)
+        XCTAssertTrue(f.controller.editOrganization(of: target, movingTo: Workspace.get(byName: f.destination.name)) { _ in true })
         f.controller.organize(old, before: target)
         let new = f.replacement()
         XCTAssertEqual(f.controller.surfaceTree.roots[f.destination.name]?.flatMap(\.surfaces), [new, target])

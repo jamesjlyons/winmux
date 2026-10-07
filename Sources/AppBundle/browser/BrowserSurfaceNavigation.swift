@@ -2,41 +2,26 @@ import AppKit
 import Common
 import WorkspaceCore
 
-/// Keep directional focus in the current row or column when the layout wraps.
-/// Primary-axis ties use the nearest orthogonal center, never tree order.
-func browserDirectionalSurface(from source: SurfacePlacement, others: [SurfacePlacement],
-                               direction: CardinalDirection, wrapping: Bool) -> SurfaceID? {
-    func axis(_ placement: SurfacePlacement) -> Int {
-        direction.orientation == .h ? placement.frame.x + placement.frame.width / 2
-            : placement.frame.y + placement.frame.height / 2
+extension CardinalDirection {
+    var surfaceDirection: SurfaceDirection {
+        switch self {
+        case .left: .left
+        case .right: .right
+        case .up: .up
+        case .down: .down
+        }
     }
-    func cross(_ placement: SurfacePlacement) -> (Int, Int) {
-        direction.orientation == .h ? (placement.frame.y, placement.frame.y + placement.frame.height)
-            : (placement.frame.x, placement.frame.x + placement.frame.width)
-    }
-    let sourceCross = cross(source)
-    func alignment(_ placement: SurfacePlacement) -> (Int, Int) {
-        let bounds = cross(placement)
-        let overlaps = max(sourceCross.0, bounds.0) < min(sourceCross.1, bounds.1)
-        return (overlaps ? 0 : 1, abs((bounds.0 + bounds.1) - (sourceCross.0 + sourceCross.1)))
-    }
-    let available = others.filter { $0.visible && $0.surfaceID != source.surfaceID }
-    let forward = available.filter { direction.isPositive ? axis($0) > axis(source) : axis($0) < axis(source) }
-    if let next = forward.min(by: {
-        let left = alignment($0), right = alignment($1)
-        return (left.0, abs(axis($0) - axis(source)), left.1)
-            < (right.0, abs(axis($1) - axis(source)), right.1)
-    }) { return next.surfaceID }
-    guard wrapping else { return nil }
-    return available.min(by: {
-        let left = alignment($0), right = alignment($1)
-        let leftEdge = direction.isPositive ? axis($0) : -axis($0)
-        let rightEdge = direction.isPositive ? axis($1) : -axis($1)
-        return (left.0, leftEdge, left.1) < (right.0, rightEdge, right.1)
-    })?.surfaceID
 }
 
 extension BrowserWorkspaceController {
+    func directionalNeighbor(of id: SurfaceID, toward direction: CardinalDirection, wrapping: Bool = false) -> SurfaceID? {
+        guard let workspace = workspaceName(for: id).flatMap(Workspace.existing(byName:)) else { return nil }
+        let frames = plannedSurfaces(in: workspace)
+        guard let source = frames.first(where: { $0.surfaceID == id }) else { return nil }
+        return directionalSurface(from: source, others: frames.filter { isAvailable($0.surfaceID) },
+            direction: direction.surfaceDirection, wrapping: wrapping)
+    }
+
     func navigationStackItems(for id: SurfaceID, in workspace: Workspace) -> [SurfaceID] {
         guard hasMixedLayout(in: workspace) else {
             return surfaceTree.stackItems(containing: id)?.filter(isAvailable) ?? []
@@ -67,7 +52,7 @@ extension BrowserWorkspaceController {
             let frames = plannedSurfaces(in: workspace)
             guard let source = frames.first(where: { $0.surfaceID == current }) else { return false }
             let others = frames.filter { $0.visible && $0.surfaceID != current && isAvailable($0.surfaceID) }
-            if let next = browserDirectionalSurface(from: source, others: others, direction: direction,
+            if let next = directionalSurface(from: source, others: others, direction: direction.surfaceDirection,
                                                      wrapping: args.boundariesAction == .wrapAroundTheWorkspace) {
                 return select(next) == .issued
             }

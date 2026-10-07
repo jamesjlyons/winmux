@@ -2,6 +2,25 @@ import Common
 import WorkspaceCore
 
 extension CmdArgs {
+    /// Flags and environment select the subject; they do not select a different
+    /// layout model. A managed native window and a browser page use the same
+    /// organization path. Retain stale browser selection for normal rejection.
+    @MainActor
+    func sharedOrganizationTarget(_ env: CmdEnv, controller: BrowserWorkspaceController = .shared) -> SurfaceID? {
+        guard controller.usesSurfaceTree else { return nil }
+        let id: SurfaceID?
+        if let windowId { id = Window.get(byId: windowId)?.surfaceID }
+        else if let workspaceName {
+            id = Workspace.existing(byName: workspaceName.raw).flatMap { controller.preferredSurface(in: $0) }
+        } else if let windowId = env.windowId { id = Window.get(byId: windowId)?.surfaceID }
+        else if let name = env.workspaceName {
+            id = Workspace.existing(byName: name).flatMap { controller.preferredSurface(in: $0) }
+        } else { id = controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID }
+        guard let id else { return nil }
+        if case .browserTab = id { return id }
+        return controller.surfaceTree.workspace(of: id) != nil ? id : nil
+    }
+
     /// Explicit native IDs keep their established meaning. A missing/disconnected
     /// browser owner still counts as a browser selection: never fall back to AX.
     @MainActor

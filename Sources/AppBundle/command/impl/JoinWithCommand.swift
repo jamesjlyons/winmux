@@ -7,6 +7,16 @@ struct JoinWithCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         let direction = args.direction.val
+        let controller = BrowserWorkspaceController.shared
+        if let id = args.sharedOrganizationTarget(env) {
+            guard let neighbor = controller.directionalNeighbor(of: id, toward: direction) else {
+                return io.err("No items in the specified direction")
+            }
+            return controller.editOrganization(of: id) {
+                $0.split(id, beside: neighbor, layout: direction.orientation == .h ? .vertical : .horizontal,
+                    before: direction.isPositive)
+            } || io.err("Cannot join these items: an owner is unavailable")
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let currentWindow = target.windowOrNil else {
             return io.err(noWindowIsFocused)

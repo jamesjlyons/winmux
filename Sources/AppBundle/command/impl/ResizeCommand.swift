@@ -8,8 +8,7 @@ struct ResizeCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         let controller = BrowserWorkspaceController.shared
-        if controller.usesSurfaceTree, args.windowId == nil, env.windowId == nil,
-           let id = controller.focusCoordinator.target ?? focus.windowOrNil?.surfaceID,
+        if let id = args.sharedOrganizationTarget(env),
            let name = controller.workspaceName(for: id), let workspace = Workspace.existing(byName: name) {
             let dimension: SurfaceResizeDimension = switch args.dimension.val {
                 case .width: .width

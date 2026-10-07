@@ -1,11 +1,28 @@
 import AppKit
 import Common
+import WorkspaceCore
 
 struct SwapCommand: Command {
     let args: SwapCmdArgs
     /*conforms*/ let shouldResetClosedWindowsCache: Bool = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
+        let controller = BrowserWorkspaceController.shared
+        if let id = args.sharedOrganizationTarget(env), let name = controller.surfaceTree.workspace(of: id) {
+            let neighbor: SurfaceID?
+            switch args.target.val {
+            case .direction(let direction):
+                neighbor = controller.directionalNeighbor(of: id, toward: direction, wrapping: args.wrapAround)
+            case .dfsRelative(let direction):
+                let members = (controller.surfaceTree.roots[name] ?? []).flatMap(\.surfaces).filter(controller.isAvailable)
+                guard let index = members.firstIndex(of: id) else { return false }
+                let next = index + (direction == .dfsNext ? 1 : -1)
+                neighbor = members.indices.contains(next) ? members[next]
+                    : args.wrapAround ? members[(next + members.count) % members.count] : nil
+            }
+            guard let neighbor, controller.editOrganization(of: id, { $0.swapLeaves(id, neighbor) }) else { return false }
+            return !args.swapFocus || controller.select(neighbor) == .issued
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else {
             return false
         }

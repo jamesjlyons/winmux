@@ -139,7 +139,7 @@ func reportSurfaceAction(_ outcome: SurfaceActionOutcome, _ io: CmdIo) -> Bool {
 @MainActor
 func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
                             focusFollowsSurface: Bool, failIfNoop: Bool,
-                            controller: BrowserWorkspaceController = .shared) -> Bool {
+                            controller: BrowserWorkspaceController = .shared, atStart: Bool = false) -> Bool {
     guard controller.isAvailable(id), let sourceName = controller.workspaceName(for: id),
           let source = Workspace.existing(byName: sourceName) else { return io.err("Surface owner is unavailable") }
     guard controller.canPlaceSurface(id, in: target) else { return io.err("Private tabs stay in their temporary Incognito Space") }
@@ -149,26 +149,23 @@ func moveSurfaceToWorkspace(_ id: SurfaceID, _ target: Workspace, _ io: CmdIo,
         guard let controller else { return false }
         return moveSurfaceToWorkspace(id, target, io,
                                focusFollowsSurface: focusFollowsSurface && controller.focusCoordinator.generation == focusGeneration,
-                               failIfNoop: failIfNoop, controller: controller)
+                               failIfNoop: failIfNoop, controller: controller, atStart: atStart)
     }) { return accepted }
-    switch id {
-    case .browserTab:
-        guard controller.usesSurfaceTree, controller.owner(of: id)?.supportsLayout == true else {
-            return io.err("Browser workspace moves require shared layouts and protocol 3")
+    if controller.usesSurfaceTree, controller.surfaceTree.workspace(of: id) != nil {
+        guard controller.editOrganization(of: id, movingTo: target, { tree in
+            !atStart || tree.moveToRoot(id, in: target.name, atStart: true)
+        }) else {
+            return io.err("Cannot move surface: its layout or owner changed")
         }
-        controller.moveBrowserSurface(id, to: target.name)
-    case .nativeWindow:
+    } else if case .nativeWindow = id {
         guard let window = Window.get(bySurfaceID: id),
               moveWindowToWorkspace(window, target, io, focusFollowsWindow: false, failIfNoop: failIfNoop) else { return false }
-    }
+    } else { return io.err("Browser workspace moves require shared layouts and protocol 3") }
     if focusFollowsSurface { return reportSurfaceAction(controller.select(id), io) }
     // Do not reaffirm a tab on a now-hidden workspace after the layout reply.
     // Keep focus on the source when its selected item has moved away.
     if controller.usesSurfaceTree, controller.focusCoordinator.target == id {
-        let remaining = (controller.surfaceTree.roots[source.name] ?? []).flatMap(\.surfaces)
-            .first { $0 != id && controller.isAvailable($0) && !controller.isProfileMoveCopy($0) }
-        if let remaining { _ = controller.select(remaining) }
-        else { _ = source.focusWorkspace(); controller.nativeSelectionChanged(nil) }
+        controller.retainSourceSelection(in: source)
     }
     return true
 }

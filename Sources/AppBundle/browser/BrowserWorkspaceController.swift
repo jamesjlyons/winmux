@@ -812,35 +812,24 @@ public final class BrowserWorkspaceController {
                                                    activeSurfaces: imported.active, weights: imported.weights) else { return false }
             }
         }
-        guard candidate.moveGroupToRoot(id, in: destination.name), edit(&candidate),
-              reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }),
-              let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
+        guard let change = candidate.preparingOrganizationChange(in: affected, reserving: reservations,
+            selected: focusCoordinator.target, { $0.moveGroupToRoot(id, in: destination.name) && edit(&$0) }) else { return false }
         let members = Set(group.surfaces)
-        let nativeWindows = group.surfaces.compactMap { Window.get(bySurfaceID: $0) }
-        guard nativeWindows.count == group.surfaces.filter({ if case .nativeWindow = $0 { return true }; return false }).count,
-              nativeWindows.allSatisfy({ $0.toLiveFocusOrNil() != nil && participatesInSharedTiling($0) }) else { return false }
         let movedSelection = (focusCoordinator.target ?? focus.windowOrNil?.surfaceID).map(members.contains) == true
-        syncClosedWindowsCacheToCurrentWorld()
-        suppressPostDragAxObserverEvents(for: nativeWindows.map(\.windowId))
-        for window in nativeWindows {
-            let binding = workspaceAppendBindingData(targetWorkspace: destination, index: INDEX_BIND_LAST)
-            window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
-        }
-        for member in group.surfaces { if case .browserTab = member { placements[member] = destination.name } }
-        surfaceTree = candidate
-        mixedLayoutWorkspaces.formUnion(affected)
+        guard commitOrganizationChange(change) else { return false }
         restoredSelection = nil
-        if movedSelection {
-            let remaining = (surfaceTree.roots[sourceName] ?? []).flatMap(\.surfaces).first { isAvailable($0) && !isProfileMoveCopy($0) }
-            let focusedRemaining = remaining.map { select($0) == .issued } ?? false
-            if !focusedRemaining {
-                _ = source.focusWorkspace()
-                nativeSelectionChanged(nil)
-            }
-        }
+        if movedSelection { retainSourceSelection(in: source) }
         scheduleRefresh()
         return true
+    }
+
+    func retainSourceSelection(in source: Workspace) {
+        let remaining = (surfaceTree.roots[source.name] ?? []).flatMap(\.surfaces)
+            .first { isAvailable($0) && !isProfileMoveCopy($0) }
+        if remaining.map({ select($0) == .issued }) != true {
+            _ = source.focusWorkspace()
+            nativeSelectionChanged(nil)
+        }
     }
 
     /// Shared organization dispatches owner layout only after capability checks.
@@ -848,57 +837,49 @@ public final class BrowserWorkspaceController {
     func organize(_ id: SurfaceID, before target: SurfaceID? = nil, earlier: Bool? = nil, groupWithSelection: Bool = false, layout: SurfaceContainerLayout = .stack) {
         guard usesSurfaceTree, isAvailable(id) else { return }
         if let target {
-            guard isAvailable(target) else { return }
-            if workspaceName(for: id) != workspaceName(for: target) {
-                guard let name = workspaceName(for: target), let destination = Workspace.existing(byName: name) else { return }
-                if moveUsingDestinationProfile([id], to: destination, commit: { [weak self] in
-                    guard let self, self.isAvailable(target), self.workspaceName(for: target) == name else { return false }
-                    self.organize(id, before: target)
-                    return self.workspaceName(for: id) == name
-                }) != nil { return }
-                guard
-                      moveSurfaceToWorkspace(id, destination, CmdIo(stdin: .emptyStdin),
-                          focusFollowsSurface: false, failIfNoop: false, controller: self) else { return }
-            }
-            _ = surfaceTree.move(id, before: target)
-        } else if let earlier { _ = surfaceTree.reorder(id, earlier: earlier) }
+            guard isAvailable(target), let name = workspaceName(for: target),
+                  let destination = Workspace.existing(byName: name) else { return }
+            let source = workspaceName(for: id).flatMap(Workspace.existing(byName:))
+            if source !== destination, moveUsingDestinationProfile([id], to: destination, commit: { [weak self] in
+                guard let self, self.isAvailable(target), self.workspaceName(for: target) == name else { return false }
+                self.organize(id, before: target)
+                return self.workspaceName(for: id) == name
+            }) != nil { return }
+            let movedSelection = focusCoordinator.target == id
+            if editOrganization(of: id, movingTo: destination, { $0.move(id, before: target) }),
+               let source, source !== destination, movedSelection { retainSourceSelection(in: source) }
+        } else if let earlier { _ = editOrganization(of: id) { $0.reorder(id, earlier: earlier) } }
         else if groupWithSelection, let target = focusCoordinator.target, isAvailable(target) {
             if config.workspaceInteractionMode == .views {
                 _ = combineViews(id, with: target, layout: layout)
                 return
             }
-            if surfaceTree.group(id, with: target, layout: layout), let workspace = surfaceTree.workspace(of: id),
-               sessions.values.allSatisfy({ $0.supportsLayout }) {
-                mixedLayoutWorkspaces.insert(workspace)
-            }
+            _ = editOrganization(of: id) { $0.group(id, with: target, layout: layout) }
         }
         scheduleRefresh()
     }
 
-    func ungroup(_ id: UUID) { if surfaceTree.ungroup(id) { removePinnedView(id) }; scheduleRefresh() }
+    func ungroup(_ id: UUID) {
+        guard let member = surfaceTree.group(id)?.surfaces.first(where: isAvailable),
+              editOrganization(of: member, { $0.ungroup(id) }) else { return }
+        removePinnedView(id)
+    }
 
     /// Structural commands must never edit the old native tree behind a browser
     /// selection. Validate the owners and candidate snapshot before committing.
     func editOrganization(of id: SurfaceID, _ edit: (inout SurfaceTree) -> Bool) -> Bool {
         guard usesSurfaceTree, isAvailable(id), let workspace = surfaceTree.workspace(of: id),
               let reservations = organizationReservations(in: [workspace]) else { return false }
-        var candidate = surfaceTree
-        guard edit(&candidate), reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }) else { return false }
-        if let selected = focusCoordinator.target { candidate.select(selected) }
-        // The same depth/identity limits apply to new edits and restored trees.
-        guard let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
-        surfaceTree = candidate
-        mixedLayoutWorkspaces.insert(workspace)
-        scheduleRefresh()
-        return true
+        guard let change = surfaceTree.preparingOrganizationChange(in: [workspace], reserving: reservations,
+            selected: focusCoordinator.target, edit) else { return false }
+        return commitOrganizationChange(change)
     }
 
     /// Prepare the entire cross-workspace edit before changing owner membership.
     /// This synchronous commit has no suspension between validation and binding.
     func editOrganization(of id: SurfaceID, movingTo destination: Workspace,
                           _ edit: @escaping (inout SurfaceTree) -> Bool) -> Bool {
-        guard usesSurfaceTree, isAvailable(id), let source = surfaceTree.workspace(of: id),
+        guard usesSurfaceTree, !destination.isArchived, isAvailable(id), let source = surfaceTree.workspace(of: id),
               workspaceName(for: id) == source else { return false }
         if source == destination.name { return editOrganization(of: id, edit) }
         if let accepted = moveUsingDestinationProfile([id], to: destination, commit: { [weak self] in
@@ -906,26 +887,41 @@ public final class BrowserWorkspaceController {
         }) { return accepted }
         let affected = Set([source, destination.name])
         guard let reservations = organizationReservations(in: affected) else { return false }
-        var candidate = surfaceTree
-        guard candidate.moveToRoot(id, in: destination.name), edit(&candidate),
-              reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }) else { return false }
-        if let selected = focusCoordinator.target { candidate.select(selected) }
-        guard let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return false }
-        switch id {
-        case .browserTab: placements[id] = destination.name
-        case .nativeWindow:
-            guard let window = Window.get(bySurfaceID: id), window.toLiveFocusOrNil() != nil else { return false }
+        guard let change = surfaceTree.preparingOrganizationChange(in: affected, reserving: reservations,
+            selected: focusCoordinator.target, { $0.moveToRoot(id, in: destination.name) && edit(&$0) }) else { return false }
+        return commitOrganizationChange(change)
+    }
+
+    /// The model has decided membership and layout. Revalidate every affected
+    /// owner before executing any binding change, with no suspension mid-commit.
+    private func commitOrganizationChange(_ change: SurfaceOrganizationChange) -> Bool {
+        var nativeMoves: [(Window, Workspace)] = []
+        for effect in change.membership {
+            guard workspaceName(for: effect.surfaceID) == effect.source,
+                  let destination = Workspace.existing(byName: effect.destination), !destination.isArchived,
+                  canPlaceSurface(effect.surfaceID, in: destination) else { return false }
+            switch effect.surfaceID {
+            case .browserTab:
+                guard owner(of: effect.surfaceID)?.supportsLayout == true else { return false }
+            case .nativeWindow:
+                guard let window = Window.get(bySurfaceID: effect.surfaceID),
+                      window.toLiveFocusOrNil() != nil, participatesInSharedTiling(window) else { return false }
+                nativeMoves.append((window, destination))
+            }
+        }
+        if !nativeMoves.isEmpty {
             syncClosedWindowsCacheToCurrentWorld()
-            suppressPostDragAxObserverEvents(for: [window.windowId])
-            if window.isFloating { window.bind(to: destination, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST) }
-            else {
+            suppressPostDragAxObserverEvents(for: nativeMoves.map { $0.0.windowId })
+            for (window, destination) in nativeMoves {
                 let binding = workspaceAppendBindingData(targetWorkspace: destination, index: INDEX_BIND_LAST)
                 window.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
             }
         }
-        surfaceTree = candidate
-        mixedLayoutWorkspaces.formUnion(affected)
+        for effect in change.membership {
+            if case .browserTab = effect.surfaceID { placements[effect.surfaceID] = effect.destination }
+        }
+        surfaceTree = change.tree
+        mixedLayoutWorkspaces.formUnion(change.workspaces)
         scheduleRefresh()
         return true
     }
@@ -960,18 +956,6 @@ public final class BrowserWorkspaceController {
         case .nativeWindow: Window.get(bySurfaceID: id)?.toLiveFocusOrNil() != nil
         case .browserTab: owner(of: id) != nil
         }
-    }
-
-    func moveBrowserSurface(_ id: SurfaceID, to workspace: String) {
-        guard usesSurfaceTree, let session = owner(of: id), session.supportsLayout,
-              let destination = Workspace.existing(byName: workspace), canPlaceSurface(id, in: destination) else { return }
-        // A workspace move needs owner visibility even without a prior split.
-        // Activate both sides so tabs sharing a browser host can separate safely.
-        if let old = placements[id] { mixedLayoutWorkspaces.insert(old) }
-        mixedLayoutWorkspaces.insert(workspace)
-        placements[id] = workspace
-        _ = surfaceTree.moveToRoot(id, in: workspace)
-        scheduleRefresh()
     }
 
     /// Commit replacements only after the whole move passed preflight. Originals

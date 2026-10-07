@@ -95,6 +95,11 @@ func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io:
         }
         return !failIfNoop
     }
+    let controller = BrowserWorkspaceController.shared
+    if controller.usesSurfaceTree, controller.surfaceTree.workspace(of: window.surfaceID) != nil {
+        return moveSurfaceToWorkspace(window.surfaceID, targetWorkspace, io,
+            focusFollowsSurface: focusFollowsWindow, failIfNoop: failIfNoop, atStart: index == 0)
+    }
     if window.isFloating {
         window.bind(to: targetWorkspace, adaptiveWeight: WEIGHT_AUTO, index: index)
     } else {
