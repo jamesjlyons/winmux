@@ -276,7 +276,7 @@ import XCTest
         XCTAssertEqual(controller.surfaceTree.workspace(of: native.surfaceID), "NativeTarget")
         XCTAssertEqual(controller.surfaceTree.workspace(of: tab), source)
         XCTAssertEqual(controller.focusCoordinator.target, tab)
-        XCTAssertTrue(controller.hasMixedLayout(in: try XCTUnwrap(native.nodeWorkspace)))
+        XCTAssertTrue(controller.hasSharedLayout(in: try XCTUnwrap(native.nodeWorkspace)))
     }
 
     func testStackSeparateJoinAndSwapUseSharedOwnersWithoutNativeContainers() async throws {

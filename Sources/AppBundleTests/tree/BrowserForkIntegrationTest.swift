@@ -24,8 +24,8 @@ import XCTest
         XCTAssertEqual(fixture.controller.workspaceName(forGroup: fixture.group), destination.name)
         XCTAssertEqual(fixture.controller.focusCoordinator.target, fixture.remaining.surfaceID)
         XCTAssertEqual(fixture.controller.surfaceTree.activeSurfaces[fixture.stack], fixture.pages[1])
-        XCTAssertTrue(fixture.controller.hasMixedLayout(in: fixture.source))
-        XCTAssertTrue(fixture.controller.hasMixedLayout(in: destination))
+        XCTAssertTrue(fixture.controller.hasSharedLayout(in: fixture.source))
+        XCTAssertTrue(fixture.controller.hasSharedLayout(in: destination))
         for page in fixture.pages { XCTAssertEqual(fixture.controller.workspaceName(for: page), destination.name) }
         let after = try XCTUnwrap(fixture.controller.capturePlacementSnapshot())
         XCTAssertEqual(try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self, from: JSONEncoder().encode(after)), after)
@@ -101,7 +101,8 @@ import XCTest
             controller.reconcileSharedOrganization()
             _ = controller.organizedRows(native: [tiledRow, floatingRow], in: source.name)
             XCTAssertEqual(controller.surfaceTree.workspace(of: tiled.surfaceID), source.name)
-            XCTAssertFalse(controller.plannedSurfaces(in: source).contains { $0.surfaceID == tiled.surfaceID })
+            XCTAssertEqual(controller.plannedSurfaces(in: source).contains { $0.surfaceID == tiled.surfaceID }, state == "winmux-fullscreen",
+                "WinMux fullscreen is a shared presentation; native fullscreen and minimization remain owner-managed")
         }
         tiled.isFullscreen = false
         tiled.recordObservedNativeState(fullscreen: false, minimized: false, token: tiled.nativeStateObservationToken())

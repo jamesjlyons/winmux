@@ -71,6 +71,7 @@ extension AgentOperation {
                 window.isFullscreen = value
                 window.noOuterGapsInFullscreen = noOuterGaps ?? window.noOuterGapsInFullscreen
                 window.markAsMostRecentChild()
+                BrowserWorkspaceController.shared.nativeFullscreenChanged(window)
             case .setFloating(let windowId, let value):
                 applySetFloating(windowId, value: value)
             case .closeWindow(let windowId, let quitAppIfLastWindow):

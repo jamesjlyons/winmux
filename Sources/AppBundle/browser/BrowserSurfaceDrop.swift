@@ -110,7 +110,7 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
 @MainActor
 func sharedStackHeaderTarget(at point: CGPoint, excluding: Set<SurfaceID>, in workspace: Workspace,
                              controller: BrowserWorkspaceController) -> (id: UUID, surface: SurfaceID, frame: Rect)? {
-    guard config.windowTabs.enabled, controller.hasMixedLayout(in: workspace) else { return nil }
+    guard config.windowTabs.enabled, controller.hasSharedLayout(in: workspace) else { return nil }
     let plan = controller.plannedLayout(in: workspace)
     let live = Set(plan.surfaces.filter(\.visible).map(\.surfaceID)).subtracting(excluding)
     for stack in plan.stacks where stack.visible {
@@ -142,7 +142,7 @@ private func canDropSurface(_ id: SurfaceID, controller: BrowserWorkspaceControl
 @MainActor
 func surfaceDropTargetFrame(_ placement: SurfacePlacement, workspace: Workspace,
                                     controller: BrowserWorkspaceController) -> Rect? {
-    if !controller.hasMixedLayout(in: workspace), case .nativeWindow = placement.surfaceID {
+    if !controller.hasSharedLayout(in: workspace), case .nativeWindow = placement.surfaceID {
         // A workspace joins shared layout only on commit. Until then its native
         // tree remains authoritative for the destination the user can see.
         return Window.get(bySurfaceID: placement.surfaceID)?.windowDragVisibleRect

@@ -69,7 +69,6 @@ extension BrowserWorkspaceController {
                     if focus.workspace === workspace { _ = setFocus(to: fallback.toLiveFocus()) }
                 }
                 surfaceTree.removeWorkspace(workspace.name)
-                mixedLayoutWorkspaces.remove(workspace.name)
                 removeWorkspaceFromRegistry(workspace)
             }
             winMuxWorkspaceState.projectsById.removeValue(forKey: space)

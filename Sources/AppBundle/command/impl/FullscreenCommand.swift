@@ -25,6 +25,7 @@ struct FullscreenCommand: Command {
 
         // Focus on its own workspace
         window.markAsMostRecentChild()
+        BrowserWorkspaceController.shared.nativeFullscreenChanged(window)
         return true
     }
 }

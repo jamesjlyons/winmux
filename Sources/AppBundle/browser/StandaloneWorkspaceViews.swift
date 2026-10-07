@@ -101,8 +101,24 @@ extension BrowserWorkspaceController {
     }
 
     func placeOrdinaryNativeArrival(_ window: Window, in source: Workspace) {
-        guard config.newItemPlacement == .newView, !window.isFloating,
+        guard !window.isFloating,
               window.parent is TilingContainer, window.nodeWorkspace === source else { return }
+        if config.newItemPlacement != .newView {
+            guard hasSharedLayout(in: source) else { return }
+            let id = window.surfaceID
+            let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID
+            let anchor = selected.flatMap { surfaceTree.workspace(of: $0) == source.name && $0 != id ? $0 : nil }
+            surfaceTree.reconcile((surfaceTree.roots[source.name] ?? []).flatMap(\.surfaces) + [id], in: source.name)
+            if config.newItemPlacement == .stackNative, let anchor, let stack = surfaceTree.stack(containing: anchor) {
+                _ = surfaceTree.insertIntoStack(.surface(id), with: anchor, inStack: stack)
+                if case .group(_, let children) = surfaceTree.group(stack),
+                   let index = children.firstIndex(where: { $0.surfaces.contains(anchor) }) {
+                    _ = surfaceTree.reorder(.surface(id), inStack: stack, toIndex: index + 1)
+                }
+            } else { _ = surfaceTree.moveToRoot(id, in: source.name, after: anchor) }
+            scheduleRefresh()
+            return
+        }
         if let pin = nativeAppSidebarPins.first(where: {
             $0.bundleIdentifier == window.app.rawAppBundleId && pendingNativePinLaunches[$0.id] != nil
         }), adoptAppWindow(window, pinID: pin.id) { return }

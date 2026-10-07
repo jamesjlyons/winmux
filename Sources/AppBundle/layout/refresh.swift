@@ -500,10 +500,10 @@ private func layoutWorkspaces(
 private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) -> Void) async throws {
     if !TrayMenuModel.shared.isEnabled {
         for workspace in Workspace.all {
-            let hiddenMixedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInMixedLayout(in: workspace)
+            let hiddenSharedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInSharedLayout(in: workspace)
             workspace.allLeafWindowsRecursive.forEach { window in
                 guard let macWindow = window as? MacWindow else { return }
-                if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenMixedSurfaces: hiddenMixedSurfaces) {
+                if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenSharedSurfaces: hiddenSharedSurfaces) {
                     return
                 }
                 macWindow.unhideFromCorner()
@@ -544,10 +544,10 @@ private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) ->
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
-        let hiddenMixedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInMixedLayout(in: workspace)
+        let hiddenSharedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInSharedLayout(in: workspace)
         workspace.allLeafWindowsRecursive.forEach { window in
             guard let macWindow = window as? MacWindow else { return }
-            if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenMixedSurfaces: hiddenMixedSurfaces) {
+            if shouldKeepWindowHiddenForVisibleWorkspaceLayout(window, hiddenSharedSurfaces: hiddenSharedSurfaces) {
                 return
             }
             macWindow.unhideFromCorner()
@@ -580,8 +580,11 @@ private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) ->
 }
 
 @MainActor
-private func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window, hiddenMixedSurfaces: Set<SurfaceID>) -> Bool {
-    if hiddenMixedSurfaces.contains(window.surfaceID) { return true }
+func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window, hiddenSharedSurfaces: Set<SurfaceID>) -> Bool {
+    if let workspace = window.nodeWorkspace, BrowserWorkspaceController.shared.hasSharedLayout(in: workspace) {
+        return hiddenSharedSurfaces.contains(window.surfaceID)
+    }
+    if hiddenSharedSurfaces.contains(window.surfaceID) { return true }
     guard let tabGroup = window.nearestWindowTabGroup, tabGroup.usesWindowTabBehavior else { return false }
     return tabGroup.tabActiveWindow != window
 }

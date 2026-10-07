@@ -208,7 +208,7 @@ extension BrowserWorkspaceController {
         for (edge, delta) in edges where abs(delta) > 1 {
             resized = candidate.resize(id, dimension: edge.isHorizontal ? .width : .height, amount: delta,
                 frame: frame, minimumSizes: minima, rootPresentation: rootPresentation(in: workspace),
-                stackChrome: stackChrome(in: workspace), edge: edge) || resized
+                stackChrome: stackChrome(in: workspace), gaps: layoutGaps(in: workspace), edge: edge) || resized
         }
         guard resized else { return false }
         return editOrganization(of: id) { durable in
@@ -227,7 +227,8 @@ extension BrowserWorkspaceController {
         var livePlan = liveLayoutTree(in: workspace)
         guard livePlan.workspace(of: id) == workspace.name,
               livePlan.resize(id, dimension: dimension, amount: amount, absolute: absolute, frame: frame, minimumSizes: minima,
-                              rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace)) else { return false }
+                              rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace),
+                              gaps: layoutGaps(in: workspace)) else { return false }
         return editOrganization(of: id) { durable in
             // Removing reservations only collapses containers; every remaining
             // weight key still belongs to the saved tree. Preserve its complete

@@ -27,6 +27,10 @@ let projectRoot: URL = {
 @MainActor
 func setUpWorkspacesForTests() {
     Window.resetSurfaceRegistryForTests()
+    let shared = BrowserWorkspaceController.shared
+    shared.nativeSelectionChanged(nil)
+    shared.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+    shared.usesSurfaceTree = false
     config = defaultConfig
     // Existing layout fixtures exercise the supported native stacking policy.
     // Arrival-policy tests choose their policy explicitly.

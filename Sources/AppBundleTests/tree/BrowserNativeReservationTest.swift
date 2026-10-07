@@ -11,7 +11,8 @@ import XCTest
         let saved = controller.surfaceTree
         let planned = controller.plannedSurfaces(in: focus.workspace)
         XCTAssertEqual(Set(planned.map(\.surfaceID)), [page, other])
-        XCTAssertEqual(planned.reduce(0) { $0 + $1.frame.width }, Int(focus.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps.width.rounded()))
+        XCTAssertEqual(planned.reduce(0) { $0 + $1.frame.width } + controller.layoutGaps(in: focus.workspace).horizontal,
+            Int(focus.workspace.workspaceMonitor.visibleRectPaddedByOuterGaps.width.rounded()))
         XCTAssertEqual(controller.surfaceTree, saved, "Projection must preserve saved reservations")
         XCTAssertTrue(controller.editOrganization(of: page) {
             $0.split(page, beside: other, layout: .vertical, before: true)

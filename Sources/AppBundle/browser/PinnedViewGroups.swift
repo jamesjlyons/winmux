@@ -94,7 +94,6 @@ extension BrowserWorkspaceController {
             activeSurfaces: template.activeSurfaces, weights: template.weights) else { return }
         if let selected = focusCoordinator.target { candidate.select(selected) }
         surfaceTree = candidate
-        mixedLayoutWorkspaces.insert(space.workspaceName)
     }
 
     func detachPinFromSavedGroup(_ pin: UUID) {

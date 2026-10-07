@@ -343,3 +343,39 @@ passed 186 tests and BridgeCore passed 21 tests in both configurations; all
 and `git diff --check` passed. Release model reconciliation plus sidebar
 projection measured median 0.706 ms for 50 Views and 2.398 ms for 200 Views;
 these exclude native input and compositor presentation.
+
+### Stage 4 native View adoption
+
+Every reconciled View in the managed workspace now uses shared organization,
+geometry, gestures, and stack chrome immediately. The separate runtime list of
+adopted Views is removed; the old checkpoint field is accepted at the migration
+boundary. Native bindings no longer determine arrival ordering or tab selection
+after import. New native arrivals follow the shared stack or tile policy, and
+startup no longer overwrites shared arrangements with a window-count heuristic.
+
+WinMux fullscreen expands a shared pane without changing its saved layout.
+Mixed stacks keep their fullscreen presentation while selecting either a native
+window or a browser page. Siblings receive explicit hide placements, headers
+disappear, and the sidebar gives back its reserved space. macOS native fullscreen
+and minimization remain owner observations outside shared tiling. Layout writes
+place visible owners first and stop when selection, organization, or the monitor
+changes during an asynchronous native write.
+
+Shared layout and resizing now honor configured horizontal and vertical inner
+gaps, including nested stacks, adaptive grids, minimum sizes, and edge resizing.
+Tests cover immediate native adoption, old empty adoption flags, stale native tab
+selection, mixed fullscreen, expansion without saved mutations, and gap-aware
+geometry. Common test setup clears shared layout state to prevent one fixture's
+saved View from affecting the next fixture with the same workspace name.
+
+The standalone native compatibility runtime remains available outside browser
+management. Retirement of superseded paths, Chromium toolbar integration, and
+unlocked desktop qualification remain open.
+
+The final Debug and Release app suites passed 1,121 tests each. WorkspaceCore
+passed 191 tests and BridgeCore passed 21 tests in both configurations; all
+84 Python tests passed. These runs retain the documented locked-console
+exclusions. Dependency resolution left `Package.resolved` unchanged and
+`git diff --check` passed. Release model reconciliation plus sidebar projection
+measured median 0.694 ms for 50 Views and 2.388 ms for 200 Views. These are
+synthetic measurements; live desktop qualification is still required.

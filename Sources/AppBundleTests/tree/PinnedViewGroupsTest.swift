@@ -48,7 +48,7 @@ import XCTest
         let layout = c.plannedLayout(in: pins)
         XCTAssertEqual(layout.frames[.group(id)]?.width, fullFrame.width)
         XCTAssertEqual(layout.stacks.filter(\.visible).count, 1)
-        XCTAssertEqual(groupPlan.map { $0.frame.width }.reduce(0, +) + 2 * c.stackChrome(in: pins).sideInset, fullFrame.width)
+        XCTAssertEqual(groupPlan.map { $0.frame.width }.reduce(0, +) + 2 * c.stackChrome(in: pins).sideInset + c.layoutGaps(in: pins).horizontal, fullFrame.width)
         XCTAssertFalse(groupPlan.contains { $0.surfaceID == windows[3].surfaceID })
         let snapshot = try XCTUnwrap(c.capturePlacementSnapshot()).validated()
         let restored = BrowserWorkspaceController(); restored.restorePlacementSnapshot(snapshot)

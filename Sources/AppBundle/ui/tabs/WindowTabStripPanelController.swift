@@ -43,7 +43,7 @@ extension WindowTabStripPanelController {
         // SwiftUI hosts warm so switching back only restores their ordering. Previously
         // every workspace switch destroyed both panels and rebuilt their view trees.
         let owner = BrowserWorkspaceController.shared
-        let nativeIds = Workspace.all.filter { !owner.usesSurfaceTree || !owner.hasMixedLayout(in: $0) }.flatMap {
+        let nativeIds = Workspace.all.filter { !owner.usesSurfaceTree || !owner.hasSharedLayout(in: $0) }.flatMap {
             $0.rootTilingContainer.allTabbedContainersRecursive.map { WindowTabStripIdentity.native(ObjectIdentifier($0)) }
         }
         func sharedIDs(_ nodes: [SurfaceTreeNode]) -> [WindowTabStripIdentity] {

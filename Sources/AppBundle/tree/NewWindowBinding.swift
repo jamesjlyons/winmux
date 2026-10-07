@@ -24,6 +24,11 @@ func bindingDataForNewRegularWindow(_ workspace: Workspace, window: Window?) -> 
 @MainActor
 func bindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
     window?.unbindFromParent()
+    if BrowserWorkspaceController.shared.hasSharedLayout(in: workspace) {
+        // This tree records native ownership only. Arrival ordering and stack
+        // membership are applied to the shared tree after owner registration.
+        return BindingData(parent: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    }
     if let tabGroupBinding = autoAddNewWindowToFocusedTabGroupBinding(workspace) {
         return tabGroupBinding
     }

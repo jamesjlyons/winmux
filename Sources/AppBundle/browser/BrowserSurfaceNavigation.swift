@@ -23,7 +23,7 @@ extension BrowserWorkspaceController {
     }
 
     func navigationStackItems(for id: SurfaceID, in workspace: Workspace) -> [SurfaceID] {
-        guard hasMixedLayout(in: workspace) else {
+        guard hasSharedLayout(in: workspace) else {
             return surfaceTree.stackItems(containing: id)?.filter(isAvailable) ?? []
         }
         // Geometry and navigation share the same nearest effective container.

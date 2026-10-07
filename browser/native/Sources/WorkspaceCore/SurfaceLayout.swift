@@ -41,6 +41,14 @@ public struct SurfaceStackChrome: Equatable, Sendable {
     }
 }
 
+public struct SurfaceLayoutGaps: Equatable, Sendable {
+    public let horizontal: Int, vertical: Int
+    public init(horizontal: Int = 0, vertical: Int = 0) {
+        self.horizontal = min(1000, max(0, horizontal))
+        self.vertical = min(1000, max(0, vertical))
+    }
+}
+
 public struct SurfaceStackPlacement: Equatable, Sendable {
     public let groupID: UUID
     public let frame: SurfaceFrame
@@ -88,16 +96,32 @@ extension SurfaceTree {
     public func placements(in workspace: String, frame: SurfaceFrame, visible: Bool = true,
                            minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
                            recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
-                           stackChrome: SurfaceStackChrome = .init()) -> [SurfacePlacement] {
+                           stackChrome: SurfaceStackChrome = .init(), gaps: SurfaceLayoutGaps = .init()) -> [SurfacePlacement] {
         layout(in: workspace, frame: frame, visible: visible, minimumSizes: minimumSizes, selectedSurface: selectedSurface,
-               recentSelections: recentSelections, rootPresentation: rootPresentation, stackChrome: stackChrome).surfaces
+               recentSelections: recentSelections, rootPresentation: rootPresentation, stackChrome: stackChrome, gaps: gaps).surfaces
     }
 
     public func layout(in workspace: String, frame: SurfaceFrame, visible: Bool = true,
                        minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
                        recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
-                       stackChrome: SurfaceStackChrome = .init()) -> SurfaceLayoutPlan {
+                       stackChrome: SurfaceStackChrome = .init(), gaps: SurfaceLayoutGaps = .init(),
+                       expandedPane: SurfacePane? = nil) -> SurfaceLayoutPlan {
         guard frame.isValid else { return .init() }
+        if let expandedPane, self.workspace(of: expandedPane) == workspace, let node = node(for: expandedPane) {
+            // Expansion is a presentation, never an organization edit. Preserve
+            // hidden owner placements so adapters can explicitly park siblings.
+            var plan = layout(in: workspace, frame: frame, visible: false, minimumSizes: minimumSizes,
+                              selectedSurface: selectedSurface, recentSelections: recentSelections,
+                              rootPresentation: rootPresentation, gaps: gaps)
+            var expanded = self
+            expanded.roots[workspace] = [node]
+            let shown = expanded.layout(in: workspace, frame: frame, visible: visible, minimumSizes: minimumSizes,
+                                        selectedSurface: selectedSurface, recentSelections: recentSelections, gaps: gaps)
+            let replacements = Dictionary(uniqueKeysWithValues: shown.surfaces.map { ($0.surfaceID, $0) })
+            plan.surfaces = plan.surfaces.map { replacements[$0.surfaceID] ?? $0 }
+            plan.frames.merge(shown.frames) { _, new in new }
+            return plan
+        }
         var result = SurfaceLayoutPlan()
         func finish(_ surfaces: [SurfacePlacement]) -> SurfaceLayoutPlan {
             result.surfaces = surfaces
@@ -112,8 +136,10 @@ extension SurfaceTree {
                 let style = layouts[id] ?? .stack
                 let chrome = style == .stack && children.count > 1 && stackChrome.headerHeight > 0
                 return .init(width: (style == .horizontal ? sizes.reduce(0) { $0 + $1.width } : sizes.map(\.width).max() ?? 1)
+                                + (style == .horizontal ? gaps.horizontal * max(0, children.count - 1) : 0)
                                 + (chrome ? 2 * stackChrome.sideInset : 0),
                              height: (style == .vertical ? sizes.reduce(0) { $0 + $1.height } : sizes.map(\.height).max() ?? 1)
+                                + (style == .vertical ? gaps.vertical * max(0, children.count - 1) : 0)
                                 + (chrome ? stackChrome.headerHeight + stackChrome.bottomInset : 0))
             }
         }
@@ -153,8 +179,8 @@ extension SurfaceTree {
             guard !nodes.isEmpty else { return [] }
             let sizes = nodes.map(minimum)
             let fits = layout == .horizontal
-                ? sizes.reduce(0, { $0 + $1.width }) <= frame.width && sizes.allSatisfy { $0.height <= frame.height }
-                : sizes.reduce(0, { $0 + $1.height }) <= frame.height && sizes.allSatisfy { $0.width <= frame.width }
+                ? sizes.reduce(0, { $0 + $1.width }) + gaps.horizontal * (nodes.count - 1) <= frame.width && sizes.allSatisfy { $0.height <= frame.height }
+                : sizes.reduce(0, { $0 + $1.height }) + gaps.vertical * (nodes.count - 1) <= frame.height && sizes.allSatisfy { $0.width <= frame.width }
             let effective = layout != .stack && !fits ? SurfaceContainerLayout.stack : layout
             let navigationStack = effective == .stack && nodes.count > 1 ? nodes.flatMap(\.surfaces) : inheritedStack
             let active = (rootSelection ?? selectedSurface).flatMap { id in nodes.contains { $0.surfaces.contains(id) } ? id : nil }
@@ -176,14 +202,15 @@ extension SurfaceTree {
             // to 1 would collapse it to its minimum beside resized siblings.
             let existingWeights = nodes.compactMap { weights[$0.weightKey] }
             let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
-            let spans = effective == .stack ? [] : lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, weights: nodes.map { weights[$0.weightKey] ?? defaultWeight }, total: effective == .horizontal ? frame.width : frame.height)
+            let gap = effective == .horizontal ? gaps.horizontal : gaps.vertical
+            let spans = effective == .stack ? [] : lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, weights: nodes.map { weights[$0.weightKey] ?? defaultWeight }, total: (effective == .horizontal ? frame.width : frame.height) - gap * (nodes.count - 1))
             var offset = 0
             return nodes.enumerated().flatMap { index, node -> [SurfacePlacement] in
                 var rect = frame
                 if effective == .horizontal {
-                    rect.x += offset; rect.width = spans[index]; offset += spans[index]
+                    rect.x += offset; rect.width = spans[index]; offset += spans[index] + gap
                 } else if effective == .vertical {
-                    rect.y += offset; rect.height = spans[index]; offset += spans[index]
+                    rect.y += offset; rect.height = spans[index]; offset += spans[index] + gap
                 }
                 let shown = visible && (effective != .stack || selected == index)
                 result.frames[node.pane] = rect
@@ -214,17 +241,17 @@ extension SurfaceTree {
         // Retain normal horizontal splits and their saved resize weights. Root
         // overflow is different from an explicit user split: try both axes and
         // a grid before putting every independent page/window in one stack.
-        if sizes.reduce(0, { $0 + $1.width }) <= frame.width && sizes.allSatisfy({ $0.height <= frame.height }) {
+        if sizes.reduce(0, { $0 + $1.width }) + gaps.horizontal * max(0, nodes.count - 1) <= frame.width && sizes.allSatisfy({ $0.height <= frame.height }) {
             return finish(walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: []))
         }
-        guard let grid = adaptiveRootGrid(nodes: nodes, sizes: sizes, frame: frame, weights: weights) else {
+        guard let grid = adaptiveRootGrid(nodes: nodes, sizes: sizes, frame: frame, weights: weights, gaps: gaps) else {
             return finish(walk(nodes, frame: frame, visible: visible, layout: .horizontal, container: nil, inheritedStack: []))
         }
-        let widths = lengths(grid.columnMinimums, weights: grid.columnWeights, total: frame.width)
-        let heights = lengths(grid.rowMinimums, weights: grid.rowWeights, total: frame.height)
+        let widths = lengths(grid.columnMinimums, weights: grid.columnWeights, total: frame.width - gaps.horizontal * (grid.columns - 1))
+        let heights = lengths(grid.rowMinimums, weights: grid.rowWeights, total: frame.height - gaps.vertical * (grid.rows - 1))
         var rowOffsets = [0], columnOffsets = [0]
-        for height in heights { rowOffsets.append(rowOffsets.last! + height) }
-        for width in widths { columnOffsets.append(columnOffsets.last! + width) }
+        for height in heights { rowOffsets.append(rowOffsets.last! + height + gaps.vertical) }
+        for width in widths { columnOffsets.append(columnOffsets.last! + width + gaps.horizontal) }
         return finish((0..<grid.cellCount).flatMap { cell -> [SurfacePlacement] in
             let column = cell % grid.columns, row = cell / grid.columns
             let start = cell * nodes.count / grid.cellCount, end = (cell + 1) * nodes.count / grid.cellCount
@@ -251,11 +278,11 @@ private struct AdaptiveRootGrid {
 /// Pure viewport planning: adaptive cells never add groups or overwrite a saved
 /// split. The common case examines only a handful of physical grid capacities.
 private func adaptiveRootGrid(nodes: [SurfaceTreeNode], sizes: [SurfaceMinimumSize],
-                              frame: SurfaceFrame, weights: [String: Double]) -> AdaptiveRootGrid? {
+                              frame: SurfaceFrame, weights: [String: Double], gaps: SurfaceLayoutGaps) -> AdaptiveRootGrid? {
     guard !nodes.isEmpty else { return nil }
     let count = nodes.count
-    let columnLimit = min(count, frame.width / (sizes.map(\.width).min() ?? 1))
-    let rowLimit = min(count, frame.height / (sizes.map(\.height).min() ?? 1))
+    let columnLimit = min(count, (frame.width + gaps.horizontal) / ((sizes.map(\.width).min() ?? 1) + gaps.horizontal))
+    let rowLimit = min(count, (frame.height + gaps.vertical) / ((sizes.map(\.height).min() ?? 1) + gaps.vertical))
     guard columnLimit > 0, rowLimit > 0 else { return nil }
     let existingWeights = nodes.compactMap { weights[$0.weightKey] }
     let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
@@ -300,7 +327,8 @@ private func adaptiveRootGrid(nodes: [SurfaceTreeNode], sizes: [SurfaceMinimumSi
                 columnCells[column] += 1
                 rowCells[row] += 1
             }
-            guard columnMinimums.reduce(0, +) <= frame.width, rowMinimums.reduce(0, +) <= frame.height else { continue }
+            guard columnMinimums.reduce(0, +) + gaps.horizontal * (columnCount - 1) <= frame.width,
+                  rowMinimums.reduce(0, +) + gaps.vertical * (rowCount - 1) <= frame.height else { continue }
             for index in columnWeights.indices { columnWeights[index] /= Double(columnCells[index]) }
             for index in rowWeights.indices { rowWeights[index] /= Double(rowCells[index]) }
             // Prefer compact cells, penalizing an otherwise attractive shape

@@ -77,6 +77,9 @@ func initializeAppBundle(isolatedBrowser: Bool = false) async throws {
 
 @MainActor
 private func smartLayoutAtStartup() {
+    // Shared Views already applied their configured arrival policy during
+    // discovery. Viewport fitting is a pure projection in WorkspaceCore.
+    guard !BrowserWorkspaceController.shared.usesSurfaceTree else { return }
     let workspace = focus.workspace
     let root = workspace.rootTilingContainer
     if root.children.count <= 3 {

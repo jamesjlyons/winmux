@@ -369,7 +369,7 @@ extension WindowMouseInteractionDriver {
             }
             state.tilingPlacement = nil
         } else {
-            state.sharedPlacement = controller.usesSurfaceTree && controller.hasMixedLayout(in: workspace)
+            state.sharedPlacement = controller.usesSurfaceTree && controller.hasSharedLayout(in: workspace)
                 ? controller.surfaceTree.detachedPlacement(of: window.surfaceID) : nil
             window.lastFloatingSize = window.lastKnownActualRect?.size ??
                 window.lastAppliedLayoutPhysicalRect?.size ??
@@ -378,7 +378,7 @@ extension WindowMouseInteractionDriver {
                 state.tilingPlacement = WindowShakeTilingPlacement(placement)
             }
         }
-        if controller.hasMixedLayout(in: workspace) { controller.nativeTilingStateChanged(window) }
+        if controller.hasSharedLayout(in: workspace) { controller.nativeTilingStateChanged(window) }
         if wasFloating, let saved = state.sharedPlacement {
             _ = controller.editOrganization(of: window.surfaceID) { $0.restorePlacement(of: window.surfaceID, from: saved) }
             state.sharedPlacement = nil

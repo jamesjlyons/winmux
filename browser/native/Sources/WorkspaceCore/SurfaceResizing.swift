@@ -11,10 +11,11 @@ extension SurfaceTree {
                                 minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:],
                                 rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
                                 stackChrome: SurfaceStackChrome = .init(),
+                                gaps: SurfaceLayoutGaps = .init(),
                                 edge: SurfaceDirection? = nil) -> Bool {
         guard amount.isFinite, let workspace = workspace(of: target), let roots = roots[workspace] else { return false }
         let plan = layout(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target,
-                          rootPresentation: rootPresentation, stackChrome: stackChrome)
+                          rootPresentation: rootPresentation, stackChrome: stackChrome, gaps: gaps)
         func bounds(_ node: SurfaceTreeNode, in plan: SurfaceLayoutPlan) -> SurfaceFrame? {
             plan.frames[node.pane]
         }
@@ -34,7 +35,7 @@ extension SurfaceTree {
             let frames = nodes.compactMap { bounds($0, in: plan) }
             guard frames.count == nodes.count,
                   zip(frames, frames.dropFirst()).allSatisfy({
-                      layout == .horizontal ? $0.0.x + $0.0.width == $0.1.x : $0.0.y + $0.0.height == $0.1.y
+                      layout == .horizontal ? $0.0.x + $0.0.width + gaps.horizontal == $0.1.x : $0.0.y + $0.0.height + gaps.vertical == $0.1.y
                   }) else { return }
             candidates.append(.init(siblings: nodes.map { [$0] }, layout: layout, adaptive: false))
         }
@@ -85,12 +86,13 @@ extension SurfaceTree {
                 let values = children.map(minimum)
                 let chrome = (layouts[id] ?? .stack) == .stack && children.count > 1 && stackChrome.headerHeight > 0
                 let inset = !chrome ? 0 : (desired == .horizontal ? 2 * stackChrome.sideInset : stackChrome.headerHeight + stackChrome.bottomInset)
-                return (layouts[id] == desired ? values.reduce(0, +) : values.max() ?? 1) + Double(inset)
+                let spacing = layouts[id] == desired ? (desired == .horizontal ? gaps.horizontal : gaps.vertical) * max(0, children.count - 1) : 0
+                return (layouts[id] == desired ? values.reduce(0, +) : values.max() ?? 1) + Double(inset + spacing)
             }
         }
         let extents = candidate.siblings.compactMap(extent)
         guard extents.count == candidate.siblings.count,
-              zip(extents, extents.dropFirst()).allSatisfy({ $0.0.1 == $0.1.0 }) else { return false }
+              zip(extents, extents.dropFirst()).allSatisfy({ $0.0.1 + (desired == .horizontal ? gaps.horizontal : gaps.vertical) == $0.1.0 }) else { return false }
         var lengths = extents.map { Double($0.1 - $0.0) }
         let minima = candidate.siblings.map { $0.map(minimum).max() ?? 1 }
         let others = candidate.siblings.indices.filter {
@@ -188,7 +190,7 @@ extension SurfaceTree {
         resized.setWeights(interiorWeights)
         resized.setWeights(values)
         let updated = resized.layout(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target,
-                                     rootPresentation: rootPresentation, stackChrome: stackChrome)
+                                     rootPresentation: rootPresentation, stackChrome: stackChrome, gaps: gaps)
         for node in roots.indices {
             guard let actual = bounds(roots[node], in: updated),
                   let column = columns.firstIndex(where: { $0.contains(node) }),

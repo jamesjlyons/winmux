@@ -48,7 +48,6 @@ public final class BrowserWorkspaceController {
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
     var surfaceTree = SurfaceTree()
     var usesSurfaceTree = false
-    var mixedLayoutWorkspaces: Set<String> = []
     var placements: [SurfaceID: String] = [:]
     var standaloneBrowserViews: [SurfaceID: String] = [:]
     private var previewWindow: NSWindow?
@@ -78,7 +77,7 @@ public final class BrowserWorkspaceController {
         var savedTree = surfaceTree
         for id in privateSurfaces { savedTree.remove(id) }
         for name in savedTree.roots.keys where Workspace.existing(byName: name)?.isIncognito == true { savedTree.removeWorkspace(name) }
-        return .init(tree: savedTree, layoutWorkspaces: mixedLayoutWorkspaces.intersection(savedTree.roots.keys),
+        return .init(tree: savedTree, layoutWorkspaces: Set(savedTree.roots.keys),
                      selected: selected.flatMap { savedTree.workspace(of: $0) == nil ? nil : $0 }, closedBrowserTabs: closedBrowserTabs,
                      browserPins: legacyBrowserPins, appPins: legacyAppPins, pinnedGroups: spacePinnedGroups,
                      pinShelves: pinShelves,
@@ -92,7 +91,6 @@ public final class BrowserWorkspaceController {
         pendingNativeLayoutFocus = nil
         usesSurfaceTree = true
         surfaceTree = snapshot.tree
-        mixedLayoutWorkspaces = snapshot.layoutWorkspaces
         closedBrowserTabs = snapshot.closedBrowserTabs
         restoreSavedPinState(snapshot)
         spacePinnedGroups = snapshot.pinnedGroups
@@ -301,11 +299,6 @@ public final class BrowserWorkspaceController {
             surfaceTree.select(focused.surfaceID)
             rememberSelection(focused.surfaceID)
         }
-        // Every browser page participates in the workspace layout immediately.
-        // A first page must not wait for an explicit split/group command.
-        if usesSurfaceTree && session.supportsBrowserControls {
-            mixedLayoutWorkspaces.formUnion(session.inventory.tabs.keys.compactMap { placements[$0] })
-        }
         migratePinnedDesktops()
         completePendingBrowserTabSelections()
         completePendingProfileMoves()
@@ -341,10 +334,6 @@ public final class BrowserWorkspaceController {
 
     func adoptNativeWorkspace() {
         usesSurfaceTree = BrowserNativeManagement.lease != nil
-        if usesSurfaceTree {
-            mixedLayoutWorkspaces.formUnion(sessions.values.filter(\.supportsBrowserControls)
-                .flatMap { $0.inventory.tabs.keys }.compactMap { placements[$0] })
-        }
         for (id, workspace) in placements where Workspace.existing(byName: workspace) == nil {
             placements[id] = focus.workspace.name
         }
@@ -377,6 +366,15 @@ public final class BrowserWorkspaceController {
             _ = NativeWindowSurfaceAdapter(surfaceID: id).requestFocus()
         }
         fenceBrowsers(generation: generation, target: id)
+        scheduleRefresh()
+    }
+
+    func nativeFullscreenChanged(_ window: Window) {
+        guard usesSurfaceTree, let workspace = window.nodeWorkspace,
+              surfaceTree.workspace(of: window.surfaceID) == workspace.name else { return }
+        surfaceTree.select(window.surfaceID)
+        rememberSelection(window.surfaceID)
+        if workspace === focus.workspace { nativeSelectionChanged(window.surfaceID) }
         scheduleRefresh()
     }
 
@@ -446,7 +444,6 @@ public final class BrowserWorkspaceController {
         closedBrowserTabs.remove(id)
         if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspaceName) }
         if usesSurfaceTree {
-            mixedLayoutWorkspaces.insert(workspaceName)
             if surfaceTree.workspace(of: id) == nil {
                 surfaceTree.reconcile([id] + (surfaceTree.roots[workspaceName] ?? []).flatMap(\.surfaces), in: workspaceName)
             }
@@ -636,7 +633,7 @@ public final class BrowserWorkspaceController {
         let knownSurfaces = Set(surfaceTree.roots.values.flatMap { $0.flatMap(\.surfaces) })
         for name in names.sorted() {
             let root = workspaces[name]?.existingRootTilingContainer
-            let native = root?.allLeafWindowsRecursive.filter(participatesInSharedTiling) ?? []
+            let native = root?.allLeafWindowsRecursive.filter(hasSharedTilingBinding) ?? []
             let nativeIDs = native.map(\.surfaceID)
             let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }
                 .sorted { $0.description < $1.description }
@@ -718,7 +715,11 @@ public final class BrowserWorkspaceController {
     }
 
     private func participatesInSharedTiling(_ window: Window) -> Bool {
-        window.parent is TilingContainer && !window.isFullscreen &&
+        hasSharedTilingBinding(window) && !window.isFullscreen
+    }
+
+    private func hasSharedTilingBinding(_ window: Window) -> Bool {
+        window.parent is TilingContainer &&
             window.lastKnownNativeFullscreen != true && window.lastKnownNativeMinimized != true
     }
 
@@ -961,7 +962,6 @@ public final class BrowserWorkspaceController {
         }
         surfaceTree = change.tree
         for id in floating { surfaceTree.remove(id) }
-        mixedLayoutWorkspaces.formUnion(change.workspaces)
         scheduleRefresh()
         return true
     }
@@ -1056,8 +1056,6 @@ public final class BrowserWorkspaceController {
         // Selecting or restoring an existing pin must not flatten its group.
         if workspaceName(for: id) == workspace, surfaceTree.workspace(of: id) == workspace { return true }
         if case .browserTab = id {
-            if let old = placements[id] { mixedLayoutWorkspaces.insert(old) }
-            mixedLayoutWorkspaces.insert(workspace)
             placements[id] = workspace
             if surfaceTree.workspace(of: id) == nil {
                 surfaceTree.reconcile((surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces) + [id], in: workspace)
@@ -1081,7 +1079,6 @@ public final class BrowserWorkspaceController {
 
     func applyPinnedTemplate(_ layout: [PinnedLayoutNode], bindings: [UUID: SurfaceID], workspace: String) {
         surfaceTree.restorePinnedLayout(layout, bindings: bindings, in: workspace)
-        mixedLayoutWorkspaces.insert(workspace)
     }
 
     func migratePinnedNodes(_ nodes: [SurfaceTreeNode], from source: String, to destination: String) {
@@ -1099,7 +1096,6 @@ public final class BrowserWorkspaceController {
                 }
             }
         }
-        mixedLayoutWorkspaces.formUnion([source, destination])
         if let selected = restoredSelection, nodes.flatMap(\.surfaces).contains(selected), focus.workspace.name == source {
             _ = Workspace.get(byName: destination).focusWorkspace(restoringSurfaceSelection: false)
         }
@@ -1127,9 +1123,6 @@ public final class BrowserWorkspaceController {
 
     func didMoveNativeSurface(_ id: SurfaceID, to workspace: String) {
         guard usesSurfaceTree else { return }
-        if let old = surfaceTree.workspace(of: id), mixedLayoutWorkspaces.contains(old) {
-            mixedLayoutWorkspaces.insert(workspace)
-        }
         _ = surfaceTree.moveToRoot(id, in: workspace)
         scheduleRefresh()
     }
@@ -1168,7 +1161,6 @@ public final class BrowserWorkspaceController {
         for index in browserSidebarPins.indices where browserSidebarPins[index].workspaceName == source {
             browserSidebarPins[index].workspaceName = target
         }
-        if mixedLayoutWorkspaces.remove(source) != nil { mixedLayoutWorkspaces.insert(target) }
         surfaceTree.mergeWorkspace(source, into: target)
         scheduleRefresh()
     }
@@ -1191,7 +1183,7 @@ public final class BrowserWorkspaceController {
         return result
     }
 
-    func hasMixedLayout(in workspace: Workspace) -> Bool { mixedLayoutWorkspaces.contains(workspace.name) }
+    func hasSharedLayout(in workspace: Workspace) -> Bool { usesSurfaceTree && surfaceTree.roots[workspace.name] != nil }
 
     /// Rendering and resizing must use the same tree of currently claimed panes.
     /// The saved tree keeps native reservations until discovery finishes.
@@ -1203,7 +1195,8 @@ public final class BrowserWorkspaceController {
             // floating, minimized, fullscreen or unresolved windows as tiles.
             let browser = owner(of: id)?.inventory.tabs[id]
             if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true ||
-                unresolvedNativeItems.contains(id) || Window.get(bySurfaceID: id).map({ !participatesInSharedTiling($0) }) == true {
+                unresolvedNativeItems.contains(id) ||
+                Window.get(bySurfaceID: id).map({ !hasSharedTilingBinding($0) }) == true {
                 excluded.insert(id)
             }
         }
@@ -1215,51 +1208,59 @@ public final class BrowserWorkspaceController {
     }
 
     func stackChrome(in workspace: Workspace) -> SurfaceStackChrome {
-        guard usesSurfaceTree, hasMixedLayout(in: workspace), config.windowTabs.enabled else { return .init() }
+        guard usesSurfaceTree, hasSharedLayout(in: workspace), config.windowTabs.enabled else { return .init() }
         return .init(headerHeight: Int(resolvedWindowTabBarHeight()), sideInset: Int(windowTabGroupShellHorizontalInset()),
                      bottomInset: Int(windowTabGroupShellBottomInset()))
     }
 
     func plannedLayout(in workspace: Workspace) -> SurfaceLayoutPlan {
         let livePlan = liveLayoutTree(in: workspace)
-        let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+        let fullscreen = sharedFullscreenPane(in: workspace)
+        let rect = fullscreen?.noOuterGaps == true ? workspace.workspaceMonitor.visibleRect
+            : workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return livePlan.layout(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
-            visible: workspace.isVisible && !hasNativeFullscreenLayout(in: workspace), minimumSizes: minimumSizes(in: workspace),
+            visible: workspace.isVisible, minimumSizes: minimumSizes(in: workspace),
             selectedSurface: rootPresentation(in: workspace) == .selectedRoot
                 ? (focusCoordinator.target.flatMap { livePlan.workspace(of: $0) == workspace.name ? $0 : nil } ?? preferredSurface(in: workspace))
                 : focusCoordinator.target,
-            recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace))
+            recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace),
+            gaps: layoutGaps(in: workspace), expandedPane: fullscreen?.pane)
+    }
+
+    func layoutGaps(in workspace: Workspace) -> SurfaceLayoutGaps {
+        let inner = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor).inner
+        return .init(horizontal: Int(inner.get(.h).toDouble().rounded()), vertical: Int(inner.get(.v).toDouble().rounded()))
     }
 
     func rootPresentation(in workspace: Workspace) -> SurfaceRootPresentation {
         workspace.isPinnedGroup ? .selectedRoot : .adaptiveTiles
     }
 
-    func isHiddenInMixedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {
-        guard TrayMenuModel.shared.isEnabled, mixedLayoutWorkspaces.contains(workspace.name) else { return false }
+    func isHiddenInSharedLayout(_ id: SurfaceID, workspace: Workspace) -> Bool {
+        guard TrayMenuModel.shared.isEnabled, hasSharedLayout(in: workspace) else { return false }
         return plannedSurfaces(in: workspace).first { $0.surfaceID == id }?.visible == false
     }
 
-    func hiddenSurfacesInMixedLayout(in workspace: Workspace) -> Set<SurfaceID> {
-        guard TrayMenuModel.shared.isEnabled, mixedLayoutWorkspaces.contains(workspace.name) else { return [] }
+    func hiddenSurfacesInSharedLayout(in workspace: Workspace) -> Set<SurfaceID> {
+        guard TrayMenuModel.shared.isEnabled, hasSharedLayout(in: workspace) else { return [] }
         return Set(plannedSurfaces(in: workspace).filter { !$0.visible }.map(\.surfaceID))
     }
 
-    private func hasNativeFullscreenLayout(in workspace: Workspace) -> Bool {
-        workspace.rootTilingContainer.allTabbedContainersRecursive.contains(where: \.hasFullscreenTab) ||
-            workspace.rootTilingContainer.mostRecentWindowRecursive?.isFullscreen == true
-    }
-
     func applyNativeLayout(in workspace: Workspace) async throws -> Bool {
-        guard TrayMenuModel.shared.isEnabled, usesSurfaceTree, BrowserNativeManagement.lease != nil, mixedLayoutWorkspaces.contains(workspace.name) else { return false }
-        guard !hasNativeFullscreenLayout(in: workspace) else { return false }
+        guard TrayMenuModel.shared.isEnabled, usesSurfaceTree, BrowserNativeManagement.lease != nil, hasSharedLayout(in: workspace) else { return false }
         try await workspace.layoutFloatingWindowsForSharedLayout()
+        let fullscreen = sharedFullscreenPane(in: workspace)
         let placements = plannedSurfaces(in: workspace)
-        for placement in placements {
+        let tree = surfaceTree, generation = focusCoordinator.generation, monitor = workspace.workspaceMonitor.rect
+        // Place newly visible owners before parking the previous selection.
+        for placement in placements.sorted(by: { $0.visible && !$1.visible }) {
+            guard surfaceTree == tree, focusCoordinator.generation == generation, workspace.isVisible,
+                  workspace.workspaceMonitor.rect == monitor, BrowserNativeManagement.lease?.isRevoked == false else { return true }
             guard let window = Window.get(bySurfaceID: placement.surfaceID), window.nodeWorkspace === workspace else { continue }
             if BrowserWindowDragController.shared.isMovingNativeSurface(placement.surfaceID) { continue }
             if placement.visible {
+                if fullscreen == nil { window.isFullscreen = false }
                 let frame = placement.frame
                 let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
                 if !canReuseLastAppliedWindowFrame(previousPhysicalRect: window.lastAppliedLayoutPhysicalRect, nextPhysicalRect: rect) {
@@ -1289,13 +1290,15 @@ public final class BrowserWorkspaceController {
                         window.setAxFrame(rect.topLeftCorner, CGSize(width: frame.width, height: frame.height))
                     }
                 }
-            } else if let native = window as? MacWindow {
-                try await native.hideInCorner(.bottomRightCorner)
+            } else {
+                if let native = window as? MacWindow { try await native.hideInCorner(.bottomRightCorner) }
                 window.lastAppliedLayoutPhysicalRect = nil
                 window.lastAppliedLayoutVirtualRect = nil
             }
         }
-        return !placements.isEmpty
+        // An adopted View with temporarily absent owners remains handled; the
+        // legacy tree must not lay out stale bindings behind the shared plan.
+        return true
     }
 
     func publishBrowserLayouts(force: Bool = false) {
@@ -1303,7 +1306,7 @@ public final class BrowserWorkspaceController {
             BrowserToolbarController.shared.hideAll()
             return
         }
-        let placements = TrayMenuModel.shared.isEnabled ? Workspace.all.filter { mixedLayoutWorkspaces.contains($0.name) }.flatMap(plannedSurfaces) : []
+        let placements = TrayMenuModel.shared.isEnabled ? Workspace.all.filter { hasSharedLayout(in: $0) }.flatMap(plannedSurfaces) : []
         updateBrowserToolbars(placements)
         for session in sessions.values where session.supportsLayout {
             let owned = placements.filter { owner(of: $0.surfaceID) === session }
@@ -1353,7 +1356,7 @@ public final class BrowserWorkspaceController {
         // Restore selection before its layout pass, as the old queued sidebar
         // session did. A selection-triggered refresh coalesces into one follow-up.
         if let selected = restoredSelection, isAvailable(selected) { _ = select(selected) }
-        if !mixedLayoutWorkspaces.isEmpty, let token = RunSessionGuard.isServerEnabled {
+        if usesSurfaceTree, !surfaceTree.roots.isEmpty, let token = RunSessionGuard.isServerEnabled {
             do {
                 // Browser inventory and validated surface edits already contain
                 // their complete model changes. They do not need unrelated AX

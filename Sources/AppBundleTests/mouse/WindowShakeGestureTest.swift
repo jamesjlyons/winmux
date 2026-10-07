@@ -138,7 +138,7 @@ final class WindowShakeLayoutToggleTest: XCTestCase {
         XCTAssertNil(shaken.shakeWindowState.sharedPlacement)
     }
 
-    func testShakeKeepsNativeLayoutAuthorityUntilViewIsAdopted() {
+    func testShakeRestoresSharedPlacementEvenWithoutLegacyAdoptionFlag() {
         let workspace = focus.workspace, controller = BrowserWorkspaceController.shared
         let shaken = TestWindow.new(id: 813, parent: workspace.rootTilingContainer)
         let peer = TestWindow.new(id: 814, parent: workspace.rootTilingContainer)
@@ -146,10 +146,10 @@ final class WindowShakeLayoutToggleTest: XCTestCase {
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
         let driver = WindowMouseInteractionDriver.shared
         driver.toggleFloatingForShake(shaken)
-        XCTAssertNil(shaken.shakeWindowState.sharedPlacement)
+        XCTAssertNotNil(shaken.shakeWindowState.sharedPlacement)
         driver.toggleFloatingForShake(shaken)
-        XCTAssertEqual(workspace.rootTilingContainer.children, [shaken, peer])
-        XCTAssertFalse(controller.hasMixedLayout(in: workspace))
+        XCTAssertEqual(controller.surfaceTree, tree)
+        XCTAssertTrue(controller.hasSharedLayout(in: workspace))
     }
 
     func testShakeReturnKeepsEditsMadeWhileWindowWasFloating() throws {

@@ -131,7 +131,7 @@ final class BrowserWindowDragController {
         if drag?.id == window.surfaceID || cancelledGesture == window.surfaceID { return true }
         guard enabled, drag == nil, NSEvent.pressedMouseButtons & 1 != 0,
               !window.isFloating, let workspace = window.nodeWorkspace,
-              controller.hasMixedLayout(in: workspace),
+              controller.hasSharedLayout(in: workspace),
               controller.surfaceTree.workspace(of: window.surfaceID) == workspace.name,
               controller.canMoveSurface(window.surfaceID),
               let original = window.lastAppliedLayoutPhysicalRect,

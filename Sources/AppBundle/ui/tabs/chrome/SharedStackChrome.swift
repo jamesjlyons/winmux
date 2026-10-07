@@ -27,7 +27,7 @@ func buildSharedStackChrome(controller: BrowserWorkspaceController = .shared) as
     var result: [WindowTabStripViewModel] = []
     let tree = controller.surfaceTree
     let generation = controller.focusCoordinator.generation
-    for workspace in Workspace.all where workspace.isVisible && controller.hasMixedLayout(in: workspace) {
+    for workspace in Workspace.all where workspace.isVisible && controller.hasSharedLayout(in: workspace) {
         let live = controller.liveLayoutTree(in: workspace)
         let layout = controller.plannedLayout(in: workspace)
         let visibleStacks = layout.stacks.filter(\.visible)

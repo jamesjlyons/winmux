@@ -36,7 +36,7 @@ import XCTest
         }
     }
 
-    func testNativeOnlyDropAdoptsSharedLayoutAndLeavesNativeHierarchyAsOwnerBinding() throws {
+    func testNativeOnlyViewUsesSharedLayoutBeforeDropAndRetainsNativeOwnerBindings() throws {
         let controller = BrowserWorkspaceController(), workspace = focus.workspace
         let first = TestWindow.new(id: 4001, parent: workspace.rootTilingContainer)
         let second = TestWindow.new(id: 4002, parent: workspace.rootTilingContainer)
@@ -46,10 +46,10 @@ import XCTest
         for window in [first, second] {
             window.lastAppliedLayoutPhysicalRect = try frame(for: window.surfaceID, controller: controller)
         }
-        XCTAssertFalse(controller.hasMixedLayout(in: workspace))
+        XCTAssertTrue(controller.hasSharedLayout(in: workspace), "Legacy adoption flags no longer defer native layout authority")
         let drop = try resolve(source: first.surfaceID, target: second.surfaceID, zone: .bottom, controller: controller)
         XCTAssertTrue(commitBrowserSurfaceDrop(drop, controller: controller))
-        XCTAssertTrue(controller.hasMixedLayout(in: workspace))
+        XCTAssertTrue(controller.hasSharedLayout(in: workspace))
         XCTAssertTrue(first.parent === parent && second.parent === parent)
         let firstFrame = try frame(for: first.surfaceID, controller: controller)
         let secondFrame = try frame(for: second.surfaceID, controller: controller)
@@ -160,8 +160,8 @@ import XCTest
         XCTAssertTrue(fixture.native.nodeWorkspace === destinationWorkspace)
         XCTAssertEqual(fixture.controller.surfaceTree.workspace(of: fixture.native.surfaceID), destinationWorkspace.name)
         XCTAssertEqual(fixture.controller.workspaceName(for: fixture.page), destinationWorkspace.name)
-        XCTAssertTrue(fixture.controller.hasMixedLayout(in: sourceWorkspace))
-        XCTAssertTrue(fixture.controller.hasMixedLayout(in: destinationWorkspace))
+        XCTAssertTrue(fixture.controller.hasSharedLayout(in: sourceWorkspace))
+        XCTAssertTrue(fixture.controller.hasSharedLayout(in: destinationWorkspace))
     }
 
     func testCrossWorkspaceBrowserMovePreservesNativeTargetAndRejectsCrossSwap() throws {
