@@ -150,8 +150,7 @@ final class WorkspaceSidebarSurfaceDragTest: XCTestCase {
             controller.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
             controller.usesSurfaceTree = false
         }
-        let native = await buildWorkspaceSidebarItems(from: source.rootTilingContainer, workspaceName: source.name, currentFocus: focus)
-        _ = controller.organizedRows(native: native, in: source.name)
+        controller.reconcileSharedOrganization()
         XCTAssertEqual(controller.select(moved.surfaceID), .issued)
         let destination = Workspace.get(byName: "Native move destination")
         XCTAssertTrue(moveSidebarSurface(moved.surfaceID, to: destination))

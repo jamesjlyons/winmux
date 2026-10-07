@@ -7,7 +7,7 @@ import WorkspaceCore
 struct BrowserSidebarProjection {
     var rowsByWorkspace: [String: [WorkspaceSidebarItemViewModel]] = [:]
     var appPaths: [SurfaceID: String] = [:]
-    var retainedByWorkspace: [String: Set<SurfaceID>] = [:]
+    var selectedSurfaces: Set<SurfaceID> = []
 }
 
 /// The authenticated helper is the only producer. No browser tab is represented
@@ -275,6 +275,7 @@ public final class BrowserWorkspaceController {
                 Workspace.existing(byName: destination)?.hasContainedItems = true
             }
         }
+        reconcileSharedOrganization()
         let closedSelection = closureFocus.selected.map(removedIDs.contains) == true
         restoreFocusAfterClosing(removedIDs, snapshot: closureFocus, workspace: closingWorkspace)
         if usesSurfaceTree && !closedSelection && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
@@ -305,6 +306,7 @@ public final class BrowserWorkspaceController {
         completePendingBrowserTabSelections()
         completePendingProfileMoves()
         pruneIncognitoSpaces()
+        syncSidebarPins()
         scheduleRefresh()
     }
 
@@ -519,7 +521,7 @@ public final class BrowserWorkspaceController {
         for name in Array(result.rowsByWorkspace.keys) {
             result.rowsByWorkspace[name]?.sort { $0.id < $1.id }
         }
-        for (id, workspace) in placements { result.retainedByWorkspace[workspace, default: []].insert(id) }
+        result.selectedSurfaces = selected
         return result
     }
 
@@ -618,35 +620,66 @@ public final class BrowserWorkspaceController {
         unresolvedSidebarPinOwners.removeValue(forKey: id)
     }
 
+    /// Reconcile owner membership before layout or presentation, including when
+    /// the sidebar is disabled. This pass uses identities only; title/icon reads
+    /// cannot determine membership or import an out-of-date native arrangement.
+    func reconcileSharedOrganization() {
+        guard usesSurfaceTree else { return }
+        retireResolvedNativeReservations()
+        let browserByWorkspace = Dictionary(grouping: placements.keys, by: { placements[$0]! })
+        let workspaces = Dictionary(uniqueKeysWithValues: Workspace.all.map { ($0.name, $0) })
+        let names = Set(workspaces.keys).union(surfaceTree.roots.keys).union(browserByWorkspace.keys)
+        let knownSurfaces = Set(surfaceTree.roots.values.flatMap { $0.flatMap(\.surfaces) })
+        for name in names.sorted() {
+            let root = workspaces[name]?.existingRootTilingContainer
+            let native = root?.allLeafWindowsRecursive.filter(participatesInSharedTiling) ?? []
+            let nativeIDs = native.map(\.surfaceID)
+            let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }
+                .sorted { $0.description < $1.description }
+            let temporaryNative = Set((surfaceTree.roots[name] ?? []).flatMap(\.surfaces).filter {
+                guard let window = Window.get(bySurfaceID: $0), window.nodeWorkspace?.name == name else { return false }
+                return !window.isFloating && !participatesInSharedTiling(window)
+            })
+            let shouldImportNative = surfaceTree.roots[name] == nil
+            if shouldImportNative && nativeIDs.isEmpty && browserIDs.isEmpty { continue }
+            surfaceTree.reconcile(nativeIDs + browserIDs, in: name,
+                retaining: Set(browserByWorkspace[name] ?? []).union(unresolvedNativeItems).union(temporaryNative))
+            if shouldImportNative, let root {
+                importNativeOrganization(root, available: Set(nativeIDs), in: name)
+                if let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID { surfaceTree.select(selected) }
+            } else if let root, !Set(nativeIDs).isSubset(of: knownSurfaces) {
+                // Discovery may finish after browser inventory. Adopt only whole
+                // newly discovered native subtrees; existing mixed groups win.
+                let native = nativeOrganization(root, available: Set(nativeIDs))
+                let arrivals = native.nodes.filter { Set($0.surfaces).isDisjoint(with: knownSurfaces) }
+                _ = surfaceTree.importOrganization(arrivals, in: name, layouts: native.layouts,
+                    activeSurfaces: native.active, weights: native.weights)
+            }
+        }
+        syncSidebarPins()
+    }
+
+    /// Project the current organization without changing it. Stale native rows
+    /// can be dropped after an asynchronous title read, but cannot move owners.
     func organizedRows(native: [WorkspaceSidebarItemViewModel], in workspace: String,
                        projection: BrowserSidebarProjection? = nil) -> [WorkspaceSidebarItemViewModel] {
-        let pinned: [WorkspaceSidebarItemViewModel] = []
-        let pinnedIDs = Set(pinned.flatMap(\.surfaceIDs))
         let browserRows = projection.map { $0.rowsByWorkspace[workspace] ?? [] } ?? rows(in: workspace)
-        guard usesSurfaceTree else { return pinned + native + browserRows.filter { $0.surfaceIDs.allSatisfy { !pinnedIDs.contains($0) } } }
+        guard usesSurfaceTree else { return native + browserRows }
         var available: [SurfaceID: WorkspaceSidebarItemViewModel] = [:]
-        var ordered: [SurfaceID] = []
         var nativeOnlyRows: [WorkspaceSidebarItemViewModel] = []
-        let importNativeGroups = surfaceTree.roots[workspace] == nil
-        var nativeGroups: [[SurfaceID]] = []
         func collect(_ item: WorkspaceSidebarItemViewModel) {
             switch item.kind {
             case .window(let window):
-                // Title reads suspend. A window may have moved into Pinned
-                // since this row was captured; never reconcile it back into
-                // the old workspace using that stale snapshot.
                 guard let owner = Window.get(bySurfaceID: window.surfaceID),
                       owner.nodeWorkspace?.name == workspace else { return }
                 if !participatesInSharedTiling(owner) {
                     nativeOnlyRows.append(item)
                     return
                 }
-                ordered.append(window.surfaceID)
                 available[window.surfaceID] = .init(kind: .surface(.init(surfaceID: window.surfaceID,
                     title: window.title ?? window.appName, appName: window.appName, isFocused: window.isFocused,
                     appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)))
             case .browserTab(let tab):
-                ordered.append(tab.surfaceID)
                 let path = projection != nil ? projection?.appPaths[tab.surfaceID]
                     : browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
                 available[tab.surfaceID] = .init(kind: .surface(.init(surfaceID: tab.surfaceID,
@@ -654,37 +687,15 @@ public final class BrowserWorkspaceController {
                     appBundleId: "com.jameslyons.winmux.browser.alpha", appBundlePath: path, iconPNGBase64: tab.iconPNGBase64,
                     isSelected: tab.isSelected, isLoading: tab.isLoading)))
             case .tabGroup(let group):
-                nativeGroups.append(group.tabs.map(\.surfaceID))
                 group.tabs.forEach { collect(.init(kind: .window($0))) }
             case .surface, .surfaceGroup, .pinnedBrowserTab: break
             }
         }
         (native + browserRows).forEach(collect)
-        unresolvedNativeItems.subtract(available.keys)
-        // Native fullscreen/minimize transitions must not erase a saved mixed
-        // stack. Floating conversion intentionally leaves shared organization.
-        let temporaryNative = Set((surfaceTree.roots[workspace] ?? []).flatMap(\.surfaces).filter {
-            guard let window = Window.get(bySurfaceID: $0), window.nodeWorkspace?.name == workspace else { return false }
-            return !window.isFloating && !participatesInSharedTiling(window)
-        })
-        let retained = projection.map { $0.retainedByWorkspace[workspace] ?? [] }
-            ?? Set(placements.filter { $0.value == workspace }.map(\.key))
-        surfaceTree.reconcile(ordered, in: workspace,
-                              retaining: retained
-                                .union(unresolvedNativeItems).union(temporaryNative))
-        if importNativeGroups {
-            if let owner = Workspace.existing(byName: workspace) {
-                importNativeOrganization(owner.rootTilingContainer, available: Set(ordered), in: workspace)
-            } else {
-                nativeGroups.forEach { surfaceTree.importStack($0, in: workspace) }
-            }
-            if let selected = focusCoordinator.target ?? focus.windowOrNil?.surfaceID { surfaceTree.select(selected) }
-        }
-        let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
+        let selected = projection?.selectedSurfaces ?? workspaceSidebarSelectedSurfaces(in: surfaceTree)
         func project(_ node: SurfaceTreeNode) -> [WorkspaceSidebarItemViewModel] {
             switch node {
             case .surface(let id):
-                if pinnedIDs.contains(id) { return [] }
                 if let row = available[id], case .surface(var surface) = row.kind {
                     surface.isSelected = selected.contains(id)
                     return [.init(kind: .surface(surface))]
@@ -693,12 +704,11 @@ public final class BrowserWorkspaceController {
             case .group(let id, let children):
                 let visible = children.flatMap(project)
                 guard !visible.isEmpty else { return [] }
-                // Match the native sidebar: split containers arrange panes but
-                // only tab stacks add a header. Layout changes alter snapshots.
+                // Split containers arrange panes; only stacks add a header.
                 return (surfaceTree.layouts[id] ?? .stack) == .stack ? [.init(kind: .surfaceGroup(id, visible))] : visible
             }
         }
-        return pinned + (surfaceTree.roots[workspace] ?? []).flatMap(project) + nativeOnlyRows
+        return (surfaceTree.roots[workspace] ?? []).flatMap(project) + nativeOnlyRows
     }
 
     private func participatesInSharedTiling(_ window: Window) -> Bool {
@@ -1295,7 +1305,10 @@ public final class BrowserWorkspaceController {
     }
 
     private func performScheduledRefresh() async {
-        if previewWindow != nil { refreshPreview() }
+        if previewWindow != nil {
+            reconcileSharedOrganization()
+            refreshPreview()
+        }
         guard isWinMuxRuntimeReady else { return }
         // Restore selection before its layout pass, as the old queued sidebar
         // session did. A selection-triggered refresh coalesces into one follow-up.
@@ -1317,6 +1330,7 @@ public final class BrowserWorkspaceController {
                 showWorkspaceSidebarError(error.localizedDescription)
             }
         } else {
+            reconcileSharedOrganization()
             await updateWorkspaceSidebarModel()
             RestartSessionController.shared.checkpoint()
         }
@@ -1332,6 +1346,7 @@ public final class BrowserWorkspaceController {
         window.isReleasedWhenClosed = false
         previewWindow = window
         usesSurfaceTree = true
+        reconcileSharedOrganization()
         window.contentView = NSHostingView(rootView: BrowserSidebarPreviewView(state: previewState,
             actions: WorkspaceSidebarActions(send: { [weak self] action in
                 switch action {

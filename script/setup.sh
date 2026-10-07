@@ -41,7 +41,7 @@ swift() {
     if /usr/bin/which swiftly &> /dev/null; then
         swiftly run swift "$@"
     else
-        echo "warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible" > /dev/stderr
+        echo "warning: swiftly is not installed. Fallback to plain swift. Swift compilation might not be reproducible" >&2
         /usr/bin/env swift --version
         /usr/bin/env swift "$@"
     fi

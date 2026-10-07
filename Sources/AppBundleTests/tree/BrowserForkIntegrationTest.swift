@@ -98,12 +98,14 @@ import XCTest
         for state in ["minimized", "native-fullscreen", "winmux-fullscreen"] {
             tiled.isFullscreen = state == "winmux-fullscreen"
             tiled.recordObservedNativeState(fullscreen: state == "native-fullscreen", minimized: state == "minimized", token: tiled.nativeStateObservationToken())
+            controller.reconcileSharedOrganization()
             _ = controller.organizedRows(native: [tiledRow, floatingRow], in: source.name)
             XCTAssertEqual(controller.surfaceTree.workspace(of: tiled.surfaceID), source.name)
             XCTAssertFalse(controller.plannedSurfaces(in: source).contains { $0.surfaceID == tiled.surfaceID })
         }
         tiled.isFullscreen = false
         tiled.recordObservedNativeState(fullscreen: false, minimized: false, token: tiled.nativeStateObservationToken())
+        controller.reconcileSharedOrganization()
         _ = controller.organizedRows(native: [tiledRow, floatingRow], in: source.name)
         XCTAssertTrue(controller.plannedSurfaces(in: source).contains { $0.surfaceID == tiled.surfaceID })
     }
@@ -119,6 +121,7 @@ import XCTest
         XCTAssertTrue(fourth.focusWindow())
         let controller = BrowserWorkspaceController(); controller.usesSurfaceTree = true
         let native = await buildWorkspaceSidebarItems(from: source.rootTilingContainer, workspaceName: source.name, currentFocus: focus)
+        controller.reconcileSharedOrganization()
         let items = controller.organizedRows(native: native, in: source.name)
         let vertical = try XCTUnwrap(controller.surfaceTree.containingGroup(of: second.surfaceID))
         let tabStack = try XCTUnwrap(controller.surfaceTree.containingGroup(of: third.surfaceID))

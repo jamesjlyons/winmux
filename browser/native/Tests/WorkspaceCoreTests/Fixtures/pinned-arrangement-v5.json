@@ -1,0 +1,94 @@
+{
+  "tree": {
+    "roots": {
+      "__pin_fixture": [
+        {
+          "surface": "native:00000000-0000-4000-8000-000000000001"
+        }
+      ]
+    },
+    "layouts": [],
+    "activeSurfaces": [],
+    "weights": {
+      "native:00000000-0000-4000-8000-000000000001": 2
+    }
+  },
+  "layoutWorkspaces": [
+    "__pin_fixture"
+  ],
+  "selected": "native:00000000-0000-4000-8000-000000000001",
+  "closedBrowserTabs": [],
+  "selectedByWorkspace": {
+    "__pin_fixture": "native:00000000-0000-4000-8000-000000000001"
+  },
+  "browserPins": [
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "profileID": "00000000-0000-4000-8000-000000000002",
+      "workspaceName": "__pin_fixture",
+      "title": "Reference",
+      "url": "https://example.com/reference"
+    }
+  ],
+  "appPins": [
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "workspaceName": "__pin_fixture",
+      "bundleIdentifier": "dev.winmux.fixture",
+      "bundlePath": "/Missing/Fixture.app",
+      "title": "Notes",
+      "surfaceID": "native:00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "pinnedGroups": [],
+  "pinnedDesktops": [
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "spaceID": "Work",
+      "workspaceName": "__pin_fixture",
+      "title": "Research",
+      "kind": "group",
+      "memberIDs": [
+        "00000000-0000-4000-8000-000000000005",
+        "00000000-0000-4000-8000-000000000006"
+      ],
+      "layout": [
+        {
+          "group": {
+            "_0": "00000000-0000-4000-8000-000000000004",
+            "_1": "horizontal",
+            "_2": [
+              {
+                "member": {
+                  "_0": "00000000-0000-4000-8000-000000000005",
+                  "_1": 2
+                }
+              },
+              {
+                "member": {
+                  "_0": "00000000-0000-4000-8000-000000000006",
+                  "_1": 3
+                }
+              }
+            ],
+            "_3": "00000000-0000-4000-8000-000000000006",
+            "_4": 1
+          }
+        }
+      ],
+      "selectedMember": "00000000-0000-4000-8000-000000000006",
+      "formerRegularIndex": 2
+    }
+  ],
+  "pinShelves": [
+    {
+      "spaceID": "Work",
+      "desktopOrder": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "lastRegularWorkspaceName": "Research"
+    }
+  ],
+  "browserProfiles": [],
+  "browserProfileBySpace": {}
+}

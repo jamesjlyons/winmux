@@ -10,7 +10,7 @@ func orderedUserFacingWorkspaces(in projectId: WorkspaceProjectId, focusedWorksp
 
 @MainActor
 func workspaceHasSidebarVisibleWindows(_ workspace: Workspace) -> Bool {
-    !workspace.rootTilingContainer.isEffectivelyEmpty ||
+    workspace.existingRootTilingContainer?.isEffectivelyEmpty == false ||
         !workspace.floatingWindows.isEmpty ||
         BrowserWorkspaceController.shared.containsVisibleBrowserItems(in: workspace.name)
 }

@@ -25,7 +25,7 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
             XCTAssertEqual(controller.organizedRows(native: [], in: name, projection: before),
                            controller.organizedRows(native: [], in: name))
         }
-        XCTAssertEqual(before.retainedByWorkspace["one"], [first])
+        XCTAssertEqual(controller.surfaceTree.workspace(of: first), "one")
         controller.connected(duplicate, processID: -1) { _, reply in reply(.issued) }
         controller.received(.init(revision: 1, full: true, tabs: [record]), epoch: UUID(), connection: duplicate)
         XCTAssertNil(controller.sidebarProjection().rowsByWorkspace["one"], "Ambiguous owners must not produce actionable rows")
@@ -204,7 +204,7 @@ final class BrowserSidebarIntegrationTest: XCTestCase {
         let native = TestWindow.new(id: 41, parent: focus.workspace.rootTilingContainer)
         let nativeRow = WorkspaceSidebarItemViewModel(kind: .window(await makeWorkspaceSidebarWindowViewModel(
             for: native, workspaceName: focus.workspace.name, currentFocus: focus)))
-        _ = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)
+        controller.reconcileSharedOrganization()
         XCTAssertEqual(controller.select(native.surfaceID), .issued)
         controller.organize(tab, groupWithSelection: true)
         var items = controller.organizedRows(native: [nativeRow], in: focus.workspace.name)

@@ -70,4 +70,19 @@ final class SurfaceTreeGroupMoveTests: XCTestCase {
         XCTAssertEqual(tree, before)
         XCTAssertEqual(try JSONDecoder().decode(SurfaceTree.self, from: JSONEncoder().encode(tree)), tree)
     }
+
+    func testLateImportPreservesPrecedingSurfacesAndTheirWeights() {
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let a = SurfaceID.nativeWindow(UUID()), b = SurfaceID.nativeWindow(UUID()), group = UUID()
+        var tree = SurfaceTree()
+        tree.reconcile([page, a, b], in: "view")
+        tree.setWeights([page.description: 300])
+
+        XCTAssertTrue(tree.importOrganization([.group(group, [.surface(a), .surface(b)])], in: "view",
+            layouts: [group: .vertical], activeSurfaces: [:], weights: [a.description: 200, page.description: 1]))
+
+        XCTAssertEqual(tree.roots["view"], [.surface(page), .group(group, [.surface(a), .surface(b)])])
+        XCTAssertEqual(tree.weights[page.description], 300)
+        XCTAssertEqual(tree.weights[a.description], 200)
+    }
 }

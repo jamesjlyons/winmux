@@ -166,10 +166,10 @@ import XCTest
         let later = SurfaceID.browserTab(profile: profile, tab: UUID())
         let created = SurfaceID.browserTab(profile: profile, tab: UUID())
         controller.connected(connection, processID: -1, sendNewTab: { _, reply in reply(.issued, created) }, send: { _, reply in reply(.issued) })
+        controller.surfaceTree.reconcile([source, later], in: workspace.name)
         controller.received(.init(revision: 1, full: true, tabs: [source, later].map {
             .init(surfaceID: $0, hostID: $0.description, title: "Page", selected: false)
         }), epoch: epoch, connection: connection, protocolVersion: 5)
-        controller.surfaceTree.reconcile([source, later], in: workspace.name)
         _ = controller.select(source)
 
         XCTAssertEqual(controller.openBrowserTab(), .issued)

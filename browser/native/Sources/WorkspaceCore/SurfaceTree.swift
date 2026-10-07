@@ -187,13 +187,17 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
               ids.allSatisfy({ existing.contains(.surface($0)) }) else { return false }
         let imported = Set(ids)
         var candidate = self
-        candidate.roots[workspace] = nodes + existing.filter {
-            if case .surface(let id) = $0 { return !imported.contains(id) }
-            return true
+        var inserted = false
+        candidate.roots[workspace] = existing.flatMap { node -> [SurfaceTreeNode] in
+            guard case .surface(let id) = node, imported.contains(id) else { return [node] }
+            guard !inserted else { return [] }
+            inserted = true
+            return nodes
         }
         candidate.layouts.merge(importedLayouts) { _, imported in imported }
         candidate.activeSurfaces.merge(importedActive) { _, imported in imported }
-        candidate.weights.merge(importedWeights) { _, imported in imported }
+        let importedWeightKeys = Set(nodes.flatMap(\.allWeightKeys))
+        candidate.weights.merge(importedWeights.filter { importedWeightKeys.contains($0.key) }) { _, imported in imported }
         candidate.pruneMetadata()
         guard candidate.isValidOrganization else { return false }
         self = candidate

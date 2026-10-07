@@ -304,6 +304,8 @@ import XCTest
     }
 
     func testInvalidGroupTargetsAndBoundariesAreAtomic() async throws {
+        // Settle owner discovery before testing the command transaction itself.
+        refreshModel()
         let before = controller.capturePlacementSnapshot()
         for args in [["surface", "group", "selected", "next", "stack"],
                      ["surface", "group", "selected", tab.description, "horizontal"],
@@ -314,8 +316,10 @@ import XCTest
             XCTAssertEqual(controller.capturePlacementSnapshot(), before)
         }
         let other = TestWindow.new(id: 72, parent: Workspace.get(byName: "Other").rootTilingContainer)
+        refreshModel()
+        let afterDiscovery = controller.capturePlacementSnapshot()
         try await checkCommand(["surface", "group", "selected", other.surfaceID.description, "stack"], exit: 1)
-        XCTAssertEqual(controller.capturePlacementSnapshot(), before)
+        XCTAssertEqual(controller.capturePlacementSnapshot(), afterDiscovery)
     }
 
     func testDisconnectedOrOldProtocolOwnerPreventsPartialStructuralEdits() async throws {
@@ -336,7 +340,7 @@ import XCTest
         let destination = Workspace.get(byName: "Drop-destination")
         let other = TestWindow.new(id: 72, parent: destination.rootTilingContainer)
         controller.didMoveNativeSurface(other.surfaceID, to: destination.name)
-        // Newly discovered native rows are normally reconciled by the sidebar.
+        // Explicitly model discovery before testing the cross-workspace edit.
         var saved = try XCTUnwrap(controller.capturePlacementSnapshot())
         var tree = saved.tree; tree.reconcile([other.surfaceID], in: destination.name)
         saved = .init(tree: tree, layoutWorkspaces: saved.layoutWorkspaces, selected: nil, closedBrowserTabs: [])

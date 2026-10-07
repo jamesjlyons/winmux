@@ -390,9 +390,12 @@ struct RunSessionGuard: Sendable {
 
 @MainActor
 func refreshModel() {
+    materializePersistedWorkspaceProjects()
+    BrowserWorkspaceController.shared.preparePinWorkspaces()
     Workspace.reconcileWorkspaceState()
     checkOnFocusChangedCallbacks()
     normalizeContainers()
+    BrowserWorkspaceController.shared.reconcileSharedOrganization()
 }
 
 @MainActor
@@ -485,6 +488,7 @@ private func layoutWorkspaces(
 ) async throws {
     let interval = signposter.beginInterval("Layout workspaces", id: signposter.makeSignpostID())
     defer { signposter.endInterval("Layout workspaces", interval) }
+    BrowserWorkspaceController.shared.reconcileSharedOrganization()
     try await $reuseGeometryLayoutFrames.withValue(reuseUnchangedFrames) {
         try await applyWorkspaceLayouts(onVisibleLayoutsApplied: onVisibleLayoutsApplied)
     }

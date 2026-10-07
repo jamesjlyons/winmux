@@ -19,8 +19,9 @@ func buildWorkspaceSidebarItems(
                 currentFocus: currentFocus,
             )
         case .workspace(let workspace):
+            guard let root = workspace.existingRootTilingContainer else { return [] }
             return await buildWorkspaceSidebarItems(
-                from: workspace.rootTilingContainer,
+                from: root,
                 workspaceName: workspaceName,
                 currentFocus: currentFocus,
             )

@@ -98,7 +98,7 @@ func orderedWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {
 func orderedWorkspacesForPresentation() -> [Workspace] {
     var seen: Set<WorkspaceId> = []
     var result: [Workspace] = []
-    for project in workspaceProjects() {
+    for project in workspaceProjectsForPresentation() {
         for workspaceId in project.workspaceOrder {
             guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
                   !workspace.isArchived,

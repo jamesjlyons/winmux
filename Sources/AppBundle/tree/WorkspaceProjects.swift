@@ -4,7 +4,12 @@ import Common
 @MainActor
 func workspaceProjects() -> [WorkspaceProject] {
     materializePersistedWorkspaceProjects()
-    ensureMinimumWorkspaceForAllProjects()
+    return workspaceProjectsForPresentation()
+}
+
+/// Presentation reads already-materialized projects without allocating empty Views.
+@MainActor
+func workspaceProjectsForPresentation() -> [WorkspaceProject] {
     let projects = winMuxWorkspaceState.projectsById.values.sorted(by: workspaceProjectOrderPrecedes)
     var numberedProjectIndex = 0
     return projects.map { project in

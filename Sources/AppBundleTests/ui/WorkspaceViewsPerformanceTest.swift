@@ -21,16 +21,24 @@ final class WorkspaceViewsPerformanceTest: XCTestCase {
             }), epoch: epoch, connection: connection)
 
             var durations: [Double] = []
+            var updateDurations: [Double] = []
             for iteration in 0..<11 {
+                let updateStart = DispatchTime.now().uptimeNanoseconds
+                controller.reconcileSharedOrganization()
                 let start = DispatchTime.now().uptimeNanoseconds
                 let projection = controller.sidebarProjection()
                 let rows = names.flatMap { controller.organizedRows(native: [], in: $0, projection: projection) }
                 let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
                 XCTAssertEqual(rows.flatMap(\.surfaceItems).map(\.surfaceID), ids)
-                if iteration > 0 { durations.append(elapsed) }
+                if iteration > 0 {
+                    durations.append(elapsed)
+                    updateDurations.append(Double(DispatchTime.now().uptimeNanoseconds - updateStart) / 1_000_000)
+                }
             }
             durations.sort()
             print("VIEWS_SIDEBAR_BENCHMARK count=\(count) samples=\(durations.count) median_ms=\(durations[durations.count / 2]) p95_ms=\(durations.last!)")
+            updateDurations.sort()
+            print("VIEWS_MODEL_AND_SIDEBAR_BENCHMARK count=\(count) samples=\(updateDurations.count) median_ms=\(updateDurations[updateDurations.count / 2]) p95_ms=\(updateDurations.last!)")
             controller.disconnected(connection)
         }
         config.workspaceInteractionMode = .tiling

@@ -3,6 +3,14 @@ import Common
 import WorkspaceCore
 
 extension BrowserWorkspaceController {
+    /// Empty pin drop destinations are model state, created before presentation.
+    func preparePinWorkspaces() {
+        guard usesSurfaceTree else { return }
+        for project in workspaceProjectsForPresentation() where !project.id.isIncognito {
+            _ = pinnedGroup(for: project.id)
+        }
+    }
+
     func pinWorkspaceName(_ id: UUID) -> String? {
         pinnedDesktops.first { $0.id == id }?.workspaceName ?? savedPinnedView(id)?.workspace ?? browserSidebarPins.first { $0.id == id }?.workspaceName ?? nativeAppSidebarPins.first { $0.id == id }?.workspaceName
     }
@@ -327,16 +335,14 @@ extension BrowserWorkspaceController {
     }
 
     func legacyPinTiles(in workspace: String) -> [WorkspaceSidebarPinViewModel] {
-        syncSidebarPins()
         return makeMemberPinTiles(in: workspace,
             browserPins: browserSidebarPins.filter { $0.workspaceName == workspace },
             nativePins: nativeAppSidebarPins.filter { $0.workspaceName == workspace })
     }
 
-    /// A sidebar refresh covers every workspace. Reconcile and partition the pins
+    /// A sidebar refresh covers every workspace. Partition the reconciled pins
     /// once so ordinary groups do not each scan every pin in every space.
     func legacyPinTilesByWorkspace() -> [String: [WorkspaceSidebarPinViewModel]] {
-        syncSidebarPins()
         let browser = Dictionary(grouping: browserSidebarPins, by: \.workspaceName)
         let native = Dictionary(grouping: nativeAppSidebarPins, by: \.workspaceName)
         return Dictionary(uniqueKeysWithValues: Set(browser.keys).union(native.keys).map { workspace in

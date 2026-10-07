@@ -18,6 +18,10 @@ extension Workspace {
         }
     }
 
+    var existingRootTilingContainer: TilingContainer? {
+        existingContainer(TilingContainer.self)
+    }
+
     @MainActor var rootTilingContainer: TilingContainer {
         let containers = children.filterIsInstance(of: TilingContainer.self)
         switch containers.count {

@@ -336,7 +336,6 @@ extension BrowserWorkspaceController {
     }
 
     func pinTilesByWorkspace() -> [String: [WorkspaceSidebarPinViewModel]] {
-        syncSidebarPins()
         let workspaces = Set(pinnedDesktops.map(\.workspaceName) + browserSidebarPins.map(\.workspaceName) + nativeAppSidebarPins.map(\.workspaceName))
         return Dictionary(uniqueKeysWithValues: workspaces.map { ($0, pinTiles(in: $0)) })
     }

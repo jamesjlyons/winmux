@@ -10,7 +10,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "WorkspaceCore"),
-        .testTarget(name: "WorkspaceCoreTests", dependencies: ["WorkspaceCore"]),
+        .testTarget(name: "WorkspaceCoreTests", dependencies: ["WorkspaceCore"], resources: [.copy("Fixtures")]),
         .target(name: "BridgeProtocol", publicHeadersPath: "include"),
         .target(name: "BridgeCore", dependencies: ["BridgeProtocol", "WorkspaceCore"]),
         .executableTarget(name: "WorkspaceHelper", dependencies: ["BridgeCore", "BridgeProtocol", "WorkspaceCore"]),

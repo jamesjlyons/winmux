@@ -125,6 +125,7 @@ final class SpacePinnedGroupTest: XCTestCase {
         TestApp.shared.bundlePath = "/Missing/Test.app"
         defer { TestApp.shared.bundlePath = oldPath }
         let window = TestWindow.new(id: 94, parent: regular.rootTilingContainer)
+        controller.reconcileSharedOrganization()
         let capturedRows = await buildWorkspaceSidebarNativeItems(for: regular, currentFocus: focus)
         XCTAssertEqual(controller.organizedRows(native: capturedRows, in: regular.name).flatMap(\.surfaceIDs), [window.surfaceID])
         XCTAssertTrue(controller.pinSurface(window.surfaceID))

@@ -13,7 +13,7 @@ DEV_BUILD_CONFIGURATION ?= release
 SPARKLE_PUBLIC_KEY ?= kcc3956V3+Yo8GtwFJ8Odb9sphIr09/9dsuoYBNtxf0=
 ARGS ?=
 
-.PHONY: dev-build dev-test dev-install dev-run generate xcodeproj build build-clean run run-clean cli check release install installed clean
+.PHONY: dev-build dev-test dev-install dev-run generate xcodeproj build build-clean run run-clean cli check check-native check-python release install installed clean
 
 generate:
 	/bin/bash -lc 'cd "$(CURDIR)" && \
@@ -76,13 +76,24 @@ cli:
 check:
 	$(MAKE) dev-test DEV_BUILD_CONFIGURATION=debug
 	$(MAKE) dev-test DEV_BUILD_CONFIGURATION=release
+	$(MAKE) check-native
+	$(MAKE) check-python
 	/bin/bash -lc 'cd "$(CURDIR)" && \
 	set -euo pipefail && \
 	source ./script/setup.sh && \
-	python3 -m unittest script/test_validate_appcast.py && \
-	python3 -m unittest discover -s browser/tools -p test_workspace_views_trial.py && \
 	swift package resolve && \
 	git diff --exit-code -- Package.resolved'
+
+check-native:
+	/bin/bash -lc 'cd "$(CURDIR)" && source ./script/setup.sh && \
+	swift test --package-path browser/native && \
+	swift test --package-path browser/native -c release'
+
+check-python:
+	/bin/bash -lc 'cd "$(CURDIR)" && set -euo pipefail && \
+	python3 -m unittest script/test_validate_appcast.py && \
+	python3 -m unittest discover -s browser/tools -p test_workspace_views_trial.py && \
+	python3 -m unittest discover -s browser/tests'
 
 release:
 	$(MAKE) xcodeproj VERSION="$(VERSION)" CODESIGN_IDENTITY="$(CODESIGN_IDENTITY)"
