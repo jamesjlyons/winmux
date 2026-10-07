@@ -408,8 +408,8 @@ public final class BrowserWorkspaceController {
         }
     }
 
-    func tabCreationSession(profileID: UUID? = nil) -> BrowserSurfaceSession? {
-        if let id = focusCoordinator.target, let owner = owner(of: id), owner.supportsTabCreation,
+    func tabCreationSession(profileID: UUID? = nil, sourceSurfaceID: SurfaceID? = nil) -> BrowserSurfaceSession? {
+        if let id = sourceSurfaceID ?? focusCoordinator.target, let owner = owner(of: id), owner.supportsTabCreation,
            profileID == nil || owner.inventory.tabs.keys.contains(where: { $0.browserProfileID == profileID }) { return owner }
         let capable = sessions.values.filter { $0.supportsTabCreation && $0.epoch != nil }
         if let profileID {
@@ -424,14 +424,17 @@ public final class BrowserWorkspaceController {
         tabCreationSession()?.supportsWorkspaceProfiles == true
     }
 
-    func placeCreatedBrowserTab(_ id: SurfaceID, in workspaceName: String, focusAddress: Bool, selectCreated: Bool, focusGeneration: UInt64) {
+    func placeCreatedBrowserTab(_ id: SurfaceID, in workspaceName: String, focusAddress: Bool, selectCreated: Bool, focusGeneration: UInt64,
+                                after source: SurfaceID? = nil) {
         placements[id] = workspaceName
         closedBrowserTabs.remove(id)
         if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspaceName) }
         if usesSurfaceTree {
             mixedLayoutWorkspaces.insert(workspaceName)
-            if surfaceTree.workspace(of: id) != nil { _ = surfaceTree.moveToRoot(id, in: workspaceName) }
-            else { surfaceTree.reconcile([id] + (surfaceTree.roots[workspaceName] ?? []).flatMap(\.surfaces), in: workspaceName) }
+            if surfaceTree.workspace(of: id) == nil {
+                surfaceTree.reconcile([id] + (surfaceTree.roots[workspaceName] ?? []).flatMap(\.surfaces), in: workspaceName)
+            }
+            _ = surfaceTree.moveToRoot(id, in: workspaceName, after: source)
         }
         if selectCreated {
             pendingBrowserTabSelections = [id: focusAddress]
@@ -446,7 +449,10 @@ public final class BrowserWorkspaceController {
     func standaloneBrowserDestination(_ id: SurfaceID, in context: Workspace) -> String {
         if let name = standaloneBrowserViews[id], let existing = Workspace.existing(byName: name),
            existing.projectId == context.projectId,
-           MonitorViewportId(existing.workspaceMonitor) == MonitorViewportId(context.workspaceMonitor) { return name }
+           MonitorViewportId(existing.workspaceMonitor) == MonitorViewportId(context.workspaceMonitor) {
+            positionStandaloneWorkspace(existing, after: context)
+            return name
+        }
         let destination = newStandaloneWorkspace(in: context,
             reserved: Set(placements.values).union(standaloneBrowserViews.values))
         standaloneBrowserViews[id] = destination.name

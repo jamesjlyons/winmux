@@ -34,7 +34,7 @@ extension BrowserWorkspaceController {
             incognitoReturnWorkspaces[space] = source.isIncognito ? nil : source.name
             winMuxWorkspaceState.registerProject(.init(id: space, name: "Incognito", order: winMuxWorkspaceState.nextProjectOrder()))
         }
-        let context = projectWorkspaces(projectId: space).first
+        let context = (source.projectId == space ? source : nil) ?? projectWorkspaces(projectId: space).first
             ?? createBlankWorkspace(projectId: space, monitor: source.workspaceMonitor)
         return standaloneBrowserDestination(id, in: context)
     }

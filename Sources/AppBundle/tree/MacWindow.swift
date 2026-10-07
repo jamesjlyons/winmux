@@ -32,13 +32,14 @@ final class MacWindow: Window {
             // resized AX events invalidate it and consumers re-fetch on demand.
             return existing
         }
+        let arrivalWorkspace = focus.workspace
         let rect = try await macApp.getAxRect(windowId)
         let data = try await unbindAndGetBindingDataForNewWindow(
             windowId,
             macApp,
             isStartup
                 ? (rect?.center.monitorApproximation ?? mainMonitor).activeWorkspace
-                : focus.workspace,
+                : arrivalWorkspace,
             window: nil,
         )
 

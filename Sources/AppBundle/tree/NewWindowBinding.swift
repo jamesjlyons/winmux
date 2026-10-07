@@ -46,7 +46,7 @@ private func autoAddNewWindowToFocusedTabGroupBinding(_ workspace: Workspace) ->
           let tabGroup = focusedWindow.parent as? TilingContainer,
           tabGroup.layout == .tabGroup
     else { return nil }
-    return BindingData(parent: tabGroup, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    return BindingData(parent: tabGroup, adaptiveWeight: WEIGHT_AUTO, index: focusedWindow.ownIndex.orDie() + 1)
 }
 
 @MainActor

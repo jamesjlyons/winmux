@@ -418,10 +418,14 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return false
     }
 
-    @discardableResult public mutating func moveToRoot(_ id: SurfaceID, in name: String) -> Bool {
+    @discardableResult public mutating func moveToRoot(_ id: SurfaceID, in name: String, after source: SurfaceID? = nil) -> Bool {
         guard workspace(of: id) != nil else { return false }
         remove(id)
-        roots[name, default: []].append(.surface(id))
+        if let source, let index = roots[name]?.firstIndex(where: { $0.surfaces.contains(source) }) {
+            roots[name, default: []].insert(.surface(id), at: index + 1)
+        } else {
+            roots[name, default: []].append(.surface(id))
+        }
         return true
     }
 

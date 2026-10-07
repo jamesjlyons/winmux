@@ -9,7 +9,7 @@ extension BrowserWorkspaceController {
                                 reserved: Set<String> = []) -> Workspace {
         let candidates = [source] + projectWorkspaces(projectId: source.projectId).filter { $0 !== source }
         let profileMoveDestinations = Set(pendingProfileMoves.values.map { $0.destination.name })
-        if let blank = candidates.first(where: {
+        let destination = candidates.first(where: {
             !$0.isPinnedGroup && !$0.isArchived && $0.usesAutomaticDisplayName &&
                 MonitorViewportId($0.workspaceMonitor) == MonitorViewportId(source.workspaceMonitor) && !reserved.contains($0.name) &&
                 workspaceOwnedMinimizedWindows($0).isEmpty &&
@@ -17,8 +17,24 @@ extension BrowserWorkspaceController {
                 (surfaceTree.roots[$0.name] ?? []).flatMap(\.surfaces).allSatisfy { $0 == window?.surfaceID } &&
                 !profileMoveDestinations.contains($0.name) &&
                 rows(in: $0.name).isEmpty
-        }) { return blank }
-        return createBlankWorkspace(projectId: source.projectId, monitor: source.workspaceMonitor)
+        }) ?? createBlankWorkspace(projectId: source.projectId, monitor: source.workspaceMonitor)
+        positionStandaloneWorkspace(destination, after: source)
+        return destination
+    }
+
+    func positionStandaloneWorkspace(_ destination: Workspace, after source: Workspace) {
+        guard destination !== source, destination.projectId == source.projectId else { return }
+        if source.isPinnedGroup {
+            // Regular arrivals from a pin belong immediately below the pin shelf.
+            if let first = projectWorkspaces(projectId: source.projectId).first(where: {
+                $0 !== destination && !$0.isPinnedGroup && !$0.isArchived &&
+                    MonitorViewportId($0.workspaceMonitor) == MonitorViewportId(source.workspaceMonitor)
+            }) {
+                reorderWorkspace(destination.name, relativeTo: first.name, placement: .before)
+            }
+        } else {
+            reorderWorkspace(destination.name, relativeTo: source.name, placement: .after)
+        }
     }
 
     /// Capture and validate both owners before committing a split or stack.

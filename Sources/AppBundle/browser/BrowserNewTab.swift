@@ -9,10 +9,13 @@ extension SurfaceID {
 extension BrowserWorkspaceController {
     @discardableResult
     func openBrowserTab(url: String? = nil, workspaceName: String? = nil, profileID: UUID? = nil,
+                        sourceSurfaceID: SurfaceID? = nil,
                         explicitPlacement: Bool = false, selectNewPage: Bool = true,
                         created: (@MainActor (SurfaceID) -> Void)? = nil,
                         completion: (@MainActor (BrowserActionReply) -> Void)? = nil) -> SurfaceActionOutcome {
-        let requestedWorkspace = workspaceName.flatMap { Workspace.existing(byName: $0) } ?? focus.workspace
+        let requestedWorkspace = (workspaceName ?? sourceSurfaceID.flatMap { self.workspaceName(for: $0) })
+            .flatMap { Workspace.existing(byName: $0) } ?? focus.workspace
+        let sourceSurface = sourceSurfaceID ?? focusCoordinator.target ?? focus.windowOrNil?.surfaceID
         let workspaceProfile: WorkspaceBrowserProfileTarget?
         do {
             workspaceProfile = profileID == nil && !requestedWorkspace.isIncognito ? try browserProfileTarget(for: requestedWorkspace.projectId) : nil
@@ -21,7 +24,7 @@ extension BrowserWorkspaceController {
             completion?(.unavailable)
             return .unavailable
         }
-        guard let session = tabCreationSession(profileID: profileID ?? workspaceProfile?.profileID) else {
+        guard let session = tabCreationSession(profileID: profileID ?? workspaceProfile?.profileID, sourceSurfaceID: sourceSurface) else {
             NSLog("WinMux new tab: no connected creation owner")
             completion?(.unavailable)
             return .unavailable
@@ -35,11 +38,14 @@ extension BrowserWorkspaceController {
         }
         let routedProfile = session.supportsWorkspaceProfiles ? workspaceProfile : nil
         let workspace = (url == nil ? regularWorkspaceForNewItem(requestedWorkspace) : requestedWorkspace).name
-        let source = requestedWorkspace.isIncognito ? session.inventory.tabs.values.first(where: {
-            $0.privateBrowsing && $0.surfaceID.browserProfileID.map { WorkspaceProjectId.incognito($0) == requestedWorkspace.projectId } == true
-        })?.surfaceID : (routedProfile == nil ? focusCoordinator.target.flatMap { session.inventory.tabs[$0] != nil &&
+        let focusedSource = sourceSurface.flatMap { session.inventory.tabs[$0] != nil &&
             (profileID == nil || $0.browserProfileID == profileID) ? $0 : nil }
-            : nil)
+        let source = requestedWorkspace.isIncognito ? focusedSource.flatMap {
+            session.inventory.tabs[$0]?.privateBrowsing == true &&
+                $0.browserProfileID.map { WorkspaceProjectId.incognito($0) == requestedWorkspace.projectId } == true ? $0 : nil
+        } ?? session.inventory.tabs.values.first(where: {
+            $0.privateBrowsing && $0.surfaceID.browserProfileID.map { WorkspaceProjectId.incognito($0) == requestedWorkspace.projectId } == true
+        })?.surfaceID : (routedProfile == nil ? focusedSource : nil)
         guard !requestedWorkspace.isIncognito || source != nil else {
             completion?(.unavailable)
             return .unavailable
@@ -61,7 +67,8 @@ extension BrowserWorkspaceController {
                 let destination = config.workspaceInteractionMode == .views && !explicitPlacement
                     ? self.standaloneBrowserDestination(id, in: requestedWorkspace) : workspace
                 self.placeCreatedBrowserTab(id, in: destination, focusAddress: url == nil,
-                                           selectCreated: selectCreated, focusGeneration: startingFocus)
+                                           selectCreated: selectCreated, focusGeneration: startingFocus,
+                                           after: sourceSurface)
                 created?(id)
             }
             if reply != .issued, routedProfile != nil, !isUnitTest {
