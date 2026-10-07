@@ -187,6 +187,35 @@ extension BrowserWorkspaceController {
 
 
 extension BrowserWorkspaceController {
+    /// A native frame gesture commits all changed edges together. The shared
+    /// tree supplies proportions; neither owner mutates native layout weights.
+    @discardableResult
+    func resizeObservedSurface(_ id: SurfaceID, from original: CGRect, to observed: CGRect) -> Bool {
+        guard [original.minX, original.minY, original.width, original.height,
+               observed.minX, observed.minY, observed.width, observed.height].allSatisfy(\.isFinite),
+              original.width > 0, original.height > 0, observed.width > 0, observed.height > 0,
+              abs(original.width - observed.width) > 1 || abs(original.height - observed.height) > 1,
+              let name = workspaceName(for: id), let workspace = Workspace.existing(byName: name) else { return false }
+        let rect = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+        let frame = SurfaceFrame(x: Int(rect.topLeftX.rounded()), y: Int(rect.topLeftY.rounded()),
+                                 width: Int(rect.width.rounded()), height: Int(rect.height.rounded()))
+        let minima = minimumSizes(in: workspace)
+        var candidate = liveLayoutTree(in: workspace), resized = false
+        let edges: [(SurfaceDirection, Double)] = [
+            (.left, original.minX - observed.minX), (.right, observed.maxX - original.maxX),
+            (.up, original.minY - observed.minY), (.down, observed.maxY - original.maxY),
+        ]
+        for (edge, delta) in edges where abs(delta) > 1 {
+            resized = candidate.resize(id, dimension: edge.isHorizontal ? .width : .height, amount: delta,
+                frame: frame, minimumSizes: minima, rootPresentation: rootPresentation(in: workspace), edge: edge) || resized
+        }
+        guard resized else { return false }
+        return editOrganization(of: id) { durable in
+            durable.setWeights(candidate.weights)
+            return true
+        }
+    }
+
     @discardableResult
     func resizeSurface(_ id: SurfaceID, in workspace: Workspace, dimension: SurfaceResizeDimension,
                        amount: Double, absolute: Bool = false) -> Bool {

@@ -1,6 +1,7 @@
 @testable import AppBundle
 import CoreGraphics
 import XCTest
+import WorkspaceCore
 
 final class WindowShakeGestureTest: XCTestCase {
     func testRecognizesFourDeliberateHorizontalStrokes() {
@@ -115,6 +116,55 @@ final class WindowShakeLayoutToggleTest: XCTestCase {
         driver.toggleFloatingForShake(shaken)
         XCTAssertFalse(shaken.isFloating)
         XCTAssertEqual(workspace.rootTilingContainer.children, [left, shaken, right])
+    }
+
+    func testShakeToggleRestoresSharedStackIdentity() throws {
+        let workspace = focus.workspace, controller = BrowserWorkspaceController.shared
+        let shaken = TestWindow.new(id: 811, parent: workspace.rootTilingContainer)
+        let peer = TestWindow.new(id: 812, parent: workspace.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([shaken.surfaceID, peer.surfaceID], in: workspace.name)
+        XCTAssertTrue(tree.group(shaken.surfaceID, with: peer.surfaceID))
+        let group = try XCTUnwrap(tree.containingGroup(of: shaken.surfaceID))
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [workspace.name], selected: nil, closedBrowserTabs: []))
+        let driver = WindowMouseInteractionDriver.shared
+        driver.toggleFloatingForShake(shaken)
+        XCTAssertTrue(shaken.isFloating)
+        XCTAssertNil(controller.surfaceTree.workspace(of: shaken.surfaceID))
+        XCTAssertEqual(controller.surfaceTree.roots[workspace.name], [.surface(peer.surfaceID)])
+        driver.toggleFloatingForShake(shaken)
+        XCTAssertFalse(shaken.isFloating)
+        XCTAssertEqual(controller.surfaceTree.containingGroup(of: shaken.surfaceID), group)
+        XCTAssertEqual(controller.surfaceTree.roots[workspace.name], tree.roots[workspace.name])
+        XCTAssertNil(shaken.shakeWindowState.sharedPlacement)
+    }
+
+    func testShakeKeepsNativeLayoutAuthorityUntilViewIsAdopted() {
+        let workspace = focus.workspace, controller = BrowserWorkspaceController.shared
+        let shaken = TestWindow.new(id: 813, parent: workspace.rootTilingContainer)
+        let peer = TestWindow.new(id: 814, parent: workspace.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([shaken.surfaceID, peer.surfaceID], in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        let driver = WindowMouseInteractionDriver.shared
+        driver.toggleFloatingForShake(shaken)
+        XCTAssertNil(shaken.shakeWindowState.sharedPlacement)
+        driver.toggleFloatingForShake(shaken)
+        XCTAssertEqual(workspace.rootTilingContainer.children, [shaken, peer])
+        XCTAssertFalse(controller.hasMixedLayout(in: workspace))
+    }
+
+    func testShakeReturnKeepsEditsMadeWhileWindowWasFloating() throws {
+        let workspace = focus.workspace, controller = BrowserWorkspaceController.shared
+        let windows = (820...822).map { TestWindow.new(id: UInt32($0), parent: workspace.rootTilingContainer) }
+        var tree = SurfaceTree(); tree.reconcile(windows.map(\.surfaceID), in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [workspace.name], selected: nil, closedBrowserTabs: []))
+        let driver = WindowMouseInteractionDriver.shared
+        driver.toggleFloatingForShake(windows[1])
+        XCTAssertTrue(controller.editOrganization(of: windows[0].surfaceID) { $0.insertIntoStack(windows[0].surfaceID, with: windows[2].surfaceID) })
+        let group = try XCTUnwrap(controller.surfaceTree.containingGroup(of: windows[0].surfaceID))
+        driver.toggleFloatingForShake(windows[1])
+        XCTAssertNil(controller.surfaceTree.containingGroup(of: windows[1].surfaceID))
+        XCTAssertEqual(Set(controller.surfaceTree.group(group)?.surfaces ?? []), [windows[0].surfaceID, windows[2].surfaceID])
+        XCTAssertEqual(controller.surfaceTree.workspace(of: windows[1].surfaceID), workspace.name)
     }
 
     func testShakeRetileFallsBackWhenOriginalContainerWasRemoved() {

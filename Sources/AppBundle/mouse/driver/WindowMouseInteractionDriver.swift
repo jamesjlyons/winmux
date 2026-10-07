@@ -3,7 +3,6 @@ import Common
 
 let resizeGestureCalibrationInterval: TimeInterval = 1.0 / 30.0
 let resizePreviewVisibleChangeThreshold = CGFloat(0.5)
-private let shakeToggleCooldown: TimeInterval = 1.25
 
 @MainActor
 final class WindowMouseInteractionDriver {
@@ -340,7 +339,7 @@ extension WindowMouseInteractionDriver {
         }
         shakeGesture = gesture
         let state = sourceWindow.shakeWindowState
-        guard sample.timestamp - state.lastToggleTimestamp >= shakeToggleCooldown else { return }
+        guard sample.timestamp - state.lastToggleTimestamp >= windowShakeToggleCooldown else { return }
 
         clearPendingWindowDragIntent()
         toggleFloatingForShake(sourceWindow)
@@ -351,7 +350,9 @@ extension WindowMouseInteractionDriver {
     func toggleFloatingForShake(_ window: Window) {
         guard let workspace = window.nodeWorkspace else { return }
         let state = window.shakeWindowState
-        if window.isFloating {
+        let controller = BrowserWorkspaceController.shared
+        let wasFloating = window.isFloating
+        if wasFloating {
             if let placement = state.tilingPlacement,
                let parent = placement.parent,
                parent.isBound,
@@ -368,12 +369,19 @@ extension WindowMouseInteractionDriver {
             }
             state.tilingPlacement = nil
         } else {
+            state.sharedPlacement = controller.usesSurfaceTree && controller.hasMixedLayout(in: workspace)
+                ? controller.surfaceTree.detachedPlacement(of: window.surfaceID) : nil
             window.lastFloatingSize = window.lastKnownActualRect?.size ??
                 window.lastAppliedLayoutPhysicalRect?.size ??
                 window.lastFloatingSize
             if let placement = window.bindAsFloatingWindow(to: workspace) {
                 state.tilingPlacement = WindowShakeTilingPlacement(placement)
             }
+        }
+        if controller.hasMixedLayout(in: workspace) { controller.nativeTilingStateChanged(window) }
+        if wasFloating, let saved = state.sharedPlacement {
+            _ = controller.editOrganization(of: window.surfaceID) { $0.restorePlacement(of: window.surfaceID, from: saved) }
+            state.sharedPlacement = nil
         }
         window.lastAppliedLayoutPhysicalRect = nil
     }

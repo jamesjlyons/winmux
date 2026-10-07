@@ -35,7 +35,7 @@ private func handleMovedEvent(windowId: UInt32?, notif: String) async {
         scheduleRefreshSession(.ax(notif))
         return
     }
-    if BrowserWindowDragController.shared.handleNativeMoved(window) { return }
+    if BrowserWindowDragController.shared.handleNativeGeometryChange(window) { return }
     if isContinuingManagedDragSessionForMovedEvent(window) { return }
     // Coalesce: kAXMoved arrives per frame during drags, and each session reads the mouse
     // and window state fresh when it runs, so events arriving while a session for this

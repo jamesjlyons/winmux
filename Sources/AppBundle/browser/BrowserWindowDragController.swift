@@ -19,6 +19,8 @@ final class BrowserWindowDragController {
         let original: CGRect
         var desired: CGRect
         var observed: CGRect
+        var layoutAtStart: [SurfacePlacement] = []
+        var shake = WindowShakeGestureRecognizer()
         var settlingUntil: CFTimeInterval?
         init(id: SurfaceID, host: UInt32, pid: Int32?, kind: Kind, start: CGPoint, frame: CGRect) {
             self.id = id; self.host = host; self.pid = pid; self.kind = kind
@@ -54,6 +56,7 @@ final class BrowserWindowDragController {
               let frame = actualFrame(host, processID: pid) else { return }
         let next = Drag(id: surfaceID, host: host, pid: pid, kind: .header, start: point, frame: frame)
         guard isCurrent(next) else { return }
+        next.layoutAtStart = layout(for: surfaceID)
         candidate = nil
         pointer = point
         drag = next
@@ -102,6 +105,12 @@ final class BrowserWindowDragController {
             if let cancelled = cancelledGesture {
                 cancelledGesture = nil
                 if let window = Window.get(bySurfaceID: cancelled) {
+                    if window.isFloating {
+                        let destination = point.monitorApproximation.activeWorkspace
+                        if controller.canPlaceSurface(window.surfaceID, in: destination) {
+                            window.bindAsFloatingWindow(to: destination)
+                        }
+                    }
                     window.lastAppliedLayoutPhysicalRect = nil
                     window.lastAppliedLayoutVirtualRect = nil
                     suppressPostDragAxObserverEvents(for: [window.windowId])
@@ -118,20 +127,24 @@ final class BrowserWindowDragController {
 
     /// Native app windows in a shared workspace use the same SurfaceID drop
     /// model. Their own titlebar owns movement; WinMux only previews and commits.
-    func handleNativeMoved(_ window: Window) -> Bool {
+    func handleNativeGeometryChange(_ window: Window) -> Bool {
         if drag?.id == window.surfaceID || cancelledGesture == window.surfaceID { return true }
         guard enabled, drag == nil, NSEvent.pressedMouseButtons & 1 != 0,
               !window.isFloating, let workspace = window.nodeWorkspace,
               controller.hasMixedLayout(in: workspace),
+              controller.surfaceTree.workspace(of: window.surfaceID) == workspace.name,
+              controller.canMoveSurface(window.surfaceID),
               let original = window.lastAppliedLayoutPhysicalRect,
-              let actual = actualFrame(window.windowId, processID: nil),
-              abs(actual.width - original.width) < 2, abs(actual.height - original.height) < 2 else { return false }
+              let actual = actualFrame(window.windowId, processID: nil) else { return false }
         let point = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
-        guard actual.contains(point) else { return false }
+        // Resize handles can sit just outside the native frame. Geometry must
+        // have changed while the pointer is at this window before taking over.
+        let originalFrame = CGRect(x: original.topLeftX, y: original.topLeftY, width: original.width, height: original.height)
+        guard !Self.close(actual, originalFrame), actual.insetBy(dx: -8, dy: -8).contains(point) else { return false }
         drag = Drag(id: window.surfaceID, host: window.windowId, pid: nil, kind: .native,
-                    start: point, frame: CGRect(x: original.topLeftX, y: original.topLeftY,
-                                                width: original.width, height: original.height))
+                    start: point, frame: originalFrame)
         drag?.observed = actual
+        drag?.layoutAtStart = layout(for: window.surfaceID)
         candidate = nil
         pointer = point
         startObserving()
@@ -161,6 +174,7 @@ final class BrowserWindowDragController {
                 self.candidate = nil
                 candidate.desired = actual
                 candidate.observed = actual
+                candidate.layoutAtStart = layout(for: candidate.id)
                 controller.cancelPendingBrowserFocusHold()
             }
         }
@@ -170,6 +184,20 @@ final class BrowserWindowDragController {
             clear(); controller.publishBrowserLayouts(force: true); return
         }
         drag.observed = actual
+        if drag.settlingUntil == nil, drag.kind == .native, !isResize(drag), config.enableShakeToToggleTiling,
+           WorkspaceSidebarPanel.panel(containing: pointer) == nil, let window = Window.get(bySurfaceID: drag.id),
+           drag.shake.observe(.init(point: pointer, timestamp: ProcessInfo.processInfo.systemUptime)),
+           ProcessInfo.processInfo.systemUptime - window.shakeWindowState.lastToggleTimestamp >= windowShakeToggleCooldown {
+            // Finish this grab after floating so a later AX event cannot also
+            // start the legacy gesture driver or toggle the same window twice.
+            cancelledGesture = drag.id
+            clear()
+            WindowMouseInteractionDriver.shared.toggleFloatingForShake(window)
+            window.shakeWindowState.lastToggleTimestamp = ProcessInfo.processInfo.systemUptime
+            controller.publishBrowserLayouts(force: true)
+            runWorkspaceSidebarSession {}
+            return
+        }
         if drag.kind != .native { BrowserToolbarController.shared.applyDragFrame(for: drag.id, bodyFrame: actual) }
         if let deadline = drag.settlingUntil {
             let planned = Workspace.all.flatMap(controller.plannedSurfaces).first { $0.surfaceID == drag.id && $0.visible }
@@ -201,13 +229,9 @@ final class BrowserWindowDragController {
         // refresh restores the final plan rather than the last dragged frame.
         drag.settlingUntil = CACurrentMediaTime() + 1.5
         WindowDropIntentOverlayPanelController.shared.hide()
-        let commit = commit && isCurrent(drag)
-        if commit, isResize(drag), let name = controller.workspaceName(for: drag.id),
-           let workspace = Workspace.existing(byName: name) {
-            let width = drag.observed.width - drag.original.width
-            let height = drag.observed.height - drag.original.height
-            if abs(width) > 1 { _ = controller.resizeSurface(drag.id, in: workspace, dimension: .width, amount: Double(width)) }
-            if abs(height) > 1 { _ = controller.resizeSurface(drag.id, in: workspace, dimension: .height, amount: Double(height)) }
+        let commit = commit && isCurrent(drag) && drag.layoutAtStart == layout(for: drag.id)
+        if commit, isResize(drag) {
+            _ = controller.resizeObservedSurface(drag.id, from: drag.original, to: drag.observed)
         } else if commit, let destination = resolveBrowserSurfaceDrop(source: drag.id, pointer: pointer) {
             _ = commitBrowserSurfaceDrop(destination)
         }
@@ -242,7 +266,12 @@ final class BrowserWindowDragController {
     }
 
     private func isResize(_ drag: Drag) -> Bool {
-        drag.kind == .observedBrowser && (abs(drag.observed.width - drag.original.width) > 1 || abs(drag.observed.height - drag.original.height) > 1)
+        drag.kind != .header && (abs(drag.observed.width - drag.original.width) > 1 || abs(drag.observed.height - drag.original.height) > 1)
+    }
+
+    private func layout(for id: SurfaceID) -> [SurfacePlacement] {
+        guard let name = controller.workspaceName(for: id), let workspace = Workspace.existing(byName: name) else { return [] }
+        return controller.plannedSurfaces(in: workspace)
     }
 
     private func browserCandidate(at point: CGPoint) -> Drag? {

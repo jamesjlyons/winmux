@@ -62,7 +62,8 @@ extension TreeNode {
                     try await window.layoutFloatingWindow(context)
                 }
             case .window(let window):
-                if window.windowId != currentlyManipulatedWithMouseWindowId || isPinnedDraggedWindow(window.windowId) {
+                if !BrowserWindowDragController.shared.isMovingNativeSurface(window.surfaceID),
+                   window.windowId != currentlyManipulatedWithMouseWindowId || isPinnedDraggedWindow(window.windowId) {
                     let previousPhysicalRect = lastAppliedLayoutPhysicalRect
                     lastAppliedLayoutVirtualRect = virtual
                     let isFullscreenTab = window.nearestWindowTabGroup?.hasFullscreenTab == true

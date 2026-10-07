@@ -184,6 +184,26 @@ tests. Native Debug passed 166 WorkspaceCore and 21 BridgeCore tests after the
 final change; Release passed the same suites before the monitor insertion
 adjustment. All runs retain the locked-console exclusions above.
 
+Native frame gestures in Views already using shared layout now use the same
+drop and resize path as browser pages. Resizing distinguishes each dragged edge,
+preserves interior dividers in nested splits, and respects owner minimum sizes.
+The adapter commits all changed edges together and rejects a gesture if its
+layout changed before release. Native-only drop preparation is also covered by
+the owner-validation tests.
+
+Shake-to-float updates shared membership immediately. An ephemeral return
+position restores the original stack identity and proportions only if the
+surrounding View is unchanged; later edits and other Views remain authoritative.
+Native-only Views keep their existing automatic gesture handling until native
+tab chrome and the agent API use shared organization. Those paths, full native
+authority adoption, and removal of duplicated placement state remain open.
+
+The gesture slice, including shake restoration, passed 1,076 app tests in Debug
+and Release. All 172 WorkspaceCore and 21 BridgeCore tests passed in both
+configurations. The final native-authority guard has separate targeted coverage.
+Unlocked interaction checks remain open, with the same baseline console
+exclusions above.
+
 ### Stage 5 sidebar visibility
 
 Sidebar visibility is now one enum and one setting in Appearance and the context

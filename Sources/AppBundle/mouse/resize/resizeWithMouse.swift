@@ -21,6 +21,7 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
             scheduleRefreshSession(.ax(notif))
             return
         }
+        if BrowserWindowDragController.shared.handleNativeGeometryChange(window) { return }
         if isContinuingManagedDragSessionForResizedEvent(windowId) { return }
         guard try await isManipulatedWithMouse(window) else {
             scheduleRefreshSession(.ax(notif), scope: .geometry(window))

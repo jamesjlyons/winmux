@@ -36,6 +36,60 @@ import XCTest
         }
     }
 
+    func testNativeOnlyDropAdoptsSharedLayoutAndLeavesNativeHierarchyAsOwnerBinding() throws {
+        let controller = BrowserWorkspaceController(), workspace = focus.workspace
+        let first = TestWindow.new(id: 4001, parent: workspace.rootTilingContainer)
+        let second = TestWindow.new(id: 4002, parent: workspace.rootTilingContainer)
+        let parent = first.parent
+        var tree = SurfaceTree(); tree.reconcile([first.surfaceID, second.surfaceID], in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        for window in [first, second] {
+            window.lastAppliedLayoutPhysicalRect = try frame(for: window.surfaceID, controller: controller)
+        }
+        XCTAssertFalse(controller.hasMixedLayout(in: workspace))
+        let drop = try resolve(source: first.surfaceID, target: second.surfaceID, zone: .bottom, controller: controller)
+        XCTAssertTrue(commitBrowserSurfaceDrop(drop, controller: controller))
+        XCTAssertTrue(controller.hasMixedLayout(in: workspace))
+        XCTAssertTrue(first.parent === parent && second.parent === parent)
+        let firstFrame = try frame(for: first.surfaceID, controller: controller)
+        let secondFrame = try frame(for: second.surfaceID, controller: controller)
+        XCTAssertEqual(firstFrame.width, secondFrame.width)
+        XCTAssertGreaterThan(firstFrame.topLeftY, secondFrame.topLeftY)
+    }
+
+    func testObservedLeftEdgeResizePreservesRightNeighborAndNativeWeights() throws {
+        let fixture = fixture(secondPage: true), workspace = focus.workspace
+        let right = try XCTUnwrap(fixture.other)
+        let original = try frame(for: fixture.page, controller: fixture.controller)
+        let rightBefore = try frame(for: right, controller: fixture.controller)
+        let nativeBefore = try frame(for: fixture.native.surfaceID, controller: fixture.controller)
+        let nativeWeight = fixture.native.getWeight(.h)
+        let rect = CGRect(x: original.topLeftX, y: original.topLeftY, width: original.width, height: original.height)
+        XCTAssertTrue(fixture.controller.resizeObservedSurface(fixture.page, from: rect,
+            to: CGRect(x: rect.minX - 90, y: rect.minY, width: rect.width + 90, height: rect.height)))
+        let result = try frame(for: fixture.page, controller: fixture.controller)
+        XCTAssertEqual(result.width, original.width + 90)
+        XCTAssertEqual(result.topLeftX, original.topLeftX - 90)
+        XCTAssertTrue(try frame(for: right, controller: fixture.controller).isEqual(to: rightBefore))
+        XCTAssertEqual(try frame(for: fixture.native.surfaceID, controller: fixture.controller).width, nativeBefore.width - 90)
+        XCTAssertEqual(fixture.native.getWeight(.h), nativeWeight)
+        XCTAssertEqual(fixture.native.nodeWorkspace, workspace)
+    }
+
+    func testObservedResizeRejectsDisconnectedOwnerWithoutPartialWeightChanges() throws {
+        let fixture = fixture()
+        let rect = try frame(for: fixture.native.surfaceID, controller: fixture.controller)
+        let original = CGRect(x: rect.topLeftX, y: rect.topLeftY, width: rect.width, height: rect.height)
+        fixture.controller.disconnected(fixture.connection)
+        let before = fixture.controller.surfaceTree
+        XCTAssertFalse(fixture.controller.resizeObservedSurface(fixture.native.surfaceID, from: original,
+            to: CGRect(x: original.minX, y: original.minY, width: original.width + 90, height: original.height)))
+        XCTAssertEqual(fixture.controller.surfaceTree, before)
+        XCTAssertFalse(fixture.controller.resizeObservedSurface(fixture.native.surfaceID, from: original,
+            to: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 400)))
+        XCTAssertEqual(fixture.controller.surfaceTree, before)
+    }
+
     func testBrowserToBrowserTabThenSplitUsesOnlyVisibleTarget() throws {
         let fixture = fixture(secondPage: true)
         let other = try XCTUnwrap(fixture.other)

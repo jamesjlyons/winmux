@@ -9,7 +9,8 @@ extension SurfaceTree {
     public mutating func resize(_ target: SurfaceID, dimension: SurfaceResizeDimension, amount: Double,
                                 absolute: Bool = false, frame: SurfaceFrame,
                                 minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:],
-                                rootPresentation: SurfaceRootPresentation = .adaptiveTiles) -> Bool {
+                                rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
+                                edge: SurfaceDirection? = nil) -> Bool {
         guard amount.isFinite, let workspace = workspace(of: target), let roots = roots[workspace] else { return false }
         let plan = placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
         func bounds(_ node: SurfaceTreeNode, in placements: [SurfacePlacement]) -> SurfaceFrame? {
@@ -61,7 +62,13 @@ extension SurfaceTree {
         case .smart: desired = candidates.first?.layout
         case .smartOpposite: desired = candidates.first.map { $0.layout == .horizontal ? .vertical : .horizontal }
         }
-        guard let desired, let candidate = candidates.first(where: { $0.layout == desired }),
+        guard let desired, edge.map({ $0.isHorizontal == (desired == .horizontal) }) ?? true,
+              let candidate = candidates.first(where: { candidate in
+                  guard candidate.layout == desired else { return false }
+                  guard let edge else { return true }
+                  guard let index = candidate.siblings.firstIndex(where: { $0.contains { $0.surfaces.contains(target) } }) else { return false }
+                  return edge.isPositive ? index < candidate.siblings.count - 1 : index > 0
+              }),
               let index = candidate.siblings.firstIndex(where: { $0.contains { $0.surfaces.contains(target) } }) else { return false }
         func extent(_ nodes: [SurfaceTreeNode]) -> (Int, Int)? {
             let frames = nodes.compactMap { bounds($0, in: plan) }
@@ -85,16 +92,49 @@ extension SurfaceTree {
               zip(extents, extents.dropFirst()).allSatisfy({ $0.0.1 == $0.1.0 }) else { return false }
         var lengths = extents.map { Double($0.1 - $0.0) }
         let minima = candidate.siblings.map { $0.map(minimum).max() ?? 1 }
-        let others = candidate.siblings.indices.filter { $0 != index }
+        let others = candidate.siblings.indices.filter {
+            guard let edge else { return $0 != index }
+            return edge.isPositive ? $0 > index : $0 < index
+        }
         let slack = others.reduce(0.0) { $0 + max(0, lengths[$1] - minima[$1]) }
         let requested = absolute ? amount - lengths[index] : amount
-        let delta = min(slack, max(minima[index] - lengths[index], requested))
+        func interiorMinimumDelta(_ node: SurfaceTreeNode) -> Double {
+            guard case .group(let id, let children) = node,
+                  let child = children.first(where: { $0.surfaces.contains(target) }) else { return -.infinity }
+            var limit = interiorMinimumDelta(child)
+            if layouts[id] == desired, let frame = bounds(child, in: plan) {
+                limit = max(limit, minimum(child) - Double(desired == .horizontal ? frame.width : frame.height))
+            }
+            return limit
+        }
+        let lowerBound = edge == nil ? minima[index] - lengths[index]
+            : max(minima[index] - lengths[index], candidate.siblings[index].filter { $0.surfaces.contains(target) }
+                .map(interiorMinimumDelta).max() ?? -.infinity)
+        let delta = min(slack, max(lowerBound, requested))
         guard abs(delta) >= 0.5 else { return false }
         for other in others {
             lengths[other] -= delta > 0 ? delta * max(0, lengths[other] - minima[other]) / slack : delta / Double(others.count)
         }
         lengths[index] += delta
+        // Moving an outer edge must grow only the path to the dragged leaf in
+        // nested splits on this axis. Keep the other interior edges stationary.
+        var interiorWeights: [String: Double] = [:]
+        func preserveInteriorEdges(_ node: SurfaceTreeNode) {
+            guard case .group(let id, let children) = node else { return }
+            if layouts[id] == desired {
+                for child in children {
+                    guard let frame = bounds(child, in: plan) else { continue }
+                    let length = Double(desired == .horizontal ? frame.width : frame.height)
+                    interiorWeights[child.weightKey] = length + (child.surfaces.contains(target) ? delta : 0)
+                }
+            }
+            for child in children where child.surfaces.contains(target) { preserveInteriorEdges(child) }
+        }
+        if edge != nil {
+            for node in candidate.siblings[index] where node.surfaces.contains(target) { preserveInteriorEdges(node) }
+        }
         guard candidate.adaptive else {
+            setWeights(interiorWeights)
             setWeights(Dictionary(uniqueKeysWithValues: zip(candidate.siblings, lengths).map { ($0.0[0].weightKey, $0.1) }))
             return true
         }
@@ -144,6 +184,7 @@ extension SurfaceTree {
             for member in cell.members { values[roots[member].weightKey] = value }
         }
         var resized = self
+        resized.setWeights(interiorWeights)
         resized.setWeights(values)
         let updated = resized.placements(in: workspace, frame: frame, minimumSizes: minimumSizes, selectedSurface: target, rootPresentation: rootPresentation)
         for node in roots.indices {

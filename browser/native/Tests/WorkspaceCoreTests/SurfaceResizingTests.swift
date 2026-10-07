@@ -5,6 +5,63 @@ import XCTest
 final class SurfaceResizingTests: XCTestCase {
     let frame = SurfaceFrame(x: -500, y: 40, width: 1200, height: 800)
 
+    func testDraggedEdgeChangesOnlySiblingsOnThatSide() {
+        let ids = (0..<3).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "work")
+        XCTAssertTrue(tree.resize(ids[1], dimension: .width, amount: 90, frame: frame, edge: .left))
+        XCTAssertEqual(tree.placements(in: "work", frame: frame).map(\.frame.width), [310, 490, 400])
+        XCTAssertTrue(tree.resize(ids[1], dimension: .width, amount: -40, frame: frame, edge: .right))
+        XCTAssertEqual(tree.placements(in: "work", frame: frame).map(\.frame.width), [310, 450, 440])
+        let before = tree
+        XCTAssertFalse(tree.resize(ids[0], dimension: .width, amount: 80, frame: frame, edge: .left))
+        XCTAssertFalse(tree.resize(ids[1], dimension: .height, amount: 80, frame: frame, edge: .right))
+        XCTAssertEqual(tree, before)
+    }
+
+    func testNestedOuterEdgeKeepsInteriorDividerStationaryAndHonorsLeafMinimum() throws {
+        let ids = (0..<3).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "work")
+        XCTAssertTrue(tree.group(ids[1], with: ids[0], layout: .horizontal))
+        let minimums = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 100, height: 80)) })
+        XCTAssertEqual(tree.placements(in: "work", frame: frame).map(\.frame.width), [300, 300, 600])
+        XCTAssertTrue(tree.resize(ids[1], dimension: .width, amount: 100, frame: frame, minimumSizes: minimums, edge: .right))
+        XCTAssertEqual(tree.placements(in: "work", frame: frame, minimumSizes: minimums).map(\.frame.width), [300, 400, 500])
+        XCTAssertTrue(tree.resize(ids[1], dimension: .width, amount: -1000, frame: frame, minimumSizes: minimums, edge: .right))
+        XCTAssertEqual(tree.placements(in: "work", frame: frame, minimumSizes: minimums).map(\.frame.width), [300, 100, 800])
+        XCTAssertEqual(try JSONDecoder().decode(SurfaceTree.self, from: JSONEncoder().encode(tree)), tree)
+    }
+
+    func testVerticalStackEdgePreservesInactiveMembersAndOppositeNeighbor() throws {
+        let ids = (0..<4).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "work")
+        let stack = UUID(), split = UUID()
+        XCTAssertTrue(tree.importOrganization([.group(split, [.surface(ids[0]), .group(stack, [.surface(ids[1]), .surface(ids[2])]), .surface(ids[3])])],
+            in: "work", layouts: [split: .vertical, stack: .stack], activeSurfaces: [stack: ids[2]], weights: [:]))
+        let original = tree.placements(in: "work", frame: frame)
+        XCTAssertTrue(tree.resize(ids[2], dimension: .height, amount: 80, frame: frame, edge: .up))
+        let plan = tree.placements(in: "work", frame: frame)
+        XCTAssertEqual(plan[0].frame.height, original[0].frame.height - 80)
+        XCTAssertEqual(plan[1].frame.height, original[1].frame.height + 80)
+        XCTAssertEqual(plan[2].frame, plan[1].frame)
+        XCTAssertEqual(plan[3].frame, original[3].frame)
+        XCTAssertEqual(tree.activeSurfaces[stack], ids[2])
+        XCTAssertEqual(tree.roots["work"]?.flatMap(\.surfaces), ids)
+    }
+
+    func testAdaptiveGridEdgePreservesOppositeColumnAndRows() {
+        let ids = (0..<6).map { _ in SurfaceID.nativeWindow(UUID()) }
+        var tree = SurfaceTree(); tree.reconcile(ids, in: "work")
+        let minimums = Dictionary(uniqueKeysWithValues: ids.map { ($0, SurfaceMinimumSize(width: 300, height: 300)) })
+        let original = tree.placements(in: "work", frame: frame, minimumSizes: minimums)
+        XCTAssertTrue(tree.resize(ids[1], dimension: .width, amount: 50, frame: frame, minimumSizes: minimums, edge: .left))
+        let plan = tree.placements(in: "work", frame: frame, minimumSizes: minimums)
+        for (before, after) in zip(original, plan) {
+            XCTAssertEqual(after.frame.height, before.frame.height)
+            if before.frame.x == original[2].frame.x { XCTAssertEqual(after.frame, before.frame) }
+        }
+        XCTAssertEqual(plan[1].frame.width, original[1].frame.width + 50)
+    }
+
     func testResizeMixedPagesPreservesTotalAndRestoresWeights() throws {
         let page = SurfaceID.browserTab(profile: UUID(), tab: UUID()), app = SurfaceID.nativeWindow(UUID())
         var tree = SurfaceTree(); tree.reconcile([page, app], in: "work")

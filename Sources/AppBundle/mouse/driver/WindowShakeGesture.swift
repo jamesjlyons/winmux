@@ -1,4 +1,7 @@
 import AppKit
+import WorkspaceCore
+
+let windowShakeToggleCooldown: TimeInterval = 1.25
 
 final class WindowShakeTilingPlacement {
     weak var parent: TilingContainer?
@@ -16,6 +19,7 @@ final class WindowShakeTilingPlacement {
 final class WindowShakeWindowState {
     var lastToggleTimestamp = -TimeInterval.infinity
     var tilingPlacement: WindowShakeTilingPlacement?
+    var sharedPlacement: SurfaceDetachedPlacement?
 }
 
 private let windowShakeStateKey = TreeNodeUserDataKey<WindowShakeWindowState>(key: "windowShakeStateKey")
