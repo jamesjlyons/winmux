@@ -193,7 +193,7 @@ def main():
                      "downloads_invalid_payload": "invalid_request", "downloads_open": "issued",
                      "downloads_page": "yes", "downloads_close": "issued", "downloads_cleanup": "yes"})
     expected.update({"create_close_last": "issued", "create_empty_inventory": "yes",
-                     "create_foreign_epoch": "stale_epoch", "create_stale_revision": "stale_revision",
+                     "create_foreign_epoch": "stale_epoch", "create_stale_revision": "issued", "create_stale_metadata_cleanup": "yes",
                      "create_invalid_url": "invalid_request", "create_unknown_profile": "unavailable",
                      "create_from_empty": "issued", "create_exact_identity": "yes", "create_repeat": "issued",
                      "create_repeat_same_identity": "yes", "create_operation_conflict": "operation_conflict",

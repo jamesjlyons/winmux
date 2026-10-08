@@ -51,6 +51,7 @@ extension BrowserWorkspaceController {
             return .unavailable
         }
         let creation = UUID(), startingFocus = focusCoordinator.generation
+        BrowserTabTiming.record("command", operation: creation)
         if selectNewPage {
             latestBrowserTabCreation = creation
             pendingBrowserTabSelections.removeAll()
@@ -58,9 +59,14 @@ extension BrowserWorkspaceController {
             cancelPendingBrowserFocusHold()
         }
         NSLog("WinMux new tab: dispatch")
-        return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url, workspaceProfile: routedProfile) { [weak self] reply, id in
+        return session.openTab(sourceSurfaceID: source, profileID: profileID, url: url, workspaceProfile: routedProfile, operation: creation) { [weak self] reply, id in
             NSLog("WinMux new tab: %@", reply.rawValue)
+            BrowserTabTiming.record("reply", operation: creation)
             if reply == .issued, let id, let self {
+                if BrowserTabTiming.enabled {
+                    self.tabCreationOperations[id] = creation
+                    if let arrival = self.tabInventoryArrivalTimes[id] { BrowserTabTiming.record("inventory", operation: creation, at: arrival) }
+                }
                 if requestedWorkspace.isIncognito { self.privateSurfaces.insert(id) }
                 let selectCreated = selectNewPage && self.latestBrowserTabCreation == creation &&
                     (self.focusCoordinator.generation == startingFocus || self.focusCoordinator.target == id)

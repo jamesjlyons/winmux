@@ -1,0 +1,65 @@
+--- a/chrome/browser/ui/browser_init_state.h
++++ b/chrome/browser/ui/browser_init_state.h
+@@ -94,10 +94,14 @@
+ 
+   bool omit_from_session_restore() const { return omit_from_session_restore_; }
+ 
++  bool is_prepared_window_for_winmux() const { return winmux_prepared_window_; }
++  void MarkPreparedWindowForWinMux() { winmux_prepared_window_ = true; }
++
+   // A prepared WinMux window becomes an ordinary user window on consumption.
+   // The caller must register its existing tabs with SessionService afterwards.
+   void PromotePreparedWindowForSessionRestore() {
+     omit_from_session_restore_ = false;
++    winmux_prepared_window_ = false;
+   }
+   bool should_trigger_session_restore() const {
+     return should_trigger_session_restore_;
+@@ -110,6 +114,7 @@
+   // Whether this Browser should be omitted from being saved/restored by session
+   // restore.
+   bool omit_from_session_restore_;
++  bool winmux_prepared_window_ = false;
+ 
+   // If true, a new window opening should be treated like the start of a session
+   // (with potential session restore, startup URLs, etc.). Otherwise, don't
+--- a/chrome/browser/ui/unload_controller.cc
++++ b/chrome/browser/ui/unload_controller.cc
+@@ -19,6 +19,7 @@
+ #include "chrome/browser/sessions/session_service_lookup.h"
+ #include "chrome/browser/sessions/tab_restore_service_factory.h"
+ #include "chrome/browser/ui/browser.h"
++#include "chrome/browser/ui/browser_init_state.h"
+ #include "chrome/browser/ui/browser_commands.h"
+ #include "chrome/browser/ui/browser_live_tab_context.h"
+ #include "chrome/browser/ui/browser_manager_service.h"
+@@ -173,7 +174,8 @@
+       (browser_type == BrowserWindowInterface::Type::TYPE_APP_POPUP);
+ #endif
+ 
+-  if (tab_restore_service && notify_restore_service) {
++  if (tab_restore_service && notify_restore_service &&
++      !BrowserInitState::From(browser_)->is_prepared_window_for_winmux()) {
+     tab_restore_service->BrowserClosing(
+         browser_->GetFeatures().live_tab_context());
+   }
+--- a/chrome/browser/ui/browser_tab_strip_model_delegate.cc
++++ b/chrome/browser/ui/browser_tab_strip_model_delegate.cc
+@@ -22,6 +22,7 @@
+ #include "chrome/browser/sessions/tab_restore_service_factory.h"
+ #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+ #include "chrome/browser/ui/browser.h"
++#include "chrome/browser/ui/browser_init_state.h"
+ #include "chrome/browser/ui/browser_commands.h"
+ #include "chrome/browser/ui/browser_live_tab_context.h"
+ #include "chrome/browser/ui/browser_tabstrip.h"
+@@ -574,7 +575,8 @@
+ bool BrowserTabStripModelDelegate::BrowserSupportsHistoricalEntries() {
+   // We don't create historical tabs for incognito windows or windows without
+   // profiles.
+-  return browser_->GetProfile() && !browser_->GetProfile()->IsOffTheRecord();
++  return !BrowserInitState::From(browser_)->is_prepared_window_for_winmux() &&
++         browser_->GetProfile() && !browser_->GetProfile()->IsOffTheRecord();
+ }
+ 
+ }  // namespace chrome

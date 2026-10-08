@@ -150,7 +150,7 @@ extension BrowserWorkspaceController {
                 isFocused: pin.surfaceID.map { focusCoordinator.target == $0 && record != nil } ?? false,
                 isOpen: record != nil,
                 isSelected: record.map { selected.contains($0.surfaceID) } ?? false,
-                isLoading: record?.isLoading ?? false, iconPNGBase64: record?.iconPNGBase64)))
+                isLoading: record?.isLoading ?? false, iconPNGBase64: record.map { sidebarIcon(for: $0) } ?? pin.iconPNGBase64)))
         }
     }
 }

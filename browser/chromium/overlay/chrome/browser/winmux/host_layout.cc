@@ -1,5 +1,6 @@
 #include "chrome/browser/winmux/host_layout.h"
 #include "chrome/browser/winmux/page_lifetime.h"
+#include "chrome/browser/winmux/tab_creation_trace.h"
 
 #include <map>
 #include <memory>
@@ -290,6 +291,13 @@ std::string ApplyHostLayout(const std::string& json) {
   for (const auto& host : hide_after_reveal) {
     if (host && !host->IsDeleteScheduled() &&
         !IsBrowserHostSuspended(host.get())) host->GetWindow()->Hide();
+  }
+  for (const auto& p : plan) {
+    if (!p.visible || !p.contents) continue;
+    if (auto* browser = BrowserForContents(p.contents.get())) {
+      TraceTabSurface(p.surface, "layout_applied");
+      TraceTabPresentation(browser, p.surface);
+    }
   }
   // A removed placement is released to conventional controls, never closed.
   for (auto it = Hosts().begin(); it != Hosts().end();) {

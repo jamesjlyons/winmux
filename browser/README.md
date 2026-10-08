@@ -254,6 +254,51 @@ and display mode refresh is not a measurement of actual frame cadence.
 
 ## Qualification
 
+For tab creation, build and sign the candidate first, then run the isolated
+fixture on an unlocked console with native workspace ownership free:
+
+```sh
+python3 browser/tools/test_browser_tab_speed.py \
+  --app '/path/to/WinMux Browser Alpha.app' \
+  --output .local/browser/new-tab-speed --runs 3 --samples 100 --require-targets
+```
+
+Each run opens 100 blank tabs and 100 copies of a primed local URL. The fixture
+uses one persistent native keyboard probe and Chromium compositor callbacks,
+correlated to each creation operation. The candidate gate requires complete
+samples, at least 95% warm-window hits, and input and presentation p95 at most
+100 ms for both categories. Cached favicon delivery to helper inventory must
+have p95 at most 50 ms. This does not qualify rendered sidebar icon timing or
+the complete WinMux command/discovery pipeline; measure those in the app too.
+The report retains median/p95 stage timings, idle CPU and summed browser process
+footprints. Compare footprints across baseline and candidate runs to report
+incremental memory; these sums are not unique physical pages.
+
+Run the baseline with its verified signed package and `--helper-override` pointing
+to the current helper executable. It is copied and signed inside the fixture;
+the original package is preserved. An instrumented candidate can also be run
+with `--disable-warming` to isolate the prepared-window contribution. Neither
+comparison alone establishes the complete before/after improvement. The fixture
+creates a fresh profile and test service, uses loopback pages, and cleans them
+up without altering an installed browser or existing workspace.
+
+For opt-in app tracing, launch WinMux with `WINMUX_TRACE_TABS=1` and the browser
+with `--winmux-trace-tabs`. `WINMUX_TAB_TIMING` events contain operation IDs and
+monotonic microsecond timestamps, without page URLs.
+
+Check session persistence separately on the same signed package:
+
+```sh
+python3 browser/tools/test_browser_tab_sessions.py \
+  --app '/path/to/WinMux Browser Alpha.app' \
+  --output .local/browser/new-tab-sessions
+```
+
+This fixture keeps a consumed URL window open, allows its spare to replenish,
+then quits and restarts the synthetic profile. It requires exactly the two user
+surfaces to restore with their original identities. Run fixtures that use native
+keyboard input one at a time so they do not compete for foreground focus.
+
 For an isolated live check of dedicated pins, pinned splits, Space switching,
 and resident page wake-up, use a newly signed package with native workspace
 ownership free and the current macOS console unlocked:

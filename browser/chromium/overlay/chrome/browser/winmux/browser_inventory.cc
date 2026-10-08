@@ -1,6 +1,9 @@
 #include "chrome/browser/winmux/browser_inventory.h"
 #include "chrome/browser/winmux/page_lifetime.h"
 #include "chrome/browser/winmux/privacy_settings.h"
+#include "chrome/browser/winmux/prepared_browser_window.h"
+#include "chrome/browser/winmux/tab_creation_trace.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 
 #include <algorithm>
 #include <deque>
@@ -65,6 +68,9 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "components/favicon/core/favicon_driver_observer.h"
+#include "components/favicon/core/favicon_service.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "ui/gfx/image/image.h"
 #include "content/public/common/referrer.h"
 #include "content/public/browser/reload_type.h"
@@ -77,24 +83,125 @@ namespace winmux {
 namespace {
 // A same-document navigation can change URL/history without changing the tab's
 // title or loading flag, so observe contents as well as the tab strip.
-class TabNavigationObserver final : public content::WebContentsObserver {
+class TabNavigationObserver final : public content::WebContentsObserver,
+                                    public favicon::FaviconDriverObserver {
  public:
   TabNavigationObserver(content::WebContents* contents, base::RepeatingClosure changed)
-      : content::WebContentsObserver(contents), changed_(std::move(changed)) {}
+      : content::WebContentsObserver(contents), changed_(std::move(changed)) {
+    if (auto* driver = favicon::ContentFaviconDriver::FromWebContents(contents)) {
+      favicon_observation_.Observe(driver);
+      SetURL(contents->GetVisibleURL());
+      if (driver->FaviconIsValid() && driver->GetActiveURL() == url_) {
+        SetIcon(driver->GetFavicon());
+        live_icon_received_ = true;
+      }
+    }
+  }
+  const std::string& encoded_icon() const { return encoded_icon_; }
+  void WillOpenURL(const GURL& url) { SetURL(url); }
+  void OnFaviconUpdated(favicon::FaviconDriver* driver,
+                       NotificationIconType type, const GURL& icon_url,
+                       bool icon_url_changed, const gfx::Image& image) override {
+    if (type != NON_TOUCH_16_DIP || driver->GetActiveURL() != url_) return;
+    const bool has_icon = !icon_url.is_empty() && !image.IsEmpty();
+    TraceTabSurface(PersistentSurfaceID(web_contents()), has_icon ? "favicon_driver_icon" : "favicon_driver_empty");
+    // The driver announces an empty icon when navigation starts. That is not
+    // a live replacement and must not suppress/erase the exact-URL database
+    // result while the document is still loading. A later removal of a live
+    // icon does clear that image normally.
+    if (has_icon || live_icon_received_) SetIcon(has_icon ? image : gfx::Image());
+    live_icon_received_ = has_icon;
+    changed_.Run();
+  }
   void DidStartNavigation(content::NavigationHandle* handle) override {
-    if (handle->IsInPrimaryMainFrame()) changed_.Run();
+    if (handle->IsInPrimaryMainFrame()) {
+      navigation_id_ = handle->GetNavigationId();
+      if (!handle->IsSameDocument()) SetURL(handle->GetURL());
+      changed_.Run();
+    }
   }
   void DidFinishNavigation(content::NavigationHandle* handle) override {
-    if (handle->IsInPrimaryMainFrame()) changed_.Run();
+    if (handle->IsInPrimaryMainFrame()) {
+      // Consuming the spare cancels its initial about:blank navigation. Its
+      // completion can arrive after the requested URL has started, while the
+      // visible entry still points at the old document. Never let that older
+      // completion reset the newer URL or cancel its database lookup.
+      if (navigation_id_ && handle->GetNavigationId() != navigation_id_) {
+        changed_.Run();
+        return;
+      }
+      if (handle->IsSameDocument()) url_ = web_contents()->GetVisibleURL();
+      else SetURL(web_contents()->GetVisibleURL());
+      changed_.Run();
+    }
   }
   void DidStartLoading() override { changed_.Run(); }
   void DidStopLoading() override { changed_.Run(); }
   void NavigationEntryCommitted(const content::LoadCommittedDetails&) override { changed_.Run(); }
   void NavigationListPruned(const content::PrunedDetails&) override { changed_.Run(); }
   void NavigationEntriesDeleted() override { changed_.Run(); }
-  void WebContentsDestroyed() override { changed_.Run(); }
+  void WebContentsDestroyed() override {
+    favicon_observation_.Reset();
+    favicon_tasks_.TryCancelAll();
+    weak_factory_.InvalidateWeakPtrs();
+    changed_.Run();
+  }
  private:
+  void SetIcon(const gfx::Image& image) {
+    // Driver notifications can repeat the same immutable image. Keep both the
+    // encoded bytes and image storage so those repeats do no encoding work.
+    if (cached_icon_image_ && *cached_icon_image_ == image) return;
+    cached_icon_image_ = image;
+    encoded_icon_.clear();
+    if (image.IsEmpty()) return;
+    auto png = image.As1xPNGBytes();
+    if (png && png->size() > 0 && png->size() <= 98304)
+      encoded_icon_ = base::Base64Encode(base::span(*png));
+  }
+  void SetURL(const GURL& url) {
+    if (url_ == url) return;
+    TraceTabSurface(PersistentSurfaceID(web_contents()), "favicon_url_changed");
+    url_ = url;
+    cached_icon_image_.reset();
+    encoded_icon_.clear();
+    live_icon_received_ = false;
+    favicon_tasks_.TryCancelAll();
+    const auto generation = ++icon_generation_;
+    auto* profile = Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+    // Never read an original profile's database from a private page.
+    if (!profile || !profile->IsRegularProfile() || !url.SchemeIsHTTPOrHTTPS()) return;
+    auto* service = FaviconServiceFactory::GetForProfile(profile, ServiceAccessType::EXPLICIT_ACCESS);
+    if (!service) return;
+    service->GetRawFaviconForPageURL(url, {favicon_base::IconType::kFavicon},
+        16, false, base::BindOnce(
+            [](base::WeakPtr<TabNavigationObserver> owner, uint64_t generation,
+               const favicon_base::FaviconRawBitmapResult& result) {
+              if (!owner) return;
+              const auto surface = PersistentSurfaceID(owner->web_contents());
+              if (owner->icon_generation_ != generation) {
+                TraceTabSurface(surface, "favicon_lookup_stale"); return;
+              }
+              if (owner->live_icon_received_) {
+                TraceTabSurface(surface, "favicon_lookup_live"); return;
+              }
+              if (!result.is_valid() || result.bitmap_data->size() > 98304) {
+                TraceTabSurface(surface, "favicon_lookup_missing"); return;
+              }
+              TraceTabSurface(surface, "favicon_lookup_ready");
+              owner->encoded_icon_ = base::Base64Encode(base::span(*result.bitmap_data));
+              owner->changed_.Run();
+            }, weak_factory_.GetWeakPtr(), generation), &favicon_tasks_);
+  }
+  GURL url_;
+  int64_t navigation_id_ = 0;
+  std::string encoded_icon_;
+  std::optional<gfx::Image> cached_icon_image_;
+  uint64_t icon_generation_ = 0;
+  bool live_icon_received_ = false;
+  base::CancelableTaskTracker favicon_tasks_;
+  base::ScopedObservation<favicon::FaviconDriver, favicon::FaviconDriverObserver> favicon_observation_{this};
   base::RepeatingClosure changed_;
+  base::WeakPtrFactory<TabNavigationObserver> weak_factory_{this};
 };
 
 // Chromium owns extension pin preferences and download state. Observe each
@@ -161,13 +268,16 @@ class BrowserInventory final : public BrowserCollectionObserver,
  public:
   BrowserInventory(base::RepeatingCallback<void(std::string, std::string)> publisher,
                    bool seed_test)
-      : publisher_(std::move(publisher)), seed_test_(seed_test) {
+      : publisher_(std::move(publisher)), seed_test_(seed_test),
+        prepared_(base::BindRepeating(&BrowserInventory::Schedule, base::Unretained(this))) {
     collection_.Observe(GlobalBrowserCollection::GetInstance());
     GlobalBrowserCollection::GetInstance()->ForEach([this](BrowserWindowInterface* browser) {
       OnBrowserCreated(browser);
       return true;
     });
   }
+
+  ~BrowserInventory() override { prepared_.Reset(); }
 
   void Refresh() { Schedule(); }
 
@@ -211,6 +321,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
   void BeginEpoch(std::string epoch, bool include_private) {
+    prepared_.Reset();
+    navigation_observers_.clear();
     include_private_ = include_private;
     for (auto& [operation, creation] : pending_creations_) {
       for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
@@ -224,6 +336,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
     highest_focus_ = 0;
     highest_layout_ = 0;
     Update(true);
+    if (!epoch_.empty()) {
+      GlobalBrowserCollection::GetInstance()->ForEach([this](BrowserWindowInterface* browser) {
+        if (browser->GetWindow()->IsActive()) prepared_.Prepare(browser->GetProfile());
+        return true;
+      });
+    }
   }
 
   void OpenTab(const std::string& epoch, BrowserSurfaceAction request,
@@ -233,6 +351,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (!operation.is_valid() || request.action != "open_tab" || request.surface.size() > 128 ||
         request.generation != 0) { std::move(completion).Run("invalid_request", ""); return; }
     request.operation = operation.AsLowercaseString();
+    TraceTabCreation(request.operation, "received");
     auto pending = pending_creations_.find(request.operation);
     if (pending != pending_creations_.end()) {
       if (pending->second.request != request) { std::move(completion).Run("operation_conflict", ""); return; }
@@ -255,10 +374,6 @@ class BrowserInventory final : public BrowserCollectionObserver,
             url.SchemeIs("chrome") || url.SchemeIs("chrome-extension"))) {
         std::move(completion).Run("invalid_request", ""); return;
       }
-    }
-    if (pending_) Update(false);
-    if (request.revision != static_cast<uint64_t>(revision_)) {
-      std::move(completion).Run("stale_revision", ""); return;
     }
     if (pending_creations_.size() >= 16 || (browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
       std::move(completion).Run("unavailable", ""); return;
@@ -308,18 +423,18 @@ class BrowserInventory final : public BrowserCollectionObserver,
       // accounts are read on a worker, with any loaded match as its seed.
       if (!registered_paths.empty()) lookup_uuid = uuid;
     } else {
-      auto found = live_.find(request.surface);
-      if (found == live_.end()) { std::move(completion).Run("unavailable", ""); return; }
-      profile_path = Profile::FromBrowserContext(found->second->GetBrowserContext())->GetPath();
+      auto* source = FindCreationSource(request.surface);
+      if (!source) { std::move(completion).Run("unavailable", ""); return; }
+      profile_path = Profile::FromBrowserContext(source->GetBrowserContext())->GetPath();
     }
     PendingCreation creation{request, {}};
     creation.callbacks.push_back(std::move(completion));
     pending_creations_.emplace(request.operation, std::move(creation));
     // Reserve operation identity before profile loading or window callbacks.
     Remember(request, "pending");
-    if (auto found = live_.find(request.surface); found != live_.end() &&
-        found->second->GetBrowserContext()->IsOffTheRecord()) {
-      FinishOpenTab(epoch, request.operation, Profile::FromBrowserContext(found->second->GetBrowserContext()));
+    if (auto* source = FindCreationSource(request.surface); source &&
+        source->GetBrowserContext()->IsOffTheRecord()) {
+      FinishOpenTab(epoch, request.operation, Profile::FromBrowserContext(source->GetBrowserContext()));
     } else if (workspace_profile && workspace_key != "shared") {
       auto& storage = manager->GetProfileAttributesStorage();
       if (!storage.GetProfileAttributesWithPath(profile_path) &&
@@ -466,6 +581,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
       auto* view = BrowserView::GetBrowserViewForBrowser(browser);
       if (request.action == "focus_address") {
         chrome::FocusLocationBar(browser);
+        if (view && view->GetLocationBarView()->HasFocus())
+          TraceTabSurface(request.surface, "address_ready");
       } else if (IsBrowserHostManaged(browser) &&
                  (!view || !view->GetProperty(kIntegratedToolbar))) {
         // Legacy helper chrome needs renderer focus; integrated hosts retain
@@ -568,7 +685,10 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
   }
   void OnBrowserClosed(BrowserWindowInterface* browser) override { Schedule(); }
-  void OnBrowserActivated(BrowserWindowInterface* browser) override { Schedule(); }
+  void OnBrowserActivated(BrowserWindowInterface* browser) override {
+    if (!epoch_.empty() && !prepared_.Contains(browser)) prepared_.Prepare(browser->GetProfile());
+    Schedule();
+  }
   void OnBrowserDeactivated(BrowserWindowInterface* browser) override { Schedule(); }
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                               const TabStripSelectionChange&) override { Schedule(); }
@@ -578,6 +698,27 @@ class BrowserInventory final : public BrowserCollectionObserver,
   }
 
  private:
+  content::WebContents* FindCreationSource(const std::string& surface) {
+    if (!surface.starts_with("browser:")) return nullptr;
+    content::WebContents* found = nullptr;
+    bool ambiguous = false;
+    GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
+      if (prepared_.Contains(browser) || browser->IsDeleteScheduled() ||
+          browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
+          (browser->GetProfile()->IsOffTheRecord() && !include_private_)) return true;
+      auto* strip = browser->GetTabStripModel();
+      for (int i = 0; i < strip->count(); ++i) {
+        auto* contents = strip->GetWebContentsAt(i);
+        if (PersistentSurfaceID(contents) == surface) {
+          if (found && found != contents) ambiguous = true;
+          found = contents;
+        }
+      }
+      return true;
+    });
+    return ambiguous ? nullptr : found;
+  }
+
   struct PendingCreation {
     BrowserSurfaceAction request;
     std::vector<BrowserTabCreationCallback> callbacks;
@@ -638,9 +779,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
       expected_profile = base::Uuid::ParseCaseInsensitive(
           creation.request.surface.substr(8, 36)).AsLowercaseString();
     }
-    auto private_source = live_.find(creation.request.surface);
+    auto* private_source = FindCreationSource(creation.request.surface);
     const bool private_creation = include_private_ && profile && profile->IsOffTheRecord() &&
-        private_source != live_.end() && private_source->second->GetBrowserContext() == profile;
+        private_source && private_source->GetBrowserContext() == profile;
     // Revalidate the loaded preference: a deleted/replaced directory or a
     // changed UUID must never silently open a pin in another account.
     auto* manager = g_browser_process->profile_manager();
@@ -652,18 +793,41 @@ class BrowserInventory final : public BrowserCollectionObserver,
     if (!private_creation) profile = ProfileManager::MaybeForceOffTheRecordMode(profile);
     if (profile && (!profile->IsOffTheRecord() || private_creation) && !profile->IsGuestSession() &&
         !profile->IsSystemProfile() && !(browser_shutdown::HasShutdownStarted() || browser_shutdown::IsTryingToQuit())) {
+      TraceTabCreation(operation, "profile_ready");
       RetainWorkspaceProfile(profile);
-      BrowserWindowCreateParams params(profile, true);
-      params.should_trigger_session_restore = false;
-      auto* browser = CreateBrowserWindow(std::move(params));
+      auto* browser = prepared_.Take(profile);
+      const bool warm = browser != nullptr;
+      if (!browser) {
+        BrowserWindowCreateParams params(profile, true);
+        params.should_trigger_session_restore = false;
+        browser = CreateBrowserWindow(std::move(params));
+      }
       if (browser) {
-        browser->OpenGURL(GURL(creation.request.url.value_or("chrome://newtab/")),
-                          WindowOpenDisposition::NEW_FOREGROUND_TAB);
+        // The unused spare is deliberately outside inventory observation.
+        // Install its observer before navigation so a known URL can query the
+        // favicon database immediately, rather than after the HTML commits.
+        if (warm && creation.request.url) {
+          if (auto* contents = browser->GetTabStripModel()->GetActiveWebContents())
+            ObserveTab(contents)->WillOpenURL(GURL(*creation.request.url));
+        }
+        if (!warm || creation.request.url) {
+          browser->OpenGURL(GURL(creation.request.url.value_or("chrome://newtab/")),
+                            warm ? WindowOpenDisposition::CURRENT_TAB : WindowOpenDisposition::NEW_FOREGROUND_TAB);
+        }
         auto* contents = browser->GetTabStripModel()->GetActiveWebContents();
+        if (contents && creation.request.url)
+          ObserveTab(contents)->WillOpenURL(GURL(*creation.request.url));
         if (contents) surface = PersistentSurfaceID(contents);
         if (!surface.empty()) {
+          TraceTabCreation(operation, warm ? "warm_window_ready" : "cold_window_ready", surface);
           browser->GetWindow()->Show();
+          if (!creation.request.url) {
+            chrome::FocusLocationBar(browser);
+            auto* view = BrowserView::GetBrowserViewForBrowser(browser);
+            if (view && view->GetLocationBarView()->HasFocus()) TraceTabSurface(surface, "address_ready");
+          }
           outcome = "issued";
+          prepared_.Prepare(profile);
         }
       }
     }
@@ -672,7 +836,9 @@ class BrowserInventory final : public BrowserCollectionObserver,
     const auto cached = outcome == "issued" ? "created:" + surface : outcome;
     if (auto previous = operations_.find(operation); previous != operations_.end()) previous->second.second = cached;
     else Remember(creation.request, cached);
-    Schedule();
+    // The creation reply and authoritative inventory travel independently.
+    // Publish the new owner now, before waiting for unrelated metadata tasks.
+    Update(false);
     for (auto& callback : creation.callbacks) std::move(callback).Run(outcome, surface);
   }
 
@@ -713,21 +879,34 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return;
     pending_ = true;
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&BrowserInventory::Update,
-                                 weak_factory_.GetWeakPtr(), false));
+        FROM_HERE, base::BindOnce(&BrowserInventory::UpdateScheduled,
+                                 weak_factory_.GetWeakPtr()));
   }
+  void UpdateScheduled() {
+    if (pending_) Update(false);
+  }
+  TabNavigationObserver* ObserveTab(content::WebContents* contents) {
+    auto& observer = navigation_observers_[PersistentSurfaceID(contents)];
+    if (!observer || observer->web_contents() != contents) {
+      observer = std::make_unique<TabNavigationObserver>(contents,
+          base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+    }
+    return observer.get();
+  }
+
   void Update(bool full) {
     pending_ = false;
     // Browser quit closes WebContents as part of session shutdown. Those are
     // not user tab-close tombstones: retain the last authoritative placement.
     if (browser_shutdown::IsTryingToQuit() || browser_shutdown::HasShutdownStarted()) return;
+    prepared_.ReleaseIfModified();
     std::map<std::string, base::DictValue> next;
     std::set<std::string> observed;
     std::set<int> observed_hosts;
     std::set<Profile*> observed_profiles;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
-      if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
+      if (prepared_.Contains(browser) || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
           (browser->GetProfile()->IsOffTheRecord() && !include_private_) ||
           browser->GetProfile()->IsGuestSession() || browser->GetProfile()->IsSystemProfile() || browser->IsDeleteScheduled())
         return true;
@@ -752,11 +931,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
         if (id.empty())
           continue;
         observed.insert(id);
-        auto& observer = navigation_observers_[id];
-        if (!observer || observer->web_contents() != contents) {
-          observer = std::make_unique<TabNavigationObserver>(contents,
-              base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
-        }
+        auto* observer = ObserveTab(contents);
         base::DictValue record;
         record.Set("surface_id", id);
         record.Set("is_shared_profile", !browser->GetProfile()->IsOffTheRecord() && browser->GetProfile()->GetPath() ==
@@ -785,14 +960,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("focused", index == strip->active_index() && browser->GetWindow()->IsActive());
         record.Set("host_managed", IsBrowserHostManaged(browser));
         record.Set("url", contents->GetVisibleURL().spec().substr(0, 16384));
-        if (auto* favicon = favicon::ContentFaviconDriver::FromWebContents(contents);
-            favicon && favicon->FaviconIsValid()) {
-          // The driver's regular favicon is a small 16-DIP image. Send a
-          // bounded thumbnail so a closed pin can keep its site identity.
-          auto png = favicon->GetFavicon().As1xPNGBytes();
-          if (png && png->size() > 0 && png->size() <= 98304) {
-            record.Set("icon_png_base64", base::Base64Encode(base::span(*png)));
-          }
+        if (!observer->encoded_icon().empty()) {
+          record.Set("icon_png_base64", observer->encoded_icon());
+          auto previous = records_.find(id);
+          if (previous == records_.end() || previous->second.FindString("icon_png_base64") == nullptr ||
+              *previous->second.FindString("icon_png_base64") != observer->encoded_icon())
+            TraceTabSurface(id, "favicon_available");
         }
         record.Set("can_go_back", contents->GetController().CanGoBack());
         record.Set("can_go_forward", contents->GetController().CanGoForward());
@@ -862,6 +1035,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   std::deque<std::string> operation_order_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver> collection_{this};
   base::CancelableTaskTracker history_tasks_;
+  PreparedBrowserWindow prepared_;
   base::WeakPtrFactory<BrowserInventory> weak_factory_{this};
 };
 

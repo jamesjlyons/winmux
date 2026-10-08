@@ -80,6 +80,27 @@ final class BrowserSidebarPinsTest: XCTestCase {
         XCTAssertEqual(filtered[workspaceProjectDefaultId]?.first?.pins.map(\.id), [pin.id])
     }
 
+    func testLoadingPinKeepsSavedFaviconOnlyForItsMatchingURL() throws {
+        let id = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let (controller, connection, epoch) = controller([id])
+        XCTAssertTrue(controller.pinBrowserTab(id))
+        controller.browserSidebarPins[0].iconPNGBase64 = "saved-icon"
+        let workspace = try XCTUnwrap(controller.browserSidebarPins.first?.workspaceName)
+        controller.received(.init(revision: 2, full: false, tabs: [record(id)]),
+                            epoch: epoch, connection: connection, protocolVersion: 5)
+        XCTAssertEqual(controller.sidebarIcon(for: record(id)), "saved-icon")
+        XCTAssertEqual(controller.pinTiles(in: workspace).first?.iconPNGBase64, "saved-icon")
+        guard case .pinnedBrowserTab(let row) = controller.pinnedBrowserRows(in: workspace).first?.kind else {
+            return XCTFail("Expected a pinned browser row")
+        }
+        XCTAssertEqual(row.iconPNGBase64, "saved-icon")
+        controller.received(.init(revision: 3, full: false, tabs: [record(id, url: "https://other.example/")]),
+                            epoch: epoch, connection: connection, protocolVersion: 5)
+        XCTAssertNil(controller.sidebarIcon(for: record(id, url: "https://other.example/")))
+        XCTAssertNil(controller.pinTiles(in: workspace).first?.iconPNGBase64)
+        controller.disconnected(connection)
+    }
+
     func testClosedPinOpensSavedURLInItsSpaceAndWaitsForInventoryBeforeAnotherOpen() throws {
         let profile = UUID(), newID = SurfaceID.browserTab(profile: profile, tab: UUID())
         let pin = BrowserSidebarPin(profileID: profile, workspaceName: "Saved", title: "Docs", url: "https://example.com/docs")

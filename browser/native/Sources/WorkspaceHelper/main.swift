@@ -27,6 +27,10 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     let connectionID = UUID()
     private let sidebarEnabled: Bool
     private let windowControlsEnabled: Bool
+    private var speedResults: [[String: Any]] = []
+    private var speedIconArrivalTimes: [SurfaceID: UInt64] = [:]
+    private var speedSamples: Int { testReport == nil ? 0 : min(1000, max(0, Int(ProcessInfo.processInfo.environment["WINMUX_TAB_SPEED_SAMPLES"] ?? "0") ?? 0)) }
+    private var videoFullscreenTest: Bool { testReport != nil && ProcessInfo.processInfo.environment["WINMUX_TEST_VIDEO_FULLSCREEN"] == "1" }
     private var closed = false
     private let authenticatedBrowser: (@Sendable (Int32) -> Void)?
 
@@ -164,18 +168,24 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                   let message = try? JSONDecoder().decode(BrowserInventoryMessage.self, from: data),
                   (session.version ?? 0) >= 7 || !message.tabs.contains(where: \.privateBrowsing),
                   inventory.apply(message) else { return (false, inventory.revision, false) }
+            if speedSamples > 0 {
+                for tab in message.tabs where tab.iconPNGBase64 != nil && speedIconArrivalTimes[tab.surfaceID] == nil {
+                    speedIconArrivalTimes[tab.surfaceID] = BrowserTabTiming.now
+                }
+                for id in message.removed { speedIconArrivalTimes[id] = nil }
+            }
             if message.full { fullMessages += 1 } else { deltaMessages += 1 }
 #if canImport(AppBundle)
             if sidebarEnabled, let epochID = UUID(uuidString: epoch) {
-                let snapshot = BrowserInventoryMessage(revision: inventory.revision, full: true, tabs: Array(inventory.tabs.values))
                 let id = connectionID, version = session.version ?? 1
                 // Enqueue while holding the endpoint lock: invalidation cannot
                 // overtake a validated update and resurrect disconnected rows.
-                DispatchQueue.main.async { BrowserWorkspaceController.shared.received(snapshot, epoch: epochID, connection: id, protocolVersion: version) }
+                DispatchQueue.main.async { BrowserWorkspaceController.shared.received(message, epoch: epochID, connection: id, protocolVersion: version) }
             }
 #endif
             let privateTest = inventory.tabs.count == 1 && inventory.tabs.values.allSatisfy(\.privateBrowsing)
-            let startTest = testReport != nil && !sidebarEnabled && !testStarted && (inventory.tabs.count == 2 || privateTest)
+            let observeOnly = testReport != nil && ProcessInfo.processInfo.environment["WINMUX_TEST_OBSERVE_ONLY"] == "1"
+            let startTest = testReport != nil && !observeOnly && !sidebarEnabled && !testStarted && (inventory.tabs.count == 2 || privateTest || (videoFullscreenTest && !inventory.tabs.isEmpty))
             if startTest { testStarted = true }
             return (true, inventory.revision, startTest)
         }
@@ -184,13 +194,197 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             writeTestReport()
             if result.2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    if self.lock.withLock({ self.inventory.tabs.values.contains(where: \.privateBrowsing) }) {
+                    if self.videoFullscreenTest { Task { await self.exerciseVideoFullscreen(epoch: epoch) } }
+                    else if self.speedSamples > 0 { Task { await self.exerciseTabSpeed(epoch: epoch) } }
+                    else if self.lock.withLock({ self.inventory.tabs.values.contains(where: \.privateBrowsing) }) {
                         Task { await self.exercisePrivateTabs(epoch: epoch) }
                     } else if (self.session.version ?? 0) >= 3 { Task { await self.exerciseLayout(epoch: epoch) } }
                     else { self.exerciseActions(epoch: epoch) }
                 }
             }
         }
+    }
+
+    // Local file control is confined to an explicitly enrolled UUID test service.
+    // It exercises the existing production actions/layout protocol, never JS
+    // injection or fullscreen permission overrides.
+    @MainActor private func exerciseVideoFullscreen(epoch: String) async {
+        guard let connection, let testReport,
+              let value = connection.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner,
+              let seed = lock.withLock({ inventory.tabs.keys.sorted { $0.description < $1.description }.first }) else { return }
+        let remote = BrowserOwnerProxy(value)
+        let initial = lock.withLock { inventory }
+        for id in initial.tabs.keys where id != seed {
+            _ = await testAction("close", surface: id, remote: remote, epoch: epoch)
+        }
+        guard let fixture = ProcessInfo.processInfo.environment["WINMUX_TEST_PROFILE_URL"],
+              await testAction("navigate", surface: seed, remote: remote, epoch: epoch, url: fixture) == "issued" else {
+            noteTest("video_fullscreen", "navigate_failed"); return
+        }
+        let created = await testCreate(remote: remote, epoch: epoch, url: fixture + "peer")
+        guard created.0 == "issued", let peer = created.1,
+              await waitForTestInventory({ $0.tabs[peer] != nil }) != nil else {
+            noteTest("video_fullscreen", "peer_failed"); return
+        }
+        noteTest("video_surface", seed.description)
+        noteTest("video_peer", peer.description)
+        noteTest("video_fullscreen", "ready")
+        let commandFile = testReport.deletingLastPathComponent().appendingPathComponent("fullscreen-command.json")
+        let firstContainer = UUID(), secondContainer = UUID()
+        let frame = SurfaceFrame(x: 30, y: 90, width: 600, height: 600)
+        let peerFrame = SurfaceFrame(x: 650, y: 90, width: 600, height: 600)
+        var sequence = 0
+        var generation: UInt64 = 100
+        while !lock.withLock({ closed }) {
+            try? await Task.sleep(for: .milliseconds(20))
+            guard let data = try? Data(contentsOf: commandFile), data.count < 4096,
+                  let command = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let next = command["sequence"] as? Int, next > sequence,
+                  let action = command["action"] as? String else { continue }
+            sequence = next
+            var outcome = "invalid_fixture"
+            if ["standalone", "stack", "split", "peer-layout", "release"].contains(action) {
+                let managed = action != "release"
+                var placements = [BrowserHostPlacement(containerID: firstContainer, surfaces: [seed], selected: seed,
+                    frame: frame, visible: true, nativeControls: managed, integratedToolbar: managed),
+                    BrowserHostPlacement(containerID: secondContainer, surfaces: [peer], selected: peer,
+                    frame: peerFrame, visible: action == "split" || action == "peer-layout", nativeControls: true, integratedToolbar: true)]
+                if action == "stack" {
+                    placements = [.init(containerID: firstContainer, surfaces: [seed, peer], selected: seed,
+                        frame: frame, visible: true, nativeControls: true, integratedToolbar: true)]
+                } else if action == "peer-layout" { placements.removeFirst() }
+                for _ in 0..<3 {
+                    generation += 1
+                    let revision = lock.withLock { inventory.revision }
+                    outcome = await testLayout(placements, remote: remote, epoch: epoch, revision: revision, generation: generation)
+                    if outcome != "stale_revision" { break }
+                    _ = await waitForTestInventory({ $0.revision > revision })
+                }
+            } else if ["focus", "fullscreen", "close"].contains(action) {
+                let id = command["peer"] as? Bool == true ? peer : seed
+                for _ in 0..<3 {
+                    generation += 1
+                    outcome = await testAction(action, surface: id, remote: remote, epoch: epoch, generation: generation, retries: 0)
+                    if outcome != "stale_revision" { break }
+                    try? await Task.sleep(for: .milliseconds(30))
+                }
+            }
+            noteTest("video_command", "\(sequence):\(outcome)")
+        }
+    }
+
+    @MainActor private func exerciseTabSpeed(epoch: String) async {
+        guard let connection, let value = connection.remoteObjectProxyWithErrorHandler({ _ in }) as? WMBrowserSurfaceOwner,
+              let testReport, let probePath = ProcessInfo.processInfo.environment["WINMUX_TAB_SPEED_PROBE"] else { return }
+        let probeURL = URL(fileURLWithPath: probePath).resolvingSymlinksInPath()
+        guard probeURL.path.hasPrefix(testReport.deletingLastPathComponent().resolvingSymlinksInPath().path + "/") else {
+            noteTest("tab_speed", "invalid_probe"); return
+        }
+        let remote = BrowserOwnerProxy(value), probe = Process(), input = Pipe(), output = Pipe()
+        probe.executableURL = probeURL
+        probe.arguments = [String(connection.processIdentifier)]
+        probe.standardInput = input; probe.standardOutput = output
+        do { try probe.run() } catch { noteTest("tab_speed", "probe_failed"); return }
+        defer { if probe.isRunning { probe.terminate() } }
+        let initial = lock.withLock { inventory }
+        guard let seed = initial.tabs.keys.first else { noteTest("tab_speed", "no_seed"); return }
+        for id in initial.tabs.keys where id != seed {
+            guard await testAction("close", surface: id, remote: remote, epoch: epoch) == "issued" else { return }
+        }
+        var generation: UInt64 = 10
+        let frame = SurfaceFrame(x: 60, y: 90, width: 800, height: 600)
+        func applySpeedLayout(_ placement: BrowserHostPlacement) async -> String {
+            for _ in 0..<3 {
+                let revision = lock.withLock { inventory.revision }
+                generation += 1
+                let result = await testLayout([placement], remote: remote, epoch: epoch, revision: revision, generation: generation)
+                if result != "stale_revision" { return result }
+                guard await waitForTestInventory({ $0.revision > revision }, pollMilliseconds: 1) != nil else { return result }
+            }
+            return "stale_revision"
+        }
+        let fixtureURL = ProcessInfo.processInfo.environment["WINMUX_TAB_SPEED_URL"]
+        // Prime the exact local page and Chromium's profile-local icon database.
+        if let fixtureURL {
+            _ = await testAction("navigate", surface: seed, remote: remote, epoch: epoch, url: fixtureURL)
+            guard await waitForTestInventory({ $0.tabs[seed]?.iconPNGBase64 != nil }, timeoutMilliseconds: 10000) != nil else {
+                noteTest("tab_speed", "favicon_prime_failed"); return
+            }
+        }
+        for kind in ["blank", "cached_url"] {
+            if kind == "cached_url" && fixtureURL == nil { continue }
+            for index in 0..<speedSamples {
+                // Deliberately idle between samples so the spare can replenish;
+                // the cold/burst behavior remains a separate correctness test.
+                try? await Task.sleep(for: .milliseconds(350))
+                let operation = UUID(), started = BrowserTabTiming.now
+                BrowserTabTiming.record("command", operation: operation, at: started)
+                var creation = await testCreate(remote: remote, epoch: epoch,
+                    url: kind == "blank" ? nil : fixtureURL, operation: operation.uuidString)
+                for _ in 0..<2 where creation.0 == "stale_revision" {
+                    // Compatibility with the unchanged baseline engine. A
+                    // pre-dispatch revision rejection is the only replay.
+                    try? await Task.sleep(for: .milliseconds(5))
+                    creation = await testCreate(remote: remote, epoch: epoch,
+                        url: kind == "blank" ? nil : fixtureURL, operation: operation.uuidString)
+                }
+                guard creation.0 == "issued", let id = creation.1,
+                      await waitForTestInventory({ $0.tabs[id] != nil }, pollMilliseconds: 1) != nil else {
+                    noteTest("tab_speed", "creation_failed"); return
+                }
+                let inventoried = BrowserTabTiming.now
+                generation += 1
+                let placement = BrowserHostPlacement(containerID: UUID(), surfaces: [id], selected: id,
+                    frame: frame, visible: true, nativeControls: true, integratedToolbar: true)
+                guard await applySpeedLayout(placement) == "issued" else {
+                    noteTest("tab_speed", "layout_failed"); return
+                }
+                let layout = BrowserTabTiming.now
+                var focus = "stale_revision"
+                for _ in 0..<3 {
+                    generation += 1
+                    let revision = lock.withLock { inventory.revision }
+                    focus = await testAction("focus_address", surface: id, remote: remote, epoch: epoch,
+                        revision: revision, generation: generation, retries: 0)
+                    if focus != "stale_revision" { break }
+                    // Chromium consumes the focus fence before revision
+                    // validation. A rejected metadata race needs a fresh fence.
+                    guard await waitForTestInventory({ $0.revision > revision }, pollMilliseconds: 1) != nil else { break }
+                }
+                guard focus == "issued" else {
+                    noteTest("tab_speed", "address_focus_failed:" + focus); return
+                }
+                // The native probe posts a real process-scoped keyboard event
+                // and observes the address field change; a focus reply alone
+                // is never counted as input readiness.
+                try? input.fileHandleForWriting.write(contentsOf: Data("measure\n".utf8))
+                let bytes = await Task.detached { output.fileHandleForReading.availableData }.value
+                guard let data = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+                      let acknowledged = data["input_ack_us"] as? NSNumber else {
+                    noteTest("tab_speed", "input_failed"); return
+                }
+                let iconTime: UInt64?
+                if kind == "cached_url" {
+                    guard await waitForTestInventory({ $0.tabs[id]?.iconPNGBase64 != nil }, pollMilliseconds: 1) != nil else {
+                        noteTest("tab_speed", "favicon_failed"); return
+                    }
+                    iconTime = lock.withLock { speedIconArrivalTimes[id] }
+                } else { iconTime = nil }
+                let sample: [String: Any] = ["operation": operation.uuidString.lowercased(), "kind": kind,
+                    "index": index, "command_us": started, "inventory_us": inventoried, "layout_us": layout,
+                    "input_ack_us": acknowledged, "favicon_observed_us": iconTime.map { $0 as Any } ?? NSNull(),
+                    "surface_id": id.description]
+                lock.withLock { speedResults.append(sample) }
+                writeTestReport()
+                if kind == "cached_url" && index == speedSamples - 1 &&
+                    ProcessInfo.processInfo.environment["WINMUX_TAB_SPEED_KEEP_LAST"] == "1" { continue }
+                guard await testAction("close", surface: id, remote: remote, epoch: epoch) == "issued",
+                      await waitForTestInventory({ $0.tabs[id] == nil }, pollMilliseconds: 1) != nil else {
+                    noteTest("tab_speed", "cleanup_failed"); return
+                }
+            }
+        }
+        noteTest("tab_speed", "complete")
     }
 
     @MainActor private func exercisePrivateTabs(epoch: String) async {
@@ -266,13 +460,13 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     /// Bounded waits use authoritative inventory, not a fixed navigation delay.
     /// This is called only by the temporary-service synthetic browser fixture.
-    @MainActor private func waitForTestInventory(_ predicate: (BrowserInventory) -> Bool, timeoutMilliseconds: UInt64 = 2000) async -> BrowserInventory? {
+    @MainActor private func waitForTestInventory(_ predicate: (BrowserInventory) -> Bool, timeoutMilliseconds: UInt64 = 2000, pollMilliseconds: UInt64 = 25) async -> BrowserInventory? {
         let deadline = DispatchTime.now().uptimeNanoseconds + timeoutMilliseconds * 1_000_000
         repeat {
             let snapshot = lock.withLock { closed ? nil : inventory }
             guard let snapshot else { return nil }
             if predicate(snapshot) { return snapshot }
-            try? await Task.sleep(for: .milliseconds(25))
+            try? await Task.sleep(for: .milliseconds(pollMilliseconds))
         } while DispatchTime.now().uptimeNanoseconds < deadline
         return nil
     }
@@ -679,7 +873,16 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
         }
         noteTest("create_empty_inventory", "yes")
         noteTest("create_foreign_epoch", (await testCreate(remote: remote, epoch: UUID().uuidString)).0)
-        noteTest("create_stale_revision", (await testCreate(remote: remote, epoch: epoch, revision: 0)).0)
+        let staleMetadata = await testCreate(remote: remote, epoch: epoch, revision: 0)
+        noteTest("create_stale_revision", staleMetadata.0)
+        if let tab = staleMetadata.1 {
+            guard await waitForTestInventory({ $0.tabs[tab] != nil }) != nil,
+                  await testAction("close", surface: tab, remote: remote, epoch: epoch) == "issued",
+                  await waitForTestInventory({ $0.tabs.isEmpty }) != nil else {
+                noteTest("create_stale_metadata_cleanup", "failed"); return
+            }
+            noteTest("create_stale_metadata_cleanup", "yes")
+        }
         noteTest("create_invalid_url", (await testCreate(remote: remote, epoch: epoch, url: "javascript:alert(1)")).0)
         noteTest("create_unknown_profile", (await testCreate(remote: remote, epoch: epoch, profile: UUID())).0)
         let operation = UUID().uuidString, url = "about:blank#winmux-empty-inventory"
@@ -850,10 +1053,11 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
             guard !closed else { return }
             // Counts and outcomes only: no titles, URLs, profile paths or vault data.
             let report: [String: Any] = ["scope": "isolated_authenticated_inventory_actions", "revision": inventory.revision,
-                                       "tab_count": inventory.tabs.count, "outcomes": testOutcomes,
+                                       "tab_count": inventory.tabs.count, "outcomes": testOutcomes, "tab_speed_samples": speedResults,
                                        "full_messages": fullMessages, "delta_messages": deltaMessages,
                                        "hosts": inventory.tabs.values.map { tab in
-                                           ["host_id": tab.hostID, "native_window_id": tab.hostWindowID.map { $0 as Any } ?? NSNull(),
+                                           ["host_id": tab.hostID, "surface_id": tab.surfaceID.description,
+                                            "native_window_id": tab.hostWindowID.map { $0 as Any } ?? NSNull(),
                                             "managed": tab.hostManaged, "visible": tab.hostVisible.map { $0 as Any } ?? NSNull(),
                                             "minimized": tab.hostMinimized, "fullscreen": tab.hostFullscreen, "zoomed": tab.hostZoomed,
                                             "minimum_size": tab.hostMinimumSize.map { ["width": $0.width, "height": $0.height] as Any } ?? NSNull(),

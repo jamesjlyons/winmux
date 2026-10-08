@@ -1,0 +1,25 @@
+diff --git a/chrome/browser/ui/browser_init_state.h b/chrome/browser/ui/browser_init_state.h
+--- a/chrome/browser/ui/browser_init_state.h
++++ b/chrome/browser/ui/browser_init_state.h
+@@ -93,6 +93,12 @@
+   }
+ 
+   bool omit_from_session_restore() const { return omit_from_session_restore_; }
++
++  // A prepared WinMux window becomes an ordinary user window on consumption.
++  // The caller must register its existing tabs with SessionService afterwards.
++  void PromotePreparedWindowForSessionRestore() {
++    omit_from_session_restore_ = false;
++  }
+   bool should_trigger_session_restore() const {
+     return should_trigger_session_restore_;
+   }
+@@ -103,7 +109,7 @@
+ 
+   // Whether this Browser should be omitted from being saved/restored by session
+   // restore.
+-  const bool omit_from_session_restore_;
++  bool omit_from_session_restore_;
+ 
+   // If true, a new window opening should be treated like the start of a session
+   // (with potential session restore, startup URLs, etc.). Otherwise, don't

@@ -70,25 +70,51 @@ final class BrowserToolbarPerformanceTest: XCTestCase {
                        "A cached toolbar must discard unfinished editing when it returns")
     }
 
-    func testPinFaviconIsReusedAndInvalidImagesAreIgnored() throws {
+    func testPinFaviconIsReusedAndInvalidImagesAreIgnored() async throws {
         let cache = WorkspaceSidebarFaviconCache()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
         let encoded = data.base64EncodedString()
+        await cache.prepareAndWait(encoded)
         let first = try XCTUnwrap(cache.image(for: encoded))
         XCTAssertTrue(cache.image(for: encoded) === first)
         XCTAssertNil(cache.image(for: "invalid base64"))
     }
 
-    func testMonochromeExtensionArtworkPreservesDetailAlphaAndOriginalFavicon() throws {
+    func testConcurrentFaviconRowsShareOneDecodeAndRenderingNeverWaits() async throws {
+        let cache = WorkspaceSidebarFaviconCache()
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 16,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let encoded = try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).base64EncodedString()
+        cache.prepare(encoded)
+        for _ in 0..<30 { cache.prepare(encoded); XCTAssertNil(cache.image(for: encoded)) }
+        XCTAssertEqual(cache.decodeCount, 1)
+        await cache.prepareAndWait(encoded)
+        let image = try XCTUnwrap(cache.image(for: encoded))
+        for _ in 0..<30 { XCTAssertTrue(cache.image(for: encoded) === image) }
+        XCTAssertEqual(cache.decodeCount, 1)
+    }
+
+    func testInvalidAndOversizedFaviconsDoNotRepeatedlyUseTheWorker() async {
+        let cache = WorkspaceSidebarFaviconCache()
+        await cache.prepareAndWait("invalid base64")
+        for _ in 0..<30 { XCTAssertNil(cache.image(for: "invalid base64")) }
+        XCTAssertEqual(cache.decodeCount, 1)
+        await cache.prepareAndWait(String(repeating: "A", count: 131_073))
+        XCTAssertEqual(cache.decodeCount, 1)
+    }
+
+    func testMonochromeExtensionArtworkPreservesDetailAlphaAndOriginalFavicon() async throws {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 1,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         bitmap.setColor(NSColor(deviceRed: 1, green: 0, blue: 0, alpha: 1), atX: 0, y: 0)
         bitmap.setColor(NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 0.5), atX: 1, y: 0)
         let encoded = try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).base64EncodedString()
+        await WorkspaceSidebarFaviconCache.shared.prepareAndWait(encoded)
         let original = try XCTUnwrap(WorkspaceSidebarFaviconCache.shared.image(for: encoded))
         let cache = BrowserToolbarIconCache()
         let image = try XCTUnwrap(cache.image(for: encoded))

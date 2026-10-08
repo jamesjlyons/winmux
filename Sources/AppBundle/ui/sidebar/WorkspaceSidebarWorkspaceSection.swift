@@ -4,6 +4,7 @@ import SwiftUI
 import WorkspaceCore
 
 struct WorkspaceSidebarWorkspaceSection: View {
+    @ObservedObject private var faviconCache = WorkspaceSidebarFaviconCache.shared
     let workspace: WorkspaceSidebarWorkspaceViewModel
     let targetMonitorScopeId: String
     let dragPreview: WorkspaceSidebarDropPreviewViewModel?
@@ -77,6 +78,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     }
 
     var body: some View {
+        let _ = faviconCache.revision
         interactiveSectionContent
             .padding(.vertical, 1)
             .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)

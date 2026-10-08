@@ -11,6 +11,7 @@ func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewMo
 /// Pins occupy their own workspace, while their presentation stays separate
 /// from the regular group cards. Closed launchers still participate in order.
 struct WorkspaceSidebarPinGrid: View {
+    @ObservedObject private var faviconCache = WorkspaceSidebarFaviconCache.shared
     let workspace: WorkspaceSidebarWorkspaceViewModel
     let projects: [WorkspaceSidebarProjectViewModel]
     let isCompact: Bool
@@ -73,7 +74,9 @@ struct WorkspaceSidebarPinGrid: View {
     }
 
     private func pinTile(_ pin: WorkspaceSidebarPinViewModel) -> some View {
-        Button { actions.send(.selectPin(pin.id)) } label: {
+        Button {
+            actions.send(.selectPin(pin.id))
+        } label: {
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
                     .fill(Color.primary.opacity(0.07))
@@ -102,6 +105,9 @@ struct WorkspaceSidebarPinGrid: View {
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
         .accessibilityLabel("Pinned \(pin.isGroup ? "View" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")
+        .onAppear {
+            ([pin.iconPNGBase64] + pin.members.map(\.iconPNGBase64)).compactMap { $0 }.forEach { faviconCache.prepare($0) }
+        }
         .onHover { hoveredPin = $0 ? pin.id : nil }
         .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: true,
             onChanged: { actions.surfaceDragChanged(.pin(pin.id), $0) },
@@ -152,7 +158,7 @@ struct WorkspaceSidebarPinGrid: View {
                 HStack(spacing: -5) {
                     ForEach(Array(pin.members.prefix(2))) { member in
                         Group {
-                            if let encoded = member.iconPNGBase64, let icon = WorkspaceSidebarFaviconCache.shared.image(for: encoded) {
+                            if let encoded = member.iconPNGBase64, let icon = faviconCache.image(for: encoded) {
                                 Image(nsImage: icon).resizable().scaledToFit()
                             } else if let icon = appIconImage(bundleIdentifier: member.bundleIdentifier, bundlePath: member.bundlePath) {
                                 Image(nsImage: icon).resizable().scaledToFit()
@@ -162,7 +168,7 @@ struct WorkspaceSidebarPinGrid: View {
                 }
                 Text("\(pin.memberCount)").font(.system(size: 8, weight: .bold)).padding(1).background(.regularMaterial, in: Circle()).offset(x: 6, y: 6)
             }
-        } else if let encoded = pin.iconPNGBase64, let icon = WorkspaceSidebarFaviconCache.shared.image(for: encoded) {
+        } else if let encoded = pin.iconPNGBase64, let icon = faviconCache.image(for: encoded) {
             Image(nsImage: icon).resizable().scaledToFit()
         } else if !pin.isBrowser, let icon = appIconImage(bundleIdentifier: pin.bundleIdentifier, bundlePath: pin.bundlePath) {
             Image(nsImage: icon).resizable().scaledToFit()

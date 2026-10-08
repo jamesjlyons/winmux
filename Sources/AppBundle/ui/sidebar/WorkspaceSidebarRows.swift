@@ -42,6 +42,7 @@ struct WorkspaceSidebarWindowRow: View {
     let style: Style
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
+    @ObservedObject private var faviconCache = WorkspaceSidebarFaviconCache.shared
     var favicons: [String?] = []
     var fallbackSystemImage: String = "app"
     var isSelected = false
@@ -57,9 +58,10 @@ struct WorkspaceSidebarWindowRow: View {
     }
 
     var body: some View {
+        let _ = faviconCache.revision
         HStack(spacing: isCompact ? 0 : workspaceSidebarAppIconTextSpacing) {
             Group {
-                if isLoading {
+                if isLoading && !favicons.contains(where: { $0 != nil }) {
                     ProgressView().controlSize(.mini)
                         .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
                         .accessibilityLabel("Loading")
@@ -93,6 +95,8 @@ struct WorkspaceSidebarWindowRow: View {
         }
         .accessibilityAddTraits(isActiveRow ? .isSelected : [])
         .accessibilityLabel(title)
+        .onAppear { favicons.compactMap { $0 }.forEach { faviconCache.prepare($0) } }
+        .onChange(of: favicons) { icons in icons.compactMap { $0 }.forEach { faviconCache.prepare($0) } }
         .contentShape(Rectangle())
     }
 

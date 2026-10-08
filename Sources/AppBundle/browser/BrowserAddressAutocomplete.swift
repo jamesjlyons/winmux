@@ -246,6 +246,13 @@ private final class BrowserAddressSuggestionRow: NSView {
         }
         main.attributedTitle = label
         let symbol = item.kind == .search ? "magnifyingglass" : item.kind == .history ? "clock.arrow.circlepath" : "globe"
+        let imageCache = WorkspaceSidebarFaviconCache.shared
+        if let encoded = item.iconPNGBase64 {
+            imageCache.prepare(encoded) { [weak self] in
+                guard let image = imageCache.image(for: encoded) else { return }
+                self?.main.image = image
+            }
+        }
         main.image = item.iconPNGBase64.flatMap { WorkspaceSidebarFaviconCache.shared.image(for: $0) }
             ?? NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         main.imagePosition = .imageLeading

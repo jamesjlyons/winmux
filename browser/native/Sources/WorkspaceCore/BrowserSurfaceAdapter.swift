@@ -379,7 +379,7 @@ public final class BrowserSurfaceSession {
     /// No uncertain transport failure is retried, so a shortcut opens one page.
     @discardableResult
     public func openTab(sourceSurfaceID: SurfaceID? = nil, profileID: UUID? = nil, url: String? = nil,
-                        workspaceProfile: WorkspaceBrowserProfileTarget? = nil,
+                        workspaceProfile: WorkspaceBrowserProfileTarget? = nil, operation: UUID = UUID(),
                         completion: @escaping @MainActor (BrowserActionReply, SurfaceID?) -> Void) -> SurfaceActionOutcome {
         guard supportsTabCreation, sendNewTab != nil else { completion(.unsupported, nil); return .unsupported }
         guard workspaceProfile == nil || supportsWorkspaceProfiles else { completion(.unsupported, nil); return .unsupported }
@@ -399,9 +399,10 @@ public final class BrowserSurfaceSession {
         guard profileID == nil || sourceProfile == nil || profileID == sourceProfile else {
             completion(.invalidRequest, nil); return .unsupported
         }
-        let request = BrowserNewTabRequest(epoch: epoch, operation: UUID(), sourceSurfaceID: sourceSurfaceID,
+        let request = BrowserNewTabRequest(epoch: epoch, operation: operation, sourceSurfaceID: sourceSurfaceID,
                                            profileID: profileID ?? sourceProfile, revision: inventory.revision, url: url,
                                            workspaceProfile: workspaceProfile)
+        BrowserTabTiming.record("dispatch", operation: operation)
         sendCreation(request, canRetry: true, completion: completion)
         return .issued
     }

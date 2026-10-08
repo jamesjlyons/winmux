@@ -44,6 +44,8 @@ public final class BrowserWorkspaceController {
     var pendingBrowserTabSelections: [SurfaceID: Bool] = [:]
     var pendingBrowserTabAddress: SurfaceID?
     var latestBrowserTabCreation: UUID?
+    var tabCreationOperations: [SurfaceID: UUID] = [:]
+    var tabInventoryArrivalTimes: [SurfaceID: UInt64] = [:]
     var pendingBrowserTabFocusGeneration: UInt64?
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
     var surfaceTree = SurfaceTree()
@@ -240,6 +242,15 @@ public final class BrowserWorkspaceController {
         let closureFocus = captureClosureFocus()
         let closingWorkspace = closureFocus.selected.flatMap { workspaceName(for: $0) }.flatMap(Workspace.existing(byName:))
         guard session.reconcile(message, epoch: epoch) else { return }
+        if BrowserTabTiming.enabled {
+            for record in message.tabs where !oldIDs.contains(record.surfaceID) {
+                tabInventoryArrivalTimes[record.surfaceID] = BrowserTabTiming.now
+                if let operation = tabCreationOperations[record.surfaceID] {
+                    BrowserTabTiming.record("inventory", operation: operation, at: tabInventoryArrivalTimes[record.surfaceID])
+                }
+            }
+        }
+        for icon in message.tabs.compactMap(\.iconPNGBase64) { WorkspaceSidebarFaviconCache.shared.prepare(icon) }
         unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
         let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection)
         if message.full { reconcileRestoredBrowserPlacements(session.inventory) }
@@ -250,6 +261,8 @@ public final class BrowserWorkspaceController {
         }
         let removedIDs = oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs).filter { owner(of: $0) == nil }
         for id in removedIDs {
+            tabCreationOperations[id] = nil
+            tabInventoryArrivalTimes[id] = nil
             if privateSurfaces.contains(id) { retirePrivateSurface(id); continue }
             browserPinDidClose(id)
             closedBrowserTabs.insert(id)
@@ -493,11 +506,18 @@ public final class BrowserWorkspaceController {
             .map { record in .init(kind: .browserTab(.init(
                 surfaceID: record.surfaceID, workspaceName: workspace,
                 title: record.title.isEmpty ? "New tab" : record.title,
-                isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64,
+                isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: sidebarIcon(for: record),
                 isSelected: selected.contains(record.surfaceID), isLoading: record.isLoading))) }
     }
 
+    func sidebarIcon(for record: BrowserTabRecord) -> String? {
+        record.iconPNGBase64 ?? browserSidebarPins.first {
+            $0.surfaceID == record.surfaceID && $0.url == record.url
+        }?.iconPNGBase64
+    }
+
     func sidebarProjection() -> BrowserSidebarProjection {
+        for icon in browserSidebarPins.compactMap(\.iconPNGBase64) { WorkspaceSidebarFaviconCache.shared.prepare(icon) }
         let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         var result = BrowserSidebarProjection()
         var ownerCounts: [SurfaceID: Int] = [:]
@@ -515,7 +535,7 @@ public final class BrowserWorkspaceController {
                 result.rowsByWorkspace[workspace, default: []].append(.init(kind: .browserTab(.init(
                     surfaceID: record.surfaceID, workspaceName: workspace,
                     title: record.title.isEmpty ? "New tab" : record.title,
-                    isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: record.iconPNGBase64,
+                    isFocused: focusCoordinator.target == record.surfaceID, iconPNGBase64: sidebarIcon(for: record),
                     isSelected: selected.contains(record.surfaceID), isLoading: record.isLoading))))
                 result.appPaths[record.surfaceID] = appPath
             }
