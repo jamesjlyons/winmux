@@ -10,6 +10,16 @@ namespace winmux {
 // temporary fullscreen/zoom presentation and clears when management releases it.
 extern const ui::ClassProperty<bool>* const kIntegratedToolbar;
 
+// The host registers while it owns the page. BrowserView calls these around
+// Chromium's fullscreen work so the host never restores chrome mid-reparenting.
+class ManagedFullscreenObserver {
+ public:
+  virtual ~ManagedFullscreenObserver() = default;
+  virtual void WillChange(bool fullscreen) = 0;
+  virtual void DidChange() = 0;
+};
+extern const ui::ClassProperty<ManagedFullscreenObserver*>* const kManagedFullscreenObserver;
+
 // Browser UI consumes this interface without depending on the workspace bridge.
 // The host owns the implementation and releases it with its managed presentation.
 class ManagedPageMenu {
@@ -28,5 +38,6 @@ extern const ui::ClassProperty<ManagedPageMenu*>* const kManagedPageMenu;
 }  // namespace winmux
 
 DECLARE_UI_CLASS_PROPERTY_TYPE(winmux::ManagedPageMenu*)
+DECLARE_UI_CLASS_PROPERTY_TYPE(winmux::ManagedFullscreenObserver*)
 
 #endif

@@ -248,7 +248,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 var placements = [BrowserHostPlacement(containerID: firstContainer, surfaces: [seed], selected: seed,
                     frame: frame, visible: true, nativeControls: managed, integratedToolbar: managed),
                     BrowserHostPlacement(containerID: secondContainer, surfaces: [peer], selected: peer,
-                    frame: peerFrame, visible: action == "split" || action == "peer-layout", nativeControls: true, integratedToolbar: true)]
+                    frame: peerFrame, visible: action == "split", nativeControls: true, integratedToolbar: true)]
                 if action == "stack" {
                     placements = [.init(containerID: firstContainer, surfaces: [seed, peer], selected: seed,
                         frame: frame, visible: true, nativeControls: true, integratedToolbar: true)]

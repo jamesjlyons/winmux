@@ -184,6 +184,33 @@ This creates a fresh profile and loopback fixture server, checks codec support,
 and requires MP4 H.264/AAC, Media Source H.264/AAC, and WebM VP9/Opus playback to
 finish with decoded audio and video frames. It leaves existing sessions alone.
 
+Video fullscreen needs a visible macOS check in addition to headless decoding:
+
+```sh
+python3 -B browser/tools/test_browser_video_fullscreen.py \
+  --app '/path/to/staged/WinMux Browser Alpha.app' \
+  --chromium-source /path/to/apfs/winmux-engine/chromium/src \
+  --output .local/browser/new-video-fullscreen-check
+```
+
+Run on an unlocked console with Accessibility/input access already available.
+The fixture uses a fresh profile, a UUID test helper service, and native input
+scoped to its browser PID. It checks MP4, Media Source and WebM playback through
+repeated fullscreen entry/exit in standalone, stacked and split page windows,
+including Escape, the native green button, nested video fullscreen, ownership
+release and closing a fullscreen page. Window identity, restored geometry,
+fullscreen events, playback samples and browser stderr are retained in the
+output directory. For an archived baseline, `--helper-override` accepts a rebuilt
+diagnostic helper that is copied and signed separately; the baseline package
+is preserved. A successful headless media check does not establish fullscreen
+correctness.
+
+Integrated page windows suppress Chromium's horizontal tab strip. Their macOS
+fullscreen path skips its separate native tab overlay, whose zero height would
+abort Chromium. Host presentation changes are fenced before fullscreen entry
+and restored after Chromium's immersive teardown, including deferred workspace
+ownership changes.
+
 The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.

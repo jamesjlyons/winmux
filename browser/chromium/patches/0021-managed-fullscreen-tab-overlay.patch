@@ -1,0 +1,36 @@
+--- a/chrome/browser/ui/views/frame/immersive_mode_controller_mac.mm
++++ b/chrome/browser/ui/views/frame/immersive_mode_controller_mac.mm
+@@ -24,6 +24,7 @@
+ #include "chrome/browser/ui/views/frame/top_container_view.h"
+ #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+ #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "components/constrained_window/constrained_window_views.h"
+ #include "components/remote_cocoa/app_shim/features.h"
+ #include "ui/gfx/geometry/insets.h"
+@@ -100,9 +101,13 @@
+   }
+   enabled_ = enabled;
+   if (enabled) {
++    // Integrated managed pages hide the horizontal tab strip. Its separate
++    // overlay would have zero height, which is invalid for a native Mac window.
+     // Vertical tab strip should stay visible and will not be reparented to the
+     // tab overlay.
+-    if (separate_tab_strip_ && !browser_view_->ShouldDrawVerticalTabStrip()) {
++    if (separate_tab_strip_ &&
++        !browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++        !browser_view_->ShouldDrawVerticalTabStrip()) {
+       tab_widget_height_ = browser_view_->tab_strip_view()->height();
+       tab_widget_height_ += static_cast<BrowserFrameViewMac*>(
+                                 browser_view_->browser_widget()->GetFrameView())
+@@ -360,7 +365,9 @@
+   // OnViewBoundsChanged does not get called.
+   // tab_overlay_widget size should only be set if we aren't drawing the
+   // vertical tabstrip.
+-  if (separate_tab_strip_ && !browser_view_->ShouldDrawVerticalTabStrip()) {
++  if (separate_tab_strip_ &&
++      !browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !browser_view_->ShouldDrawVerticalTabStrip()) {
+     gfx::Size new_size(bounds.width(), tab_widget_height_);
+     browser_view_->tab_overlay_widget()->SetSize(new_size);
+     browser_view_->tab_overlay_view()->SetSize(new_size);

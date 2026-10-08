@@ -1,0 +1,20 @@
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -2309,2 +2309,8 @@
+   }
++#if BUILDFLAG(IS_MAC)
++  // The managed host must wait until immersive toolbar teardown and Chromium's
++  // fullscreen controller have both finished before restoring tiled chrome.
++  if (auto* observer = GetProperty(winmux::kManagedFullscreenObserver))
++    observer->DidChange();
++#endif
+ }
+@@ -5455,2 +5461,8 @@
+ void BrowserView::PrepareFullscreen(bool fullscreen) {
++#if BUILDFLAG(IS_MAC)
++  // Covers HTML/video fullscreen and native window commands before Views or
++  // AppKit can issue layout callbacks or move the toolbar to its overlay.
++  if (auto* observer = GetProperty(winmux::kManagedFullscreenObserver))
++    observer->WillChange(fullscreen);
++#endif
+   if (top_controls_slide_controller_) {

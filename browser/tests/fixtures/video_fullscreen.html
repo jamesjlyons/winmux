@@ -1,0 +1,89 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WinMux video fullscreen fixture</title>
+<style>
+body { margin: 0; background: #18202d; color: white; font: 18px system-ui; }
+video { width: 100%; max-height: 420px; background: black; }
+video:fullscreen { width: 100%; height: 100%; max-height: none; }
+p { padding: 12px; }
+</style>
+<video controls muted loop></video>
+<p>Isolated video fullscreen check. F13 activates the prepared player action.</p>
+<script type="module">
+const peer = location.pathname === '/peer';
+const video = document.querySelector('video');
+let pending, handled = 0, completed = 0, objectURL;
+const events = [];
+function state(event, extra = {}) {
+  const value = {peer, event, completed, prepared: pending?.sequence ?? 0,
+    fullscreen: !!document.fullscreenElement, frames: video.getVideoPlaybackQuality().totalVideoFrames,
+    audioBytes: video.webkitAudioDecodedByteCount, currentTime: video.currentTime,
+    paused: video.paused, readyState: video.readyState, events: events.slice(-40), ...extra};
+  fetch('/event', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value)});
+}
+document.addEventListener('fullscreenchange', () => {
+  events.push({type: 'fullscreenchange', fullscreen: !!document.fullscreenElement});
+  state('fullscreenchange');
+});
+document.addEventListener('fullscreenerror', () => state('fullscreenerror'));
+video.addEventListener('error', () => state('mediaerror', {error: video.error?.message}));
+window.addEventListener('keydown', async event => {
+  state('key_received', {key: event.key, code: event.code, trusted: event.isTrusted});
+  if (event.code !== 'F13') return;
+  event.preventDefault();
+  events.push({type: 'keydown', trusted: event.isTrusted, sequence: pending?.sequence});
+  if (!event.isTrusted || !pending) { state('unprepared_input'); return; }
+  const command = pending;
+  pending = undefined;
+  try {
+    // These calls occur directly in the trusted keyboard handler. Do not fetch
+    // commands or inject scripts between activation and requestFullscreen().
+    if (command.action === 'enter') await video.requestFullscreen();
+    else if (command.action === 'exit') await document.exitFullscreen();
+    else if (command.action !== 'ack') throw new Error('Unexpected input action');
+    completed = command.sequence;
+    state('input_complete', {trusted: event.isTrusted});
+  } catch (error) { state('input_error', {error: String(error), sequence: command.sequence}); }
+});
+window.addEventListener('pointerdown', event => state('pointer_received', {trusted: event.isTrusted}));
+async function load(kind) {
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  if (objectURL) { URL.revokeObjectURL(objectURL); objectURL = undefined; }
+  if (kind === 'mse') {
+    const source = new MediaSource();
+    objectURL = URL.createObjectURL(source);
+    const opened = new Promise(resolve => source.addEventListener('sourceopen', resolve, {once: true}));
+    video.src = objectURL;
+    await opened;
+    const buffer = source.addSourceBuffer('video/mp4; codecs="avc1.64001f, mp4a.40.2"');
+    const bytes = await (await fetch('/bear-1280x720-av_frag.mp4')).arrayBuffer();
+    const appended = new Promise((resolve, reject) => {
+      buffer.addEventListener('updateend', resolve, {once: true});
+      buffer.addEventListener('error', () => reject(new Error('SourceBuffer failed')), {once: true});
+    });
+    buffer.appendBuffer(bytes);
+    await appended;
+    source.endOfStream();
+  } else video.src = kind === 'webm' ? '/bear-vp9-opus.webm' : '/bear-1280x720.mp4';
+  await video.play();
+}
+async function poll() {
+  try {
+    const command = await (await fetch('/command?peer=' + peer, {cache: 'no-store'})).json();
+    if (command.sequence > handled) {
+      handled = command.sequence;
+      if (command.action === 'load') {
+        await load(command.kind);
+        completed = command.sequence;
+        state('loaded');
+      } else { pending = command; state('prepared'); }
+    }
+  } catch (error) { state('fixture_error', {error: String(error)}); }
+  setTimeout(poll, 50);
+}
+state('ready');
+setInterval(() => state('sample'), 200);
+poll();
+</script>

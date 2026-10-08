@@ -70,6 +70,9 @@ class PageHostObserver : public TabStripModelObserver {
     pending_ = false;
     if (!browser_ || browser_->IsDeleteScheduled() ||
         !IsBrowserHostManaged(browser_.get())) return;
+    // Fullscreen owns the active WebContents and toolbar hierarchy. The
+    // completion hook replays reconciliation once Chromium has released them.
+    if (IsBrowserHostFullscreen(browser_.get())) return;
     auto* strip = browser_->GetTabStripModel();
     for (int index = strip->count() - 1; index >= 0; --index) {
       if (PersistentSurfaceID(strip->GetWebContentsAt(index)) == surface_) continue;
@@ -326,5 +329,14 @@ std::string ApplyHostLayout(const std::string& json) {
 void ReleaseHostLayout() {
   for (auto& [surface, host] : Hosts()) Release(host);
   Hosts().clear();
+}
+
+void ReconcileBrowserHostPages(BrowserWindowInterface* browser) {
+  for (auto& [surface, host] : Hosts()) {
+    if (host.browser.get() == browser && host.observer) {
+      host.observer->Reconcile();
+      return;
+    }
+  }
 }
 }

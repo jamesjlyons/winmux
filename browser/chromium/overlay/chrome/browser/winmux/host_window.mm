@@ -1,4 +1,5 @@
 #include "chrome/browser/winmux/host_window.h"
+#include "chrome/browser/winmux/host_layout.h"
 #include "chrome/browser/winmux/managed_toolbar.h"
 #include "chrome/browser/winmux/page_menu.h"
 #include <algorithm>
@@ -9,7 +10,6 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/time/time.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -22,6 +22,9 @@ namespace {
 char kSavedWindowPresentation;
 char kRestoreManagedAfterFullscreen;
 char kFullscreenTransition;
+char kFullscreenPrepared;
+char kFullscreenGeneration;
+char kPendingFullscreenToolbar;
 char kMinimizeTransition;
 char kRestoreAfterMinimize;
 char kOwnedZoom;
@@ -98,30 +101,42 @@ void PublishHostStateChanged(NSWindow* native) {
 
 void ReconcileZoomPresentation(BrowserWindowInterface* browser);
 
-void WatchFullscreenTransition(base::WeakPtr<BrowserWindowInterface> browser) {
+void SetHostToolbar(BrowserWindowInterface* browser, bool integrated) {
+  auto* view = BrowserView::GetBrowserViewForBrowser(browser);
+  if (!view || view->GetProperty(kIntegratedToolbar) == integrated) return;
+  SetHostPresentation(browser, false);
+  view->SetProperty(kIntegratedToolbar, integrated);
+  if (integrated) view->SetProperty(kManagedPageMenu, CreateManagedPageMenu(browser));
+  else view->ClearProperty(kManagedPageMenu);
+  view->InvalidateLayout();
+}
+
+void FinishFullscreenTransition(base::WeakPtr<BrowserWindowInterface> browser) {
   if (!browser || browser->IsDeleteScheduled()) return;
   NSWindow* native = NativeWindow(browser.get());
   if (![objc_getAssociatedObject(native, &kFullscreenTransition) boolValue]) return;
-  // Cocoa can fail to enter fullscreen without its usual DidExit notification.
-  // Chromium clears its target state on that path. Only recover when neither
-  // Chromium nor the native window still expects/presents fullscreen.
+  // Chromium also calls its completion hook when AppKit fails to enter. Only
+  // restore after that hook, when neither layer still expects fullscreen.
   if (!browser->GetWindow()->IsFullscreen() &&
       !(native.styleMask & NSWindowStyleMaskFullScreen)) {
     const bool restore = [objc_getAssociatedObject(
         native, &kRestoreManagedAfterFullscreen) boolValue];
-    objc_setAssociatedObject(native, &kFullscreenTransition, nil,
-                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(native, &kRestoreManagedAfterFullscreen, nil,
+    NSNumber* toolbar = objc_getAssociatedObject(native, &kPendingFullscreenToolbar);
+    if (toolbar) SetHostToolbar(browser.get(), toolbar.boolValue);
+    objc_setAssociatedObject(native, &kPendingFullscreenToolbar, nil,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if (restore && !IsBrowserHostZoomed(browser.get()))
       SetHostPresentation(browser.get(), true);
+    objc_setAssociatedObject(native, &kFullscreenTransition, nil,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(native, &kFullscreenPrepared, nil,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(native, &kRestoreManagedAfterFullscreen, nil,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     ReconcileZoomPresentation(browser.get());
+    ReconcileBrowserHostPages(browser.get());
     PublishHostStateChanged(native);
-    return;
   }
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce(&WatchFullscreenTransition, browser),
-      base::Milliseconds(250));
 }
 
 void BeginFullscreenTransition(BrowserWindowInterface* browser) {
@@ -129,18 +144,23 @@ void BeginFullscreenTransition(BrowserWindowInterface* browser) {
   if ([objc_getAssociatedObject(native, &kFullscreenTransition) boolValue]) return;
   objc_setAssociatedObject(native, &kFullscreenTransition, @YES,
                            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce(&WatchFullscreenTransition, browser->GetWeakPtr()),
-      base::Milliseconds(250));
+  const uint64_t generation = [objc_getAssociatedObject(native, &kFullscreenGeneration) unsignedLongLongValue] + 1;
+  objc_setAssociatedObject(native, &kFullscreenGeneration, @(generation),
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 void PrepareForFullscreen(BrowserWindowInterface* browser) {
   NSWindow* native = NativeWindow(browser);
+  if (!native || [objc_getAssociatedObject(native, &kFullscreenPrepared) boolValue]) return;
   const bool managed = IsBrowserHostManaged(browser);
-  SetHostPresentation(browser, false);
+  // Layout and native resize notifications can be synchronous. Establish the
+  // suspension/ownership fence before changing either native or Views chrome.
+  objc_setAssociatedObject(native, &kFullscreenPrepared, @YES,
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   objc_setAssociatedObject(native, &kRestoreManagedAfterFullscreen,
                            managed ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   BeginFullscreenTransition(browser);
+  SetHostPresentation(browser, false);
 }
 
 void ReconcileZoomPresentation(BrowserWindowInterface* browser) {
@@ -155,7 +175,8 @@ void ReconcileZoomPresentation(BrowserWindowInterface* browser) {
   if (restore) SetHostPresentation(browser, true);
 }
 
-class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
+class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver,
+                                            public ManagedFullscreenObserver {
  public:
   CocoaBrowserHostWindowObserver(BrowserWindowInterface* browser,
                                 base::RepeatingClosure changed) {
@@ -164,6 +185,11 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
     objc_setAssociatedObject(native, &kHostStateChanged, [^{ changed.Run(); } copy],
                              OBJC_ASSOCIATION_COPY_NONATOMIC);
     auto host = browser->GetWeakPtr();
+    browser_ = host;
+    if (auto* view = BrowserView::GetBrowserViewForBrowser(browser)) {
+      view_ = view->GetAsWeakPtr();
+      view->SetProperty(kManagedFullscreenObserver, this);
+    }
     observers_ = [NSMutableArray array];
     for (NSNotificationName name in @[
         NSWindowWillMiniaturizeNotification, NSWindowDidMiniaturizeNotification,
@@ -218,17 +244,11 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
             } else if ([notification.name isEqualToString:NSWindowWillExitFullScreenNotification]) {
               BeginFullscreenTransition(host.get());
             } else if ([notification.name isEqualToString:NSWindowDidEnterFullScreenNotification]) {
-              objc_setAssociatedObject(window, &kFullscreenTransition, nil,
-                                       OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+              // BrowserView's completion hook runs after immersive reparenting.
+              // The notification can precede it; keep the suspension fence.
             } else if ([notification.name isEqualToString:NSWindowDidExitFullScreenNotification]) {
-              const bool restore = [objc_getAssociatedObject(
-                  window, &kRestoreManagedAfterFullscreen) boolValue];
-              objc_setAssociatedObject(window, &kFullscreenTransition, nil,
-                                       OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-              objc_setAssociatedObject(window, &kRestoreManagedAfterFullscreen, nil,
-                                       OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-              if (restore && !IsBrowserHostZoomed(host.get()))
-                SetHostPresentation(host.get(), true);
+              // Never restore the managed toolbar from inside AppKit's native
+              // notification. Chromium still owns overlay teardown here.
             }
             if (IsBrowserHostZoomed(host.get()) &&
                 ([notification.name isEqualToString:NSWindowDidResizeNotification] ||
@@ -252,13 +272,60 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver {
     }
   }
   ~CocoaBrowserHostWindowObserver() override {
+    // Inventory observation can outlive a closed Cocoa window. Unlike nil
+    // Objective-C messages, associating a nonnil value with nil is invalid.
+    NSWindow* native = native_;
+    if (native) {
+      const uint64_t generation = [objc_getAssociatedObject(native, &kFullscreenGeneration) unsignedLongLongValue] + 1;
+      objc_setAssociatedObject(native, &kFullscreenGeneration, @(generation),
+                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      objc_setAssociatedObject(native, &kFullscreenTransition, nil,
+                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      objc_setAssociatedObject(native, &kFullscreenPrepared, nil,
+                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      objc_setAssociatedObject(native, &kHostStateChanged, nil,
+                               OBJC_ASSOCIATION_COPY_NONATOMIC);
+    }
+    if (view_ && view_->GetProperty(kManagedFullscreenObserver) == this)
+      view_->ClearProperty(kManagedFullscreenObserver);
     for (id observer in observers_)
       [NSNotificationCenter.defaultCenter removeObserver:observer];
-    objc_setAssociatedObject(native_, &kHostStateChanged, nil,
-                             OBJC_ASSOCIATION_COPY_NONATOMIC);
+  }
+
+  void WillChange(bool fullscreen) override {
+    if (!browser_ || browser_->IsDeleteScheduled()) return;
+    if (fullscreen) PrepareForFullscreen(browser_.get());
+    else BeginFullscreenTransition(browser_.get());
+  }
+
+  void DidChange() override {
+    // Unwind the entire Chromium completion callback before native constraints
+    // or toolbar presentation can synchronously trigger another layout.
+    const uint64_t generation = [objc_getAssociatedObject(native_, &kFullscreenGeneration) unsignedLongLongValue];
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+            [](base::WeakPtr<BrowserWindowInterface> browser,
+               base::WeakPtr<BrowserView> view, uint64_t generation) {
+              if (!browser || browser->IsDeleteScheduled() || !view ||
+                  !view->GetWidget() || view->GetWidget()->IsClosed()) return;
+              NSWindow* native = view->GetWidget()->GetNativeWindow().GetNativeNSWindow();
+              if (!native || !view || !view->GetProperty(kManagedFullscreenObserver) ||
+                  [objc_getAssociatedObject(native, &kFullscreenGeneration) unsignedLongLongValue] != generation)
+                return;
+              if (browser->GetWindow()->IsFullscreen() ||
+                  (native.styleMask & NSWindowStyleMaskFullScreen)) {
+                objc_setAssociatedObject(native, &kFullscreenTransition, nil,
+                                         OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                PublishHostStateChanged(native);
+                return;
+              }
+              FinishFullscreenTransition(browser);
+            }, browser_, view_, generation));
   }
 
  private:
+  base::WeakPtr<BrowserWindowInterface> browser_;
+  base::WeakPtr<BrowserView> view_;
   NSMutableArray* __strong observers_;
   NSWindow* __weak native_ = nil;
 };
@@ -286,7 +353,8 @@ bool IsBrowserHostMinimized(BrowserWindowInterface* browser) {
 bool IsBrowserHostFullscreen(BrowserWindowInterface* browser) {
   NSWindow* native = NativeWindow(browser);
   if (!native) return browser && browser->GetWindow()->IsFullscreen();
-  return (native.styleMask & NSWindowStyleMaskFullScreen) ||
+  return browser->GetWindow()->IsFullscreen() ||
+      (native.styleMask & NSWindowStyleMaskFullScreen) ||
       [objc_getAssociatedObject(native, &kFullscreenTransition) boolValue];
 }
 
@@ -310,16 +378,6 @@ bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed, bool i
   auto* view = browser ? BrowserView::GetBrowserViewForBrowser(browser) : nullptr;
   if (!native || !view) return false;
   const bool integrated = managed && integrated_toolbar;
-  if (view->GetProperty(kIntegratedToolbar) != integrated) {
-    // Restore the saved native presentation before changing control ownership.
-    // Temporary fullscreen and zoom use SetHostPresentation directly, retaining
-    // this capability until the workspace actually releases the page.
-    SetHostPresentation(browser, false);
-    view->SetProperty(kIntegratedToolbar, integrated);
-    if (integrated) view->SetProperty(kManagedPageMenu, CreateManagedPageMenu(browser));
-    else view->ClearProperty(kManagedPageMenu);
-    view->InvalidateLayout();
-  }
   // The page retains its workspace identity while native fullscreen owns its
   // presentation. Chromium controls provide the native way to leave that Space.
   const bool fullscreen = IsBrowserHostFullscreen(browser);
@@ -330,6 +388,14 @@ bool SetBrowserHostManaged(BrowserWindowInterface* browser, bool managed, bool i
   objc_setAssociatedObject(native, &kRestoreManagedAfterZoom,
                            managed && zoomed ? @YES : nil,
                            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  if (fullscreen) {
+    // Workspace ownership can change while Chromium owns the toolbar views.
+    // Record the desired mode without changing that hierarchy until teardown.
+    objc_setAssociatedObject(native, &kPendingFullscreenToolbar, @(integrated),
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return true;
+  }
+  SetHostToolbar(browser, integrated);
   return SetHostPresentation(browser, managed && !fullscreen && !zoomed);
 }
 
