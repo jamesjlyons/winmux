@@ -52,8 +52,14 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             id: "managed-layout",
             category: .managed,
             title: "Layout",
-            summary: "Common layout toggles for managed windows.",
+            summary: "Layout and new-item placement toggles.",
             actions: [
+                shortcutAction(
+                    id: "toggle-view-mode",
+                    title: "Toggle Full view / Tiling",
+                    subtitle: "Change where new pages and windows open across the app.",
+                    command: "toggle-view-mode"
+                ),
                 shortcutAction(
                     id: "toggle-floating",
                     title: "Toggle Floating",

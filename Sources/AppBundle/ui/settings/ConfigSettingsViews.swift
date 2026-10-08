@@ -20,7 +20,11 @@ struct ShortcutBehaviorSettingsView: View {
             SettingsSection("New windows") {
                 SettingsPicker("New pages and windows", selection: $newItemPlacement, help: newItemPlacement.detail) {
                     ForEach(NewItemPlacement.allCases, id: \.self) { Text($0.title).tag($0) }
-                } onChange: { persistRootString("new-item-placement", newItemPlacement.rawValue) }
+                } onChange: {
+                    if newItemPlacement != config.newItemPlacement {
+                        persistRootString("new-item-placement", newItemPlacement.rawValue)
+                    }
+                }
                 SettingsToggle("Unhide macOS-hidden apps", isOn: $automaticallyUnhideMacosHiddenApps, help: "Restore apps macOS has hidden when they receive focus.") { persistRootBool("automatically-unhide-macos-hidden-apps", automaticallyUnhideMacosHiddenApps) }
             }
             SettingsSection("Window pairs") {
@@ -69,6 +73,9 @@ struct ShortcutBehaviorSettingsView: View {
             }
         }
         .id(model.settingsRevision)
+        .onChange(of: model.settingsRevision) { _ in
+            newItemPlacement = config.newItemPlacement
+        }
     }
 
     private func persistRootBool(_ key: String, _ value: Bool) { persistConfig(section: nil, key: key, value: value ? "true" : "false") }
@@ -449,18 +456,7 @@ private struct SettingsSolidColorPalette: View {
 func persistSettingsConfig(section: String?, key: String, renderedValue: String, model: ShortcutSettingsModel) {
     Task { @MainActor in
         do {
-            let url = preferredEditableConfigUrl()
-            let current = (try? String(contentsOf: url, encoding: .utf8)) ?? starterConfigText()
-            let updated = updateSettingsScalarConfig(in: current, section: section, key: key, renderedValue: renderedValue)
-            let parsed = parseConfig(updated)
-            guard parsed.errors.isEmpty else {
-                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
-            }
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try updated.write(to: url, atomically: true, encoding: .utf8)
-            guard try await reloadConfig(forceConfigUrl: url) else { throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: "Saved the setting, but could not reload the config."]) }
-            model.reload()
-            WorkspaceSidebarPanel.refreshAll()
+            try await saveSettingsConfig(section: section, key: key, renderedValue: renderedValue, model: model)
         } catch { model.errorMessage = error.localizedDescription }
     }
 }

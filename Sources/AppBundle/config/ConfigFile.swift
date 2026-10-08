@@ -94,6 +94,7 @@ func starterConfigText() -> String {
         ("alt-cmd-l", "project next"),
         ("alt-shift-t", "layout floating tiling"),
         ("alt-shift-m", "fullscreen"),
+        ("alt-shift-v", "toggle-view-mode"),
         ("ctrl-0", "workspace 10"),
         ("ctrl-1", "workspace 1"),
         ("ctrl-2", "workspace 2"),

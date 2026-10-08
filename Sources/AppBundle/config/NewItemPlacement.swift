@@ -6,10 +6,12 @@ enum NewItemPlacement: String, CaseIterable, Hashable, Sendable {
     case stackNative = "stack-native"
     case floatNative = "float-native"
 
+    var toggledViewMode: Self { self == .tile ? .newView : .tile }
+
     var title: String {
         switch self {
-        case .newView: "New View"
-        case .tile: "Tile in current View"
+        case .newView: "Full view"
+        case .tile: "Tiling in current view"
         case .stackNative: "Add app windows to active stack"
         case .floatNative: "Float app windows"
         }

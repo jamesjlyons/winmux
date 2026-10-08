@@ -44,6 +44,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case summonWorkspace = "summon-workspace"
     case surface
     case swap
+    case toggleViewMode = "toggle-view-mode"
     case triggerBinding = "trigger-binding"
     case volume
     case workspace
@@ -122,6 +123,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseWorkspaceToMonitorCmdArgs)
                 // deprecated
                 result["move-workspace-to-display"] = SubCommandParser(MoveWorkspaceToMonitorCmdArgs.init)
+            case .toggleViewMode:
+                result[kind.rawValue] = SubCommandParser(ToggleViewModeCmdArgs.init)
             case .openSidebar:
                 result[kind.rawValue] = SubCommandParser(OpenSidebarCmdArgs.init)
             case .palette:

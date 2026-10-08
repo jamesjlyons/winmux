@@ -107,6 +107,7 @@ on-mode-changed = []
     alt-shift-l = 'move right'
     alt-shift-t = 'layout floating tiling'
     alt-shift-m = 'fullscreen'
+    alt-shift-v = 'toggle-view-mode'
     cmd-shift-h = 'join-with left'
     cmd-shift-j = 'join-with down'
     cmd-shift-k = 'join-with up'
