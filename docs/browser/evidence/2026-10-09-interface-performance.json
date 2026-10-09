@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-09",
+  "scope": "Layout CPU work used by window/tab opening, closing, selection, moving, resizing, and view/space switching.",
+  "changes": [
+    {
+      "file": "browser/native/Sources/WorkspaceCore/SurfaceLayout.swift",
+      "change": "Skip unused minimum-size and weight computation for explicit stacks; avoid weight-key strings when no weights exist and resolve saved weights once."
+    },
+    {
+      "file": "browser/native/Sources/WorkspaceCore/SurfaceTree.swift",
+      "change": "Use recursive membership checks rather than allocating flattened leaf arrays during selection and workspace lookup."
+    },
+    {
+      "file": "Sources/AppBundle/browser/BrowserWorkspaceController.swift",
+      "change": "Reuse browser owner resolution during minimum-size lookup, avoid match arrays, reuse the live tree for fullscreen planning, and instrument shared layout planning."
+    },
+    {
+      "file": "Sources/AppBundle/browser/SharedFullscreenLayout.swift",
+      "change": "Skip live projections when no native owner requests fullscreen; presentation reads no longer create empty native containers."
+    }
+  ],
+  "benchmark_configuration": {
+    "core": "swift test --package-path browser/native -c release --jobs 4 --skip-update",
+    "app": "swift test --scratch-path .local/browser/sidebar-native-build -c release -Xswiftc -DDEBUG --skip-update --jobs 4",
+    "samples_per_core_case": 20,
+    "units": "milliseconds"
+  },
+  "core_benchmarks": [
+    {
+      "style": "horizontal",
+      "tabs": 40,
+      "before": {
+        "median_ms": 0.153667,
+        "p95_ms": 0.154417
+      },
+      "after": {
+        "median_ms": 0.088667,
+        "p95_ms": 0.106583
+      },
+      "median_reduction_percent": 42.3
+    },
+    {
+      "style": "horizontal",
+      "tabs": 200,
+      "before": {
+        "median_ms": 0.741334,
+        "p95_ms": 0.801708
+      },
+      "after": {
+        "median_ms": 0.393667,
+        "p95_ms": 0.447916
+      },
+      "median_reduction_percent": 46.9
+    },
+    {
+      "style": "stack",
+      "tabs": 40,
+      "before": {
+        "median_ms": 0.136834,
+        "p95_ms": 0.140167
+      },
+      "after": {
+        "median_ms": 0.07725,
+        "p95_ms": 0.07975
+      },
+      "median_reduction_percent": 43.5
+    },
+    {
+      "style": "stack",
+      "tabs": 200,
+      "before": {
+        "median_ms": 0.650125,
+        "p95_ms": 0.710833
+      },
+      "after": {
+        "median_ms": 0.355208,
+        "p95_ms": 0.387791
+      },
+      "median_reduction_percent": 45.4
+    }
+  ],
+  "verification": {
+    "native_core": {
+      "tests": 235,
+      "failures": 0
+    },
+    "app_full_suite": {
+      "tests": 1187,
+      "failing_test_methods": 1,
+      "assertion_failures": 2,
+      "test": "SettingsInputTest.testLeavingFieldDoesNotApplyAndReloadPreservesDraft",
+      "note": "Settings files were already modified on entry and continued changing during the audit; none were edited by this performance pass."
+    },
+    "settings_isolated_rerun": {
+      "tests": 5,
+      "failures": 0,
+      "note": "Passed on isolated rerun after concurrent settings-source edits; the performance pass did not modify settings code."
+    },
+    "diff_whitespace_check": "passed"
+  },
+  "limitations": [
+    "Synthetic CPU timings are not measurements of rendered frame rate or end-to-end interaction latency.",
+    "No installed application was replaced."
+  ],
+  "logs": [
+    ".local/interface-perf-core-before.log",
+    ".local/interface-perf-core-after.log",
+    ".local/interface-perf-app-baseline.log",
+    ".local/interface-perf-app-after.log",
+    ".local/interface-perf-settings-recheck.log"
+  ]
+}

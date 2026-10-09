@@ -23,23 +23,23 @@ extension SurfaceTree {
         _ edit: (inout SurfaceTree) -> Bool
     ) -> SurfaceOrganizationChange? {
         var candidate = self
-        guard edit(&candidate),
-              reservations.allSatisfy({ candidate.workspace(of: $0.key) == $0.value }),
-              let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(SurfaceTree.self, from: data)) != nil else { return nil }
+        guard edit(&candidate), candidate.isValidOrganization else { return nil }
 
         let before = membershipBySurface, after = candidate.membershipBySurface
-        guard Set(before.keys) == Set(after.keys) else { return nil }
+        guard reservations.allSatisfy({ after[$0.key] == $0.value }),
+              Set(before.keys) == Set(after.keys) else { return nil }
         for name in Set(roots.keys).union(candidate.roots.keys).subtracting(workspaces) {
             guard roots[name] == candidate.roots[name],
                   (roots[name] ?? []).allSatisfy({ unchangedMetadata(for: $0, in: candidate) }) else { return nil }
         }
-        let membership = before.keys.sorted { $0.description < $1.description }.compactMap { id -> SurfaceMembershipChange? in
-            guard let source = before[id], let destination = after[id], source != destination else { return nil }
+        // Only moved owners need ordering. Formatting and sorting every surface
+        // identity made a small edit scale with all unrelated open Views.
+        let membership = before.compactMap { id, source -> SurfaceMembershipChange? in
+            guard let destination = after[id], source != destination else { return nil }
             return .init(surfaceID: id, source: source, destination: destination)
-        }
+        }.sorted { $0.surfaceID.description < $1.surfaceID.description }
         guard membership.allSatisfy({ workspaces.contains($0.source) && workspaces.contains($0.destination) }) else { return nil }
-        if let selected, candidate.workspace(of: selected).map(workspaces.contains) == true { candidate.select(selected) }
+        if let selected, after[selected].map(workspaces.contains) == true { candidate.select(selected) }
         return .init(tree: candidate, workspaces: workspaces, membership: membership)
     }
 

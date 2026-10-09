@@ -31,6 +31,15 @@ public indirect enum SurfaceTreeNode: Equatable, Codable, Sendable {
         case .group(_, let children): children.flatMap(\.surfaces)
         }
     }
+
+    /// Membership checks on selection/layout paths must not allocate a flattened
+    /// copy of every descendant merely to look for one identity.
+    func contains(_ surface: SurfaceID) -> Bool {
+        switch self {
+        case .surface(let id): id == surface
+        case .group(_, let children): children.contains { $0.contains(surface) }
+        }
+    }
 }
 
 public struct SurfaceTree: Equatable, Codable, Sendable {
@@ -42,7 +51,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
 
     public func outermostGroup(containing surface: SurfaceID) -> UUID? {
         for node in roots.values.flatMap({ $0 }) {
-            if case .group(let id, _) = node, node.surfaces.contains(surface) { return id }
+            if case .group(let id, _) = node, node.contains(surface) { return id }
         }
         return nil
     }
@@ -75,26 +84,7 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         layouts = try c.decode([UUID: SurfaceContainerLayout].self, forKey: .layouts)
         activeSurfaces = try c.decode([UUID: SurfaceID].self, forKey: .activeSurfaces)
         weights = try c.decodeIfPresent([String: Double].self, forKey: .weights) ?? [:]
-        guard weights.count <= 20000, weights.values.allSatisfy({ $0.isFinite && (1...30000).contains($0) }) else { throw SurfaceSnapshotError.invalidTree }
-        guard roots.count <= 1024, roots.keys.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 4096 }) else { throw SurfaceSnapshotError.invalidTree }
-        var surfaces: Set<SurfaceID> = [], groups: Set<UUID> = []
-        func validate(_ nodes: [SurfaceTreeNode], depth: Int) throws {
-            guard depth <= 32 else { throw SurfaceSnapshotError.invalidTree }
-            for node in nodes {
-                switch node {
-                case .surface(let id):
-                    guard surfaces.insert(id).inserted, surfaces.count <= 10000 else { throw SurfaceSnapshotError.invalidTree }
-                case .group(let id, let children):
-                    guard groups.insert(id).inserted, groups.count <= 10000, children.count >= 2,
-                          activeSurfaces[id].map({ node.surfaces.contains($0) }) ?? true else { throw SurfaceSnapshotError.invalidTree }
-                    try validate(children, depth: depth + 1)
-                }
-            }
-        }
-        try validate(roots.values.flatMap { $0 }, depth: 0)
-        let weightKeys = Set(roots.values.flatMap { $0 }.flatMap(\.allWeightKeys))
-        guard Set(weights.keys).isSubset(of: weightKeys) else { throw SurfaceSnapshotError.invalidTree }
-        guard Set(layouts.keys).isSubset(of: groups), Set(activeSurfaces.keys).isSubset(of: groups) else { throw SurfaceSnapshotError.invalidTree }
+        try validateOrganization()
     }
 
     public mutating func setWeights(_ values: [String: Double]) {
@@ -106,16 +96,16 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
 
     public mutating func select(_ id: SurfaceID) {
         func visit(_ node: SurfaceTreeNode) {
-            if case .group(let group, let children) = node, node.surfaces.contains(id) {
+            if case .group(let group, let children) = node, node.contains(id) {
                 activeSurfaces[group] = id
                 children.forEach(visit)
             }
         }
-        roots.values.flatMap { $0 }.forEach(visit)
+        for nodes in roots.values { nodes.forEach(visit) }
     }
 
     public func workspace(of id: SurfaceID) -> String? {
-        roots.first { $0.value.flatMap(\.surfaces).contains(id) }?.key
+        roots.first { $0.value.contains { $0.contains(id) } }?.key
     }
 
     public func group(_ target: UUID) -> SurfaceTreeNode? {
@@ -197,11 +187,6 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         return true
     }
 
-    private var isValidOrganization: Bool {
-        guard let data = try? JSONEncoder().encode(self) else { return false }
-        return (try? JSONDecoder().decode(Self.self, from: data)) != nil
-    }
-
     public func containingGroup(of target: SurfaceID) -> UUID? {
         func find(_ nodes: [SurfaceTreeNode]) -> UUID? {
             for node in nodes {
@@ -247,17 +232,27 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
         let allowed = Set(ids).union(retaining)
         let nodes = retainingNodes(roots[workspace] ?? [], keeping: allowed)
         var present = Set(nodes.flatMap(\.surfaces))
-        let arrivals = ids.filter { !present.contains($0) }
+        let arrivals = ids.filter { present.insert($0).inserted }
         // Sidebar refreshes reconcile every view even when only its title or
         // focus changed. Avoid scanning all other views and pruning the entire
         // tree's metadata when this workspace's membership is already correct.
         if roots[workspace] == nodes, arrivals.isEmpty { return }
         roots[workspace] = nodes
-        for id in arrivals where present.insert(id).inserted {
-            remove(id)
-            roots[workspace, default: []].append(.surface(id))
+        if !arrivals.isEmpty {
+            let moving = Set(arrivals)
+            // Transfer all arrivals in one pass. Removing each separately used
+            // to rebuild and prune every workspace once per arriving surface.
+            for name in Array(roots.keys) where name != workspace {
+                let existing = roots[name] ?? []
+                let members = Set(existing.flatMap(\.surfaces))
+                guard !members.isDisjoint(with: moving) else { continue }
+                roots[name] = retainingNodes(existing, keeping: members.subtracting(moving))
+            }
         }
+        // Prune before appending so transferred leaves lose their old allocation,
+        // just as individual remove-then-append operations did.
         pruneMetadata()
+        roots[workspace, default: []].append(contentsOf: arrivals.map(SurfaceTreeNode.surface))
     }
 
     public mutating func removeWorkspace(_ name: String) {
@@ -276,6 +271,9 @@ public struct SurfaceTree: Equatable, Codable, Sendable {
     /// Keep surviving members' projected resize weights; the saved container
     /// keeps its own allocation for when its reserved owners return.
     public func projecting(in workspace: String, excluding ids: Set<SurfaceID>) -> SurfaceTree {
+        if let nodes = roots[workspace], ids.isEmpty || nodes.allSatisfy({ Set($0.surfaces).isDisjoint(with: ids) }) {
+            return self
+        }
         var projected = self
         let nodes = roots[workspace] ?? []
         projected.roots[workspace] = projected.retainingNodes(nodes, keeping: Set(nodes.flatMap(\.surfaces)).subtracting(ids),

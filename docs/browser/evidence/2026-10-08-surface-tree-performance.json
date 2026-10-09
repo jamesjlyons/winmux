@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-08",
+  "baselineCommit": "13b2f688a04dd48e3ec5263a27bedb53bae98ff7",
+  "baselineNote": "Includes the checkout's pre-existing uncommitted changes. Before measurements were taken before this optimization pass.",
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "architecture": "arm64",
+    "swift": "Apple Swift 6.4.0.34.1",
+    "configuration": "release",
+    "jobs": 4
+  },
+  "methodology": {
+    "warmups": 1,
+    "timedSamples": 10,
+    "median": "Sorted sample at index count / 2 (upper middle)",
+    "p95": "Nearest rank (largest of ten samples)",
+    "timingIncludes": "Model operations and identical correctness assertions; excludes fixture creation and compilation.",
+    "fixture": "Each View contains a horizontal group of three browser surfaces, selected member, and group/leaf weights.",
+    "workloads": {
+      "projection_and_layout": "Project all Views with no excluded surfaces and compute all layouts in a 1200x800 frame.",
+      "bulk_arrival": "Reconcile viewCount new native surfaces into a new View alongside the existing browser Views.",
+      "organization_edit": "Prepare a validated move of one three-surface group into another View, including owner effects and selection."
+    },
+    "limitations": [
+      "Synthetic model timings, not end-to-end interaction or display latency.",
+      "No installed-app restart, live-browser validation, or memory/battery measurements.",
+      "Final release run started after the app build and test suite finished."
+    ]
+  },
+  "changes": [
+    "Reuse the unchanged tree for layout projections with no matching exclusions.",
+    "Transfer arrivals together and prune metadata once before appending them in owner order.",
+    "Share direct structural validation between decoding and live edits, removing JSON round trips.",
+    "Reuse membership maps for reservations and selection, sorting only changed owner effects."
+  ],
+  "results": [
+    {
+      "workload": "bulk_arrival",
+      "viewCount": 50,
+      "before": {
+        "medianMs": 16.822,
+        "p95Ms": 17.098375
+      },
+      "after": {
+        "medianMs": 0.29975,
+        "p95Ms": 0.314708
+      },
+      "medianSpeedup": 56.12
+    },
+    {
+      "workload": "bulk_arrival",
+      "viewCount": 200,
+      "before": {
+        "medianMs": 265.307292,
+        "p95Ms": 266.922333
+      },
+      "after": {
+        "medianMs": 1.201208,
+        "p95Ms": 1.305
+      },
+      "medianSpeedup": 220.87
+    },
+    {
+      "workload": "projection_and_layout",
+      "viewCount": 50,
+      "before": {
+        "medianMs": 10.845292,
+        "p95Ms": 10.902541
+      },
+      "after": {
+        "medianMs": 0.438,
+        "p95Ms": 0.458125
+      },
+      "medianSpeedup": 24.76
+    },
+    {
+      "workload": "projection_and_layout",
+      "viewCount": 200,
+      "before": {
+        "medianMs": 167.267375,
+        "p95Ms": 167.841041
+      },
+      "after": {
+        "medianMs": 1.776,
+        "p95Ms": 2.039542
+      },
+      "medianSpeedup": 94.18
+    },
+    {
+      "workload": "organization_edit",
+      "viewCount": 50,
+      "before": {
+        "medianMs": 6.773541,
+        "p95Ms": 7.182708
+      },
+      "after": {
+        "medianMs": 1.130125,
+        "p95Ms": 1.205292
+      },
+      "medianSpeedup": 5.99
+    },
+    {
+      "workload": "organization_edit",
+      "viewCount": 200,
+      "before": {
+        "medianMs": 28.233083,
+        "p95Ms": 28.72275
+      },
+      "after": {
+        "medianMs": 4.526125,
+        "p95Ms": 4.628792
+      },
+      "medianSpeedup": 6.24
+    }
+  ],
+  "validation": {
+    "app": {
+      "configuration": "release with DEBUG",
+      "tests": 1164,
+      "failures": 0
+    },
+    "nativeDebug": {
+      "coreTests": 208,
+      "bridgeTests": 26,
+      "failures": 0
+    },
+    "nativeRelease": {
+      "coreTests": 208,
+      "bridgeTests": 26,
+      "failures": 0
+    },
+    "addedTests": 10,
+    "diffWhitespace": "passed",
+    "dependencyLockfile": "unchanged",
+    "installedApp": "not replaced"
+  },
+  "reproduce": {
+    "native": "swift test --package-path browser/native -c release --jobs 4 --filter SurfaceTreePerformanceTests",
+    "app": "swift test --scratch-path .local/browser/sidebar-native-build -c release -Xswiftc -DDEBUG --skip-update --jobs 4"
+  },
+  "logs": {
+    "before": ".local/surface-tree-before.log",
+    "nativeDebug": ".local/surface-tree-after-debug.log",
+    "nativeRelease": ".local/surface-tree-after-release.log",
+    "app": ".local/surface-tree-app-tests.log"
+  }
+}

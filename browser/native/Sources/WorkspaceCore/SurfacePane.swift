@@ -257,8 +257,7 @@ extension SurfaceTree {
     private mutating func finishPaneEdit(_ proposed: SurfaceTree) -> Bool {
         var candidate = proposed
         candidate.pruneMetadata()
-        guard let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(Self.self, from: data)) != nil else { return false }
+        guard candidate.isValidOrganization else { return false }
         self = candidate
         return true
     }

@@ -20,8 +20,7 @@ extension SurfaceTree {
         candidate.activeSurfaces.merge(newSelections) { _, new in new }
         candidate.weights.merge(newWeights) { _, new in new }
         candidate.pruneMetadata()
-        guard let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(Self.self, from: data)) != nil,
+        guard candidate.isValidOrganization,
               candidate.roots.values.flatMap({ $0.flatMap(\.surfaces) }).count == original.count else { return false }
         self = candidate
         return true

@@ -180,15 +180,17 @@ extension SurfaceTree {
                   layout: SurfaceContainerLayout, container: UUID?, inheritedStack: [SurfaceID],
                   rootSelection: SurfaceID? = nil) -> [SurfacePlacement] {
             guard !nodes.isEmpty else { return [] }
-            let sizes = nodes.map(minimum)
-            let fits = layout == .horizontal
+            // Explicit stacks give every child the same frame. Measuring all
+            // of their hidden descendants cannot change that allocation.
+            let sizes = layout == .stack ? [] : nodes.map(minimum)
+            let fits = layout == .stack || (layout == .horizontal
                 ? sizes.reduce(0, { $0 + $1.width }) + gaps.horizontal * (nodes.count - 1) <= frame.width && sizes.allSatisfy { $0.height <= frame.height }
-                : sizes.reduce(0, { $0 + $1.height }) + gaps.vertical * (nodes.count - 1) <= frame.height && sizes.allSatisfy { $0.width <= frame.width }
+                : sizes.reduce(0, { $0 + $1.height }) + gaps.vertical * (nodes.count - 1) <= frame.height && sizes.allSatisfy { $0.width <= frame.width })
             let effective = layout != .stack && !fits ? SurfaceContainerLayout.stack : layout
             let navigationStack = effective == .stack && nodes.count > 1 ? nodes.flatMap(\.surfaces) : inheritedStack
-            let active = (rootSelection ?? selectedSurface).flatMap { id in nodes.contains { $0.surfaces.contains(id) } ? id : nil }
+            let active = (rootSelection ?? selectedSurface).flatMap { id in nodes.contains { $0.contains(id) } ? id : nil }
                 ?? container.flatMap { activeSurfaces[$0] }
-            let selected = nodes.firstIndex { active.map($0.surfaces.contains) ?? false } ?? 0
+            let selected = nodes.firstIndex { active.map($0.contains) ?? false } ?? 0
             var frame = frame
             if layout == .stack, let container, nodes.count > 1, stackChrome.headerHeight > 0, frame.height > 1 {
                 let header = min(stackChrome.headerHeight, frame.height - 1)
@@ -203,10 +205,21 @@ extension SurfaceTree {
             // New pages/groups inherit a typical sibling weight. Stored values
             // are physical allocations from a resize, so defaulting a new leaf
             // to 1 would collapse it to its minimum beside resized siblings.
-            let existingWeights = nodes.compactMap { weights[$0.weightKey] }
-            let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
             let gap = effective == .horizontal ? gaps.horizontal : gaps.vertical
-            let spans = effective == .stack ? [] : lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, weights: nodes.map { weights[$0.weightKey] ?? defaultWeight }, total: (effective == .horizontal ? frame.width : frame.height) - gap * (nodes.count - 1))
+            let spans: [Int]
+            if effective == .stack {
+                spans = []
+            } else {
+                // Stack weights are unused. Unresized splits also need no UUID
+                // string keys; resolve each saved sibling weight at most once.
+                let savedWeights: [Double?] = weights.isEmpty ? [] : nodes.map { weights[$0.weightKey] }
+                let existingWeights = savedWeights.compactMap { $0 }
+                let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
+                let resolvedWeights = savedWeights.isEmpty ? Array(repeating: 1.0, count: nodes.count)
+                    : savedWeights.map { $0 ?? defaultWeight }
+                spans = lengths(sizes.map { effective == .horizontal ? $0.width : $0.height }, weights: resolvedWeights,
+                    total: (effective == .horizontal ? frame.width : frame.height) - gap * (nodes.count - 1))
+            }
             var offset = 0
             return nodes.enumerated().flatMap { index, node -> [SurfacePlacement] in
                 var rect = frame
@@ -231,8 +244,8 @@ extension SurfaceTree {
         }
         let nodes = roots[workspace] ?? []
         if rootPresentation == .selectedRoot {
-            let selected = selectedSurface.flatMap { id in nodes.firstIndex { $0.surfaces.contains(id) } }
-                ?? recentSelections.lazy.compactMap { id in nodes.firstIndex { $0.surfaces.contains(id) } }.first ?? 0
+            let selected = selectedSurface.flatMap { id in nodes.firstIndex { $0.contains(id) } }
+                ?? recentSelections.lazy.compactMap { id in nodes.firstIndex { $0.contains(id) } }.first ?? 0
             // Keep hidden placements in the plan so owners receive explicit hide
             // requests. A view switch is not a synthetic stack or saved edit.
             return finish(nodes.enumerated().flatMap { index, node in
@@ -264,8 +277,8 @@ extension SurfaceTree {
             // Overflow stays in ordered, independently navigable stacks. Passing
             // the current selection through walk keeps its owner visible while
             // preserving each saved nested split or stack inside the cell.
-            let cellSelection = selectedSurface.flatMap { id in members.contains { $0.surfaces.contains(id) } ? id : nil }
-                ?? (members.count > 1 ? recentSelections.first { id in members.contains { $0.surfaces.contains(id) } } : nil)
+            let cellSelection = selectedSurface.flatMap { id in members.contains { $0.contains(id) } ? id : nil }
+                ?? (members.count > 1 ? recentSelections.first { id in members.contains { $0.contains(id) } } : nil)
             return walk(members, frame: rect, visible: visible,
                         layout: .stack, container: nil, inheritedStack: [], rootSelection: cellSelection)
         })
@@ -287,9 +300,11 @@ private func adaptiveRootGrid(nodes: [SurfaceTreeNode], sizes: [SurfaceMinimumSi
     let columnLimit = min(count, (frame.width + gaps.horizontal) / ((sizes.map(\.width).min() ?? 1) + gaps.horizontal))
     let rowLimit = min(count, (frame.height + gaps.vertical) / ((sizes.map(\.height).min() ?? 1) + gaps.vertical))
     guard columnLimit > 0, rowLimit > 0 else { return nil }
-    let existingWeights = nodes.compactMap { weights[$0.weightKey] }
+    let savedWeights: [Double?] = weights.isEmpty ? [] : nodes.map { weights[$0.weightKey] }
+    let existingWeights = savedWeights.compactMap { $0 }
     let defaultWeight = existingWeights.isEmpty ? 1 : existingWeights.reduce(0, +) / Double(existingWeights.count)
-    let nodeWeights = nodes.map { weights[$0.weightKey] ?? defaultWeight }
+    let nodeWeights = savedWeights.isEmpty ? Array(repeating: 1.0, count: nodes.count)
+        : savedWeights.map { $0 ?? defaultWeight }
 
     func axisCounts(_ limit: Int) -> [Int] {
         if count <= 128 || limit <= 16 { return Array(1...limit) }

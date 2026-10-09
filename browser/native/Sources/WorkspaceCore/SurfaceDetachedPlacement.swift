@@ -34,8 +34,7 @@ extension SurfaceTree {
         candidate.weights.merge(saved.original.weights) { _, saved in saved }
         candidate.activeSurfaces.merge(saved.original.activeSurfaces) { current, _ in current }
         candidate.pruneMetadata()
-        guard let data = try? JSONEncoder().encode(candidate),
-              (try? JSONDecoder().decode(Self.self, from: data)) != nil else { return false }
+        guard candidate.isValidOrganization else { return false }
         self = candidate
         return true
     }
