@@ -222,6 +222,11 @@ def package(args, identity, team, source):
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
     native_build = ROOT / ".local/browser/sidebar-native-build"
+    native_sources = sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
+                            | set((ROOT / "Sources/Common").rglob("*.swift")))
+    native_hashes = {str(p.relative_to(ROOT)): sha256(p) for p in native_sources}
+    native_package_hash = sha256(ROOT / "Package.swift")
+    default_config_hash = sha256(ROOT / "resources/default-config.toml")
     chromium.run("swift", "build", "--package-path", str(ROOT), "-c", "release",
                  "--product", "WinMuxWorkspaceHelper", "--jobs", "4", "--scratch-path", str(native_build))
     helper_app = app / "Contents/Helpers/WinMux Workspace.app"
@@ -295,13 +300,21 @@ def package(args, identity, team, source):
     asyncio.run(parts.sign_chrome(paths, config, sign_framework=True))
     verify_identity(app, APP_ID, team, developer_id)
     verify_identity(helper, HELPER_ID, team, developer_id)
+    # Run the shipped parser against the shipped file. Transport-only browser
+    # smoke tests do not start native management or load this configuration.
+    subprocess.run([str(helper), "--validate-bundled-config"], check=True, timeout=30)
+    if (native_hashes != {str(p.relative_to(ROOT)): sha256(p) for p in
+                         sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
+                                | set((ROOT / "Sources/Common").rglob("*.swift")))}
+            or native_package_hash != sha256(ROOT / "Package.swift")
+            or default_config_hash != sha256(ROOT / "resources/default-config.toml")
+            or default_config_hash != sha256(helper_app / "Contents/Resources/default-config.toml")):
+        raise RuntimeError("Native sources or default configuration changed during packaging; rebuild from a stable snapshot")
     report.update(verified=True, developer_id_verified=developer_id, app=str(app), helper_sha256=sha256(helper), helper_relative_path=helper_relative,
                   browser_executable_sha256=sha256(app / "Contents/MacOS/Chromium"),
-                  native_sources_sha256={str(p.relative_to(ROOT)): sha256(p)
-                    for p in sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
-                                    | set((ROOT / "Sources/Common").rglob("*.swift")))},
-                  native_package_sha256=sha256(ROOT / "Package.swift"),
-                  default_config_sha256=sha256(ROOT / "resources/default-config.toml"),
+                  native_sources_sha256=native_hashes,
+                  native_package_sha256=native_package_hash,
+                  default_config_sha256=default_config_hash, bundled_config_validated=True,
                   package_tool_sha256=sha256(Path(__file__)),
                   app_icon_source_sha256=sha256(icon_source),
                   app_icon_sha256=sha256(app / "Contents/Resources/app.icns"))

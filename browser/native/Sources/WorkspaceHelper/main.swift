@@ -1097,6 +1097,11 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
 
 do {
 #if canImport(AppBundle)
+    if CommandLine.arguments == [CommandLine.arguments[0], "--validate-bundled-config"] {
+        try validateBundledDefaultConfig()
+        print("Bundled default configuration is valid.")
+        exit(0)
+    }
     if CommandLine.arguments.dropFirst().first == "--workspace-setup" {
         let args = CommandLine.arguments
         let openWorkspace = args.count == 3 && args[2] == "--open-workspace"
@@ -1171,7 +1176,6 @@ do {
         let application = BrowserWorkspaceApplication.shared
         application.setActivationPolicy(.accessory)
         if let nativeState {
-            application.delegate = appDelegate
             let scopedPID = nativeProcessID
             let request = activation
             Task { @MainActor in
@@ -1181,6 +1185,8 @@ do {
                             phase: AXIsProcessTrusted() ? "starting" : "needs_accessibility",
                             helperPID: getpid(), helperLaunch: processLaunchDate(getpid())))
                     }
+                    try validateBundledDefaultConfig()
+                    application.delegate = appDelegate
                     try await startBrowserNativeManagement(stateDirectory: nativeState, nativeProcessID: scopedPID,
                         expectedProcessLaunch: request?.nativeProcessLaunch, workspaceShortcuts: request != nil,
                         viewsTrial: WorkspaceActivationStore.usesWorkspaceViews)
