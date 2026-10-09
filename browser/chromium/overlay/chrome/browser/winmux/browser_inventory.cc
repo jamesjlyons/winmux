@@ -2,6 +2,7 @@
 #include "chrome/browser/winmux/page_lifetime.h"
 #include "chrome/browser/winmux/privacy_settings.h"
 #include "chrome/browser/winmux/prepared_browser_window.h"
+#include "chrome/browser/winmux/sidebar_favicon.h"
 #include "chrome/browser/winmux/tab_creation_trace.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 
@@ -54,6 +55,7 @@
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "components/download/content/public/all_download_item_notifier.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/download_manager.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -86,8 +88,9 @@ namespace {
 class TabNavigationObserver final : public content::WebContentsObserver,
                                     public favicon::FaviconDriverObserver {
  public:
-  TabNavigationObserver(content::WebContents* contents, base::RepeatingClosure changed)
-      : content::WebContentsObserver(contents), changed_(std::move(changed)) {
+  TabNavigationObserver(content::WebContents* contents, base::RepeatingClosure changed,
+                        base::RepeatingCallback<void(content::WebContents*, content::WebContents*)> opened)
+      : content::WebContentsObserver(contents), changed_(std::move(changed)), opened_(std::move(opened)) {
     if (auto* driver = favicon::ContentFaviconDriver::FromWebContents(contents)) {
       favicon_observation_.Observe(driver);
       SetURL(contents->GetVisibleURL());
@@ -112,6 +115,11 @@ class TabNavigationObserver final : public content::WebContentsObserver,
     if (has_icon || live_icon_received_) SetIcon(has_icon ? image : gfx::Image());
     live_icon_received_ = has_icon;
     changed_.Run();
+  }
+  void DidOpenRequestedURL(content::WebContents* new_contents,
+                           content::RenderFrameHost*, const GURL&, const content::Referrer&,
+                           WindowOpenDisposition, ui::PageTransition, bool, bool) override {
+    opened_.Run(new_contents, web_contents());
   }
   void DidStartNavigation(content::NavigationHandle* handle) override {
     if (handle->IsInPrimaryMainFrame()) {
@@ -152,11 +160,7 @@ class TabNavigationObserver final : public content::WebContentsObserver,
     // encoded bytes and image storage so those repeats do no encoding work.
     if (cached_icon_image_ && *cached_icon_image_ == image) return;
     cached_icon_image_ = image;
-    encoded_icon_.clear();
-    if (image.IsEmpty()) return;
-    auto png = image.As1xPNGBytes();
-    if (png && png->size() > 0 && png->size() <= 98304)
-      encoded_icon_ = base::Base64Encode(base::span(*png));
+    encoded_icon_ = EncodeSidebarFavicon(image);
   }
   void SetURL(const GURL& url) {
     if (url_ == url) return;
@@ -172,8 +176,9 @@ class TabNavigationObserver final : public content::WebContentsObserver,
     if (!profile || !profile->IsRegularProfile() || !url.SchemeIsHTTPOrHTTPS()) return;
     auto* service = FaviconServiceFactory::GetForProfile(profile, ServiceAccessType::EXPLICIT_ACCESS);
     if (!service) return;
+    // Match the 2x representation used by the live driver on Retina displays.
     service->GetRawFaviconForPageURL(url, {favicon_base::IconType::kFavicon},
-        16, false, base::BindOnce(
+        32, false, base::BindOnce(
             [](base::WeakPtr<TabNavigationObserver> owner, uint64_t generation,
                const favicon_base::FaviconRawBitmapResult& result) {
               if (!owner) return;
@@ -201,6 +206,7 @@ class TabNavigationObserver final : public content::WebContentsObserver,
   base::CancelableTaskTracker favicon_tasks_;
   base::ScopedObservation<favicon::FaviconDriver, favicon::FaviconDriverObserver> favicon_observation_{this};
   base::RepeatingClosure changed_;
+  base::RepeatingCallback<void(content::WebContents*, content::WebContents*)> opened_;
   base::WeakPtrFactory<TabNavigationObserver> weak_factory_{this};
 };
 
@@ -690,8 +696,18 @@ class BrowserInventory final : public BrowserCollectionObserver,
     Schedule();
   }
   void OnBrowserDeactivated(BrowserWindowInterface* browser) override { Schedule(); }
-  void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
-                              const TabStripSelectionChange&) override { Schedule(); }
+  void OnTabStripModelChanged(TabStripModel* strip, const TabStripModelChange& change,
+                              const TabStripSelectionChange&) override {
+    if (change.type() == TabStripModelChange::kInserted) {
+      for (const auto& inserted : change.GetInsert()->contents) {
+        const int index = strip->GetIndexOfWebContents(inserted.contents);
+        if (index < 0) continue;
+        if (auto* opener = strip->GetOpenerOfTabAt(index))
+          RememberOpener(inserted.contents, opener->GetContents());
+      }
+    }
+    Schedule();
+  }
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Schedule(); }
   void OnTabStripModelDestroyed(TabStripModel* strip) override {
     Schedule();
@@ -717,6 +733,17 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return true;
     });
     return ambiguous ? nullptr : found;
+  }
+
+  void RememberOpener(content::WebContents* child, content::WebContents* opener) {
+    if (!child || !opener || child == opener ||
+        child->GetBrowserContext() != opener->GetBrowserContext()) return;
+    auto id = PersistentSurfaceID(child), parent = PersistentSurfaceID(opener);
+    if (id.empty() || parent.empty()) return;
+    // Keep the creation relationship when layout detaches the page into a host
+    // or Chromium resets its temporary tab-strip opener on later navigation.
+    tab_openers_.try_emplace(id, parent);
+    Schedule();
   }
 
   struct PendingCreation {
@@ -889,7 +916,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
     auto& observer = navigation_observers_[PersistentSurfaceID(contents)];
     if (!observer || observer->web_contents() != contents) {
       observer = std::make_unique<TabNavigationObserver>(contents,
-          base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+          base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()),
+          base::BindRepeating(&BrowserInventory::RememberOpener, weak_factory_.GetWeakPtr()));
     }
     return observer.get();
   }
@@ -934,6 +962,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
         auto* observer = ObserveTab(contents);
         base::DictValue record;
         record.Set("surface_id", id);
+        if (auto opener = tab_openers_.find(id); opener != tab_openers_.end())
+          record.Set("opener_surface_id", opener->second);
         record.Set("is_shared_profile", !browser->GetProfile()->IsOffTheRecord() && browser->GetProfile()->GetPath() ==
             g_browser_process->profile_manager()->user_data_dir().Append(
                 ProfileManager::GetInitialProfileDir()));
@@ -984,6 +1014,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
       return true;
     });
     std::erase_if(navigation_observers_, [&](const auto& item) { return !observed.contains(item.first); });
+    std::erase_if(tab_openers_, [&](const auto& item) { return !observed.contains(item.first); });
     std::erase_if(toolbar_observers_, [&](const auto& item) { return !observed_profiles.contains(item.first); });
     std::erase_if(host_observers_, [&](const auto& item) { return !observed_hosts.contains(item.first); });
     base::ListValue changed, removed;
@@ -1023,6 +1054,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
   uint64_t highest_layout_ = 0;
   std::string epoch_;
   std::map<std::string, base::DictValue> records_;
+  std::map<std::string, std::string> tab_openers_;
   std::map<std::string, std::unique_ptr<TabNavigationObserver>> navigation_observers_;
   std::map<int, std::unique_ptr<BrowserHostWindowObserver>> host_observers_;
   std::map<Profile*, std::unique_ptr<ProfileToolbarObserver>> toolbar_observers_;

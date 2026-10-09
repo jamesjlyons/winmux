@@ -12,7 +12,11 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/views/frame/browser_frame_view.h"
+#include "chrome/browser/ui/views/frame/browser_native_widget_mac.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/browser_widget.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "ui/base/base_window.h"
 #include "ui/gfx/native_ui_types.h"
@@ -108,7 +112,13 @@ void SetHostToolbar(BrowserWindowInterface* browser, bool integrated) {
   view->SetProperty(kIntegratedToolbar, integrated);
   if (integrated) view->SetProperty(kManagedPageMenu, CreateManagedPageMenu(browser));
   else view->ClearProperty(kManagedPageMenu);
+  view->toolbar()->InvalidateLayout();
   view->InvalidateLayout();
+  // Hiding the tab strip changes the titlebar height. Refresh AppKit's cached
+  // traffic-light placement even when adoption leaves the native frame intact.
+  view->browser_widget()->GetFrameView()->OnTabStripStateChanged();
+  static_cast<BrowserNativeWidgetMac*>(
+      view->browser_widget()->browser_native_widget())->RefreshGlassFrameForToolbar();
 }
 
 void FinishFullscreenTransition(base::WeakPtr<BrowserWindowInterface> browser) {

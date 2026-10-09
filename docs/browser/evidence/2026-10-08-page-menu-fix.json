@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-08",
+  "scope": "Integrated page overflow menu crash and desktop native-host discovery",
+  "root_cause": "Managed page command IDs 59001\u201359003 overlapped Chromium\u2019s interleaved unbounded menu range starting at 57344. Site Blocking (59002) was routed to the uninitialized saved-tab-group handler while constructing the menu.",
+  "fix": {
+    "page_command_ids": [
+      56001,
+      56002,
+      56003
+    ],
+    "compile_time_range_guard": true,
+    "native_host_patch": "0026-chatgpt-native-messaging.patch"
+  },
+  "baseline": {
+    "menu_browser_exit_code": -11,
+    "menu_signal": "SIGSEGV",
+    "chatgpt_host_error": "Specified native messaging host not found."
+  },
+  "validation": {
+    "signed_package_verified": true,
+    "menu": {
+      "passed": true,
+      "scope": "signed_browser_native_page_menu",
+      "cases": [
+        {
+          "layout": "standalone",
+          "exit_code": 0,
+          "stdout": "Managed page menu opens; both toggles restore; Privacy Settings opens and cancels\n",
+          "stderr": ""
+        },
+        {
+          "layout": "stack",
+          "exit_code": 0,
+          "stdout": "Managed page menu opens; both toggles restore; Privacy Settings opens and cancels\n",
+          "stderr": ""
+        },
+        {
+          "layout": "split",
+          "exit_code": 0,
+          "stdout": "Managed page menu opens; both toggles restore; Privacy Settings opens and cancels\n",
+          "stderr": ""
+        },
+        {
+          "layout": "release",
+          "exit_code": 0,
+          "stdout": "Released browser menu opens without managed page commands\n",
+          "stderr": ""
+        },
+        {
+          "layout": "standalone",
+          "exit_code": 0,
+          "stdout": "Managed page menu opens; both toggles restore; Privacy Settings opens and cancels\n",
+          "stderr": ""
+        }
+      ],
+      "package_manifest_sha256": "01c8aa84ed2d99300428cadfe225b49eb05375b4e257ee282825bfdda82fc05d",
+      "fixture_sha256": "aeb7105de6d77b55334115eb7722d6ad736439764bcb7d35077394ccdf13f235",
+      "probe_sha256": "bb591aa224e21d24f48810a154a882c0bd3f303168cd4a55810798c673b305c8",
+      "browser_exit_code": 0,
+      "test_service_removed": true
+    },
+    "chatgpt_host_discovery": {
+      "passed": true,
+      "observations": [
+        {
+          "id": "boapfmhgaccedbpjbgnmeeeljmkmccnm",
+          "error": "Access to the specified native messaging host is forbidden."
+        }
+      ],
+      "existing_helper_unchanged": true,
+      "registration_unchanged": true,
+      "browser_exit_code": 0
+    },
+    "onepassword_host_discovery": {
+      "passed": true,
+      "existing_helper_unchanged": true,
+      "registration_unchanged": true,
+      "browser_exit_code": 0
+    },
+    "native_messaging_unit_tests": 16,
+    "native_messaging_unit_failures": 0,
+    "alpha_build_safety_tests_passed": 8,
+    "archive_crc_verified": true
+  },
+  "artifacts": {
+    "app": "/Users/james/Documents/Codex/winmux/.local/page-menu-fix/package/WinMux Browser Alpha.app",
+    "archive": "/Users/james/Documents/Codex/winmux/.local/page-menu-fix/WinMux-Browser-Alpha-Menu-Fix-2026-10-08-arm64.zip",
+    "archive_sha256": "c38fc614dd29903664eab6317581d84e1adbec2a92b933b0aa461507420123c7"
+  },
+  "running_browser_replaced": true,
+  "limits": [
+    "ChatGPT end-to-end desktop connection has not been verified. Neither extension ID authorized by the installed native-host manifest is present in the active WinMux profile; the disposable test verifies connector discovery and origin rejection."
+  ],
+  "restart": {
+    "ready": true,
+    "old_browser_pid": 97478,
+    "old_helper_pid": 97472,
+    "helper_pid": 6510,
+    "running_app": "/Users/james/Documents/Codex/winmux/.local/page-menu-fix/package/WinMux Browser Alpha.app",
+    "browser_surfaces_before": 1,
+    "browser_surfaces_after": 1,
+    "restored_browser_ids": 1,
+    "missing_browser_ids": [],
+    "browser_pid": 6517,
+    "chatgpt_extension_present_in_active_profile": false
+  }
+}

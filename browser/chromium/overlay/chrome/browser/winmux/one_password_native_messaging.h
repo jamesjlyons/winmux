@@ -9,7 +9,8 @@ namespace winmux {
 
 // Called on Chromium's native-messaging blocking runner, before its normal
 // manifest validation and process launch. Never changes an explicit registration.
-base::FilePath WithOnePasswordManifestFallback(
+// Only discovers installed 1Password and ChatGPT registrations.
+base::FilePath WithDesktopAppManifestFallback(
     const base::FilePath& standard_manifest,
     const std::string& host_name,
     bool allow_user_level_hosts,

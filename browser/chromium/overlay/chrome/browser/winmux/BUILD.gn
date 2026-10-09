@@ -67,6 +67,7 @@ source_set("tab_identity") {
 
 source_set("workspace_bridge") {
   sources = [
+    "sidebar_favicon.h",
     "page_menu.h",
     "page_menu.mm",
     "filter_updates.cc",
@@ -141,6 +142,7 @@ source_set("workspace_bridge") {
     "//mojo/public/cpp/bindings",
     "//ui/base",
     "//ui/gfx",
+    "//ui/gfx/codec",
     "//ui/menus",
     "//url",
   ]
@@ -149,5 +151,22 @@ source_set("workspace_bridge") {
     "Foundation.framework",
     "Security.framework",
     "ServiceManagement.framework",
+  ]
+}
+
+test("sidebar_favicon_unittests") {
+  sources = [
+    "sidebar_favicon.h",
+    "sidebar_favicon_unittest.cc",
+  ]
+  deps = [
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//skia",
+    "//testing/gtest",
+    "//ui/base:ui_data_pack",
+    "//ui/gfx",
+    "//ui/gfx/codec",
   ]
 }

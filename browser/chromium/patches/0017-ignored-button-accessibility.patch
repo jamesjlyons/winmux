@@ -1,0 +1,124 @@
+diff --git a/ui/accessibility/platform/browser_accessibility.cc b/ui/accessibility/platform/browser_accessibility.cc
+--- a/ui/accessibility/platform/browser_accessibility.cc
++++ b/ui/accessibility/platform/browser_accessibility.cc
+@@ -1096,7 +1096,10 @@
+   // So we decided to not enforce the leafiness of buttons and expose all
+   // children. The only exception to enforce leafiness is when the button has
+   // a single text child and to prevent screen readers from double speak.
+-  if (GetRole() == ax::mojom::Role::kButton) {
++  // A native accessibility client can retain a button after it becomes
++  // ignored. InternalChildCount() requires an unignored node; let AXNode handle
++  // ignored buttons using the same rules as other ignored roles.
++  if (!IsIgnored() && GetRole() == ax::mojom::Role::kButton) {
+     size_t child_count = InternalChildCount();
+     return !child_count ||
+            (child_count == 1 && InternalGetFirstChild()->IsText());
+diff --git a/ui/accessibility/platform/browser_accessibility_cocoa_unittest.mm b/ui/accessibility/platform/browser_accessibility_cocoa_unittest.mm
+--- a/ui/accessibility/platform/browser_accessibility_cocoa_unittest.mm
++++ b/ui/accessibility/platform/browser_accessibility_cocoa_unittest.mm
+@@ -10,6 +10,7 @@
+ #include "testing/gmock/include/gmock/gmock.h"
+ #include "testing/gtest/include/gtest/gtest.h"
+ #include "ui/accessibility/accessibility_features.h"
++#include "ui/accessibility/ax_updates_and_events.h"
+ #include "ui/accessibility/platform/ax_platform_node_unittest.h"
+ #include "ui/accessibility/platform/browser_accessibility_manager.h"
+ #include "ui/accessibility/platform/browser_accessibility_manager_mac.h"
+@@ -221,4 +222,97 @@
+   [node accessibilityPerformAction:NSAccessibilityPressAction];
+ #pragma clang diagnostic pop
+ }
++
++TEST_P(BrowserAccessibilityCocoaTest, IgnoredButtonWithoutChildren) {
++  AXNodeData root;
++  root.id = 1;
++  root.role = ax::mojom::Role::kRootWebArea;
++  root.child_ids = {2};
++
++  AXNodeData button;
++  button.id = 2;
++  button.role = ax::mojom::Role::kButton;
++  button.AddState(ax::mojom::State::kIgnored);
++
++  AXTreeUpdate update;
++  update.root_id = root.id;
++  update.nodes = {root, button};
++  TestAXNodeIdDelegate node_id_delegate;
++  auto manager = std::make_unique<BrowserAccessibilityManagerMac>(
++      update, node_id_delegate, nullptr);
++  BrowserAccessibility* accessibility = manager->GetFromID(button.id);
++  BrowserAccessibilityCocoa* wrapper = static_cast<BrowserAccessibilityCocoa*>(
++      accessibility->GetNativeViewAccessible().Get());
++
++  ASSERT_TRUE(accessibility->IsIgnored());
++  ASSERT_TRUE(wrapper);
++  EXPECT_TRUE(accessibility->IsLeaf());
++  EXPECT_EQ(0u, accessibility->PlatformChildCount());
++  EXPECT_EQ(0u, [[wrapper accessibilityChildren] count]);
++}
++
++TEST_P(BrowserAccessibilityCocoaTest,
++       RetainedButtonChildrenAfterIgnoredStateChange) {
++  AXNodeData root;
++  root.id = 1;
++  root.role = ax::mojom::Role::kRootWebArea;
++  root.child_ids = {2};
++
++  AXNodeData button;
++  button.id = 2;
++  button.role = ax::mojom::Role::kButton;
++  button.child_ids = {3};
++
++  AXNodeData text;
++  text.id = 3;
++  text.role = ax::mojom::Role::kStaticText;
++  text.SetName("Button label");
++
++  AXTreeUpdate update;
++  update.root_id = root.id;
++  update.nodes = {root, button, text};
++  TestAXNodeIdDelegate node_id_delegate;
++  auto manager = std::make_unique<BrowserAccessibilityManagerMac>(
++      update, node_id_delegate, nullptr);
++  BrowserAccessibility* accessibility = manager->GetFromID(button.id);
++  BrowserAccessibilityCocoa* __strong retained_wrapper =
++      static_cast<BrowserAccessibilityCocoa*>(
++          accessibility->GetNativeViewAccessible().Get());
++  ASSERT_TRUE(retained_wrapper);
++
++  // A visible button with one text child remains a platform leaf.
++  EXPECT_TRUE(accessibility->IsLeaf());
++  EXPECT_EQ(0u, [[retained_wrapper accessibilityChildren] count]);
++
++  // Simulate a client querying the same wrapper after the button becomes
++  // ignored. Its unignored descendant must still be reachable.
++  button.AddState(ax::mojom::State::kIgnored);
++  AXUpdatesAndEvents events;
++  events.updates.resize(1);
++  events.updates[0].nodes = {button};
++  ASSERT_TRUE(manager->OnAccessibilityEvents(events));
++  ASSERT_TRUE(accessibility->IsIgnored());
++  EXPECT_FALSE(accessibility->IsLeaf());
++  EXPECT_EQ(1u, accessibility->PlatformChildCount());
++  NSArray* children = [retained_wrapper accessibilityChildren];
++  ASSERT_EQ(1u, [children count]);
++  EXPECT_EQ(manager->GetFromID(text.id)->GetNativeViewAccessible().Get(),
++            children[0]);
++
++  // Hiding the descendant too must clear the cached children without aborting.
++  text.AddState(ax::mojom::State::kIgnored);
++  events.updates[0].nodes = {text};
++  ASSERT_TRUE(manager->OnAccessibilityEvents(events));
++  EXPECT_EQ(0u, accessibility->PlatformChildCount());
++  EXPECT_EQ(0u, [[retained_wrapper accessibilityChildren] count]);
++
++  // Restoring the button restores the original text-only leaf behavior.
++  button.RemoveState(ax::mojom::State::kIgnored);
++  text.RemoveState(ax::mojom::State::kIgnored);
++  events.updates[0].nodes = {button, text};
++  ASSERT_TRUE(manager->OnAccessibilityEvents(events));
++  ASSERT_FALSE(accessibility->IsIgnored());
++  EXPECT_TRUE(accessibility->IsLeaf());
++  EXPECT_EQ(0u, [[retained_wrapper accessibilityChildren] count]);
++}
+ }  // namespace ui

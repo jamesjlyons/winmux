@@ -6,70 +6,75 @@
 
 namespace winmux {
 namespace {
-constexpr char kHost[] = "com.1password.1password";
-
-class OnePasswordNativeMessagingTest : public testing::Test {
+class DesktopAppNativeMessagingTest : public testing::TestWithParam<const char*> {
  protected:
   void SetUp() override {
     ASSERT_TRUE(directory_.CreateUniqueTempDir());
     support_ = directory_.GetPath().AppendASCII("Application Support");
   }
 
-  base::FilePath Register(const char* product) {
+  base::FilePath Register(const char* product, const std::string& host) {
     auto path = support_.AppendASCII(product)
                     .AppendASCII("NativeMessagingHosts")
-                    .AppendASCII("com.1password.1password.json");
+                    .AppendASCII(host + ".json");
     EXPECT_TRUE(base::CreateDirectory(path.DirName()));
     EXPECT_TRUE(base::WriteFile(path, "{}"));
     return path;
   }
 
-  base::FilePath Find(const std::string& host = kHost, bool allowed = true) {
-    return WithOnePasswordManifestFallback({}, host, allowed, support_);
+  base::FilePath Register(const char* product) {
+    return Register(product, GetParam());
+  }
+
+  base::FilePath Find(bool allowed = true) {
+    return WithDesktopAppManifestFallback({}, GetParam(), allowed, support_);
   }
 
   base::ScopedTempDir directory_;
   base::FilePath support_;
 };
 
-TEST_F(OnePasswordNativeMessagingTest, FindsInstalledChromeRegistration) {
+TEST_P(DesktopAppNativeMessagingTest, FindsInstalledChromeRegistration) {
   auto path = Register("Google/Chrome");
   EXPECT_EQ(Find(), path);
 }
 
-TEST_F(OnePasswordNativeMessagingTest, FallsBackToChromiumRegistration) {
+TEST_P(DesktopAppNativeMessagingTest, FallsBackToChromiumRegistration) {
   auto chromium = Register("Chromium");
   EXPECT_EQ(Find(), chromium);
   auto chrome = Register("Google/Chrome");
   EXPECT_EQ(Find(), chrome);
 }
 
-TEST_F(OnePasswordNativeMessagingTest, PreservesExplicitUserOrSystemManifest) {
+TEST_P(DesktopAppNativeMessagingTest, PreservesExplicitUserOrSystemManifest) {
   Register("Google/Chrome");
   for (const char* name : {"WinMux Workspace", "System"}) {
     auto explicit_manifest = Register(name);
-    EXPECT_EQ(WithOnePasswordManifestFallback(explicit_manifest, kHost, true,
-                                             support_), explicit_manifest);
-    EXPECT_EQ(WithOnePasswordManifestFallback(explicit_manifest, kHost, false,
-                                             support_), explicit_manifest);
+    EXPECT_EQ(WithDesktopAppManifestFallback(explicit_manifest, GetParam(), true,
+                                            support_),
+              explicit_manifest);
+    EXPECT_EQ(WithDesktopAppManifestFallback(explicit_manifest, GetParam(), false,
+                                            support_),
+              explicit_manifest);
   }
 }
 
-TEST_F(OnePasswordNativeMessagingTest, RespectsUserLevelHostPolicy) {
+TEST_P(DesktopAppNativeMessagingTest, RespectsUserLevelHostPolicy) {
   Register("Google/Chrome");
   Register("Chromium");
-  EXPECT_TRUE(Find(kHost, false).empty());
+  EXPECT_TRUE(Find(false).empty());
 }
 
-TEST_F(OnePasswordNativeMessagingTest, DoesNotDiscoverOtherNativeHosts) {
-  Register("Google/Chrome");
+TEST_P(DesktopAppNativeMessagingTest, DoesNotDiscoverOtherNativeHosts) {
   for (const char* host : {"com.other.host", "com.1password.other", "",
-                           "../com.1password.1password"}) {
-    EXPECT_TRUE(Find(host).empty());
+                          "com.openai.other", "com.openai.codexextension.beta",
+                          "../com.openai.codexextension"}) {
+    Register("Google/Chrome", host);
+    EXPECT_TRUE(WithDesktopAppManifestFallback({}, host, true, support_).empty());
   }
 }
 
-TEST_F(OnePasswordNativeMessagingTest, DoesNotCreateOrCacheRegistrations) {
+TEST_P(DesktopAppNativeMessagingTest, DoesNotCreateOrCacheRegistrations) {
   EXPECT_TRUE(Find().empty());
   EXPECT_FALSE(base::PathExists(support_));
   auto path = Register("Google/Chrome");
@@ -78,14 +83,26 @@ TEST_F(OnePasswordNativeMessagingTest, DoesNotCreateOrCacheRegistrations) {
   EXPECT_TRUE(Find().empty());
 }
 
-TEST_F(OnePasswordNativeMessagingTest, RejectsDirectoriesAndMissingBasePath) {
+TEST_P(DesktopAppNativeMessagingTest, RejectsDirectoriesAndMissingBasePath) {
   auto path = Register("Google/Chrome");
   EXPECT_TRUE(base::DeleteFile(path));
   EXPECT_TRUE(base::CreateDirectory(path));
   EXPECT_TRUE(Find().empty());
-  EXPECT_TRUE(WithOnePasswordManifestFallback({}, kHost, true, {}).empty());
-  EXPECT_TRUE(WithOnePasswordManifestFallback(
-      {}, kHost, true, base::FilePath("relative")).empty());
+  EXPECT_TRUE(WithDesktopAppManifestFallback({}, GetParam(), true, {}).empty());
+  EXPECT_TRUE(WithDesktopAppManifestFallback(
+      {}, GetParam(), true, base::FilePath("relative")).empty());
 }
+
+TEST_P(DesktopAppNativeMessagingTest, DoesNotReturnAnotherAppsRegistration) {
+  Register("Google/Chrome", std::string(GetParam()) == "com.openai.codexextension"
+                                ? "com.1password.1password"
+                                : "com.openai.codexextension");
+  EXPECT_TRUE(Find().empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    DesktopApps,
+    DesktopAppNativeMessagingTest,
+    testing::Values("com.1password.1password", "com.openai.codexextension"));
 }  // namespace
 }  // namespace winmux

@@ -1,0 +1,16 @@
+--- a/chrome/browser/extensions/api/messaging/launch_context_posix.cc
++++ b/chrome/browser/extensions/api/messaging/launch_context_posix.cc
+@@ -54,11 +54,10 @@
+   }
+ 
+ #if BUILDFLAG(IS_MAC)
+-  if (result.empty() && allow_user_level_hosts &&
+-      host_name == "com.1password.1password") {
++  if (result.empty() && allow_user_level_hosts) {
+     base::FilePath application_support;
+     base::PathService::Get(base::DIR_APP_DATA, &application_support);
+-    result = winmux::WithOnePasswordManifestFallback(
++    result = winmux::WithDesktopAppManifestFallback(
+         result, host_name, allow_user_level_hosts, application_support);
+   }
+ #endif

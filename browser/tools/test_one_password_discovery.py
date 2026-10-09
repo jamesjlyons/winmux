@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Probe native-host discovery with a disposable extension that 1Password rejects.
+"""Probe desktop native-host discovery with a disposable, unauthorized extension.
 
-Reads only 1Password's public native-host registration. Never loads the real
-extension, sends it messages, opens a vault, or changes a trusted-browser entry.
+Reads only the selected desktop app's public native-host registration. Never
+loads the real extension, launches the host, or changes a trusted-browser entry.
 Uses an unregistered test XPC service and fresh profiles to protect live WinMux.
 """
 import argparse
@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--existing-helper-pid", type=int, required=True)
     parser.add_argument("--existing-helper-executable", type=Path, required=True)
     parser.add_argument("--expect-missing", action="store_true")
+    parser.add_argument("--host", default="com.1password.1password",
+                        choices=("com.1password.1password", "com.openai.codexextension"))
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     manifest_path = app.parent / "winmux-package-manifest.json"
@@ -47,7 +49,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     sampler = Sampler(args.existing_helper_pid, args.existing_helper_executable)
     before = identity(sampler)
-    host = "com.1password.1password"
+    host = args.host
     support = Path.home() / "Library/Application Support"
     candidates = [support / product / "NativeMessagingHosts" / (host + ".json")
                   for product in ("Google/Chrome", "Chromium")]
@@ -55,7 +57,7 @@ def main():
     installed = json.loads(registration.read_text())
     assert installed["name"] == host and installed["type"] == "stdio"
     registration_hash = digest(registration)
-    # An independent test key ensures this fixture can never use 1Password's
+    # An independent test key ensures this fixture can never use the real
     # extension identity. Generate it locally; no real account/extension data.
     private_key = output / "fixture-key.pem"
     subprocess.run(["openssl", "genrsa", "-out", str(private_key), "2048"],
@@ -92,13 +94,13 @@ def main():
         "background": {"service_worker": "worker.js"},
     }))
     (extension / "worker.js").write_text("""
-const port = chrome.runtime.connectNative('com.1password.1password');
+const port = chrome.runtime.connectNative(HOST);
 port.onDisconnect.addListener(() => {
   const error = chrome.runtime.lastError?.message || '';
   fetch(ENDPOINT, {method: 'POST', body: JSON.stringify({id: chrome.runtime.id, error})});
 });
 // Send no message and record no response from the native host.
-""".replace("ENDPOINT", json.dumps(endpoint)))
+""".replace("ENDPOINT", json.dumps(endpoint)).replace("HOST", json.dumps(host)))
     profile = output / "profile"
     service = "com.jameslyons.winmux.browser.alpha.workspace.test." + str(uuid.uuid4())
     command = [str(executable), "--headless=new", "--user-data-dir=" + str(profile),
@@ -107,6 +109,7 @@ port.onDisconnect.addListener(() => {
                "--winmux-test-service=" + service,
                "--winmux-bridge-report=" + str(output / "bridge.json"), "about:blank"]
     result = {"passed": False, "scope": "signed_browser_host_discovery_and_origin_rejection",
+              "host": host, "desktop_connection_verified": False,
               "desktop_unlock_verified": False, "package_manifest_sha256": digest(manifest_path),
               "test_source_sha256": digest(Path(__file__)), "expected_missing": args.expect_missing,
               "command": command, "registration_sha256": registration_hash}

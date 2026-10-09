@@ -1,0 +1,146 @@
+--- a/ui/base/ui_base_features.cc
++++ b/ui/base/ui_base_features.cc
+@@ -514,7 +514,12 @@
+ 
+ BASE_FEATURE(kDesktopGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
+ 
++#if BUILDFLAG(IS_MAC)
++// WinMux uses the system glass behind its compact managed page toolbar.
++BASE_FEATURE(kGlassFrame, base::FEATURE_ENABLED_BY_DEFAULT);
++#else
+ BASE_FEATURE(kGlassFrame, base::FEATURE_DISABLED_BY_DEFAULT);
++#endif
+ BASE_FEATURE_PARAM(double, kGlassTintOpacityForLightMode, &kGlassFrame, -1.0);
+ BASE_FEATURE_PARAM(double, kGlassTintOpacityForDarkMode, &kGlassFrame, -1.0);
+ BASE_FEATURE_PARAM(double, kGlassExpandOnHoverOpacity, &kGlassFrame, 0.95);
+--- a/chrome/browser/ui/views/frame/custom_corners_background.cc
++++ b/chrome/browser/ui/views/frame/custom_corners_background.cc
+@@ -17,6 +17,9 @@
+ #include "chrome/browser/ui/views/frame/custom_corners.h"
+ #include "chrome/browser/ui/views/frame/custom_floating_corner.h"
+ #include "chrome/browser/ui/views/frame/themed_background.h"
++#include "chrome/browser/ui/views/frame/glass_frame_service.h"
++#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "third_party/skia/include/core/SkPath.h"
+ #include "third_party/skia/include/core/SkPathBuilder.h"
+ #include "ui/base/ui_base_features.h"
+@@ -273,6 +276,20 @@
+     return;
+   }
+ 
++#if BUILDFLAG(IS_MAC)
++  if (browser_view().GetProperty(winmux::kIntegratedToolbar) &&
++      (view == browser_view().toolbar() ||
++       view == browser_view().toolbar()->parent())) {
++    auto* glass_service = GlassFrameService::GetInstance();
++    if (glass_service &&
++        glass_service->IsBrowserWindowEligible(browser_view().browser())) {
++      // AppKit supplies the material below the compositor. Both Views fills
++      // must be absent for it to show through; controls keep native hit testing.
++      return;
++    }
++  }
++#endif
++
+   if (view->layer()) {
+     CHECK(!view->layer()->fills_bounds_opaquely());
+   }
+--- a/chrome/browser/ui/views/frame/glass_frame_service.h
++++ b/chrome/browser/ui/views/frame/glass_frame_service.h
+@@ -55,7 +55,7 @@
+       BrowserWindowInterface* browser_window_interface,
+       GlassFrameEligibilityChangedCallback callback);
+ 
+-  bool IsBrowserWindowEligible(BrowserWindowInterface* browser);
++  bool IsBrowserWindowEligible(const BrowserWindowInterface* browser);
+ 
+   explicit GlassFrameService(BrowserProcess& process);
+   ~GlassFrameService() override;
+--- a/chrome/browser/ui/views/frame/glass_frame_service.cc
++++ b/chrome/browser/ui/views/frame/glass_frame_service.cc
+@@ -84,7 +84,7 @@
+ }
+ 
+ bool GlassFrameService::IsBrowserWindowEligible(
+-    BrowserWindowInterface* browser) {
++    const BrowserWindowInterface* browser) {
+   return GetEligibleBrowserWindowInterfaces().contains(browser);
+ }
+ 
+--- a/chrome/browser/ui/views/frame/browser_native_widget_mac.h
++++ b/chrome/browser/ui/views/frame/browser_native_widget_mac.h
+@@ -42,6 +42,9 @@
+   BrowserNativeWidgetMac& operator=(const BrowserNativeWidgetMac&) = delete;
+ 
+   BrowserWindowTouchBarController* GetTouchBarController() const;
++
++  // Reconcile the material after managed page adoption changes top chrome.
++  void RefreshGlassFrameForToolbar();
+ 
+   // Overridden from views::NativeWidgetMac:
+   int32_t SheetOffsetY() override;
+--- a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
+@@ -1001,6 +1001,13 @@
+   }
+ }
+ 
++void BrowserNativeWidgetMac::RefreshGlassFrameForToolbar() {
++  last_theme_color_.reset();
++  last_preferred_color_scheme_.reset();
++  UpdateBackgroundGeometry();
++  UpdateBackgroundColor();
++}
++
+ void BrowserNativeWidgetMac::UpdateBackgroundGeometry() {
+   if (!background_view_ || !GetNSWindowHost()) {
+     return;
+@@ -1059,8 +1066,13 @@
+   const ui::NativeTheme::PreferredColorScheme color_scheme =
+       browser_view_->GetNativeTheme()->preferred_color_scheme();
+   const bool is_active = GetWidget()->IsActive();
+-  const SkColor theme_color = browser_view_->GetColorProvider()->GetColor(
+-      is_active ? ui::kColorFrameActive : ui::kColorFrameInactive);
++  const bool integrated = browser_view_->GetProperty(winmux::kIntegratedToolbar);
++  const bool is_dark =
++      color_scheme == ui::NativeTheme::PreferredColorScheme::kDark;
++  const SkColor theme_color = integrated && is_dark
++      ? SkColorSetRGB(0x16, 0x16, 0x18)
++      : browser_view_->GetColorProvider()->GetColor(
++            is_active ? ui::kColorFrameActive : ui::kColorFrameInactive);
+ 
+   bool is_vertical_tabs = browser_view_->ShouldDrawVerticalTabStrip();
+ 
+@@ -1079,10 +1091,9 @@
+   const CGFloat r = SkColorGetR(theme_color) / 255.0;
+   const CGFloat g = SkColorGetG(theme_color) / 255.0;
+   const CGFloat b = SkColorGetB(theme_color) / 255.0;
+-  const CGFloat a =
+-      GetGlassFrameTintOpacity(last_preferred_color_scheme_ ==
+-                                   ui::NativeTheme::PreferredColorScheme::kDark,
+-                               is_vertical_tabs);
++  const CGFloat a = integrated && is_dark
++      ? 0.72
++      : GetGlassFrameTintOpacity(is_dark, is_vertical_tabs);
+ 
+   tint_view_.layer.backgroundColor =
+       [NSColor colorWithSRGBRed:r green:g blue:b alpha:a].CGColor;
+--- a/chrome/browser/ui/views/location_bar/location_bar_view.cc
++++ b/chrome/browser/ui/views/location_bar/location_bar_view.cc
+@@ -1369,6 +1369,15 @@
+   if (is_popup_mode_) {
+     SetBackground(views::CreateSolidBackground(background_color_));
+   } else if (GetProperty(winmux::kCompactToolbar)) {
++    if (!is_caret_visible && !high_contrast) {
++      const bool dark = color_utils::IsDark(background_color_);
++      // Leave a little of the native material visible through the inset field.
++      background_color_ = SkColorSetA(background_color_, dark ? 0xAA : 0xDD);
++      if (border_color == SK_ColorTRANSPARENT) {
++        border_color = SkColorSetA(dark ? SK_ColorWHITE : SK_ColorBLACK,
++                                  dark ? 0x2B : 0x19);
++      }
++    }
+     const int radius = GetBorderRadius();
+     auto painter = border_color == SK_ColorTRANSPARENT
+         ? views::Painter::CreateSolidRoundRectPainter(background_color_, radius)

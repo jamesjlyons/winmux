@@ -1,0 +1,315 @@
+--- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+@@ -207,6 +207,18 @@
+   return kViewCommandMap;
+ }
+ 
++// Apply density to descendants as well as the row so newly added extension and
++// pinned-action buttons adopt it on their next layout pass.
++void SetCompactToolbarDensity(views::View* view, bool compact) {
++  if (view->GetProperty(winmux::kCompactToolbar) != compact) {
++    view->SetProperty(winmux::kCompactToolbar, compact);
++    view->InvalidateLayout();
++  }
++  for (views::View* child : view->children()) {
++    SetCompactToolbarDensity(child, compact);
++  }
++}
++
+ constexpr int kBrowserAppMenuRefreshExpandedMargin = 5;
+ constexpr int kBrowserAppMenuRefreshCollapsedMargin = 2;
+ constexpr int kLargeSpaceBetweenButtons = 6;
+@@ -1380,6 +1392,11 @@
+                                layout_manager_->interior_margin().height();
+         size.SetToMin({size.width(), max_height});
+       }
++  }
++  if (display_mode_ == DisplayMode::kNormal &&
++      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !ui::TouchUiController::Get()->touch_ui()) {
++    size.set_height(winmux::kCompactToolbarHeight);
+   }
+   size.set_height(size.height() * size_animation_.GetCurrentValue());
+   return size;
+@@ -1419,6 +1436,11 @@
+             default_margin + overflow_button_->GetMinimumSize().width(), 0);
+       }
+   }
++  if (display_mode_ == DisplayMode::kNormal &&
++      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !ui::TouchUiController::Get()->touch_ui()) {
++    size.set_height(winmux::kCompactToolbarHeight);
++  }
+   size.set_height(size.height() * size_animation_.GetCurrentValue());
+   return size;
+ }
+@@ -1653,8 +1675,13 @@
+ void ToolbarView::LayoutCommon() {
+   DCHECK(display_mode_ == DisplayMode::kNormal);
+ 
+-  gfx::Insets interior_margin =
+-      GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
++  const bool compact_navigation =
++      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !ui::TouchUiController::Get()->touch_ui();
++  SetCompactToolbarDensity(this, compact_navigation);
++  gfx::Insets interior_margin = compact_navigation
++      ? gfx::Insets::VH(4, 4)
++      : GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
+ 
+   auto* vts_controller = tabs::VerticalTabStripStateController::From(browser_);
+   if (contextual_tasks::IsContextualTasksUIEnabled() &&
+@@ -1704,19 +1731,15 @@
+       interior_margin.set_right(0);
+     }
+   }
+-  const bool compact_navigation =
+-      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
+-      !ui::TouchUiController::Get()->touch_ui();
+   std::optional<gfx::Insets> navigation_insets;
+   if (compact_navigation) {
+-    navigation_insets = GetLayoutInsets(TOOLBAR_BUTTON);
+-    navigation_insets->set_left_right(4, 4);
++    navigation_insets = gfx::Insets(5);
+   }
+   for (auto* button : std::array<ToolbarButton*, 3>{back_, forward_, reload_}) {
+     if (!button) {
+       continue;
+     }
+-    // Retain the normal button height, hover treatment and history menus.
++    // Keep native hover treatment, keyboard access and history menus.
+     button->SetLayoutInsets(navigation_insets);
+     if (compact_navigation) {
+       button->SetProperty(views::kMarginsKey, gfx::Insets());
+@@ -1727,9 +1750,18 @@
+   if (location_bar_view_) {
+     location_bar_view_->SetProperty(
+         views::kMarginsKey,
+-        gfx::Insets::VH(0, compact_navigation
+-                              ? 8
+-                              : GetLayoutConstant(LayoutConstant::kLocationBarMargin)));
++        gfx::Insets::VH(
++            0, compact_navigation
++                   ? 6
++                   : GetLayoutConstant(LayoutConstant::kLocationBarMargin)));
++  }
++  if (toolbar_divider_) {
++    toolbar_divider_->SetProperty(
++        views::kMarginsKey,
++        gfx::Insets::VH(
++            0, compact_navigation
++                   ? 5
++                   : GetLayoutConstant(LayoutConstant::kToolbarDividerSpacing)));
+   }
+   layout_manager_->SetInteriorMargin(interior_margin);
+ 
+@@ -1781,6 +1813,12 @@
+ }
+ 
+ gfx::Size ToolbarView::GetToolbarButtonSize() const {
++  if (display_mode_ == DisplayMode::kNormal &&
++      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !ui::TouchUiController::Get()->touch_ui()) {
++    return gfx::Size(winmux::kCompactToolbarButtonSize,
++                     winmux::kCompactToolbarButtonSize);
++  }
+   // Since DisplayMode::kLocation is for a slimline toolbar showing only compact
+   // location bar used for popups, toolbar buttons (ie downloads) must be
+   // smaller to accommodate the smaller size.
+--- a/chrome/browser/ui/views/toolbar/toolbar_button.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_button.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <algorithm>
+ #include <memory>
+@@ -282,7 +283,9 @@
+ }
+ 
+ int ToolbarButton::GetIconSize() const {
+-  return GetLayoutConstant(LayoutConstant::kToolbarButtonIconSize);
++  return GetProperty(winmux::kCompactToolbar)
++             ? winmux::kCompactToolbarIconSize
++             : GetLayoutConstant(LayoutConstant::kToolbarButtonIconSize);
+ }
+ 
+ bool ToolbarButton::ShouldPaintBorder() const {
+@@ -400,7 +403,9 @@
+ }
+ 
+ const gfx::Insets ToolbarButton::GetTargetInsets() const {
+-  return layout_insets_.value_or(::GetLayoutInsets(TOOLBAR_BUTTON)) +
++  return layout_insets_.value_or(GetProperty(winmux::kCompactToolbar)
++                                    ? gfx::Insets(5)
++                                    : ::GetLayoutInsets(TOOLBAR_BUTTON)) +
+          layout_inset_delta_ + *GetProperty(views::kInternalPaddingKey);
+ }
+ 
+@@ -549,6 +554,10 @@
+ 
+ void ToolbarButton::AfterPropertyChange(const void* key, int64_t old_value) {
+   View::AfterPropertyChange(key, old_value);
++  if (key == winmux::kCompactToolbar) {
++    UpdateIcon();
++    UpdateColorsAndInsets();
++  }
+   if (key == user_education::kHasInProductHelpPromoKey) {
+     has_in_product_help_promo_ =
+         GetProperty(user_education::kHasInProductHelpPromoKey);
+--- a/chrome/browser/ui/views/extensions/extensions_toolbar_button.cc
++++ b/chrome/browser/ui/views/extensions/extensions_toolbar_button.cc
+@@ -203,6 +203,9 @@
+ }
+ 
+ int ExtensionsToolbarButton::GetIconSize() const {
++  if (GetProperty(winmux::kCompactToolbar)) {
++    return winmux::kCompactToolbarIconSize;
++  }
+   const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
+   if (touch_ui && !web_app::AppBrowserController::IsWebApp(browser_)) {
+     return kDefaultTouchableIconSize;
+--- a/chrome/browser/ui/views/location_bar/location_bar_view.cc
++++ b/chrome/browser/ui/views/location_bar/location_bar_view.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <algorithm>
+ #include <memory>
+@@ -491,7 +492,9 @@
+ }
+ 
+ int LocationBarView::GetBorderRadius() const {
+-  return ComputeBorderRadius(size());
++  return GetProperty(winmux::kCompactToolbar)
++             ? winmux::kCompactLocationBarRadius
++             : ComputeBorderRadius(size());
+ }
+ 
+ // static
+@@ -660,7 +663,9 @@
+ }
+ 
+ gfx::Size LocationBarView::GetMinimumSize() const {
+-  const int height = GetLayoutConstant(LayoutConstant::kLocationBarHeight);
++  const int height = GetProperty(winmux::kCompactToolbar)
++                         ? winmux::kCompactLocationBarHeight
++                         : GetLayoutConstant(LayoutConstant::kLocationBarHeight);
+   if (!IsInitialized()) {
+     return gfx::Size(0, height);
+   }
+@@ -687,7 +692,9 @@
+ 
+ gfx::Size LocationBarView::CalculatePreferredSize(
+     const views::SizeBounds& available_size) const {
+-  const int height = GetLayoutConstant(LayoutConstant::kLocationBarHeight);
++  const int height = GetProperty(winmux::kCompactToolbar)
++                         ? winmux::kCompactLocationBarHeight
++                         : GetLayoutConstant(LayoutConstant::kLocationBarHeight);
+   if (!IsInitialized()) {
+     return gfx::Size(0, height);
+   }
+@@ -785,8 +792,9 @@
+   // to position our child views in this case, because other things may be
+   // positioned relative to them (e.g. the "bookmark added" bubble if the user
+   // hits ctrl-d).
+-  const int vertical_padding = GetLayoutConstant(
+-      LayoutConstant::kLocationBarPageInfoIconVerticalPadding);
++  const int vertical_padding = GetProperty(winmux::kCompactToolbar)
++      ? 2
++      : GetLayoutConstant(LayoutConstant::kLocationBarPageInfoIconVerticalPadding);
+   const int trailing_decorations_edge_padding = GetLayoutConstant(
+       LayoutConstant::kLocationBarTrailingDecorationEdgePadding);
+ 
+@@ -1309,7 +1317,7 @@
+ }
+ 
+ gfx::Rect LocationBarView::GetLocalBoundsWithoutEndcaps() const {
+-  const int border_radius = height() / 2;
++  const int border_radius = GetBorderRadius();
+   gfx::Rect bounds_without_endcaps(GetLocalBounds());
+   bounds_without_endcaps.Inset(gfx::Insets::VH(0, border_radius));
+   return bounds_without_endcaps;
+@@ -1360,6 +1368,14 @@
+ 
+   if (is_popup_mode_) {
+     SetBackground(views::CreateSolidBackground(background_color_));
++  } else if (GetProperty(winmux::kCompactToolbar)) {
++    const int radius = GetBorderRadius();
++    auto painter = border_color == SK_ColorTRANSPARENT
++        ? views::Painter::CreateSolidRoundRectPainter(background_color_, radius)
++        : views::Painter::CreateRoundRectWith1PxBorderPainter(
++              background_color_, border_color, radius, SkBlendMode::kSrcOver,
++              /*antialias=*/true, /*should_border_scale=*/true);
++    SetBackground(views::CreateBackgroundFromPainter(std::move(painter)));
+   } else {
+     SetBackground(CreateRoundRectBackground(
+         background_color_, border_color, size(),
+--- a/chrome/browser/ui/views/location_bar/BUILD.gn
++++ b/chrome/browser/ui/views/location_bar/BUILD.gn
+@@ -72,6 +72,7 @@
+   deps = [
+     ":icon_label_bubble",
+     ":location_bar",
++    "//chrome/browser/winmux:managed_toolbar",
+     "//chrome/browser:defaults",
+     "//chrome/browser/ui/dialogs",
+     "//chrome/browser/ui/select_file_policy",
+--- a/chrome/browser/ui/views/profiles/avatar_toolbar_button.cc
++++ b/chrome/browser/ui/views/profiles/avatar_toolbar_button.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include "base/check.h"
+ #include "base/check_is_test.h"
+@@ -313,7 +314,9 @@
+ 
+ gfx::Size AvatarToolbarButton::GetMinimumSize() const {
+   const int size = GetTargetInsets().width() + GetIconSize();
+-  return gfx::Size(size, size);
++  return gfx::Size(size, GetProperty(winmux::kCompactToolbar)
++                             ? winmux::kCompactToolbarButtonSize
++                             : size);
+ }
+ 
+ void AvatarToolbarButton::AnimationProgressed(const gfx::Animation* animation) {
+@@ -515,8 +518,20 @@
+   // ring and its gap.
+   int total_icon_size =
+       (!icon || icon->IsEmpty()) ? GetIconSize() : icon->Size().width();
+-  const gfx::Insets insets = state_manager_.GetLayoutInsets(
++  gfx::Insets insets = state_manager_.GetLayoutInsets(
+       total_icon_size, GetIconSize(), is_label_visible);
++  if (GetProperty(winmux::kCompactToolbar)) {
++    // Profile chips have state-specific padding, so fit their text and avatar
++    // explicitly rather than letting the toolbar collapse an oversized button.
++    const int content_height = std::max(
++        total_icon_size, is_label_visible ? label()->GetPreferredSize().height()
++                                         : 0);
++    const int vertical_padding = std::max(
++        0, (winmux::kCompactToolbarButtonSize - content_height) / 2);
++    insets.set_top_bottom(vertical_padding, vertical_padding);
++    insets.set_left_right(std::max(0, insets.left() - 2),
++                         std::max(0, insets.right() - 2));
++  }
+ 
+   SetLayoutInsets(insets);
+   SetHorizontalAlignment(is_label_visible ? gfx::ALIGN_LEFT
+--- a/chrome/browser/ui/views/profiles/BUILD.gn
++++ b/chrome/browser/ui/views/profiles/BUILD.gn
+@@ -94,6 +94,7 @@
+     deps = [
+       ":avatar_toolbar_button",
+       "//chrome/app/vector_icons",
++      "//chrome/browser/winmux:managed_toolbar",
+       "//chrome/browser:browser_process",
+       "//chrome/browser/enterprise",
+       "//chrome/browser/profiles:profile",

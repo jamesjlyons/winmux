@@ -1,0 +1,87 @@
+--- a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
+@@ -38,6 +38,7 @@
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/views/frame/browser_frame_view.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/browser/ui/views/frame/browser_widget.h"
+ #include "chrome/browser/ui/views/frame/glass_frame_service.h"
+ #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
+@@ -256,6 +257,12 @@
+       browser_view_->browser_widget()->GetFrameView()) {
+     *override_titlebar_height = true;
+     const auto top_element_info = browser_view_->GetFrameElementInfo();
++    if (browser_view_->GetProperty(winmux::kIntegratedToolbar)) {
++      // The managed page has one toolbar row and no native tab strip. Center
++      // AppKit's traffic lights in that row without PWA titlebar padding.
++      *titlebar_height = top_element_info.toolbar_preferred_height;
++      return;
++    }
+ 
+     *titlebar_height =
+         std::max(top_element_info.tabstrip_preferred_height,
+--- a/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_frame_view_mac.mm
+@@ -487,6 +487,17 @@
+   }
+   // LINT.ThenChange(//chrome/browser/ui/views/frame/immersive_mode_controller_mac.mm:MacTabStripInsets)
+ 
++  if (GetBrowserView()->GetProperty(winmux::kIntegratedToolbar)) {
++    // Keep the Views exclusion aligned with the native toolbar-height titlebar.
++    const float toolbar_height =
++        GetBrowserView()->GetFrameElementInfo().toolbar_preferred_height;
++    const float vertical_margin =
++        std::max(0.f, (toolbar_height - result.bounds.height()) / 2.f);
++    result.bounds.set_y(vertical_margin);
++    result.margins.set_top(vertical_margin);
++    result.margins.set_bottom(vertical_margin);
++  }
++
+   // Mirror for when caption buttons are on the "wrong" side.
+   if (!CaptionButtonsOnLeadingEdge()) {
+     result.bounds.set_x(width() - (result.bounds.x() + result.bounds.width()));
+--- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+@@ -75,6 +75,7 @@
+ #include "chrome/browser/ui/views/extensions/extensions_toolbar_coordinator.h"
+ #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/browser/ui/views/frame/custom_corners_background.h"
+ #include "chrome/browser/ui/views/frame/top_container_view.h"
+ #include "chrome/browser/ui/views/glic/glic_button_interface.h"
+@@ -1703,6 +1704,33 @@
+       interior_margin.set_right(0);
+     }
+   }
++  const bool compact_navigation =
++      browser_view_->GetProperty(winmux::kIntegratedToolbar) &&
++      !ui::TouchUiController::Get()->touch_ui();
++  std::optional<gfx::Insets> navigation_insets;
++  if (compact_navigation) {
++    navigation_insets = GetLayoutInsets(TOOLBAR_BUTTON);
++    navigation_insets->set_left_right(4, 4);
++  }
++  for (auto* button : std::array<ToolbarButton*, 3>{back_, forward_, reload_}) {
++    if (!button) {
++      continue;
++    }
++    // Retain the normal button height, hover treatment and history menus.
++    button->SetLayoutInsets(navigation_insets);
++    if (compact_navigation) {
++      button->SetProperty(views::kMarginsKey, gfx::Insets());
++    } else {
++      button->ClearProperty(views::kMarginsKey);
++    }
++  }
++  if (location_bar_view_) {
++    location_bar_view_->SetProperty(
++        views::kMarginsKey,
++        gfx::Insets::VH(0, compact_navigation
++                              ? 8
++                              : GetLayoutConstant(LayoutConstant::kLocationBarMargin)));
++  }
+   layout_manager_->SetInteriorMargin(interior_margin);
+ 
+   // Extend buttons to the window edge if we're either in a maximized or

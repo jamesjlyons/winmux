@@ -1,0 +1,98 @@
+--- a/components/performance_manager/worker_watcher.cc
++++ b/components/performance_manager/worker_watcher.cc
+@@ -904,12 +904,10 @@
+ 
+ #if DCHECK_IS_ON()
+ bool WorkerWatcher::IsServiceWorkerNode(WorkerNodeImpl* worker_node) {
+-  for (const auto& kv : service_worker_nodes_) {
+-    if (kv.second.get() == worker_node)
+-      return true;
+-  }
+-
+-  return false;
++  // OnVersionStoppedRunning() moves the node out of service_worker_nodes_
++  // before disconnecting its clients. The node is still alive during that
++  // cleanup, so use its type rather than membership in the owning map.
++  return worker_node->GetWorkerType() == WorkerNode::WorkerType::kService;
+ }
+ #endif
+ 
+--- a/components/performance_manager/worker_watcher_unittest.cc
++++ b/components/performance_manager/worker_watcher_unittest.cc
+@@ -851,6 +851,76 @@
+   EXPECT_FALSE(service_worker_node);
+ }
+ 
++// Renderer teardown can destroy worker clients, stop their service worker, and
++// only then deliver OnControlleeRemoved. Exercise both removal while stopped
++// and removal after restarting with the same dead clients.
++TEST_F(WorkerWatcherTest, ServiceWorkerStopsWithDeadWorkerClients) {
++  SetContents(CreateTestWebContents());
++  content::NavigationSimulator::NavigateAndCommitFromBrowser(
++      web_contents(), GURL("https://www.foo.com/"));
++
++  auto process_node = GetProcessNode(process());
++  auto frame_node = GetFrameNode(main_rfh());
++  ASSERT_TRUE(process_node);
++  ASSERT_TRUE(frame_node);
++
++  for (bool restart_before_removal : {false, true}) {
++    SCOPED_TRACE(restart_before_removal);
++    const auto dedicated_token =
++        dedicated_worker_factory()->CreateDedicatedWorker(process_node.get(),
++                                                          frame_node.get());
++    const auto shared_token =
++        shared_worker_factory()->CreateSharedWorker(process_node.get());
++    auto dedicated_node = GetWorkerNode(dedicated_token);
++    auto shared_node = GetWorkerNode(shared_token);
++    ASSERT_TRUE(dedicated_node);
++    ASSERT_TRUE(shared_node);
++
++    const int64_t version_id = service_worker_factory()->CreateServiceWorker();
++    auto service_token = service_worker_factory()->StartServiceWorker(
++        version_id, process_node.get());
++    auto service_node = GetWorkerNode(service_token);
++    ASSERT_TRUE(service_node);
++    const auto dedicated_client =
++        service_worker_factory()->AddClient(version_id, dedicated_node.get());
++    const auto shared_client =
++        service_worker_factory()->AddClient(version_id, shared_node.get());
++    ASSERT_FALSE(dedicated_client.empty());
++    ASSERT_FALSE(shared_client.empty());
++    EXPECT_TRUE(IsWorkerClient(service_node, dedicated_node));
++    EXPECT_TRUE(IsWorkerClient(service_node, shared_node));
++
++    dedicated_worker_factory()->DestroyDedicatedWorker(dedicated_token);
++    shared_worker_factory()->DestroySharedWorker(shared_token);
++    EXPECT_FALSE(dedicated_node);
++    EXPECT_FALSE(shared_node);
++    EXPECT_TRUE(service_node->GetClientWorkers().empty());
++
++    // This used to DCHECK in DisconnectSharedWorkerClient: the service node
++    // had been moved out of its map and was no longer recognized as a service
++    // worker. Dedicated-client debug bookkeeping was also skipped.
++    service_worker_factory()->StopServiceWorker(version_id);
++    EXPECT_FALSE(service_node);
++    EXPECT_FALSE(GetWorkerNode(service_token));
++    if (restart_before_removal) {
++      service_token = service_worker_factory()->StartServiceWorker(
++          version_id, process_node.get());
++      service_node = GetWorkerNode(service_token);
++      ASSERT_TRUE(service_node);
++      EXPECT_TRUE(service_node->GetClientWorkers().empty());
++    }
++
++    service_worker_factory()->RemoveClient(version_id, dedicated_client);
++    service_worker_factory()->RemoveClient(version_id, shared_client);
++    if (restart_before_removal) {
++      service_worker_factory()->StopServiceWorker(version_id);
++      EXPECT_FALSE(service_node);
++      EXPECT_FALSE(GetWorkerNode(service_token));
++    }
++    service_worker_factory()->DestroyServiceWorker(version_id);
++  }
++}
++
+ TEST_F(WorkerWatcherTest, OneSharedWorkerTwoClients) {
+   SetContents(CreateTestWebContents());
+   content::NavigationSimulator::NavigateAndCommitFromBrowser(

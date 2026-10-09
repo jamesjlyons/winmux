@@ -211,6 +211,20 @@ abort Chromium. Host presentation changes are fenced before fullscreen entry
 and restored after Chromium's immersive teardown, including deferred workspace
 ownership changes.
 
+Check the integrated browser menu in a signed package with a fresh test profile:
+
+```sh
+python3 -B browser/tools/test_browser_page_menu.py \
+  --app '/path/to/WinMux Browser Alpha.app' --output .local/browser/new-page-menu-check
+```
+
+This visible test clicks the menu in standalone, stacked, split, released, and
+readopted windows. It verifies both check commands and the Privacy Settings
+sheet, restores the test settings, and removes its temporary helper. Run native
+input fixtures one at a time on an unlocked console with Accessibility access.
+Page commands must stay below Chromium's unbounded menu-command range; a compile
+assertion prevents the command-ID collision that previously crashed this menu.
+
 The packager requires a successful alpha manifest, an exact certificate SHA-1
 in `BROWSER_SIGNING_IDENTITY`, and `BROWSER_SIGNING_TEAM`. It refuses to overwrite
 an existing package directory and retains Chromium's nested signing policies.
@@ -401,3 +415,19 @@ and bounded filter-download crash fix remain enabled. Automatic launch preserves
 saved background-service consent. Developer ID packaging support is included;
 Apple Development-signed packages remain unnotarized and do not establish
 1Password desktop linking. See [the certificate investigation](../docs/browser/onepassword-desktop-link.md).
+
+### ChatGPT desktop connection
+
+WinMux uses a separate browser data directory. ChatGPT's desktop installer
+registers `com.openai.codexextension` under Chrome and Chromium, so Chromium's
+normal profile-local lookup cannot find it in WinMux. Patch 0026 extends the
+existing 1Password discovery fallback to this exact host name. It reads the
+installed registration in place, preserves explicit registrations and the
+user-level-host policy, and retains Chromium's manifest/origin validation.
+
+The discovery helper passes 16 tests covering both desktop apps, precedence,
+policy, removal, and unrelated hosts. This does not establish full ChatGPT
+desktop compatibility: WinMux is not among the browsers listed in
+[OpenAI's extension setup guide](https://learn.chatgpt.com/docs/chrome-extension).
+See [the connection repair evidence](../docs/browser/evidence/2026-10-08-chatgpt-native-messaging.json)
+for the current-profile repair and verification limits.

@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-08",
+  "scope": "ChatGPT native-host discovery in WinMux macOS",
+  "root_cause": "The desktop installer registers com.openai.codexextension for Chrome and Chromium; WinMux uses a separate user-data-dir and previously only fell back to these registrations for com.1password.1password.",
+  "native_host": "com.openai.codexextension",
+  "runtime_repair": {
+    "profile": "WinMux Browser Workspace Alpha/daily/browser-profile",
+    "registration": "NativeMessagingHosts/com.openai.codexextension.json",
+    "symlink_target": "Google/Chrome/NativeMessagingHosts/com.openai.codexextension.json",
+    "verified": true,
+    "source_registration_modified": false,
+    "allowed_origins_modified": false,
+    "browser_restarted": false
+  },
+  "permanent_fix": {
+    "patch": "0026-chatgpt-native-messaging.patch",
+    "discovery": "Read existing Chrome then Chromium registration only after normal user/system lookup misses; restrict fallback to the exact 1Password and ChatGPT host names.",
+    "applied_to_running_app": false
+  },
+  "validation": {
+    "tests_run": 16,
+    "failures": 0,
+    "disabled": 0,
+    "errors": 0,
+    "changed_implementation_and_tests_compiled": true,
+    "patched_launch_context_compiled": true,
+    "patch_series_validated": true,
+    "current_engine_applied_prefix": 25,
+    "build_method": "Isolated objects and test executable using the pinned Chromium toolchain and existing dependency objects."
+  },
+  "limitations": [
+    "Full desktop connection and side chat have not been verified.",
+    "WinMux is not listed as a supported browser in OpenAI documentation.",
+    "The permanent source fix requires a future browser build; the live profile is repaired via the registration symlink."
+  ],
+  "official_documentation": "https://learn.chatgpt.com/docs/chrome-extension"
+}
