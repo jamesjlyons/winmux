@@ -36,6 +36,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var isDropSettling = false
     @State var isViewExpanded = true
     @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
+    @Environment(\.tabSelection) private var tabSelection
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var headerHeight: CGFloat { layout.menuBarStyle ? 26 : workspaceSidebarWorkspaceSectionHeaderHeight }
@@ -176,6 +177,8 @@ extension WorkspaceSidebarWorkspaceSection {
             activeInUseOverrideWorkspaceName = workspace.name
             return
         }
+        if workspace.isSingleWindowView, let id = workspace.viewSurfaces.first?.surfaceID,
+           !tabSelection.activate(.surface(id)) { return }
         actions.send(.selectWorkspace(workspace.name))
     }
 
@@ -465,6 +468,10 @@ extension WorkspaceSidebarWorkspaceSection {
                 isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()) else { return }
         if isInUseOnOtherDisplay { activeInUseOverrideWorkspaceName = workspace.name; return }
         activeInUseOverrideWorkspaceName = nil
+        if let tab = workspace.items.compactMap({ item -> WorkspaceSidebarPinnedBrowserTabViewModel? in
+            if case .pinnedBrowserTab(let tab) = item.kind { return tab }; return nil
+        }).first(where: { $0.id == id }), tab.isOpen, let surface = tab.pin.surfaceID,
+           !tabSelection.activate(.surface(surface)) { return }
         actions.send(.selectPinnedBrowserTab(id))
     }
 
@@ -479,6 +486,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return
         }
         activeInUseOverrideWorkspaceName = nil
+        guard tabSelection.activate(.surface(id)) else { return }
         actions.send(.selectSurface(id))
     }
 
@@ -578,7 +586,9 @@ extension WorkspaceSidebarWorkspaceSection {
                 title: workspace.displayName, actions: actions,
                 selection: .init(isSelected: isActiveOnTargetMonitor, isFocused: workspace.isFocused,
                     isHovered: isHovered, isKeyboardTarget: isSearchSelectedWorkspace)))
-            .contextMenu {
+            .tabSelectionItem(workspace.isSingleWindowView && allowsWorkspaceActivation ? workspace.viewSurfaces.first.map { .surface($0.surfaceID) } : nil)
+            .tabSelectionMenu(for: workspace.isSingleWindowView ? workspace.viewSurfaces.first.map { .surface($0.surfaceID) } : nil,
+                workspace: workspace.name, monitor: targetMonitorScopeId, actions: actions) {
                 if !workspace.isSingleWindowView, !workspace.projectId.isIncognito {
                     Button("Pin View") { actions.send(.pinWorkspaceView(workspace.name)) }
                 }
@@ -721,6 +731,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
+            guard tabSelection.activate(.surface(window.surfaceID)) else { return }
             actions.send(.selectSurface(window.surfaceID))
         } label: {
             WorkspaceSidebarWindowRow(
@@ -772,7 +783,8 @@ extension WorkspaceSidebarWorkspaceSection {
                 return false
             }, isFocused: window.isFocused, isHovered: hoveredWindowId == window.windowId,
                 isKeyboardTarget: selectedSearchTarget == .surface(window.surfaceID))))
-        .contextMenu {
+        .tabSelectionItem(.surface(window.surfaceID))
+        .tabSelectionMenu(for: .surface(window.surfaceID), workspace: workspace.name, monitor: targetMonitorScopeId, actions: actions) {
             if layout.showsBrowserControls {
                 Button("Pin App") { actions.send(.pinSurface(window.surfaceID)) }
                 Divider()

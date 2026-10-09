@@ -1,5 +1,6 @@
 @testable import AppBundle
 import Foundation
+import Common
 import WorkspaceCore
 import XCTest
 
@@ -20,6 +21,31 @@ import XCTest
             if !inventoryFirst { controller.received(message, epoch: epoch, connection: connection, protocolVersion: 5) }
             XCTAssertEqual(controller.workspaceName(for: id), requestedWorkspace)
             XCTAssertEqual(controller.focusCoordinator.target, id)
+            controller.disconnected(connection)
+        }
+    }
+
+    func testCreationRecordsOpenerOnlyForTabContext() {
+        for fromTab in [true, false] {
+            setUpWorkspacesForTests()
+            config.newItemPlacement = .tile
+            let controller = BrowserWorkspaceController(), connection = UUID(), epoch = UUID(), profile = UUID()
+            controller.usesSurfaceTree = true
+            let source = SurfaceID.browserTab(profile: profile, tab: UUID())
+            let child = SurfaceID.browserTab(profile: profile, tab: UUID())
+            var callback: (@MainActor (BrowserActionReply, SurfaceID?) -> Void)?
+            controller.connected(connection, processID: -1, sendNewTab: { _, reply in callback = reply }, send: { _, reply in reply(.issued) })
+            controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: source, hostID: "host", title: "Source", selected: true)]), epoch: epoch, connection: connection, protocolVersion: 5)
+            XCTAssertEqual(controller.select(source), .issued)
+            let destination = focus.workspace.name
+            XCTAssertEqual(controller.openBrowserTab(workspaceName: fromTab ? nil : destination), .issued)
+            callback?(.issued, child)
+            XCTAssertEqual(controller.tabOpeners[child], fromTab ? source : nil)
+            controller.received(.init(revision: 2, full: true, tabs: [source, child].map {
+                .init(surfaceID: $0, hostID: "host", title: "Page", selected: true)
+            }), epoch: epoch, connection: connection, protocolVersion: 5)
+            XCTAssertEqual(controller.focusCoordinator.target, child)
+            XCTAssertEqual(controller.tabOpeners[child], fromTab ? source : nil)
             controller.disconnected(connection)
         }
     }

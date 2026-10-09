@@ -30,6 +30,10 @@ struct TrackpadSettingsSection: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(14)
         }
+        .onChange(of: model.settingsRevision) { _ in
+            enabled = config.trackpadNavigation.enabled
+            reversed = config.trackpadNavigation.reverseDirection
+        }
     }
 
     private func persist(_ key: String, _ value: Bool) {

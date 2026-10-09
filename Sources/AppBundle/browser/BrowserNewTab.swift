@@ -52,6 +52,9 @@ extension BrowserWorkspaceController {
         }
         let creation = UUID(), startingFocus = focusCoordinator.generation
         BrowserTabTiming.record("command", operation: creation)
+        // A sidebar/pin request targets a view independently of the active tab.
+        // Only a tab-context action or the focused new-tab shortcut has an opener.
+        let opener = sourceSurfaceID ?? (workspaceName == nil && url == nil ? sourceSurface : nil)
         if selectNewPage {
             latestBrowserTabCreation = creation
             pendingBrowserTabSelections.removeAll()
@@ -66,6 +69,9 @@ extension BrowserWorkspaceController {
                 if BrowserTabTiming.enabled {
                     self.tabCreationOperations[id] = creation
                     if let arrival = self.tabInventoryArrivalTimes[id] { BrowserTabTiming.record("inventory", operation: creation, at: arrival) }
+                }
+                if let opener, case .browserTab = opener, opener != id {
+                    self.tabOpeners[id] = opener
                 }
                 if requestedWorkspace.isIncognito { self.privateSurfaces.insert(id) }
                 let selectCreated = selectNewPage && self.latestBrowserTabCreation == creation &&

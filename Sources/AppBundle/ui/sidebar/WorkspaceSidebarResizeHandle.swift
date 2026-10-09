@@ -74,7 +74,8 @@ final class SidebarResizeView: NSView {
 
     private func updateWidth(_ proposed: CGFloat) {
         guard let panel = resizingPanel else { return }
-        let available = panel.screen?.frame.width ?? 960
+        let screenWidth = panel.screen?.frame.width ?? 960
+        let available = screenWidth - workspaceSidebarEffectiveEdgeGap(config.workspaceSidebar, screenWidth: screenWidth)
         let width = clampedWorkspaceSidebarWidth(proposed, collapsedWidth: config.workspaceSidebar.collapsedWidth, availableWidth: available)
         applyWorkspaceSidebarPreviewWidth(width)
     }

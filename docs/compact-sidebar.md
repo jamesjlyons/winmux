@@ -51,6 +51,16 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   under `[workspace-sidebar]`. When disabled, edge swipes snap back without the
   creation preview or creation threshold haptic. The new-project button remains
   available.
+  Trackpad swipes follow the fingers until release, then settle over 300 ms without
+  bounce. Pauses while touching the trackpad do not switch spaces, and momentum
+  cannot trigger another switch. Reduce Motion skips the settling animation.
+- **Top gap**, **Bottom gap**, and **Screen edge gap** in **Settings → Appearance → Sidebar**
+  inset the sidebar below its menu bar reserve and from the bottom and left display
+  edges. Configure `top-gap`, `bottom-gap`, and `edge-gap` under `[workspace-sidebar]`;
+  all three default to `0`.
+  A screen edge gap rounds the left corners to match the right corners. Compact
+  and Expanded reserve the extra horizontal space for tiling; Auto-hide still
+  reserves no space and can be revealed from the monitor edge across the gap.
 - **Use menu bar style** in **Settings → Appearance → Sidebar** gives the sidebar
   clear Liquid Glass on macOS Tahoe and later, with adaptive foreground colors. It follows Light
   and Dark Mode and overrides only the sidebar's chrome. Set `menu-bar-style = true`

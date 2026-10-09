@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WorkspaceCore
 
 func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewModel]) -> WorkspaceSidebarWorkspaceViewModel? {
     guard var result = workspaces.first(where: \.isPinnedGroup) else { return nil }
@@ -12,6 +13,7 @@ func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewMo
 /// from the regular group cards. Closed launchers still participate in order.
 struct WorkspaceSidebarPinGrid: View {
     @ObservedObject private var faviconCache = WorkspaceSidebarFaviconCache.shared
+    @Environment(\.tabSelection) private var tabSelection
     let workspace: WorkspaceSidebarWorkspaceViewModel
     let projects: [WorkspaceSidebarProjectViewModel]
     let isCompact: Bool
@@ -75,6 +77,7 @@ struct WorkspaceSidebarPinGrid: View {
 
     private func pinTile(_ pin: WorkspaceSidebarPinViewModel) -> some View {
         Button {
+            if pin.isOpen, !pin.isGroup, let surface = pin.surfaceID, !tabSelection.activate(.surface(surface)) { return }
             actions.send(.selectPin(pin.id))
         } label: {
             ZStack(alignment: .bottom) {
@@ -119,7 +122,8 @@ struct WorkspaceSidebarPinGrid: View {
                 ])
             }
         }
-        .contextMenu {
+        .tabSelectionItem(pin.isOpen && !pin.isGroup ? pin.surfaceID.map(SurfacePane.surface) : nil)
+        .tabSelectionMenu(for: pin.isOpen && !pin.isGroup ? pin.surfaceID.map(SurfacePane.surface) : nil, workspace: workspace.name, actions: actions) {
             if !pin.isGroup, let id = pin.surfaceID {
                 SurfaceViewActionsMenu(surface: id, actions: actions)
                 Divider()

@@ -40,9 +40,7 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         var onChanged: ((CGFloat, CGFloat) -> Void)?
         var onEnded: ((CGFloat, CGFloat) -> Void)?
         var monitor: Any?
-        var horizontalTranslation: CGFloat = 0
-        var verticalTranslation: CGFloat = 0
-        var hasLockedHorizontalIntent = false
+        var gesture = WorkspaceSidebarProjectScrollGesture()
         var endWorkItem: DispatchWorkItem?
         var trackpadScrollGate = TrackpadSidebarScrollGate()
 
@@ -65,9 +63,7 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         func resetAccumulatedScroll() {
             endWorkItem?.cancel()
             endWorkItem = nil
-            horizontalTranslation = 0
-            verticalTranslation = 0
-            hasLockedHorizontalIntent = false
+            gesture = WorkspaceSidebarProjectScrollGesture()
         }
 
         func handle(_ event: NSEvent) -> NSEvent? {
@@ -76,19 +72,17 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
                trackpadScrollGate.shouldSuppress(owned: !TrackpadNavigationController.shared.ownedDevices.isEmpty,
                    phase: event.phase, momentum: event.momentumPhase)
             {
-                if hasLockedHorizontalIntent { onEnded?(0, 0) }
+                if gesture.isLocked { onEnded?(0, 0) }
                 resetAccumulatedScroll()
                 return nil
             }
-            if WorkspaceSidebarProjectScrollRegion.contains(event) {
-                if hasLockedHorizontalIntent { onEnded?(0, 0) }
+            if !gesture.isLocked && (!gesture.suppressMomentum || event.momentumPhase.isEmpty) && WorkspaceSidebarProjectScrollRegion.contains(event) {
                 resetAccumulatedScroll()
                 return event
             }
             guard isEnabled,
                   !isWorkspaceSidebarDragInProgress(),
                   event.hasPreciseScrollingDeltas,
-                  event.momentumPhase.isEmpty,
                   let view,
                   let window = view.window,
                   event.window === window
@@ -97,48 +91,27 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
                 return event
             }
             let point = view.convert(event.locationInWindow, from: nil)
-            guard view.bounds.contains(point) else {
+            guard view.bounds.contains(point) || gesture.isLocked else {
                 resetIfNeededForExternalEvent(event)
                 return event
             }
-            if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
-                resetAccumulatedScroll()
+            let update = gesture.update(deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
+                phase: event.phase, momentum: event.momentumPhase)
+            if gesture.needsEndTimer { scheduleEndTimer() }
+            else {
+                endWorkItem?.cancel()
+                endWorkItem = nil
             }
-            horizontalTranslation = workspaceSidebarProjectSwipeTranslationAfterScroll(
-                currentTranslation: horizontalTranslation,
-                scrollingDeltaX: event.scrollingDeltaX,
-            )
-            verticalTranslation += event.scrollingDeltaY
-
-            if !hasLockedHorizontalIntent {
-                guard workspaceSidebarProjectSwipeDirection(
-                    horizontalTranslation: horizontalTranslation,
-                    verticalTranslation: verticalTranslation,
-                ) != nil else {
-                    if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-                        resetAccumulatedScroll()
-                    }
-                    return event
-                }
-                hasLockedHorizontalIntent = true
-            }
-
-            onChanged?(horizontalTranslation, verticalTranslation)
-            if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-                finishLockedSwipe()
-            } else {
-                scheduleEndTimer()
-            }
-            return nil
+            return deliver(update) ? nil : event
         }
 
         func resetIfNeededForExternalEvent(_ event: NSEvent) {
-            guard hasLockedHorizontalIntent,
+            guard gesture.isLocked,
                   event.phase.contains(.ended) || event.phase.contains(.cancelled)
             else {
                 return
             }
-            finishLockedSwipe()
+            _ = deliver(gesture.finish(cancelled: event.phase.contains(.cancelled)))
         }
 
         func scheduleEndTimer() {
@@ -151,14 +124,20 @@ struct WorkspaceSidebarProjectSwipeScrollCapture: NSViewRepresentable {
         }
 
         func finishLockedSwipe() {
-            guard hasLockedHorizontalIntent else {
-                resetAccumulatedScroll()
-                return
+            endWorkItem?.cancel()
+            endWorkItem = nil
+            guard gesture.needsEndTimer else { return }
+            _ = deliver(gesture.finish())
+        }
+
+        func deliver(_ update: WorkspaceSidebarProjectScrollGesture.Update) -> Bool {
+            switch update {
+            case .passThrough: return false
+            case .consumed: return true
+            case let .changed(horizontal, vertical): onChanged?(horizontal, vertical)
+            case let .ended(horizontal, vertical): onEnded?(horizontal, vertical)
             }
-            let finalHorizontalTranslation = horizontalTranslation
-            let finalVerticalTranslation = verticalTranslation
-            resetAccumulatedScroll()
-            onEnded?(finalHorizontalTranslation, finalVerticalTranslation)
+            return true
         }
     }
 }

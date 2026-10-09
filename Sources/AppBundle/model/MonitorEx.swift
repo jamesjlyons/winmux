@@ -7,7 +7,7 @@ extension Monitor {
               !shouldSuppressWorkspaceSidebarForFullscreenContent(on: self)
         else { return 0 }
         return workspaceSidebarResolvedPanelMonitors().contains { $0.rect.topLeftCorner == rect.topLeftCorner }
-            ? workspaceSidebarRestingWidth(config.workspaceSidebar)
+            ? workspaceSidebarReservedWidth(config.workspaceSidebar, screenWidth: rect.width)
             : 0
     }
 

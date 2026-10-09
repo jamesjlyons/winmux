@@ -25,7 +25,10 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     "use-liquid-glass": Parser(\.chromeStyle) { raw, backtrace in
         parseBool(raw, backtrace).map { $0 ? .liquidGlass : .solid }
     },
-    "menu-bar-reserve-height": Parser(\.menuBarReserveHeight, parseWorkspaceSidebarMenuBarReserveHeight),
+    "menu-bar-reserve-height": Parser(\.menuBarReserveHeight, parseWorkspaceSidebarNonnegativeDistance),
+    "top-gap": Parser(\.topGap, parseWorkspaceSidebarNonnegativeDistance),
+    "bottom-gap": Parser(\.bottomGap, parseWorkspaceSidebarNonnegativeDistance),
+    "edge-gap": Parser(\.edgeGap, parseWorkspaceSidebarNonnegativeDistance),
     "project-deletion-action": Parser(\.projectDeletionAction, parseWorkspaceProjectDeletionAction),
     "workspace-labels": Parser(\.workspaceLabels, parseWorkspaceSidebarLabels),
     "project-labels": Parser(\.projectLabels, parseWorkspaceSidebarLabels),
@@ -99,7 +102,7 @@ private func parseWorkspaceSidebarWidth(_ raw: TOMLValueConvertible, _ backtrace
         .filter(.semantic(backtrace, "Must be greater than 0")) { $0 > 0 }
 }
 
-private func parseWorkspaceSidebarMenuBarReserveHeight(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Int> {
+private func parseWorkspaceSidebarNonnegativeDistance(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Int> {
     parseInt(raw, backtrace)
         .filter(.semantic(backtrace, "Must be greater than or equal to 0")) { $0 >= 0 }
 }

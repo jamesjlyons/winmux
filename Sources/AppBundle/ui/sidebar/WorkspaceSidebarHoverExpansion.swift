@@ -16,6 +16,24 @@ func workspaceSidebarRestingWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CG
     }
 }
 
+func workspaceSidebarReservedWidth(_ sidebarConfig: WorkspaceSidebarConfig, screenWidth: CGFloat) -> CGFloat {
+    let width = workspaceSidebarRestingWidth(sidebarConfig)
+    guard width > 0 else { return 0 }
+    return min(width + workspaceSidebarEffectiveEdgeGap(sidebarConfig, screenWidth: screenWidth), max(screenWidth - 1, 0))
+}
+
+func workspaceSidebarEffectiveEdgeGap(_ sidebarConfig: WorkspaceSidebarConfig, screenWidth: CGFloat) -> CGFloat {
+    min(CGFloat(sidebarConfig.edgeGap), max(screenWidth - CGFloat(sidebarConfig.width), 0))
+}
+
+func workspaceSidebarPanelFrame(screenFrame: CGRect, width: CGFloat, configuration: WorkspaceSidebarConfig) -> CGRect {
+    let edgeGap = workspaceSidebarEffectiveEdgeGap(configuration, screenWidth: screenFrame.width)
+    let topInset = min(CGFloat(configuration.menuBarReserveHeight) + CGFloat(configuration.topGap), max(screenFrame.height - 1, 0))
+    let bottomInset = min(CGFloat(configuration.bottomGap), max(screenFrame.height - topInset - 1, 0))
+    return CGRect(x: screenFrame.minX + edgeGap, y: screenFrame.minY + bottomInset,
+        width: min(width, screenFrame.width - edgeGap), height: screenFrame.height - topInset - bottomInset)
+}
+
 func workspaceSidebarHoverActivationWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CGFloat {
     workspaceSidebarKeepsExpandedAtRest(sidebarConfig) ? CGFloat(sidebarConfig.width) : CGFloat(sidebarConfig.collapsedWidth)
 }

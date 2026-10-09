@@ -19,5 +19,6 @@ func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
         swipeToCreateProjects: config.workspaceSidebar.swipeToCreateProjects,
         menuBarStyle: config.workspaceSidebar.menuBarStyle,
         showsBrowserControls: BrowserWorkspaceController.shared.usesSurfaceTree,
+        edgeGap: CGFloat(config.workspaceSidebar.edgeGap),
     )
 }

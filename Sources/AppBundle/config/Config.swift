@@ -96,6 +96,9 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var solidChromeColor: ChromeSolidColor = .system
     var solidChromeCustomColor: String = "#191B20"
     var menuBarReserveHeight: Int = 28
+    var topGap: Int = 0
+    var bottomGap: Int = 0
+    var edgeGap: Int = 0
     var projectDeletionAction: WorkspaceProjectDeletionAction = .closeWindows
     var workspaceLabels: [String: String] = [:]
     var projectLabels: [String: String] = [:]

@@ -22,7 +22,8 @@ struct WorkspaceSidebarPinnedBrowserTabRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Pinned browser tab: \(tab.title)\(tab.isOpen ? "" : ", closed")")
         .help(tab.pin.url)
-        .contextMenu {
+        .tabSelectionItem(tab.isOpen ? tab.pin.surfaceID.map(SurfacePane.surface) : nil)
+        .tabSelectionMenu(for: tab.isOpen ? tab.pin.surfaceID.map(SurfacePane.surface) : nil, workspace: workspaceName, actions: actions) {
             Button("Unpin Tab") { actions.send(.unpinBrowserTab(tab.id)) }
             Menu("Move to") {
                 ForEach(windowMoveMenuDestinations()) { space in

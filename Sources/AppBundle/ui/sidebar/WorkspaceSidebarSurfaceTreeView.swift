@@ -79,7 +79,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onChanged: { actions.surfaceDragChanged(.surface(surface.surfaceID), $0) },
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
         ))
-        .contextMenu {
+        .tabSelectionItem(.surface(surface.surfaceID))
+        .tabSelectionMenu(for: .surface(surface.surfaceID), workspace: workspaceName, monitor: targetMonitorScopeId, actions: actions) {
             SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
             Divider()
             if Workspace.existing(byName: workspaceName)?.isIncognito != true {

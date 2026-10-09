@@ -41,7 +41,6 @@ struct ShortcutBehaviorSettingsView: View {
                     .padding(14)
             }
             TrackpadSettingsSection(model: model)
-                .id(model.settingsRevision)
             SettingsSection("Interaction") {
                 SettingsToggle("Shake to toggle tiling", isOn: $enableShakeToToggleTiling, help: "Shake a window by its title bar to switch between floating and tiled.") { persistRootBool("enable-shake-to-toggle-tiling", enableShakeToToggleTiling) }
                 SettingsToggle("Flatten matching containers", isOn: $flattenContainers, help: "Simplify adjacent containers with the same layout orientation.") { persistRootBool("enable-normalization-flatten-containers", flattenContainers) }
@@ -72,9 +71,19 @@ struct ShortcutBehaviorSettingsView: View {
                 }
             }
         }
-        .id(model.settingsRevision)
         .onChange(of: model.settingsRevision) { _ in
+            doubleSidedWindows = ExperimentalUISettings().doubleSidedWindows
             newItemPlacement = config.newItemPlacement
+            enableShakeToToggleTiling = config.enableShakeToToggleTiling
+            automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps
+            autoReloadConfig = config.autoReloadConfig
+            startAtLogin = config.startAtLogin
+            defaultLayout = config.defaultRootContainerLayout
+            defaultOrientation = config.defaultRootContainerOrientation
+            flattenContainers = config.enableNormalizationFlattenContainers
+            normalizeNestedContainers = config.enableNormalizationOppositeOrientationForNestedContainers
+            shortcutsPreset = config.shortcutsPreset.rawValue
+            persistentWorkspaces = config.persistentWorkspaces.joined(separator: ", ")
         }
     }
 
@@ -106,6 +115,9 @@ struct ShortcutAppearanceSettingsView: View {
     @State private var tabHeight = config.windowTabs.height
     @State private var tabPadding = config.tabGroupPadding
     @State private var menuBarReserveHeight = config.workspaceSidebar.menuBarReserveHeight
+    @State private var sidebarTopGap = config.workspaceSidebar.topGap
+    @State private var sidebarBottomGap = config.workspaceSidebar.bottomGap
+    @State private var sidebarEdgeGap = config.workspaceSidebar.edgeGap
     @State private var projectDeletionAction = config.workspaceSidebar.projectDeletionAction
     @State private var innerHorizontalGap = settingsConstantValue(config.gaps.inner.horizontal)
     @State private var innerVerticalGap = settingsConstantValue(config.gaps.inner.vertical)
@@ -142,6 +154,9 @@ struct ShortcutAppearanceSettingsView: View {
                 SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
                 SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
                 SettingsStepper("Menu bar reserve", value: $menuBarReserveHeight, range: 0...72, help: "Use 0 px when the macOS menu bar auto-hides.") { sidebarInt("menu-bar-reserve-height", menuBarReserveHeight) }
+                SettingsStepper("Top gap", value: $sidebarTopGap, range: 0...120, help: "Extra space above the sidebar, below the menu bar reserve.") { sidebarInt("top-gap", sidebarTopGap) }
+                SettingsStepper("Bottom gap", value: $sidebarBottomGap, range: 0...120, help: "Space between the sidebar and the bottom display edge.") { sidebarInt("bottom-gap", sidebarBottomGap) }
+                SettingsStepper("Screen edge gap", value: $sidebarEdgeGap, range: 0...120, help: "Space between the sidebar and the left display edge. A gap also rounds the sidebar's left corners.") { sidebarInt("edge-gap", sidebarEdgeGap) }
                 SettingsPicker("Deleting spaces", selection: $projectDeletionAction, help: "Choose what happens to the space's windows.") {
                     Text("Close space windows").tag(WorkspaceProjectDeletionAction.closeWindows)
                     Text("Move windows elsewhere").tag(WorkspaceProjectDeletionAction.moveWindowsToFallback)
@@ -168,7 +183,37 @@ struct ShortcutAppearanceSettingsView: View {
                 SettingsStepper("Outer bottom", value: $outerBottomGap, range: 0...120, help: "Inset at the bottom display edge.") { persist("gaps", "outer.bottom", "\(outerBottomGap)") }
             }
         }
-        .id(model.settingsRevision)
+        .onChange(of: model.settingsRevision) { _ in
+            sidebarEnabled = config.workspaceSidebar.enabled
+            sidebarFocusEnabled = config.workspaceSidebar.enableFocus
+            sidebarVisibility = config.workspaceSidebar.visibility
+            swipeToCreateProjects = config.workspaceSidebar.swipeToCreateProjects
+            showStatusPills = config.workspaceSidebar.showStatusPills
+            showClock = config.workspaceSidebar.showClock
+            showSeconds = config.workspaceSidebar.showSeconds
+            showDate = config.workspaceSidebar.showDate
+            showWeekday = config.workspaceSidebar.showWeekday
+            chromeStyle = config.workspaceSidebar.chromeStyle
+            menuBarStyle = config.workspaceSidebar.menuBarStyle
+            solidChromeColor = config.workspaceSidebar.solidChromeColor
+            solidChromeCustomColor = config.workspaceSidebar.solidChromeCustomColor
+            sidebarWidth = config.workspaceSidebar.width
+            collapsedWidth = config.workspaceSidebar.collapsedWidth
+            tabEnabled = config.windowTabs.enabled
+            tabHeight = config.windowTabs.height
+            tabPadding = config.tabGroupPadding
+            menuBarReserveHeight = config.workspaceSidebar.menuBarReserveHeight
+            sidebarTopGap = config.workspaceSidebar.topGap
+            sidebarBottomGap = config.workspaceSidebar.bottomGap
+            sidebarEdgeGap = config.workspaceSidebar.edgeGap
+            projectDeletionAction = config.workspaceSidebar.projectDeletionAction
+            innerHorizontalGap = settingsConstantValue(config.gaps.inner.horizontal)
+            innerVerticalGap = settingsConstantValue(config.gaps.inner.vertical)
+            outerLeftGap = settingsConstantValue(config.gaps.outer.left)
+            outerRightGap = settingsConstantValue(config.gaps.outer.right)
+            outerTopGap = settingsConstantValue(config.gaps.outer.top)
+            outerBottomGap = settingsConstantValue(config.gaps.outer.bottom)
+        }
     }
 
     private func sidebarBool(_ key: String, _ value: Bool) { persist("workspace-sidebar", key, value ? "true" : "false") }
@@ -216,7 +261,6 @@ struct ShortcutAutomationSettingsView: View {
             }
         }
         .task { loadCommands() }
-        .id(model.settingsRevision)
     }
 
     private func loadCommands() {
@@ -293,7 +337,11 @@ struct SettingsToggle: View {
         HStack(spacing: 12) {
             Text(title)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Toggle("", isOn: $isOn)
+            Toggle("", isOn: Binding(get: { isOn }, set: {
+                guard isOn != $0 else { return }
+                isOn = $0
+                save()
+            }))
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
@@ -304,58 +352,35 @@ struct SettingsToggle: View {
         .overlay(alignment: .bottom) {
             Divider().padding(.leading, 14)
         }
-        .onChange(of: isOn) { _ in save() }
-    }
-}
-
-private struct SettingsStepper: View {
-    let title: String; @Binding var value: Int; let range: ClosedRange<Int>; let help: String; let save: () -> Void
-    init(_ title: String, value: Binding<Int>, range: ClosedRange<Int>, help: String, save: @escaping () -> Void) {
-        self.title = title
-        _value = value
-        self.range = range
-        self.help = help
-        self.save = save
-    }
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Slider(value: Binding(get: { Double(value) }, set: { value = Int($0.rounded()) }), in: Double(range.lowerBound)...Double(range.upperBound))
-                .frame(width: 96)
-            TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 44)
-            Stepper("", value: $value, in: range)
-                .labelsHidden()
-                .controlSize(.small)
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 38)
-        .help(help)
-        .overlay(alignment: .bottom) {
-            Divider().padding(.leading, 14)
-        }
-        .onChange(of: value) { _ in save() }
     }
 }
 
 private struct SettingsTextField: View {
     let title: String; @Binding var text: String; let help: String; let save: () -> Void
-    init(_ title: String, text: Binding<String>, help: String, save: @escaping () -> Void) { self.title = title; _text = text; self.help = help; self.save = save }
+    @State private var draft: String
+    init(_ title: String, text: Binding<String>, help: String, save: @escaping () -> Void) {
+        self.title = title; _text = text; self.help = help; self.save = save
+        _draft = State(initialValue: text.wrappedValue)
+    }
     var body: some View {
         HStack(spacing: 12) {
             Text(title)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            TextField("", text: $text)
+            TextField("", text: $draft)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 230)
-                .onSubmit(save)
+                .onSubmit {
+                    guard draft != text else { return }
+                    text = draft
+                    save()
+                }
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 42)
         .help(help)
+        .onChange(of: text) { [text] newValue in
+            if draft == text { draft = newValue }
+        }
     }
 }
 
@@ -372,7 +397,11 @@ private struct SettingsPicker<Selection: Hashable, Content: View>: View {
         HStack(spacing: 12) {
             Text(title)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Picker("", selection: $selection, content: { content })
+            Picker("", selection: Binding(get: { selection }, set: {
+                guard selection != $0 else { return }
+                selection = $0
+                onChange()
+            }), content: { content })
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .frame(width: 170, alignment: .trailing)
@@ -383,7 +412,6 @@ private struct SettingsPicker<Selection: Hashable, Content: View>: View {
         .overlay(alignment: .bottom) {
             Divider().padding(.leading, 14)
         }
-        .onChange(of: selection) { _ in onChange() }
     }
 }
 
@@ -406,7 +434,9 @@ private struct SettingsSolidColorPalette: View {
                     let swatchColor = color == .custom ? ChromePalette.customColor(customColor) : color.nsColor
                     let selectionColor: Color = color == .system ? .primary : (ChromePalette.appearance(for: swatchColor) == .darkAqua ? .white : .black)
                     Button {
+                        guard selection != color else { return }
                         selection = color
+                        onSelectionChange()
                     } label: {
                         GlassSurface(
                             shape: RoundedRectangle(cornerRadius: 8, style: .continuous),
@@ -434,7 +464,11 @@ private struct SettingsSolidColorPalette: View {
             if selection == .custom {
                 ColorPicker("Custom color", selection: Binding(
                     get: { Color(chromeHex: customColor) },
-                    set: { customColor = $0.chromeHex },
+                    set: {
+                        guard customColor != $0.chromeHex else { return }
+                        customColor = $0.chromeHex
+                        onCustomColorChange()
+                    },
                 ), supportsOpacity: false)
             }
         }
@@ -443,11 +477,6 @@ private struct SettingsSolidColorPalette: View {
         .opacity(isEnabled ? 1 : 0.45)
         .overlay(alignment: .bottom) {
             Divider().padding(.leading, 14)
-        }
-        .onChange(of: selection) { _ in onSelectionChange() }
-        .onChange(of: customColor) { _ in
-            guard selection == .custom else { return }
-            onCustomColorChange()
         }
     }
 }

@@ -65,6 +65,7 @@ public final class BrowserWorkspaceController {
     var closedBrowserTabs: Set<SurfaceID> = []
     var restoredSelection: SurfaceID?
     var recentSelections: [SurfaceID] = []
+    var tabOpeners: [SurfaceID: SurfaceID] = [:]
     var selectedByWorkspace: [String: SurfaceID] = [:]
     private var restoredPlacements = false
     private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
@@ -113,6 +114,7 @@ public final class BrowserWorkspaceController {
         for pin in browserSidebarPins { _ = Workspace.get(byName: pin.workspaceName) }
         restoredSelection = snapshot.selected
         recentSelections = snapshot.selected.map { [$0] } ?? []
+        tabOpeners = [:]
         selectedByWorkspace = snapshot.selectedByWorkspace
         restoredPlacements = true
         placements = [:]
@@ -487,9 +489,14 @@ public final class BrowserWorkspaceController {
     }
 
     func owner(of id: SurfaceID) -> BrowserSurfaceSession? {
-        let matches = sessions.values.filter { $0.inventory.tabs[id] != nil }
-        // Concurrent live owners of a durable ID are ambiguous, never guess.
-        return matches.count == 1 ? matches[0] : nil
+        guard case .browserTab = id else { return nil }
+        var owner: BrowserSurfaceSession?
+        for session in sessions.values where session.inventory.tabs[id] != nil {
+            // Concurrent live owners of a durable ID are ambiguous, never guess.
+            if owner != nil { return nil }
+            owner = session
+        }
+        return owner
     }
 
     func browserProcess(for id: SurfaceID) -> Int32? {
@@ -860,6 +867,49 @@ public final class BrowserWorkspaceController {
         }
     }
 
+    /// Batch edits reserve every source before committing any owner membership.
+    /// The existing profile transaction stages cross-Space browser copies first.
+    @discardableResult
+    func arrangeSelectedTabs(_ panes: [SurfacePane], in destination: Workspace,
+                             grouping layout: SurfaceContainerLayout? = nil) -> Bool {
+        guard !destination.isArchived, let ids = selectedTabSurfaces(panes, controller: self),
+              ids.allSatisfy(canMoveSurface), ids.allSatisfy({ canPlaceSurface($0, in: destination) }) else { return false }
+        let original = panes.compactMap { surfaceTree.node(for: $0) }
+        guard original.count == panes.count else { return false }
+        if let accepted = moveUsingDestinationProfile(ids, to: destination, commit: { [weak self] in
+            guard let self, panes.compactMap({ self.surfaceTree.node(for: $0) }) == original else { return false }
+            return self.arrangeSelectedTabs(panes, in: destination, grouping: layout)
+        }) { return accepted }
+        let sources = Set(panes.compactMap { surfaceTree.workspace(of: $0) })
+        let affected = sources.union([destination.name])
+        guard let reservations = organizationReservations(in: affected) else { return false }
+        var candidate = surfaceTree
+        if candidate.roots[destination.name] == nil {
+            let native = destination.rootTilingContainer.allLeafWindowsRecursive.filter(participatesInSharedTiling)
+            let browser = placements.filter { $0.value == destination.name }.map(\.key)
+            guard native.allSatisfy({ $0.toLiveFocusOrNil() != nil }), browser.allSatisfy(isAvailable) else { return false }
+            let nativeIDs = native.map(\.surfaceID)
+            candidate.reconcile(nativeIDs + browser, in: destination.name)
+            let imported = nativeOrganization(destination.rootTilingContainer, available: Set(nativeIDs))
+            if !imported.nodes.isEmpty {
+                guard candidate.importOrganization(imported.nodes, in: destination.name, layouts: imported.layouts,
+                    activeSurfaces: imported.active, weights: imported.weights) else { return false }
+            }
+        }
+        guard let change = candidate.preparingOrganizationChange(in: affected, reserving: reservations,
+            selected: focusCoordinator.target, { $0.arrangeTabs(panes, in: destination.name, grouping: layout) }) else { return false }
+        let focused = focusCoordinator.target ?? focus.windowOrNil?.surfaceID
+        let source = focused.flatMap { ids.contains($0) ? workspaceName(for: $0) : nil }.flatMap(Workspace.existing(byName:))
+        guard commitOrganizationChange(change) else { return false }
+        if layout != nil, let selected = focused.flatMap({ ids.contains($0) ? $0 : nil }) ?? ids.first {
+            // Grouping is an explicit view-combination action. In a reversed
+            // range the first displayed tab may belong to a hidden workspace.
+            _ = select(selected)
+        } else if let source, source !== destination { retainSourceSelection(in: source) }
+        scheduleRefresh()
+        return true
+    }
+
     /// Shared organization dispatches owner layout only after capability checks.
     /// Native owners are revalidated; browser profile identity is preserved.
     func organize(_ id: SurfaceID, before target: SurfaceID? = nil, earlier: Bool? = nil, groupWithSelection: Bool = false, layout: SurfaceContainerLayout = .stack) {
@@ -1190,8 +1240,9 @@ public final class BrowserWorkspaceController {
         var result: [SurfaceID: SurfaceMinimumSize] = [:]
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
             if case .browserTab = id {
-                let minimum = owner(of: id)?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
-                if owner(of: id)?.supportsBrowserControls == true && owner(of: id)?.supportsIntegratedToolbar != true {
+                let session = owner(of: id)
+                let minimum = session?.inventory.tabs[id]?.hostMinimumSize ?? .init(width: 500, height: 400)
+                if session?.supportsBrowserControls == true && session?.supportsIntegratedToolbar != true {
                     result[id] = .init(width: min(30000, max(160, minimum.width) + BrowserPageChromeGeometry.widthOverhead),
                                        height: min(30000, max(120, minimum.height) + BrowserPageChromeGeometry.heightOverhead))
                 } else {
@@ -1235,8 +1286,10 @@ public final class BrowserWorkspaceController {
     }
 
     func plannedLayout(in workspace: Workspace) -> SurfaceLayoutPlan {
+        let interval = signposter.beginInterval("Shared layout plan")
+        defer { signposter.endInterval("Shared layout plan", interval) }
         let livePlan = liveLayoutTree(in: workspace)
-        let fullscreen = sharedFullscreenPane(in: workspace)
+        let fullscreen = sharedFullscreenPane(in: workspace, liveTree: livePlan)
         let rect = fullscreen?.noOuterGaps == true ? workspace.workspaceMonitor.visibleRect
             : workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
         return livePlan.layout(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),

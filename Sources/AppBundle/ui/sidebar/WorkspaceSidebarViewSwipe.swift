@@ -26,6 +26,9 @@ extension WorkspaceSidebarView {
         verticalTranslation: CGFloat,
         expansionProgress: CGFloat,
     ) {
+        if projectSwipeSettlement != nil {
+            resetProjectSwipeWithoutAnimation()
+        }
         guard shouldHandleProjectSwipe(
             horizontalTranslation: horizontalTranslation,
             verticalTranslation: verticalTranslation,
@@ -67,6 +70,25 @@ extension WorkspaceSidebarView {
         } else if !shouldCommit {
             projectSwipeDidCrossBreakPoint = false
         }
+    }
+
+    func settleProjectSwipe(to translation: CGFloat, target: WorkspaceProjectId?, direction: Int) {
+        let settlement = WorkspaceSidebarProjectSwipeSettlement(target: target, direction: direction)
+        projectSwipeSettlement = settlement
+        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.3
+        withAnimation(duration == 0 ? nil : .timingCurve(0.22, 0.72, 0.25, 1, duration: duration)) {
+            projectSwipeTranslation = translation
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            guard projectSwipeSettlement?.id == settlement.id else { return }
+            projectSwipeSettlement?.animationFinished = true
+            completeProjectSwipeSettlementIfReady()
+        }
+    }
+
+    func completeProjectSwipeSettlementIfReady() {
+        guard projectSwipeSettlement?.isComplete == true else { return }
+        resetProjectSwipeWithoutAnimation()
     }
 
     func shouldHandleProjectSwipe(

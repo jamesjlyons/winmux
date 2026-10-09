@@ -99,6 +99,12 @@ func handleWorkspaceSidebarAction(
             focusSurfaceFromSidebar(surfaceID)
         case .closeSurface(let surfaceID):
             BrowserWorkspaceController.shared.close(surfaceID)
+        case .batchTabs(let panes, let action):
+            runWorkspaceSidebarSession {
+                if !performTabBatchAction(panes, action: action) {
+                    showWorkspaceSidebarError("The selected tabs changed or cannot be used together. Select them again and retry.")
+                }
+            }
         case .reorderSurface(let id, let earlier):
             BrowserWorkspaceController.shared.organize(id, earlier: earlier)
         case .moveSurfaceBefore(let id, let target):

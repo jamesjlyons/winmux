@@ -1,0 +1,138 @@
+{
+  "feature_tests_passed": true,
+  "feature_tests": 20,
+  "created_utc": "2026-10-08T00:28:50.874123+00:00",
+  "app_tests": {
+    "debug_passed": 1138,
+    "optimized_passed": 1138,
+    "deferred": 3
+  },
+  "native_tests": {
+    "debug_passed": 219,
+    "optimized_passed": 219,
+    "deferred": 4
+  },
+  "python_tests_passed": 84,
+  "make_check_completed": false,
+  "deferred_reason": "The Mac console was locked. Focus-sensitive toolbar tests and protected activation-file reads require an unlocked session.",
+  "deferred_tests": [
+    "BrowserToolbarControlsTest.testCommandLReselectsDraftAndEscapeReturnsToPage",
+    "BrowserAddressAutocompleteTest.testNativePopupRetainsEditorRendersBothAppearancesAndDismissesWithToolbar",
+    "BrowserAddressAutocompleteTest.testFocusingAddressShowsHistoryWithoutChoosingItAndLosingFocusDismisses",
+    "WorkspaceActivationTests.testExistingTrialWorkspaceKeepsItsProfileAndSavedActivation",
+    "WorkspaceActivationTests.testFreshStartPreparesPrivateDirectoriesBeforeSavingConsent",
+    "WorkspaceActivationTests.testStartRepairsRC1DirectoriesAndPreservesProfileContents",
+    "WorkspaceActivationTests.testStoreIsPrivateAndPreservesRequestAndProfile"
+  ],
+  "visual_review": {
+    "passed": true,
+    "kind": "production component fixtures",
+    "appearances": [
+      "light",
+      "dark"
+    ]
+  },
+  "checks": [
+    "forward and backward range selection",
+    "range shrinking",
+    "Cmd-click toggles and additive ranges",
+    "right-click target scope",
+    "filtered and removed rows",
+    "exact group membership and nested arrangements",
+    "mixed browser/native owners",
+    "cross-profile commit and rollback",
+    "single new destination for the batch",
+    "grouping brings the resulting view into focus",
+    "legacy native stacks"
+  ],
+  "package": {
+    "archive": "WinMux-Browser-Alpha-Multi-Selection-2026-10-07-rc1-arm64.zip",
+    "archive_sha256": "e85488dd2857ae9b87c59a794867a257f37cce61194e74d5ada91f5c792a383c",
+    "strict_nested_signatures_verified": true,
+    "archive_round_trip_verified": true
+  },
+  "release_directory": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-multiselect-2026-10-07-rc1",
+  "media_passed": true,
+  "browser_integration_passed": true,
+  "github_upload": {
+    "release_url": "https://github.com/jamesjlyons/winmux/releases/tag/untagged-8486cc3218940fbfbbf2",
+    "release_id": 406276964,
+    "draft": true,
+    "target_remote_ancestor": "43067bd164dba3fef8efdc7a11171a1ba75bdb36",
+    "binary_source_base": "56432429e35e3489df297693a828b790af808147",
+    "assets": [
+      {
+        "name": "browser-integration.json",
+        "size": 223096,
+        "digest": "sha256:cb947d16cbf1944d6af35af1d2c3134c1f5002187e6bed55e9cf0b5b6bea247c",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/browser-integration.json"
+      },
+      {
+        "name": "media-verification.json",
+        "size": 2320,
+        "digest": "sha256:61b85dff5725cc26d0bb45ec50931dd00aa38d056d0d2db2d5d4120cf5d129ba",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/media-verification.json"
+      },
+      {
+        "name": "multi-selection-dark.png",
+        "size": 90907,
+        "digest": "sha256:aa7a2daad0b0d986398de983b3b39c75fb42311d5c4cd3ed9f9ea06a838c700e",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/multi-selection-dark.png"
+      },
+      {
+        "name": "multi-selection-light.png",
+        "size": 97109,
+        "digest": "sha256:115d3953bff23d04dbfd763c5fb898eb15b280c2c52bd75cb689c59d9f3cc38f",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/multi-selection-light.png"
+      },
+      {
+        "name": "package-manifest.json",
+        "size": 105179,
+        "digest": "sha256:6816c3311775d787bcec00f9ebdb172272759d0235d3a05b8cf75028d2e35356",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/package-manifest.json"
+      },
+      {
+        "name": "release-manifest.json",
+        "size": 2947,
+        "digest": "sha256:38e05c5e4d96e6aa0456b51b66c58ce2bc5d388a9e0060ea6cff29aac7d622bf",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/release-manifest.json"
+      },
+      {
+        "name": "RELEASE-NOTES.md",
+        "size": 2083,
+        "digest": "sha256:55fbdd6e22e7c9a969526650eefd8bb74e914fead906f3ab2cd578fb2fed5258",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/RELEASE-NOTES.md"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size": 838,
+        "digest": "sha256:e6f5e71a73e007e55749b886d2da8945303c11b01075d0121fa05f09596afd2a",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/SHA256SUMS"
+      },
+      {
+        "name": "ui-verification.json",
+        "size": 1794,
+        "digest": "sha256:259f08cbd7af3ca95eb7b9c77701716599d7957c7910306db71bf9973f2c7f9f",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/ui-verification.json"
+      },
+      {
+        "name": "WinMux-Browser-Alpha-Multi-Selection-2026-10-07-rc1-arm64.zip",
+        "size": 285264408,
+        "digest": "sha256:e85488dd2857ae9b87c59a794867a257f37cce61194e74d5ada91f5c792a383c",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/jamesjlyons/winmux/releases/download/untagged-8486cc3218940fbfbbf2/WinMux-Browser-Alpha-Multi-Selection-2026-10-07-rc1-arm64.zip"
+      }
+    ],
+    "all_remote_sha256_digests_verified": true
+  },
+  "status": "implemented_and_packaged_with_unlocked_session_checks_deferred"
+}

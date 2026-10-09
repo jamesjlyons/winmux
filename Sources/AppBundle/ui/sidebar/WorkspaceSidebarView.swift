@@ -9,6 +9,7 @@ struct WorkspaceSidebarView: View {
     @State var projectSwipeTranslation: CGFloat = 0
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
     @State var projectSwipeDidCrossBreakPoint = false
+    @State var projectSwipeSettlement: WorkspaceSidebarProjectSwipeSettlement? = nil
     @State var projectPagerWidth: CGFloat = 0
     @State var activeInUseOverrideWorkspaceName: String? = nil
     @State var renamingProjectId: WorkspaceProjectId? = nil
@@ -70,7 +71,12 @@ struct WorkspaceSidebarView: View {
             activeInUseOverrideWorkspaceName = nil
             finishProjectRename(cancelled: true)
             finishSidebarSearch(clearText: true)
-            resetProjectSwipeWithoutAnimation()
+            if projectSwipeSettlement?.target == projectId {
+                projectSwipeSettlement?.selectionConfirmed = true
+                completeProjectSwipeSettlementIfReady()
+            } else {
+                resetProjectSwipeWithoutAnimation()
+            }
         }
         .onChange(of: snapshot.projects) { _ in
             if let picker = currentPanel()?.projectIconPicker,
@@ -84,8 +90,9 @@ struct WorkspaceSidebarView: View {
             if let renamingWorkspaceName, !snapshot.workspaces.contains(where: { $0.name == renamingWorkspaceName }) {
                 finishWorkspaceRename(cancelled: true)
             }
-            resetProjectSwipeWithoutAnimation()
         }
+        .onChange(of: snapshot.projects.map(\.id)) { _ in resetProjectSwipeWithoutAnimation() }
+        .onDisappear { resetProjectSwipeWithoutAnimation() }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
             finishSidebarSearch(clearText: true)
@@ -478,10 +485,9 @@ extension WorkspaceSidebarView {
     }
 
     func finishProjectSwipeNavigation(to projectId: WorkspaceProjectId, direction: Int) {
-        // Commit on gesture completion. Waiting for a decorative page animation added
-        // 120 ms to every space switch before any window work could even begin.
+        settleProjectSwipe(to: -CGFloat(direction) * max(projectPagerWidth, snapshot.visibleWidth), target: projectId, direction: direction)
+        // Start window work immediately while the sidebar finishes sliding.
         actions.send(.selectProject(projectId))
-        resetProjectSwipeWithoutAnimation()
     }
 
     func finishProjectSwipeCreation() {
@@ -519,9 +525,7 @@ extension WorkspaceSidebarView {
     }
 
     func finishProjectSwipeSnapBack() {
-        withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.9)) {
-            resetProjectSwipe()
-        }
+        settleProjectSwipe(to: 0, target: nil, direction: projectSwipeTranslation < 0 ? 1 : -1)
     }
 
     private func finishProjectSwipeCreationIfNeeded(direction: Int, distance: CGFloat) -> Bool {
@@ -568,6 +572,7 @@ extension WorkspaceSidebarView {
     }
 
     func resetProjectSwipe() {
+        projectSwipeSettlement = nil
         projectSwipeTranslation = 0
         projectSwipeStartProjectId = nil
         projectSwipeDidCrossBreakPoint = false
@@ -755,7 +760,10 @@ extension WorkspaceSidebarView {
 }
 extension WorkspaceSidebarView {
     var sidebarShape: some Shape {
-        WorkspaceSidebarPanelShape(rightCornerRadius: workspaceSidebarPanelRightCornerRadius)
+        WorkspaceSidebarPanelShape(
+            rightCornerRadius: workspaceSidebarPanelRightCornerRadius,
+            leftCornerRadius: snapshot.configuration.edgeGap > 0 ? workspaceSidebarPanelRightCornerRadius : 0,
+        )
     }
 
     @ViewBuilder
@@ -800,14 +808,16 @@ extension WorkspaceSidebarView {
     }
 }
 
-private struct WorkspaceSidebarPanelShape: Shape {
+struct WorkspaceSidebarPanelShape: Shape {
     let rightCornerRadius: CGFloat
+    var leftCornerRadius: CGFloat = 0
 
     func path(in rect: CGRect) -> Path {
         let radius = min(rightCornerRadius, rect.width / 2, rect.height / 2)
+        let leftRadius = min(leftCornerRadius, rect.width / 2, rect.height / 2)
 
         var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.move(to: CGPoint(x: rect.minX + leftRadius, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
         path.addQuadCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY + radius),
@@ -818,7 +828,10 @@ private struct WorkspaceSidebarPanelShape: Shape {
             to: CGPoint(x: rect.maxX - radius, y: rect.maxY),
             control: CGPoint(x: rect.maxX, y: rect.maxY)
         )
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + leftRadius, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - leftRadius), control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + leftRadius))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + leftRadius, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
         path.closeSubpath()
         return path
     }
@@ -970,6 +983,7 @@ extension WorkspaceSidebarView {
         .workspaceSidebarDropViewport()
         }
         .padding(.top, topPadding)
+        .tabSelectionRoot(scope: "sidebar-\(snapshot.targetMonitorScopeId)-\(projectId.rawValue)")
     }
 
     @ViewBuilder

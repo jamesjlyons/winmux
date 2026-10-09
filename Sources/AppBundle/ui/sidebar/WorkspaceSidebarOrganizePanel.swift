@@ -4,7 +4,8 @@ import SwiftUI
 extension WorkspaceSidebarPanel {
     var expandedPresentationWidth: CGFloat {
         let width = CGFloat(config.workspaceSidebar.width)
-        let available = workspaceSidebarPanelScreen()?.frame.width ?? width
+        let screenWidth = workspaceSidebarPanelScreen()?.frame.width ?? width
+        let available = screenWidth - workspaceSidebarEffectiveEdgeGap(config.workspaceSidebar, screenWidth: screenWidth)
         guard viewModel.workspaceSidebarBrowseMode == .organize else { return min(width, available) }
         return WorkspaceSidebarOrganizeLayout(
             expandedWidth: width,

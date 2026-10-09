@@ -54,6 +54,10 @@ on-mode-changed = []
     # Legacy monitor = 'main' is also treated as all displays for this sidebar.
     # Use monitor = 1, 'secondary', 2, or a list to restrict it.
     menu-bar-reserve-height = 28
+    # Extra space below the menu bar reserve and along the bottom and left display edges.
+    top-gap = 0
+    bottom-gap = 0
+    edge-gap = 0
     project-deletion-action = 'close-windows'
     show-status-pills = true
     show-clock = false

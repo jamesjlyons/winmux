@@ -29,6 +29,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
     public let blockedRequests: Int
     public let privacy: BrowserPrivacySettings?
     public let surfaceID: SurfaceID
+    public var openerSurfaceID: SurfaceID? = nil
     public let hostID: String
     public let title: String
     public let selected: Bool
@@ -77,6 +78,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         case lifecycle, keepActive = "keep_active", blockingEnabled = "blocking_enabled", privacy
         case blockedRequests = "blocked_requests"
         case surfaceID = "surface_id", hostID = "host_id", title, selected
+        case openerSurfaceID = "opener_surface_id"
         case privateBrowsing = "private"
         case hostWindowID = "host_window_id"
         case hostFrame = "host_frame", hostVisible = "host_visible"
@@ -117,6 +119,7 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
         pinnedExtensions = try values.decodeIfPresent([BrowserPinnedExtension].self, forKey: .pinnedExtensions) ?? []
         activeDownloads = try values.decodeIfPresent(Int.self, forKey: .activeDownloads) ?? 0
         isSharedProfile = try values.decodeIfPresent(Bool.self, forKey: .isSharedProfile)
+        openerSurfaceID = try values.decodeIfPresent(SurfaceID.self, forKey: .openerSurfaceID)
     }
 }
 

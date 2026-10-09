@@ -1,8 +1,17 @@
 import AppKit
 import SwiftUI
 import Foundation
+import WorkspaceCore
 
 struct WindowTabStripView: View {
+    let strip: WindowTabStripViewModel
+    var body: some View {
+        WindowTabStripContent(strip: strip).tabSelectionRoot(scope: "native-\(strip.id)")
+    }
+}
+
+struct WindowTabStripContent: View {
+    @Environment(\.tabSelection) private var tabSelection
     let strip: WindowTabStripViewModel
 
     // Observes only the reentry preview, not the whole TrayMenuModel: the shared model
@@ -29,7 +38,7 @@ struct WindowTabStripView: View {
     }
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func groupDragGesture(for windowId: UInt32?) -> some Gesture {
         DragGesture(minimumDistance: windowTabStripGroupDragMinimumDistance, coordinateSpace: .global)
             .onChanged { _ in
@@ -150,7 +159,7 @@ func isWindowTabStripChromeGroupDragStart(
     return true
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func tabStripBody(stripWidth: CGFloat, stripHeight: CGFloat) -> some View {
         let context = WindowTabStripLayoutContext(strip: strip, width: stripWidth)
         let itemHeight = min(max(stripHeight - 10, 18), 26)
@@ -247,17 +256,19 @@ extension WindowTabStripView {
 
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func tabDragGesture(
         for tab: WindowTabItemViewModel,
         context: WindowTabStripLayoutContext,
     ) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
+                guard draggingTabId != nil || hasCommittedToDetach || tabSelection.allowsDrag else { return }
                 noteCurrentMousePointerSample()
                 handleTabDragChanged(tab: tab, translation: value.translation)
             }
             .onEnded { _ in
+                guard draggingTabId != nil || hasCommittedToDetach || isWindowTabStripDragInProgress() else { return }
                 noteCurrentMousePointerSample()
                 handleTabDragEnded(tab: tab, context: context)
             }
@@ -317,7 +328,7 @@ extension WindowTabStripView {
     }
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func tabVisualOffset(
         for tab: WindowTabItemViewModel,
         context: WindowTabStripLayoutContext,
@@ -410,7 +421,7 @@ extension WindowTabStripView {
 
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func settleReorderedTab(
         windowId: UInt32,
         sourceIndex: Int,
@@ -453,7 +464,7 @@ extension WindowTabStripView {
     }
 }
 
-extension WindowTabStripView {
+extension WindowTabStripContent {
     func tabItem(
         _ tab: WindowTabItemViewModel,
         context: WindowTabStripLayoutContext,
@@ -461,6 +472,7 @@ extension WindowTabStripView {
     ) -> some View {
         Button {
             guard !isWindowTabStripDragInProgress() else { return }
+            if let window = Window.get(byId: tab.windowId), !tabSelection.activate(.surface(window.surfaceID)) { return }
             focusWindowFromTabStripClick(tab.windowId, fallbackWorkspace: tab.workspaceName)
         } label: {
             WindowTabItemView(
@@ -489,11 +501,16 @@ extension WindowTabStripView {
         .onHover { hovering in
             updateHoveredTab(tab.windowId, hovering: hovering)
         }
-        .contextMenu {
+        .tabSelectionItem(Window.get(byId: tab.windowId).map { .surface($0.surfaceID) })
+        .tabSelectionMenu(for: Window.get(byId: tab.windowId).map { .surface($0.surfaceID) }, workspace: tab.workspaceName,
+            actions: makeWorkspaceSidebarActionsAdapter()) {
             WindowMoveMenu(windowId: tab.windowId, workspaceName: tab.workspaceName)
             Divider()
             Button("Remove Tab From Stack") {
                 removeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
+            }
+            Button("Close Tab", role: .destructive) {
+                if let window = Window.get(byId: tab.windowId) { BrowserWorkspaceController.shared.close(window.surfaceID) }
             }
         }
     }

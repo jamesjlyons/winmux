@@ -3,6 +3,18 @@ import WorkspaceCore
 import XCTest
 
 final class BrowserInventoryTests: XCTestCase {
+    func testOpenerRoundTripsAndOlderOwnersOmitIt() throws {
+        var record = tab()
+        let opener = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        record.openerSurfaceID = opener
+        let data = try JSONEncoder().encode(record)
+        XCTAssertEqual(try JSONDecoder().decode(BrowserTabRecord.self, from: data).openerSurfaceID, opener)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        legacy.removeValue(forKey: "opener_surface_id")
+        XCTAssertNil(try JSONDecoder().decode(BrowserTabRecord.self,
+            from: JSONSerialization.data(withJSONObject: legacy)).openerSurfaceID)
+    }
+
     func testHostWindowBindingMustBeConsistentWithinConnection() {
         var inventory = BrowserInventory()
         let a = SurfaceID.browserTab(profile: UUID(), tab: UUID()), b = SurfaceID.browserTab(profile: UUID(), tab: UUID())

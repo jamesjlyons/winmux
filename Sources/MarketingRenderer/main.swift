@@ -21,7 +21,11 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--shared-stack-proof") {
+        if arguments.contains("--view-mode-toast-proof") {
+            try renderViewModeToastProof(in: outputURL)
+        } else if arguments.contains("--tab-selection-proof") {
+            try renderTabSelectionProof(in: outputURL)
+        } else if arguments.contains("--shared-stack-proof") {
             try renderSharedStackChromeProof(in: outputURL)
         } else if arguments.contains("--toolbar-controls-proof") {
             try renderWinMuxToolbarControlsProofImages(in: outputURL)

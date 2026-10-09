@@ -5,6 +5,15 @@ import WorkspaceCore
 struct SharedStackStripView: View {
     let stack: SharedStackChrome
     let strip: WindowTabStripViewModel
+    var body: some View {
+        SharedStackStripContent(stack: stack, strip: strip).tabSelectionRoot(scope: "shared-\(stack.id)")
+    }
+}
+
+private struct SharedStackStripContent: View {
+    @Environment(\.tabSelection) private var tabSelection
+    let stack: SharedStackChrome
+    let strip: WindowTabStripViewModel
     @State private var hovered: SurfacePane?
     @State private var dragging: SurfacePane?
     @State private var orderAtDragStart: [SurfacePane]?
@@ -78,7 +87,10 @@ struct SharedStackStripView: View {
     }
 
     private func tabButton(_ tab: SharedStackTab, width: CGFloat, height: CGFloat) -> some View {
-        Button { focusSurfaceFromSidebar(tab.surface) } label: {
+        Button {
+            guard tabSelection.activate(tab.id) else { return }
+            focusSurfaceFromSidebar(tab.surface)
+        } label: {
             StackTabLabel(title: tab.title, appName: tab.appName, bundleID: tab.bundleID, bundlePath: tab.bundlePath,
                 symbol: tab.symbol, isActive: tab.isActive, isFocused: tab.isFocused,
                 width: width, height: height, isDragSource: dragging == tab.id, isHovered: hovered == tab.id)
@@ -91,6 +103,7 @@ struct SharedStackStripView: View {
         .zIndex(dragging == tab.id ? 1 : 0)
         .onHover { hovered = $0 ? tab.id : nil }
         .highPriorityGesture(DragGesture(minimumDistance: 4).onChanged { value in
+            guard dragging != nil || tabSelection.allowsDrag else { return }
             if dragging == nil { orderAtDragStart = stack.tabs.map(\.id) }
             dragging = tab.id
             if detached || abs(value.translation.height) > tabReorderVerticalEscapeThreshold {
@@ -98,6 +111,7 @@ struct SharedStackStripView: View {
                 SharedStackDragController.shared.update(tab.id, selecting: tab.surface)
             } else { translation = value.translation.width }
         }.onEnded { _ in
+            guard dragging != nil else { return }
             if detached { SharedStackDragController.shared.finish() }
             else if let index = stack.tabs.firstIndex(where: { $0.id == tab.id }) {
                 let destination = index + Int((translation / (width + windowTabStripTabSpacing)).rounded())
@@ -105,11 +119,16 @@ struct SharedStackStripView: View {
             }
             dragging = nil; detached = false; translation = 0; orderAtDragStart = nil
         })
-        .contextMenu {
+        .tabSelectionItem(tab.isAvailable ? tab.id : nil)
+        .tabSelectionMenu(for: tab.id, workspace: stack.workspaceName, monitor: monitorScopeID,
+            actions: makeWorkspaceSidebarActionsAdapter(targetMonitorScopeId: monitorScopeID)) {
             SurfaceMoveMenu(subject: tab.id.sidebarDragSubject, workspaceName: stack.workspaceName,
                 targetMonitorScopeId: monitorScopeID, actions: makeWorkspaceSidebarActionsAdapter(targetMonitorScopeId: monitorScopeID))
             Button("Remove Tab From Stack") {
                 if separateSharedStackTab(tab.id) { runWorkspaceSidebarSession {} }
+            }
+            Button("Close Tab", role: .destructive) {
+                runWorkspaceSidebarSession { performTabBatchAction([tab.id], action: .close) }
             }
         }
     }

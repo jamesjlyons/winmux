@@ -21,22 +21,23 @@ final class SurfaceClosureFocusTest: XCTestCase {
         pages = (0..<4).map { _ in .browserTab(profile: profile, tab: UUID()) }
         controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
         inventory(pages)
+        setOrder(pages, in: focus.workspace.name)
     }
 
     override func tearDown() async throws { controller.disconnected(connection) }
 
-    func testBrowserCloseWalksVisitHistoryInsteadOfTabOrderOrEngineFallback() {
+    func testBrowserCloseSelectsNextRowInsteadOfVisitHistoryOrEngineFallback() {
         let first = pages[0], second = pages[1], third = pages[2], adjacent = pages[3]
         for id in [second, first, third] { XCTAssertEqual(controller.select(id), .issued) }
         controller.cancelPendingBrowserFocusHold()
 
         inventory([first, second, adjacent], focused: adjacent)
-        XCTAssertEqual(controller.focusCoordinator.target, first)
-        inventory([second, adjacent], focused: adjacent)
-        XCTAssertEqual(controller.focusCoordinator.target, second)
+        XCTAssertEqual(controller.focusCoordinator.target, adjacent)
+        inventory([second, adjacent], focused: second)
+        XCTAssertEqual(controller.focusCoordinator.target, adjacent)
     }
 
-    func testBrowserCloseReturnsToNativeAppInPreviousView() {
+    func testOrdinaryBrowserCloseDoesNotReturnToPreviouslyVisitedNativeApp() {
         config.newItemPlacement = .newView
         let previous = Workspace.get(byName: "Previous app")
         let native = TestWindow.new(id: 811, parent: previous.rootTilingContainer)
@@ -44,26 +45,24 @@ final class SurfaceClosureFocusTest: XCTestCase {
         XCTAssertEqual(controller.select(pages[0]), .issued)
 
         inventory(Array(pages.dropFirst()), focused: pages[1])
-        XCTAssertEqual(controller.focusCoordinator.target, native.surfaceID)
-        XCTAssertEqual(focus.workspace, previous)
-        XCTAssertEqual(focus.windowOrNil, native)
-        XCTAssertTrue(controller.finishNativeGroupFocusAfterLayout())
-        XCTAssertEqual(TestApp.shared.focusedWindow, native)
+        XCTAssertEqual(controller.focusCoordinator.target, pages[1])
+        XCTAssertNotEqual(focus.workspace, previous)
     }
 
-    func testNativeClosureUsesPreRefreshHistoryToReturnToBrowser() {
+    func testNativeClosureUsesOrderBeforeProvisionalFocus() {
         let nativeWorkspace = Workspace.get(byName: "Native view")
         let native = TestWindow.new(id: 812, parent: nativeWorkspace.rootTilingContainer)
         let provisional = TestWindow.new(id: 813, parent: nativeWorkspace.rootTilingContainer)
         XCTAssertEqual(controller.select(pages[2]), .issued)
         XCTAssertEqual(controller.select(native.surfaceID), .issued)
+        setOrder([native.surfaceID, provisional.surfaceID], in: nativeWorkspace.name)
         let snapshot = controller.captureClosureFocus()
         // AX can report the app's own replacement before destruction is seen.
         controller.nativeSelectionChanged(provisional.surfaceID)
         native.unbindFromParent()
 
         XCTAssertTrue(controller.restoreFocusAfterClosing([native.surfaceID], snapshot: snapshot, workspace: nativeWorkspace))
-        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        XCTAssertEqual(controller.focusCoordinator.target, provisional.surfaceID)
     }
 
     func testClosingBackgroundBrowserTabPreservesSelectionAndHistory() {
@@ -94,7 +93,7 @@ final class SurfaceClosureFocusTest: XCTestCase {
         XCTAssertEqual(controller.focusCoordinator.target, pages[2])
     }
 
-    func testHistorySkipsMissingMinimizedAndArchivedSurfaces() {
+    func testNextRowSkipsMissingMinimizedAndArchivedSurfaces() {
         let native = TestWindow.new(id: 815, parent: focus.workspace.rootTilingContainer)
         let hidden = TestWindow.new(id: 816, parent: focus.workspace.rootTilingContainer)
         let archived = Workspace.get(byName: "Archived")
@@ -102,6 +101,8 @@ final class SurfaceClosureFocusTest: XCTestCase {
         for id in [pages[0], native.surfaceID, hidden.surfaceID, archivedWindow.surfaceID, pages[1]] {
             XCTAssertEqual(controller.select(id), .issued)
         }
+        setOrder([pages[1], native.surfaceID, hidden.surfaceID, pages[0], pages[2], pages[3]], in: controller.workspaceName(for: pages[1])!)
+        setOrder([archivedWindow.surfaceID], in: archived.name)
         native.unbindFromParent()
         hidden.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
         archived.lifecycle = .archived
@@ -118,10 +119,75 @@ final class SurfaceClosureFocusTest: XCTestCase {
         XCTAssertTrue(controller.recentSelections.isEmpty)
     }
 
-    private func inventory(_ ids: [SurfaceID], focused: SurfaceID? = nil) {
+    func testClosingChildReturnsToActualOpenerDespiteInterveningVisits() {
+        controller.tabOpeners[pages[2]] = pages[0]
+        for id in [pages[0], pages[1], pages[2]] { XCTAssertEqual(controller.select(id), .issued) }
+        inventory([pages[0], pages[1], pages[3]], focused: pages[3])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[0])
+        XCTAssertNil(controller.tabOpeners[pages[2]])
+    }
+
+    func testInventoryOpenerReturnsToSourceAcrossViews() {
+        let sourceWorkspace = Workspace.get(byName: "Source")
+        controller.placements[pages[0]] = sourceWorkspace.name
+        controller.reconcileSharedOrganization()
+        inventory(pages, openers: [pages[2]: pages[0]])
+        for id in [pages[0], pages[1], pages[2]] { XCTAssertEqual(controller.select(id), .issued) }
+        inventory([pages[0], pages[1], pages[3]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[0])
+        XCTAssertEqual(focus.workspace, sourceWorkspace)
+    }
+
+    func testMissingOpenerFallsBackToNextRow() {
+        controller.tabOpeners[pages[1]] = pages[0]
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        inventory([pages[2], pages[3]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        XCTAssertTrue(controller.tabOpeners.isEmpty)
+    }
+
+    func testBottomRowSelectsNearestSurvivingRowAbove() {
+        for id in [pages[2], pages[0], pages[3]] { XCTAssertEqual(controller.select(id), .issued) }
+        inventory(Array(pages.dropLast()))
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+    }
+
+    func testBatchRemovalSelectsFirstSurvivingRowBelow() {
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        inventory([pages[0], pages[3]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[3])
+    }
+
+    func testOrdinaryCloseContinuesIntoNextViewBelow() {
+        let next = Workspace.get(byName: "Next view")
+        controller.placements[pages[2]] = next.name
+        controller.placements[pages[3]] = next.name
+        controller.reconcileSharedOrganization()
+        setOrder([pages[2], pages[3]], in: next.name)
+        for id in [pages[0], pages[3], pages[1]] { XCTAssertEqual(controller.select(id), .issued) }
+        inventory([pages[0], pages[2], pages[3]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        XCTAssertEqual(focus.workspace, next)
+    }
+
+    func testOrdinaryCloseUsesReorderedRows() {
+        setOrder([pages[2], pages[0], pages[3], pages[1]], in: focus.workspace.name)
+        for id in [pages[2], pages[1], pages[0]] { XCTAssertEqual(controller.select(id), .issued) }
+        inventory([pages[1], pages[2], pages[3]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[3])
+    }
+
+    private func setOrder(_ ids: [SurfaceID], in workspace: String) {
+        controller.surfaceTree.reconcile(ids, in: workspace)
+        for id in ids { XCTAssertTrue(controller.surfaceTree.moveToRoot(id, in: workspace)) }
+    }
+
+    private func inventory(_ ids: [SurfaceID], focused: SurfaceID? = nil, openers: [SurfaceID: SurfaceID] = [:]) {
         revision += 1
         controller.received(.init(revision: revision, full: true, tabs: ids.map {
-            .init(surfaceID: $0, hostID: $0.description, title: "Page", selected: true, focused: $0 == focused)
+            var record = BrowserTabRecord(surfaceID: $0, hostID: $0.description, title: "Page", selected: true, focused: $0 == focused)
+            record.openerSurfaceID = openers[$0]
+            return record
         }), epoch: epoch, connection: connection, protocolVersion: 4)
     }
 }

@@ -1,5 +1,15 @@
 import SwiftUI
 
+struct WorkspaceSidebarProjectSwipeSettlement {
+    let id = UUID()
+    let target: WorkspaceProjectId?
+    let direction: Int
+    var selectionConfirmed = false
+    var animationFinished = false
+
+    var isComplete: Bool { animationFinished && (target == nil || selectionConfirmed) }
+}
+
 func workspaceSidebarProjectSwipeDirection(
     horizontalTranslation: CGFloat,
     verticalTranslation: CGFloat,

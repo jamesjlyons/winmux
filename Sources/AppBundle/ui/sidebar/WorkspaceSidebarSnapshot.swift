@@ -48,6 +48,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var swipeToCreateProjects = false
     var menuBarStyle = false
     var showsBrowserControls = false
+    var edgeGap: CGFloat = 0
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -92,6 +93,7 @@ enum WorkspaceSidebarAction: Equatable {
     case movePinnedBrowserTab(UUID, toWorkspace: String)
     case selectSurface(SurfaceID)
     case closeSurface(SurfaceID)
+    case batchTabs([SurfacePane], TabBatchAction)
     case reorderSurface(SurfaceID, earlier: Bool)
     case moveSurfaceBefore(SurfaceID, SurfaceID)
     case groupSurfaceWithSelection(SurfaceID)
