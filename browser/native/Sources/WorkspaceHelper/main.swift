@@ -341,7 +341,9 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 }
                 let layout = BrowserTabTiming.now
                 var focus = "stale_revision"
-                for _ in 0..<3 {
+                var focusAttempts = 0
+                for _ in 0..<10 {
+                    focusAttempts += 1
                     generation += 1
                     let revision = lock.withLock { inventory.revision }
                     focus = await testAction("focus_address", surface: id, remote: remote, epoch: epoch,
@@ -350,6 +352,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                     // Chromium consumes the focus fence before revision
                     // validation. A rejected metadata race needs a fresh fence.
                     guard await waitForTestInventory({ $0.revision > revision }, pollMilliseconds: 1) != nil else { break }
+                    try? await Task.sleep(for: .milliseconds(5))
                 }
                 guard focus == "issued" else {
                     noteTest("tab_speed", "address_focus_failed:" + focus); return
@@ -373,6 +376,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
                 let sample: [String: Any] = ["operation": operation.uuidString.lowercased(), "kind": kind,
                     "index": index, "command_us": started, "inventory_us": inventoried, "layout_us": layout,
                     "input_ack_us": acknowledged, "favicon_observed_us": iconTime.map { $0 as Any } ?? NSNull(),
+                    "address_focus_attempts": focusAttempts,
                     "surface_id": id.description]
                 lock.withLock { speedResults.append(sample) }
                 writeTestReport()
