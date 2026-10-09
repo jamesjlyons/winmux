@@ -1,0 +1,213 @@
+{
+  "created_utc": "2026-10-09T16:58:00.359452+00:00",
+  "source_revision": "925921cdfe1e67be942cfdeb44bd051e02c7a400",
+  "status": "verified_with_new_alpha_and_exclusive_desktop_checks_pending",
+  "commits": [
+    {
+      "commit": "925921cdfe1e67be942cfdeb44bd051e02c7a400",
+      "subject": "Hash only shipped helper inputs during packaging"
+    },
+    {
+      "commit": "01c3d33f230164e0dfa5b4f02cafeb25488d0d86",
+      "subject": "Validate bundled configuration before workspace startup and packaging"
+    },
+    {
+      "commit": "3d33f45eea76525446f0e3fc46230ca21f71a86b",
+      "subject": "Harden integrated Chromium controls and desktop host discovery"
+    },
+    {
+      "commit": "02baacd00d05fcc654b08f929c3c432dcdb3ab77",
+      "subject": "Restore native floating window focus and float Device Hub windows"
+    },
+    {
+      "commit": "9de92556b937c94fda1a15fda6a9967638ab7bbd",
+      "subject": "Add multi-tab actions and refine sidebar and settings interactions"
+    },
+    {
+      "commit": "1fd0d2cee9d679025f73ce15360f42873ace2268",
+      "subject": "Optimize shared tree validation and layout planning"
+    }
+  ],
+  "automated": {
+    "make_check": {
+      "passed": true,
+      "exit_code": 0,
+      "app_debug": 1187,
+      "app_release": 1187,
+      "workspace_core_debug": 209,
+      "workspace_core_release": 209,
+      "bridge_core_debug": 26,
+      "bridge_core_release": 26,
+      "python": 93,
+      "exclusions": [],
+      "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-check.log",
+      "log_sha256": "9877361fa8c636a8a9bfbc883268f0fd49fb9c97b0dafd4dd3e9795bbbdda34b"
+    },
+    "python_after_packaging_fix": {
+      "passed": true,
+      "tests": 94,
+      "failures": 0,
+      "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-python-after.log",
+      "log_sha256": "c20378a900c111127332fe8650ab83cb0dc58e109ff13ea619809670239c8655"
+    },
+    "cpp": {
+      "favicon": {
+        "tests": 6,
+        "failures": 0,
+        "binary_reused": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-favicon-tests.json",
+        "result_sha256": "4558d369fc9f374efdba9922860681d5be8c32775ff1300ee8da54dc632c758e"
+      },
+      "native-host": {
+        "tests": 16,
+        "failures": 0,
+        "binary_reused": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-native-host-tests.json",
+        "result_sha256": "ab245019116ef41e4cf3e235b6b31386c98a81498534c03f3e1b29a1f5c09774"
+      }
+    },
+    "dependency_lock_unchanged": true
+  },
+  "live_signed_package": {
+    "app": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-interface-performance-2026-10-09-rc1/staging/WinMux Browser Alpha.app",
+    "manifest_sha256": "7f2ce688bec3b5d32739558830e96a67b6ccab6c556acab7e0f6663ca89556da",
+    "native_swift_sources_match_current": true,
+    "checks": {
+      "inventory": {
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "passed": true,
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 2,
+            "personal": 1,
+            "shared": 1
+          },
+          "resumed": false
+        },
+        "outcomes": 94,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-inventory/result.json",
+        "result_sha256": "be8cb6b763f8902de3b534493aa79a2dd90f144f0d372a7306104e00eb24ba10"
+      },
+      "private": {
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "passed": true,
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "outcomes": 6,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-private/result.json",
+        "result_sha256": "6ae6dfa116fef29bcbf5ac428d3dd819717aa2a29dfea740afd64529376d7daa"
+      },
+      "window-controls": {
+        "scope": "actual_signed_browser_protocol11_native_window_controls",
+        "passed": true,
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 2,
+            "personal": 1,
+            "shared": 1
+          },
+          "resumed": false
+        },
+        "outcomes": 122,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-window-controls/result.json",
+        "result_sha256": "0099122815647abb302260f127f39fa69af351a0a536f669ef9e7a4bba70e2a1"
+      },
+      "page-menu": {
+        "scope": "signed_browser_native_page_menu",
+        "passed": true,
+        "test_service_removed": true,
+        "browser_exit_code": 0,
+        "cases": [
+          "standalone",
+          "stack",
+          "split",
+          "release",
+          "standalone"
+        ],
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-page-menu/result.json",
+        "result_sha256": "6e19a72d31aad69b3d4f890f71b03fffbd864c68c9a8bf6f8da9f9bf064fc45b"
+      },
+      "video-fullscreen": {
+        "scope": "isolated_visible_managed_video_fullscreen",
+        "passed": true,
+        "test_service_removed": true,
+        "samples": 18,
+        "native_cases": [
+          "green_button_and_video_inside_native_fullscreen",
+          "release_during_fullscreen",
+          "close_fullscreen_page"
+        ],
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-video-fullscreen/result.json",
+        "result_sha256": "cdc9ca8c37be618db4eb99ee956cad7a8be5770dd3e7559dff4f8f4de6d16e5c"
+      },
+      "profile-restart": {
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "passed": true,
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 4,
+            "personal": 2,
+            "shared": 2
+          },
+          "resumed": true
+        },
+        "dock_profile_picker_suppressed": true,
+        "outcomes": 94,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-profile-restart/result.json",
+        "result_sha256": "40f91176f385ea6508d4d0ba59f5bc210bea6439ac23002b4db459fc52792f4c"
+      }
+    }
+  },
+  "packaging_fix": "Hash shipped native sources and resources, including PrivateApi and bridge headers; exclude build caches and test fixtures.",
+  "runtime_input_snapshot_sha256": "fca06a610d3321c620c27c1cb42742d385332190f77501661f93a218499576ff",
+  "build_preflight": {
+    "build_root": "/Users/james/Documents/Codex/winmux/.local/pins-privacy-engine",
+    "stage": "build",
+    "free_gib": 98.12,
+    "required_free_gib": 100,
+    "machine": "arm64",
+    "os": "27.0.1",
+    "chromium": {
+      "repository": "https://chromium.googlesource.com/chromium/src.git",
+      "channel": "Stable",
+      "platform": "Mac",
+      "version": "153.0.8010.53",
+      "revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+      "source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1"
+    },
+    "blockers": [
+      "Need at least 100 GiB free before build; no files were removed."
+    ],
+    "filesystem": "apfs"
+  },
+  "remaining": [
+    "The guarded Chromium rebuild stopped with exit code 2: free space below its 100 GiB reserve. Latest favicon changes are not yet in a new signed alpha.",
+    "Live workspace switching and address-input timing fixtures require an available native-management lease. The daily workspace remains active; temporary stop/restart approval is pending.",
+    "Physical multi-selection, drag/resize, autocomplete and multiple-display qualification remains before compatibility-path retirement.",
+    "Prepare and qualify a new alpha from the committed snapshot after the build and desktop prerequisites are resolved."
+  ],
+  "limits": [
+    "Visible signed-package checks use the existing October 9 staged package whose native Swift inputs match this snapshot; its browser predates the latest favicon update.",
+    "Focused C++ unit binaries were previously compiled and were rerun here; the complete Chromium build was not rerun.",
+    "Passing synthetic fixtures does not establish full daily-driver or compositor-performance qualification."
+  ]
+}
