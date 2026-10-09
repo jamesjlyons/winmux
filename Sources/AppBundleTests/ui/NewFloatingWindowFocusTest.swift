@@ -11,6 +11,67 @@ final class NewFloatingWindowFocusTest: XCTestCase {
         appForTests = TestApp.shared
     }
 
+    override func tearDown() async throws {
+        appForTests = nil
+    }
+
+    func testReactivatingExistingNativeFocusedFloatRaisesAfterLayoutOnce() async throws {
+        let workspace = focus.workspace
+        let tiled = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        let floating = FloatingFocusTestWindow(id: 2, parent: workspace)
+        XCTAssertTrue(floating.focusWindow())
+        TestApp.shared.focusedWindow = floating
+        floating.onFocus = { XCTAssertGreaterThan(tiled.frameWriteCount, 0) }
+        setBlockingRefreshOverridesForTests(refresh: { _ in })
+        defer { setBlockingRefreshOverridesForTests() }
+
+        try await runRefreshSessionBlocking(.globalObserver(NSWorkspace.didActivateApplicationNotification.rawValue))
+        try await runRefreshSessionBlocking(.ax(kAXFocusedWindowChangedNotification as String))
+        try await runRefreshSessionBlocking(.globalObserverLeftMouseUp)
+
+        XCTAssertEqual(floating.focusRequests, 1)
+        XCTAssertTrue(focus.windowOrNil === floating)
+        XCTAssertTrue(floating.parent === workspace)
+    }
+
+    func testNativeFocusTransitionToExistingFloatRaisesOnce() async throws {
+        let tiled = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        XCTAssertTrue(tiled.focusWindow())
+        TestApp.shared.focusedWindow = tiled
+        updateFocusCache(tiled)
+        let floating = FloatingFocusTestWindow(id: 2, parent: focus.workspace)
+        TestApp.shared.focusedWindow = floating
+
+        try await runRefreshSessionBlocking(.ax(kAXFocusedWindowChangedNotification as String))
+        try await runRefreshSessionBlocking(.ax(kAXFocusedWindowChangedNotification as String))
+
+        XCTAssertEqual(floating.focusRequests, 1)
+        XCTAssertTrue(focus.windowOrNil === floating)
+    }
+
+    func testActivationRaiseDoesNotFollowForegroundChangeOrHiddenWindow() {
+        let workspace = focus.workspace
+        let floating = FloatingFocusTestWindow(id: 1, parent: workspace)
+        let event = RefreshSessionEvent.globalObserver(NSWorkspace.didActivateApplicationNotification.rawValue)
+        XCTAssertFalse(shouldRaiseNativeFocusedFloatingWindow(
+            floating, previousWindowId: nil, event: event, foregroundPID: -1))
+        floating.bindAsFloatingWindow(to: Workspace.get(byName: "hidden"))
+        XCTAssertFalse(shouldRaiseNativeFocusedFloatingWindow(
+            floating, previousWindowId: nil, event: event, foregroundPID: TestApp.shared.pid))
+        floating.bindAsFloatingWindow(to: workspace)
+        floating.recordObservedNativeState(fullscreen: false, minimized: true, token: floating.nativeStateObservationToken())
+        XCTAssertFalse(shouldRaiseNativeFocusedFloatingWindow(
+            floating, previousWindowId: nil, event: event, foregroundPID: TestApp.shared.pid))
+    }
+
+    func testActivationDoesNotRaiseTiledWindows() {
+        let tiled = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        XCTAssertFalse(shouldRaiseNativeFocusedFloatingWindow(
+            tiled, previousWindowId: nil,
+            event: .globalObserver(NSWorkspace.didActivateApplicationNotification.rawValue),
+            foregroundPID: TestApp.shared.pid))
+    }
+
     func testNewFloatingWindowIsFocusedAndRaisedAfterPlacement() async throws {
         let workspace = focus.workspace
         let tiled = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)

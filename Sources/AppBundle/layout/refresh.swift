@@ -192,7 +192,15 @@ func runRefreshSessionBlocking(
                         browserOwnsForeground: BrowserWorkspaceController.shared.ownsForegroundBrowser,
                     ) {
                         let logicalFocused = focus.windowOrNil
-                        if logicalFocused?.windowId != nativeFocused?.windowId {
+                        // AX focus does not guarantee that an existing floating
+                        // window is above the tiles we just restored or placed.
+                        let raiseNativeFloat = shouldRaiseNativeFocusedFloatingWindow(
+                            nativeFocused,
+                            previousWindowId: focusSnapshot.focus.windowId,
+                            event: event,
+                            foregroundPID: isUnitTest ? appForTests?.pid : NSWorkspace.shared.frontmostApplication?.processIdentifier,
+                        )
+                        if logicalFocused?.windowId != nativeFocused?.windowId || raiseNativeFloat {
                             debugFocusLog(
                                 "runRefreshSessionBlocking syncFocus event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") logicalFocused=\(logicalFocused?.windowId.description ?? "nil")"
                             )

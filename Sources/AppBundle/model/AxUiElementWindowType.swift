@@ -28,7 +28,9 @@ extension AxUiElementMock {
             return true
         }
 
-        if id == .iphonesimulator {
+        // Device Hub exposes a standard window with an enabled fullscreen
+        // button, but its device display belongs floating, like Simulator.
+        if id == .iphonesimulator || id == .deviceHub {
             return true
         }
 
