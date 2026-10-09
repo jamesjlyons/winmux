@@ -46,8 +46,8 @@ struct Page {
 // graph sequence. There is no helper polling or renderer-owned timer policy.
 class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserver, public base::MemoryConsumer {
  public:
-  void OnReleaseMemory() override { os_pressure_ = true; Schedule(); }
-  void OnUpdateMemoryLimit() override { os_pressure_ = memory_limit() < 100; Schedule(); }
+  void OnReleaseMemory() override { Schedule(); }
+  void OnUpdateMemoryLimit() override {}
   void Set(content::WebContents* contents, bool managed, bool visible) {
     if (!pm::PerformanceManager::IsAvailable()) return;
     const auto id = PersistentSurfaceID(contents);
@@ -153,7 +153,7 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
     if (!eligibility || !discarder) return;
     uint64_t footprint = 0;
     for (auto* process : graph_->GetAllProcessNodes()) footprint += process->GetPrivateFootprint().InBytes();
-    const bool pressure = os_pressure_ || footprint > uint64_t{8} * 1024 * 1024 * 1024;
+    const bool pressure = HasBackgroundPageMemoryPressure(memory_limit(), footprint);
     const auto now = base::TimeTicks::Now();
     std::vector<Page*> candidates;
     for (auto& [id, page] : pages_) {
@@ -210,7 +210,6 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
   }
 
  private:
-  bool os_pressure_ = false;
   std::unique_ptr<base::MemoryConsumerRegistration> memory_registration_;
   raw_ptr<pm::Graph> graph_ = nullptr;
   std::map<std::string, Page> pages_;

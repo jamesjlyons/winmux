@@ -9,6 +9,14 @@ namespace winmux {
 
 enum class BackgroundPageAction { kWarm, kFreeze, kDiscard };
 
+inline bool HasBackgroundPageMemoryPressure(int memory_limit,
+                                            uint64_t footprint_bytes) {
+  // Release callbacks also arrive when pressure clears. Read the current
+  // coordinator limit instead of retaining the fact that a callback occurred.
+  return memory_limit < 100 ||
+         footprint_bytes > uint64_t{8} * 1024 * 1024 * 1024;
+}
+
 // The caller excludes protected pages and orders eligible pages by recency.
 // Milliseconds keep this policy independently testable without a browser.
 inline std::vector<BackgroundPageAction> PlanBackgroundPages(

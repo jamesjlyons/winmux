@@ -22,6 +22,21 @@ class PageLifetimePolicyTests(unittest.TestCase):
 #include <cassert>
 using A = winmux::BackgroundPageAction;
 int main() {
+  constexpr uint64_t budget = uint64_t{8} * 1024 * 1024 * 1024;
+  assert(!winmux::HasBackgroundPageMemoryPressure(100, budget));
+  assert(!winmux::HasBackgroundPageMemoryPressure(150, budget));
+  assert(winmux::HasBackgroundPageMemoryPressure(100, budget + 1));
+  assert(winmux::HasBackgroundPageMemoryPressure(50, 0));
+  assert(winmux::HasBackgroundPageMemoryPressure(0, 0));
+  // Clearing pressure can issue another release callback at the default
+  // limit. That callback must not keep discarding the recent warm pages.
+  std::vector<int64_t> recent(2, 1000);
+  auto capped = winmux::PlanBackgroundPages(recent,
+      winmux::HasBackgroundPageMemoryPressure(50, 0));
+  assert(capped.back() == A::kDiscard);
+  auto recovered = winmux::PlanBackgroundPages(recent,
+      winmux::HasBackgroundPageMemoryPressure(100, 0));
+  assert(std::count(recovered.begin(), recovered.end(), A::kWarm) == 2);
   assert(winmux::PlanBackgroundPages({}, false).empty());
   std::vector<int64_t> ages(12, 3600000);
   auto warm = winmux::PlanBackgroundPages(ages, false);

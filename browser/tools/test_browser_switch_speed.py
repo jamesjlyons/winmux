@@ -305,6 +305,7 @@ speed-space = 'Speed fixture'
                     result["switch_failure"] = dict(kind=kind, target=surface, inventory=rows())
                     raise RuntimeError("Previous switch did not leave the next target in the background") from None
             if before["browser"]["lifecycle"] != expected:
+                result["switch_failure"] = dict(kind=kind, target=surface, inventory=rows())
                 raise RuntimeError(f"{kind} target is {before['browser']['lifecycle']}, expected {expected}")
             start = time.perf_counter_ns()
             request(endpoint, command or ["surface", "focus", surface])
