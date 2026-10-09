@@ -165,7 +165,7 @@ test("sidebar_favicon_unittests") {
     "//base/test:test_support",
     "//skia",
     "//testing/gtest",
-    "//ui/base:ui_data_pack",
+    "//ui/base",
     "//ui/gfx",
     "//ui/gfx/codec",
   ]
