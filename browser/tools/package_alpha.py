@@ -37,6 +37,16 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def native_source_hashes(root=ROOT):
+    # Hash the helper's source and resources, including C/Objective-C inputs.
+    # Generated native/.build files and test fixtures are not packaging inputs.
+    directories = ("browser/native/Sources", "Sources/AppBundle",
+                   "Sources/Common", "Sources/PrivateApi")
+    sources = sorted(p for directory in directories
+                     for p in (root / directory).rglob("*") if p.is_file())
+    return {str(p.relative_to(root)): sha256(p) for p in sources}
+
+
 def signing_requirement(identifier, team, developer_id=False):
     requirement = f'anchor apple generic and identifier "{identifier}" and certificate leaf[subject.OU] = "{team}"'
     return requirement + ' and ' + DEVELOPER_ID_REQUIREMENT if developer_id else requirement
@@ -222,9 +232,7 @@ def package(args, identity, team, source):
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
     native_build = ROOT / ".local/browser/sidebar-native-build"
-    native_sources = sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
-                            | set((ROOT / "Sources/Common").rglob("*.swift")))
-    native_hashes = {str(p.relative_to(ROOT)): sha256(p) for p in native_sources}
+    native_hashes = native_source_hashes()
     native_package_hash = sha256(ROOT / "Package.swift")
     default_config_hash = sha256(ROOT / "resources/default-config.toml")
     chromium.run("swift", "build", "--package-path", str(ROOT), "-c", "release",
@@ -303,9 +311,7 @@ def package(args, identity, team, source):
     # Run the shipped parser against the shipped file. Transport-only browser
     # smoke tests do not start native management or load this configuration.
     subprocess.run([str(helper), "--validate-bundled-config"], check=True, timeout=30)
-    if (native_hashes != {str(p.relative_to(ROOT)): sha256(p) for p in
-                         sorted(set(native.rglob("*.swift")) | set((ROOT / "Sources/AppBundle").rglob("*.swift"))
-                                | set((ROOT / "Sources/Common").rglob("*.swift")))}
+    if (native_hashes != native_source_hashes()
             or native_package_hash != sha256(ROOT / "Package.swift")
             or default_config_hash != sha256(ROOT / "resources/default-config.toml")
             or default_config_hash != sha256(helper_app / "Contents/Resources/default-config.toml")):

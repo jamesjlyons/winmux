@@ -50,6 +50,30 @@ def alpha_build_fixture(build_args):
 
 
 class AlphaSafetyTests(TestCase):
+    def test_native_provenance_ignores_caches_but_tracks_non_swift_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inputs = {"browser/native/Sources/WorkspaceCore/Tree.swift": b"source",
+                      "browser/native/Sources/BridgeProtocol/include/Bridge.h": b"protocol",
+                      "Sources/PrivateApi/PrivateApi.m": b"native input",
+                      "Sources/AppBundle/Resources/Icon.png": b"resource"}
+            excluded = {"browser/native/.build/Derived.swift": b"generated",
+                        "browser/native/Tests/Fixture.swift": b"fixture"}
+            for name, data in {**inputs, **excluded}.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            before = package_alpha.native_source_hashes(root)
+            self.assertEqual(set(before), set(inputs))
+            (root / "browser/native/.build/Derived.swift").unlink()
+            self.assertEqual(package_alpha.native_source_hashes(root), before)
+            changed = root / "Sources/PrivateApi/PrivateApi.m"
+            changed.write_bytes(b"changed native input")
+            self.assertNotEqual(package_alpha.native_source_hashes(root), before)
+            added = root / "browser/native/Sources/WorkspaceCore/Added.swift"
+            added.write_bytes(b"new source")
+            self.assertIn(str(added.relative_to(root)), package_alpha.native_source_hashes(root))
+
     def test_app_branding_covers_localized_names_and_preserves_attribution(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
