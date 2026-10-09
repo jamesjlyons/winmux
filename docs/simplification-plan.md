@@ -445,3 +445,43 @@ finish compatibility-model cleanup, run unfiltered `make check`, and compare liv
 interaction behavior with the recorded baseline. The locked console has remained
 an external blocker across successive implementation slices; headless checks
 cannot substitute for these remaining acceptance checks.
+
+### 2026-10-09 stabilization and signed alpha
+
+The outstanding implementation is committed. Unfiltered `make check` passed
+1,187 app tests, 209 WorkspaceCore tests, and 26 BridgeCore tests in each of
+Debug and Release, plus the initial 93 Python tests. The final Python suite
+passed 94 tests. The Chromium favicon and desktop-host test targets were rebuilt
+and passed six and sixteen tests respectively. Packaging now hashes shipped
+helper sources, headers, and resources without including build caches.
+
+The pinned Chromium engine was rebuilt with corrected memory reclamation.
+Release callbacks no longer imply lasting pressure, and pressure-driven page
+discarding waits five seconds and a fresh process-memory measurement before
+another reclaim. Regression coverage preserves the existing 8 GiB footprint
+guard, warm-page deadlines, and protected-page eligibility. Address-input
+qualification now waits through bounded metadata races with a new focus fence;
+all retry time remains in its latency measurements.
+
+The final Apple Development signed 0.5.4 alpha passed all nine isolated
+functional checks: inventory, private profiles, native window controls, page
+menus, video fullscreen, profile restart, switching, address input, and session
+restoration. The visible checks include 122 window-control outcomes, five menu
+cases, eighteen video fullscreen cycles and three additional native cases.
+The 20-page switching run completed sixty warm switches, sixty Space switches,
+and six actual frozen-page thaws. Keyboard observation p95 was 41.54 ms,
+40.79 ms, and 50.80 ms respectively, within the fixture's targets. These include
+transport and observation overhead and do not measure compositor presentation.
+The existing daily workspace was restored with its original browser identities.
+
+The 200 new-tab input samples passed functionally, but blank and cached-page
+input p95 remained 222.73 ms and 259.64 ms, above the 100 ms goal. Larger-workload
+performance, physical multi-selection, drag/resize, autocomplete, and multiple
+displays still require qualification. The short 35-page switching diagnostic
+passed after the fixes; it does not qualify that workload's residency or
+freezing. Compatibility-path retirement remains conditional on the outstanding
+desktop acceptance checks. The alpha is not notarized.
+
+The [stabilization record](browser/evidence/2026-10-09-stabilization.json) retains
+the initial failures, final package/result hashes, workspace restoration, and
+release archive verification.

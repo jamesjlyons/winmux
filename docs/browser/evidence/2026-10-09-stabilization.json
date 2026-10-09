@@ -1,8 +1,48 @@
 {
   "created_utc": "2026-10-09T16:58:00.359452+00:00",
-  "source_revision": "925921cdfe1e67be942cfdeb44bd051e02c7a400",
-  "status": "verified_with_new_alpha_and_exclusive_desktop_checks_pending",
+  "source_revision": "4cd0b978035861d63a05ac5d48d83a729febbd88",
+  "status": "signed_alpha_verified_with_desktop_and_performance_limits",
   "commits": [
+    {
+      "commit": "4cd0b978035861d63a05ac5d48d83a729febbd88",
+      "subject": "Refresh alpha source stamp after input fixture stabilization"
+    },
+    {
+      "commit": "6cd096a8a68587d4cac4b3ee8a8858bbb70f4237",
+      "subject": "Let address-input qualification settle concurrent inventory updates"
+    },
+    {
+      "commit": "35e7446edddd53823686578a83d68e7c2a676972",
+      "subject": "Stamp alpha with the pressure-reclamation fix revision"
+    },
+    {
+      "commit": "a38a8cdf51af7cb7f95371e975ccec27bd4a3d65",
+      "subject": "Wait for fresh memory metrics between pressure-driven discards"
+    },
+    {
+      "commit": "55cafec945f8a9851ae3189d96b24672a174ea71",
+      "subject": "Trace page reclamation budgets during switching qualification"
+    },
+    {
+      "commit": "0c13c580550ee64123c1c8e58bf6d8c1dc95f51b",
+      "subject": "Stamp stabilized alpha with the lifecycle fix revision"
+    },
+    {
+      "commit": "66672dcc038b17cbb1a3c99560d9a291c35102b9",
+      "subject": "Stop discarding warm pages after memory pressure clears"
+    },
+    {
+      "commit": "8b2393ebd6264c01c4c84de9509aac111915a487",
+      "subject": "Refresh stabilized alpha source revision metadata"
+    },
+    {
+      "commit": "6618724b1440064988b17144c05fcb16b3f7bc40",
+      "subject": "Use public UI dependency for Chromium favicon tests"
+    },
+    {
+      "commit": "7baa0294835615de0e594905fcfaa541866142c1",
+      "subject": "Record complete stabilization tests and desktop qualification"
+    },
     {
       "commit": "925921cdfe1e67be942cfdeb44bd051e02c7a400",
       "subject": "Hash only shipped helper inputs during packaging"
@@ -41,7 +81,8 @@
       "python": 93,
       "exclusions": [],
       "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-check.log",
-      "log_sha256": "9877361fa8c636a8a9bfbc883268f0fd49fb9c97b0dafd4dd3e9795bbbdda34b"
+      "log_sha256": "9877361fa8c636a8a9bfbc883268f0fd49fb9c97b0dafd4dd3e9795bbbdda34b",
+      "source_scope": "Initial implementation, before packaging/lifetime regression additions and metadata refreshes"
     },
     "python_after_packaging_fix": {
       "passed": true,
@@ -54,21 +95,48 @@
       "favicon": {
         "tests": 6,
         "failures": 0,
-        "binary_reused": true,
-        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-favicon-tests.json",
-        "result_sha256": "4558d369fc9f374efdba9922860681d5be8c32775ff1300ee8da54dc632c758e"
+        "binary_reused": false,
+        "build_log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-chromium-unit-build.log",
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-favicon-rebuilt-tests.json",
+        "result_sha256": "cd0791ceed3c31c5f7abeef450e2e9472c1f2fe3a6640dfe059ad5729815111d"
       },
       "native-host": {
         "tests": 16,
         "failures": 0,
-        "binary_reused": true,
-        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-native-host-tests.json",
-        "result_sha256": "ab245019116ef41e4cf3e235b6b31386c98a81498534c03f3e1b29a1f5c09774"
+        "binary_reused": false,
+        "build_log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-chromium-unit-build.log",
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-native-host-rebuilt-tests.json",
+        "result_sha256": "e79670ef25f3eda9e68384affe253e270816c898ba525375e893378468448b9f"
       }
     },
-    "dependency_lock_unchanged": true
+    "dependency_lock_unchanged": true,
+    "python_after_lifetime_fix": {
+      "passed": true,
+      "tests": 94,
+      "failures": 0,
+      "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-python-reclaim-gate.log",
+      "log_sha256": "b819c29fa577a0dd9cbee79b5531ee0496d095e99ac15e8be8afafba8e838582"
+    }
   },
-  "live_signed_package": {
+  "packaging_fix": "Hash shipped native sources and resources, including PrivateApi and bridge headers; exclude build caches and test fixtures.",
+  "runtime_input_snapshot_sha256": "d555f151af5ea392f28e9a8f082cd462e61b2d2237b31a11cb18d87a713dbe6c",
+  "remaining": [
+    "Meet live input/presentation performance targets before claiming performance qualification.",
+    "The 35-page fixture exceeded the existing 8 GiB browser footprint guard. Smaller-workload switching does not qualify 35 resident pages on this host.",
+    "Physical multi-selection, drag/resize, autocomplete and multiple-display qualification remain before compatibility-path retirement.",
+    "Retire superseded compatibility paths only after the remaining desktop acceptance checks pass."
+  ],
+  "limits": [
+    "The full unfiltered make check passed before the final GN/lifetime, address-input fixture and generated metadata fixes. The final lifetime policy has compiled regression coverage, a successful guarded Chromium rebuild, 94 Python checks and actual signed desktop fixtures.",
+    "Switching measurements include process-scoped input transport and observation overhead; animation callbacks do not prove compositor presentation.",
+    "The address-input fixture covers creation, layout and native keyboard acknowledgement; it excludes the full WinMux sidebar.",
+    "The host has one display. These synthetic fixtures do not establish multiple-display or full daily-driver qualification.",
+    "The archive is an arm64 Apple Development signed private alpha and is not notarized.",
+    "No pressure-driven reclaims were observed in the short post-fix 35-page diagnostic. Its runtime cadence was not measured; cooldown and fresh-metric gating are covered by the compiled policy regression."
+  ],
+  "updated_utc": "2026-10-09T18:15:53.285894+00:00",
+  "initial_verification_source_revision": "925921cdfe1e67be942cfdeb44bd051e02c7a400",
+  "earlier_signed_package": {
     "app": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-interface-performance-2026-10-09-rc1/staging/WinMux Browser Alpha.app",
     "manifest_sha256": "7f2ce688bec3b5d32739558830e96a67b6ccab6c556acab7e0f6663ca89556da",
     "native_swift_sources_match_current": true,
@@ -177,9 +245,461 @@
       }
     }
   },
-  "packaging_fix": "Hash shipped native sources and resources, including PrivateApi and bridge headers; exclude build caches and test fixtures.",
-  "runtime_input_snapshot_sha256": "fca06a610d3321c620c27c1cb42742d385332190f77501661f93a218499576ff",
-  "build_preflight": {
+  "live_signed_package": {
+    "app": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-stabilized-2026-10-09-rc6/staging/WinMux Browser Alpha.app",
+    "manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+    "native_shipped_sources_match_current": true,
+    "native_shipped_source_files": 671,
+    "helper_sha256": "d5c3f7b0ff2d918278ee0040b0b314c24c227af03b0cbddf00e13719deccbca3",
+    "browser_executable_sha256": "8753696990e71840e7f22d36301ce6c1ecd53245c3129ef1fde3acb539545d17",
+    "version": "0.5.4",
+    "signed": true,
+    "signing_mode": "development",
+    "notarized": false,
+    "bundled_config_validated": true,
+    "checks": {
+      "inventory": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-inventory/result.json",
+        "result_sha256": "2a83f9615c83514bd6af83ab3e5bacf24323af03996f5d41a678476ce5cb5f2e",
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 2,
+            "personal": 1,
+            "shared": 1
+          },
+          "resumed": false
+        },
+        "outcomes": 94
+      },
+      "private": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-private/result.json",
+        "result_sha256": "9c7b1405e742330e45894360c08373e6923c232a2918e38751e8cc94e257736a",
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "outcomes": 6
+      },
+      "window-controls": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-window-controls/result.json",
+        "result_sha256": "a8ecf088b760e0ed8085bc9d7b67e489c3319ce85a6b8220b22544bbc89db609",
+        "scope": "actual_signed_browser_protocol11_native_window_controls",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 2,
+            "personal": 1,
+            "shared": 1
+          },
+          "resumed": false
+        },
+        "outcomes": 122
+      },
+      "page-menu": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-page-menu/result.json",
+        "result_sha256": "628c005b9de1f4c9aa354cd9acebbd68f05b3eabd59fddda6c2e6737b774d96e",
+        "scope": "signed_browser_native_page_menu",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "browser_exit_code": 0,
+        "cases": [
+          "standalone",
+          "stack",
+          "split",
+          "release",
+          "standalone"
+        ]
+      },
+      "video-fullscreen": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-video-fullscreen/result.json",
+        "result_sha256": "d8765add55508cf1e06e7ac52395b068d25a3d4ad781bf3c23f6dcd76342a886",
+        "scope": "isolated_visible_managed_video_fullscreen",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "samples": 18,
+        "native_cases": [
+          "green_button_and_video_inside_native_fullscreen",
+          "release_during_fullscreen",
+          "close_fullscreen_page"
+        ]
+      },
+      "profile-restart": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-profile-restart/result.json",
+        "result_sha256": "647ac816d0da874075bb398cf0c114e60428aa60795903ee169da749bb0be4e7",
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "test_service_removed": true,
+        "existing_helper_unchanged": true,
+        "browser_exit_code": 0,
+        "profile_isolation": {
+          "cookies_isolated": true,
+          "history_isolated": true,
+          "names_and_identities_preserved": true,
+          "history_entries": {
+            "work": 4,
+            "personal": 2,
+            "shared": 2
+          },
+          "resumed": true
+        },
+        "dock_profile_picker_suppressed": true,
+        "outcomes": 94
+      },
+      "switching": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-switching/result.json",
+        "result_sha256": "70a1d94da503c614d230a2c5bc1d94268510fe4f093ee7d8a5d5a5df32fbc959",
+        "scope": "isolated_live_pinned_desktop_switching",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "cleanup": {
+          "input_selector": true,
+          "input_probe": true,
+          "environment": true,
+          "browser": true,
+          "sleep_assertion": true,
+          "service": true,
+          "native_fixture": true,
+          "server": true
+        },
+        "fixture_pages": 20,
+        "sample_counts": {
+          "warm": 60,
+          "space": 60,
+          "frozen": 6
+        },
+        "metrics": {
+          "warm": {
+            "command_ms": {
+              "count": 60,
+              "median_ms": 9.0077705,
+              "p95_ms": 13.483917,
+              "p99_ms": 16.872083,
+              "max_ms": 16.872083
+            },
+            "input_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 27.2295835,
+              "p95_ms": 41.535208,
+              "p99_ms": 51.541708,
+              "max_ms": 51.541708
+            },
+            "animation_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 54.77089599999999,
+              "p95_ms": 72.7235,
+              "p99_ms": 77.083916,
+              "max_ms": 77.083916
+            }
+          },
+          "space": {
+            "command_ms": {
+              "count": 60,
+              "median_ms": 8.266207999999999,
+              "p95_ms": 12.546375,
+              "p99_ms": 12.824417,
+              "max_ms": 12.824417
+            },
+            "input_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 27.018604,
+              "p95_ms": 40.791208,
+              "p99_ms": 55.2475,
+              "max_ms": 55.2475
+            },
+            "animation_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 49.6036665,
+              "p95_ms": 69.976625,
+              "p99_ms": 85.177791,
+              "max_ms": 85.177791
+            }
+          },
+          "frozen": {
+            "command_ms": {
+              "count": 6,
+              "median_ms": 8.199354,
+              "p95_ms": 25.889959,
+              "p99_ms": 25.889959,
+              "max_ms": 25.889959
+            },
+            "input_upper_bound_ms": {
+              "count": 6,
+              "median_ms": 32.503104,
+              "p95_ms": 50.799709,
+              "p99_ms": 50.799709,
+              "max_ms": 50.799709
+            },
+            "animation_upper_bound_ms": {
+              "count": 6,
+              "median_ms": 55.4376665,
+              "p95_ms": 79.406709,
+              "p99_ms": 79.406709,
+              "max_ms": 79.406709
+            }
+          }
+        },
+        "input_observation_targets": {
+          "warm": {
+            "limit_p95_ms": 50,
+            "measured": true,
+            "passed": true
+          },
+          "frozen": {
+            "limit_p95_ms": 100,
+            "measured": true,
+            "passed": true
+          },
+          "space": {
+            "limit_p95_ms": 150,
+            "measured": true,
+            "passed": true
+          }
+        },
+        "environment": {
+          "scope": "benchmark_environment_only",
+          "benchmark_qualified": false,
+          "milestone_0_qualified": false,
+          "valid_observation": true,
+          "conditions_consistent": true,
+          "observation_problems": [],
+          "condition_problems": [],
+          "unverified": [
+            "Full benchmark interval is covered by this recording",
+            "Correct tab/window is visible and receiving input",
+            "Equivalent builds, extensions, profiles and workloads",
+            "Background workload, display frame cadence and repeatability"
+          ],
+          "elapsed_seconds": 117.422464583,
+          "samples": 119
+        },
+        "web_lock_protection_retained": true,
+        "native_to_browser_focus_verified": true,
+        "dedicated_and_shared_desktop_widths_verified": true,
+        "unpin_preserved_group": true,
+        "daily_driver_qualified": false
+      },
+      "address-input": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-address-input/results.json",
+        "result_sha256": "1c35b156d07c1898c1526d270c60d099ed0fe0e324a4e851a2850bd2eb005b2c",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "samples": 200,
+        "runs": [
+          {
+            "metrics": {
+              "blank": {
+                "input": {
+                  "samples": 100,
+                  "median_ms": 199.75900000000001,
+                  "p95_ms": 222.728
+                },
+                "inventory": {
+                  "samples": 100,
+                  "median_ms": 52.4855,
+                  "p95_ms": 66.092
+                },
+                "layout": {
+                  "samples": 100,
+                  "median_ms": 119.197,
+                  "p95_ms": 141.262
+                },
+                "presentation": {
+                  "samples": 100,
+                  "median_ms": 139.324,
+                  "p95_ms": 158.18
+                },
+                "favicon_after_inventory": null,
+                "warm_hits": 100
+              },
+              "cached_url": {
+                "input": {
+                  "samples": 100,
+                  "median_ms": 243.564,
+                  "p95_ms": 259.635
+                },
+                "inventory": {
+                  "samples": 100,
+                  "median_ms": 58.018,
+                  "p95_ms": 71.366
+                },
+                "layout": {
+                  "samples": 100,
+                  "median_ms": 125.9625,
+                  "p95_ms": 135.136
+                },
+                "presentation": {
+                  "samples": 100,
+                  "median_ms": 143.132,
+                  "p95_ms": 154.981
+                },
+                "favicon_after_inventory": {
+                  "samples": 100,
+                  "median_ms": 17.5975,
+                  "p95_ms": 20.474
+                },
+                "warm_hits": 100
+              }
+            },
+            "resources": {
+              "summed_process_footprint_bytes": 696677720,
+              "idle_cpu_one_core_percent": 4.17180999,
+              "processes": 8,
+              "settling_intervals_discarded": 0
+            },
+            "maximum_focus_attempts": 2,
+            "performance_targets_met": false
+          }
+        ]
+      },
+      "tab-session": {
+        "passed": true,
+        "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-tab-session/results.json",
+        "result_sha256": "ae6d79f958fb6f713555db0442d8a75666c92034103460ad9771d0d1b472d0d5",
+        "package_manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+        "expected_surfaces": [
+          "browser:78b2f7df-63f3-42ef-808e-e76d61a7673d:5dcedda8-7618-4216-b5de-4defc1a9da85",
+          "browser:78b2f7df-63f3-42ef-808e-e76d61a7673d:7d0756d8-c8d3-4ab2-a94e-e8843bff5ceb"
+        ],
+        "restored_surfaces": [
+          "browser:78b2f7df-63f3-42ef-808e-e76d61a7673d:5dcedda8-7618-4216-b5de-4defc1a9da85",
+          "browser:78b2f7df-63f3-42ef-808e-e76d61a7673d:7d0756d8-c8d3-4ab2-a94e-e8843bff5ceb"
+        ],
+        "spare_excluded": true,
+        "consumed_window_restored": true
+      }
+    }
+  },
+  "workspace_restoration": {
+    "normal_stop_verified": true,
+    "workspace_restored": true,
+    "original_browser_identities_preserved": true,
+    "original_package_restored": "/Users/james/Documents/Codex/winmux/.local/page-menu-fix/package/WinMux Browser Alpha.app",
+    "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-verified-exclusive-results.json",
+    "result_sha256": "3f1b25d0072181caab004b06f8121fda1ef231aa4bfc2c0041ffa0dc2a45e369"
+  },
+  "initial_failures": [
+    {
+      "scope": "isolated_live_pinned_desktop_switching",
+      "error": "RuntimeError: warm target is discarded, expected background",
+      "completed_warm_samples": 32,
+      "fixture_pages": 35,
+      "cleanup_passed": true,
+      "superseded_package_manifest_sha256": "c48eea4c9af1e260498ec9b37484f5aee8cb2bcf8a63a547e4af8eba093f103e",
+      "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-new-switching/result.json",
+      "result_sha256": "568f39dab41dcf08ca2c4a8b5c4ebc872607fac9950e5445981b202f11168c76"
+    },
+    {
+      "scope": "isolated_live_pinned_desktop_switching",
+      "error": "RuntimeError: warm target is discarded, expected background",
+      "completed_warm_samples": 30,
+      "fixture_pages": 35,
+      "cleanup_passed": true,
+      "superseded_package_manifest_sha256": "c48eea4c9af1e260498ec9b37484f5aee8cb2bcf8a63a547e4af8eba093f103e",
+      "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-retry-switching/result.json",
+      "result_sha256": "ef64416e898b632e62a8e0b706aa83a080dd1ec8b66be7e48cf68286a7d5fbb7"
+    },
+    {
+      "scope": "isolated_live_pinned_desktop_switching",
+      "error": "RuntimeError: warm target is discarded, expected background",
+      "completed_warm_samples": 30,
+      "fixture_pages": 35,
+      "cleanup_passed": true,
+      "superseded_package_manifest_sha256": "afce94a5688be696202b5d498690280ec3d8444498bba93bca052259ee42935e",
+      "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-final-switching/result.json",
+      "result_sha256": "44840f3962fdea06663ce87678c671dff294f0cbaadcd2dcc163e959e80c4b1a"
+    },
+    {
+      "scope": "isolated_live_pinned_desktop_switching",
+      "error": "TimeoutError: Fixture state did not become ready",
+      "completed_warm_samples": 0,
+      "fixture_pages": 35,
+      "cleanup_passed": false,
+      "superseded_package_manifest_sha256": "9f48ba2b27ad2a66687681c60587e3102b1fb15cdc69c2dd169e7ac34c890477",
+      "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-diagnostic-switching/result.json",
+      "result_sha256": "f492fccc653d471a465fc3ae44876526e4e329eee738186be71f25dd8fe12e81"
+    },
+    {
+      "scope": "isolated_address_input_fixture",
+      "error": "Tab fixture failed: address_focus_failed:stale_revision",
+      "completed_helper_samples": 171,
+      "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-qualified-address-input/run-1/results.json",
+      "result_sha256": "197df2d59caaaf4898785efbe96fce5abb09fbcc3b64b8491532c162a19ce790"
+    }
+  ],
+  "lifetime_fix": {
+    "commit": "66672dcc038b17cbb1a3c99560d9a291c35102b9",
+    "cause": "Release callbacks can also arrive when pressure clears. Visibility and graph notifications could trigger repeated footprint-driven discards without waiting for settled fresh metrics.",
+    "resolution": "Read the current coordinator limit, hold process-metrics interest, and gate pressure discards on five seconds of settling plus a fresh measurement. Retain the existing 8 GiB footprint guard and eligibility protections.",
+    "reproduced_discarded_pages": 34,
+    "fixture_pages": 35,
+    "system_free_memory_percent_during_failure": 53,
+    "reclamation_commit": "a38a8cdf",
+    "regression": "Pressure recovery keeps recent pages warm. Rapid graph updates and stale readings cannot bypass the reclaim gate; cold pages remain frozen while it waits.",
+    "pressure_trace_limit": 100,
+    "pressure_trace_peak_footprint_bytes": 9942821888,
+    "qualified_switching_fixture_pages": 20
+  },
+  "pressure_stress": {
+    "functional_fixture_passed": true,
+    "error": null,
+    "fixture_pages": 35,
+    "freeze_check_requested": false,
+    "result": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-qualified-pressure-stress/result.json",
+    "result_sha256": "10ec223f505076b997c5508dd22871aed5e1a7f4668d17d6bad3e8a3598d26e3",
+    "before_fix": {
+      "pressure_reclaims": 21,
+      "minimum_observed_interval_ms": 39.71900000423193,
+      "maximum_footprint_bytes": 9942821888,
+      "coordinator_limits": [
+        100
+      ],
+      "intervals_measured": true,
+      "intervals_at_least_five_seconds": false,
+      "clock": "Chromium wall-clock log timestamps; 10 ms rounding tolerance",
+      "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-diagnostic-switching/browser.log",
+      "log_sha256": "409b297ae3de27f3340f8d6a24284c226e02e9a8dfd64fbc498274b349bfacfb"
+    },
+    "after_fix": {
+      "pressure_reclaims": 0,
+      "minimum_observed_interval_ms": null,
+      "maximum_footprint_bytes": null,
+      "coordinator_limits": [],
+      "intervals_measured": false,
+      "intervals_at_least_five_seconds": null,
+      "clock": "Chromium wall-clock log timestamps; 10 ms rounding tolerance",
+      "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-qualified-pressure-stress/browser.log",
+      "log_sha256": "4c9aea006b8c1fe3b973eb16042a8b1ef1882748860596cb2e79d22cc3bfab8f"
+    }
+  },
+  "address_input_fixture_fix": {
+    "commit": "6cd096a8",
+    "retries": 10,
+    "backoff_ms": 5,
+    "guard": "Wait for newer inventory and renew the focus fence before retrying a stale revision; reject other failures.",
+    "timing": "All retry time remains inside measured input latency; each sample records its attempt count."
+  },
+  "initial_build_preflight": {
     "build_root": "/Users/james/Documents/Codex/winmux/.local/pins-privacy-engine",
     "stage": "build",
     "free_gib": 98.12,
@@ -199,15 +719,38 @@
     ],
     "filesystem": "apfs"
   },
-  "remaining": [
-    "The guarded Chromium rebuild stopped with exit code 2: free space below its 100 GiB reserve. Latest favicon changes are not yet in a new signed alpha.",
-    "Live workspace switching and address-input timing fixtures require an available native-management lease. The daily workspace remains active; temporary stop/restart approval is pending.",
-    "Physical multi-selection, drag/resize, autocomplete and multiple-display qualification remains before compatibility-path retirement.",
-    "Prepare and qualify a new alpha from the committed snapshot after the build and desktop prerequisites are resolved."
-  ],
-  "limits": [
-    "Visible signed-package checks use the existing October 9 staged package whose native Swift inputs match this snapshot; its browser predates the latest favicon update.",
-    "Focused C++ unit binaries were previously compiled and were rerun here; the complete Chromium build was not rerun.",
-    "Passing synthetic fixtures does not establish full daily-driver or compositor-performance qualification."
-  ]
+  "chromium_build": {
+    "passed": true,
+    "build_jobs": 4,
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "native_revision": "35e7446edddd53823686578a83d68e7c2a676972",
+    "native_dirty": false,
+    "patch_count": 26,
+    "args_sha256": "3133776649bcb6e65fed646598ce887bf13d225d813b3f0e984c09c5dfd8c3bb",
+    "log": "/Users/james/Documents/Codex/winmux/.local/stabilization-2026-10-09-chromium-qualified-build.log",
+    "log_sha256": "093b9ad460f801ad278b74851cf58a9e3b4cac16d796918c900e94dc955e3e0e"
+  },
+  "resource_cleanup": {
+    "user_authorized": true,
+    "swift_build_outputs_removed": true,
+    "superseded_intermediate_package_removed": true,
+    "source_checkouts_preserved": true,
+    "existing_profiles_preserved": true
+  },
+  "release": {
+    "archive": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-stabilized-2026-10-09-rc6/WinMux-Browser-Alpha-Stabilized-2026-10-09-arm64.zip",
+    "archive_bytes": 285397286,
+    "archive_sha256": "21edd649851fb7aeef0bfb4c79f1661c59646f3914584e65409ac3c2b7bbf12f",
+    "archive_round_trip_verified": true,
+    "archive_crc_verified": true,
+    "signature_verified": true,
+    "architecture": "arm64",
+    "signing": "Apple Development",
+    "notarized": false,
+    "installed": false,
+    "published": false,
+    "daily_driver_qualified": false,
+    "result": "/Users/james/Documents/Codex/winmux/.local/releases/browser-alpha-stabilized-2026-10-09-rc6/release-manifest.json",
+    "result_sha256": "150992560b52b2feb3e914c023ec7c827b44c59c7580139cbbe4fa9cdb7e47f3"
+  }
 }
