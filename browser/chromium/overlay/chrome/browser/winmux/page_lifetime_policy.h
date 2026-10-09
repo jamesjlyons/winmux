@@ -2,6 +2,7 @@
 #define CHROME_BROWSER_WINMUX_PAGE_LIFETIME_POLICY_H_
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -17,15 +18,37 @@ inline bool HasBackgroundPageMemoryPressure(int memory_limit,
          footprint_bytes > uint64_t{8} * 1024 * 1024 * 1024;
 }
 
+class PressureReclaimGate {
+ public:
+  bool CanReclaim(int64_t now_ms) const {
+    return !awaiting_metrics_ &&
+           (!last_reclaim_ms_ || now_ms - *last_reclaim_ms_ >= 5000);
+  }
+  void DidReclaim(int64_t now_ms) {
+    last_reclaim_ms_ = now_ms;
+    awaiting_metrics_ = true;
+  }
+  void OnMetricsUpdated(int64_t now_ms) {
+    if (last_reclaim_ms_ && now_ms - *last_reclaim_ms_ >= 5000)
+      awaiting_metrics_ = false;
+  }
+
+ private:
+  std::optional<int64_t> last_reclaim_ms_;
+  bool awaiting_metrics_ = false;
+};
+
 // The caller excludes protected pages and orders eligible pages by recency.
 // Milliseconds keep this policy independently testable without a browser.
 inline std::vector<BackgroundPageAction> PlanBackgroundPages(
-    std::span<const int64_t> hidden_milliseconds, bool memory_pressure) {
+    std::span<const int64_t> hidden_milliseconds, bool memory_pressure,
+    bool pressure_reclaim_ready = true) {
   std::vector<BackgroundPageAction> actions;
   actions.reserve(hidden_milliseconds.size());
   for (size_t index = 0; index < hidden_milliseconds.size(); ++index) {
     auto action = BackgroundPageAction::kWarm;
-    if (memory_pressure && index + 1 == hidden_milliseconds.size()) {
+    if (memory_pressure && pressure_reclaim_ready &&
+        index + 1 == hidden_milliseconds.size()) {
       action = BackgroundPageAction::kDiscard;
     } else if (index >= 12 && hidden_milliseconds[index] >= 120000) {
       // Recheck memory after one discard. Other cold pages remain frozen.

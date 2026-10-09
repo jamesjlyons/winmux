@@ -18,6 +18,7 @@
 #include "chrome/browser/performance_manager/policies/page_discarding_helper.h"
 #include "chrome/browser/winmux/tab_identity.h"
 #include "components/performance_manager/public/decorators/page_live_state_decorator.h"
+#include "components/performance_manager/public/decorators/process_metrics_decorator.h"
 #include "components/performance_manager/public/freezing/freezing.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "components/performance_manager/public/graph/page_node.h"
@@ -64,6 +65,8 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
           T(T::EstimatedMemoryUsage::kLarge, T::ReleaseMemoryCost::kRequiresTraversal,
             T::InformationRetention::kLossy, T::ExecutionType::kAsynchronous, T::InProcess::kNo), this);
     }
+    if (!metrics_interest_)
+      metrics_interest_ = pm::ProcessMetricsDecorator::RegisterInterestForProcessMetrics(graph_);
     auto [it, inserted] = pages_.try_emplace(id);
     auto& page = it->second;
     if (inserted) {
@@ -113,7 +116,12 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
       pm::PageLiveStateDecorator::SetIsPinnedTab(page.contents.get(), page.original_pinned);
     }
     pages_.erase(found);
-    if (pages_.empty()) timer_.Stop();
+    if (pages_.empty()) {
+      timer_.Stop();
+      metrics_refresh_timer_.Stop();
+      metrics_interest_.reset();
+      pressure_reclaim_gate_ = PressureReclaimGate();
+    }
   }
 
   void Stop() {
@@ -146,7 +154,24 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
   void OnIsAudibleChanged(const pm::PageNode*) override { Schedule(); }
   void OnHadFormInteractionChanged(const pm::PageNode*) override { Schedule(); }
   void OnHadUserEditsChanged(const pm::PageNode*) override { Schedule(); }
-  void OnProcessMemoryMetricsAvailable(const pm::SystemNode*) override { Schedule(); }
+  void OnProcessMemoryMetricsAvailable(const pm::SystemNode*) override {
+    pressure_reclaim_gate_.OnMetricsUpdated(
+        (base::TimeTicks::Now() - base::TimeTicks()).InMilliseconds());
+    Schedule();
+  }
+
+  void RefreshMemoryMetrics() {
+    if (!graph_ || pages_.empty()) return;
+    if (auto* metrics = pm::ProcessMetricsDecorator::GetFromGraph(graph_)) {
+      metrics->RequestImmediateMetrics();
+    } else {
+      // Without a metrics decorator only the current coordinator limit can
+      // establish pressure; still bound reclamation to one page per interval.
+      pressure_reclaim_gate_.OnMetricsUpdated(
+          (base::TimeTicks::Now() - base::TimeTicks()).InMilliseconds());
+      Schedule();
+    }
+  }
 
   void Evaluate() {
     if (!pm::PerformanceManager::IsAvailable()) { Stop(); return; }
@@ -182,7 +207,8 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
     std::sort(candidates.begin(), candidates.end(), [](const Page* a, const Page* b) { return a->last_used > b->last_used; });
     std::vector<int64_t> hidden_milliseconds;
     for (const auto* page : candidates) hidden_milliseconds.push_back((now - page->hidden_since).InMilliseconds());
-    const auto actions = PlanBackgroundPages(hidden_milliseconds, pressure);
+    const auto actions = PlanBackgroundPages(hidden_milliseconds, pressure,
+        pressure_reclaim_gate_.CanReclaim((now - base::TimeTicks()).InMilliseconds()));
     std::vector<const pm::PageNode*> discard;
     base::TimeDelta next = base::Minutes(1);
     for (size_t rank = 0; rank < candidates.size(); ++rank) {
@@ -207,6 +233,11 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
     if (pressure) next = base::Seconds(5);
     // Use our own visibility deadlines, retaining all other PROACTIVE checks.
     if (!discard.empty()) {
+      if (pressure) {
+        pressure_reclaim_gate_.DidReclaim((now - base::TimeTicks()).InMilliseconds());
+        metrics_refresh_timer_.Start(FROM_HERE, base::Seconds(5),
+                                    this, &Lifetime::RefreshMemoryMetrics);
+      }
       if (base::CommandLine::ForCurrentProcess()->HasSwitch("winmux-trace-tabs")) {
         LOG(INFO) << "WINMUX_PAGE_RECLAIM limit=" << memory_limit()
                   << " footprint_bytes=" << footprint
@@ -222,9 +253,12 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
 
  private:
   std::unique_ptr<base::MemoryConsumerRegistration> memory_registration_;
+  std::unique_ptr<pm::ProcessMetricsDecorator::ScopedMetricsInterestToken> metrics_interest_;
+  PressureReclaimGate pressure_reclaim_gate_;
   raw_ptr<pm::Graph> graph_ = nullptr;
   std::map<std::string, Page> pages_;
   base::OneShotTimer timer_;
+  base::OneShotTimer metrics_refresh_timer_;
 };
 Lifetime& Policy() { static base::NoDestructor<Lifetime> policy; return *policy; }
 }

@@ -37,6 +37,20 @@ int main() {
   auto recovered = winmux::PlanBackgroundPages(recent,
       winmux::HasBackgroundPageMemoryPressure(100, 0));
   assert(std::count(recovered.begin(), recovered.end(), A::kWarm) == 2);
+  winmux::PressureReclaimGate gate;
+  assert(gate.CanReclaim(100));
+  gate.DidReclaim(100);
+  gate.OnMetricsUpdated(4999); // A quick graph update cannot trigger a burst.
+  assert(!gate.CanReclaim(4999));
+  assert(!gate.CanReclaim(5100)); // Cooldown alone cannot reuse stale metrics.
+  gate.OnMetricsUpdated(5100);
+  assert(gate.CanReclaim(5100));
+  gate.DidReclaim(5100);
+  assert(!gate.CanReclaim(5100));
+  gate.OnMetricsUpdated(10100);
+  assert(gate.CanReclaim(10100));
+  auto held = winmux::PlanBackgroundPages(recent, true, false);
+  assert(std::count(held.begin(), held.end(), A::kWarm) == 2);
   assert(winmux::PlanBackgroundPages({}, false).empty());
   std::vector<int64_t> ages(12, 3600000);
   auto warm = winmux::PlanBackgroundPages(ages, false);
@@ -54,6 +68,9 @@ int main() {
   assert(std::count(pressure.begin(), pressure.end(), A::kDiscard) == 1);
   assert(pressure[12] == A::kFreeze); // Do not thaw every cold page under pressure.
   assert(pressure.back() == A::kDiscard);
+  auto waiting = winmux::PlanBackgroundPages(ages, true, false);
+  assert(std::count(waiting.begin(), waiting.end(), A::kDiscard) == 0);
+  assert(waiting[12] == A::kFreeze && waiting.back() == A::kFreeze);
   ages = {1000, 1000};
   pressure = winmux::PlanBackgroundPages(ages, true);
   assert(pressure.front() == A::kWarm);
