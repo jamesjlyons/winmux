@@ -188,6 +188,7 @@ speed-space = 'Speed fixture'
             raise RuntimeError("Native pin did not acquire its dedicated desktop")
         command = [str(executable), "--user-data-dir=" + str(output / "profile"),
                    "--no-first-run", "--no-default-browser-check", "--enable-logging=stderr",
+                   "--winmux-trace-tabs",
                    "--winmux-sidebar-preview", "--winmux-test-service=" + service,
                    "--winmux-bridge-report=" + str(output / "bridge.json"), *pages.urls]
         result["command"] = command

@@ -5,7 +5,9 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/memory_coordinator/memory_consumer.h"
 #include "chrome/browser/winmux/browser_inventory.h"
@@ -204,8 +206,17 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
     // renderer processes make per-page memory estimates unsuitable for a burst.
     if (pressure) next = base::Seconds(5);
     // Use our own visibility deadlines, retaining all other PROACTIVE checks.
-    if (!discard.empty()) discarder->ImmediatelyDiscardMultiplePages(discard,
-        pm::policies::DiscardEligibilityPolicy::DiscardReason::PROACTIVE, /*ignore_recent_visibility=*/true);
+    if (!discard.empty()) {
+      if (base::CommandLine::ForCurrentProcess()->HasSwitch("winmux-trace-tabs")) {
+        LOG(INFO) << "WINMUX_PAGE_RECLAIM limit=" << memory_limit()
+                  << " footprint_bytes=" << footprint
+                  << " pressure=" << pressure
+                  << " candidates=" << candidates.size()
+                  << " discard=" << discard.size();
+      }
+      discarder->ImmediatelyDiscardMultiplePages(discard,
+          pm::policies::DiscardEligibilityPolicy::DiscardReason::PROACTIVE, /*ignore_recent_visibility=*/true);
+    }
     if (!pages_.empty()) timer_.Start(FROM_HERE, std::max(base::Seconds(1), next), this, &Lifetime::Evaluate);
   }
 
