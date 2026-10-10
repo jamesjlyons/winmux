@@ -146,6 +146,106 @@ final class SurfaceClosureFocusTest: XCTestCase {
         XCTAssertTrue(controller.tabOpeners.isEmpty)
     }
 
+    func testOpenerInAnotherSpaceCannotWinOverNextRow() {
+        let current = focus.workspace
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[0]] = other.name
+        controller.reconcileSharedOrganization()
+        controller.tabOpeners[pages[1]] = pages[0]
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+
+        inventory([pages[0], pages[2], pages[3]], focused: pages[0])
+
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        XCTAssertEqual(focus.workspace.projectId, current.projectId)
+        // A later owner report of its fallback must not undo our replacement.
+        controller.cancelPendingBrowserFocusHold()
+        inventory([pages[0], pages[2], pages[3]], focused: pages[0])
+        XCTAssertEqual(focus.workspace.projectId, current.projectId)
+    }
+
+    func testCandidateMovedToAnotherSpaceAfterSnapshotIsSkipped() {
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        let current = focus.workspace
+        let snapshot = controller.captureClosureFocus()
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[2]] = other.name
+        controller.reconcileSharedOrganization()
+
+        XCTAssertTrue(controller.restoreFocusAfterClosing([pages[1]], snapshot: snapshot, workspace: current))
+        XCTAssertEqual(controller.focusCoordinator.target, pages[3])
+        XCTAssertEqual(focus.workspace.projectId, current.projectId)
+    }
+
+    func testDelayedClosureSnapshotCannotUndoExplicitSpaceSwitch() {
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        let current = focus.workspace
+        let snapshot = controller.captureClosureFocus()
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[3]] = other.name
+        controller.reconcileSharedOrganization()
+        XCTAssertEqual(controller.select(pages[3]), .issued)
+
+        XCTAssertFalse(controller.restoreFocusAfterClosing([pages[1]], snapshot: snapshot, workspace: current))
+        XCTAssertEqual(controller.focusCoordinator.target, pages[3])
+        XCTAssertEqual(focus.workspace.projectId, other.projectId)
+    }
+
+    func testToolbarMinimizeWaitsForInventoryThenSelectsSameSpaceNeighbor() {
+        let current = focus.workspace
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[0]] = other.name
+        controller.reconcileSharedOrganization()
+        controller.tabOpeners[pages[1]] = pages[0]
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        controller.performToolbarAction(.minimize, for: pages[1])
+        XCTAssertNil(controller.focusCoordinator.target)
+
+        inventory(pages, focused: pages[0], minimized: [pages[1]])
+
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        XCTAssertEqual(focus.workspace.projectId, current.projectId)
+        XCTAssertEqual(controller.tabOpeners[pages[1]], pages[0], "Minimization preserves opener metadata")
+        XCTAssertNotNil(controller.workspaceName(for: pages[1]))
+    }
+
+    func testExternalMinimizeSelectsNeighborAndBackgroundMinimizeKeepsFocus() {
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        inventory(pages, focused: pages[3], minimized: [pages[1]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+        inventory(pages, minimized: [pages[0], pages[1]])
+        XCTAssertEqual(controller.focusCoordinator.target, pages[2])
+    }
+
+    func testPendingMinimizeDoesNotReplaceNewerSelection() {
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        controller.performToolbarAction(.minimize, for: pages[1])
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[3]] = other.name
+        controller.reconcileSharedOrganization()
+        XCTAssertEqual(controller.select(pages[3]), .issued)
+
+        inventory(pages, minimized: [pages[1]])
+
+        XCTAssertEqual(controller.focusCoordinator.target, pages[3])
+        XCTAssertEqual(focus.workspace.projectId, other.projectId)
+        XCTAssertNil(controller.pendingMinimizeFocus)
+    }
+
+    func testMinimizingOnlyItemKeepsSpaceEmptyWithoutReturningToOpener() {
+        inventory([pages[0], pages[1]])
+        let current = focus.workspace
+        let other = createBlankWorkspace(projectId: createWorkspaceProject().id, monitor: mainMonitor)
+        controller.placements[pages[0]] = other.name
+        controller.reconcileSharedOrganization()
+        controller.tabOpeners[pages[1]] = pages[0]
+        XCTAssertEqual(controller.select(pages[1]), .issued)
+        inventory([pages[0], pages[1]], focused: pages[0], minimized: [pages[1]])
+
+        XCTAssertNil(controller.focusCoordinator.target)
+        XCTAssertEqual(focus.workspace.projectId, current.projectId)
+    }
+
     func testBottomRowSelectsNearestSurvivingRowAbove() {
         for id in [pages[2], pages[0], pages[3]] { XCTAssertEqual(controller.select(id), .issued) }
         inventory(Array(pages.dropLast()))
@@ -182,10 +282,11 @@ final class SurfaceClosureFocusTest: XCTestCase {
         for id in ids { XCTAssertTrue(controller.surfaceTree.moveToRoot(id, in: workspace)) }
     }
 
-    private func inventory(_ ids: [SurfaceID], focused: SurfaceID? = nil, openers: [SurfaceID: SurfaceID] = [:]) {
+    private func inventory(_ ids: [SurfaceID], focused: SurfaceID? = nil, openers: [SurfaceID: SurfaceID] = [:], minimized: Set<SurfaceID> = []) {
         revision += 1
         controller.received(.init(revision: revision, full: true, tabs: ids.map {
-            var record = BrowserTabRecord(surfaceID: $0, hostID: $0.description, title: "Page", selected: true, focused: $0 == focused)
+            var record = BrowserTabRecord(surfaceID: $0, hostID: $0.description, title: "Page", selected: true,
+                                          hostMinimized: minimized.contains($0), focused: $0 == focused)
             record.openerSurfaceID = openers[$0]
             return record
         }), epoch: epoch, connection: connection, protocolVersion: 4)

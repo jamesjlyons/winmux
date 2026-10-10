@@ -185,7 +185,7 @@ func pruneEmptyWorkspaces() {
             )
         }
         if workspace == focusedWorkspaceBeforePrune {
-            focusedReplacement = focusReplacementForPrunedWorkspace(workspace) ?? replacement
+            focusedReplacement = replacement ?? focusReplacementForPrunedWorkspace(workspace)
         }
         removeWorkspaceFromRegistry(workspace)
     }
@@ -197,11 +197,10 @@ func pruneEmptyWorkspaces() {
 
 @MainActor
 func focusReplacementForPrunedWorkspace(_ workspace: Workspace) -> Workspace? {
-    let visibleWorkspaces = Workspace.all.filter { $0.isVisible && $0 != workspace }
-    if let mainVisible = visibleWorkspaces.first(where: { $0 === mainMonitor.activeWorkspace }) {
-        return mainVisible
+    Workspace.all.first {
+        $0 != workspace && $0.isVisible && $0.projectId == workspace.projectId &&
+            MonitorViewportId($0.workspaceMonitor) == MonitorViewportId(workspace.workspaceMonitor)
     }
-    return visibleWorkspaces.first { $0.projectId == workspace.projectId } ?? visibleWorkspaces.first
 }
 
 @MainActor

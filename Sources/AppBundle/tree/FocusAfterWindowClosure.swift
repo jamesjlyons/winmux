@@ -15,6 +15,9 @@ func focusAfterWindowClosure(
     now: Date = .now,
 ) -> LiveFocus? {
     guard let deadWindowWorkspace else { return nil }
+    guard deadWindowWorkspace.projectId == currentFocus.workspace.projectId,
+          MonitorViewportId(deadWindowWorkspace.workspaceMonitor) == MonitorViewportId(currentFocus.workspace.workspaceMonitor)
+    else { return nil }
     guard deadWindowWorkspace == currentFocus.workspace ||
         deadWindowWorkspace == previousFocusedWorkspace && previousFocusedWorkspaceDate.distance(to: now) < 1
     else {

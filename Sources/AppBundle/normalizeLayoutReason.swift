@@ -67,8 +67,11 @@ private func _normalizeLayoutReason(workspace: Workspace, windows: [Window]) asy
                         window.rememberMacOsLayoutOrigin()
                         window.bind(to: workspace.macOsNativeFullscreenWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
                     case isMacosMinimized:
+                        let controller = BrowserWorkspaceController.shared
+                        let snapshot = refreshSessionFocusSnapshot?.surfaceClosureFocus ?? controller.captureClosureFocus()
                         window.rememberMacOsLayoutOrigin()
                         window.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: 1, index: INDEX_BIND_LAST)
+                        controller.restoreFocusAfterRemovingFromView([window.surfaceID], snapshot: snapshot)
                     case isMacosWindowOfHiddenApp:
                         window.rememberMacOsLayoutOrigin()
                         window.bind(to: workspace.macOsNativeHiddenAppsWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)

@@ -173,7 +173,11 @@ extension BrowserWorkspaceController {
         if request == .minimize {
             // Minimizing a passive pane must not activate it first. Retire any
             // outstanding focus intent that could restore this window later.
-            if focusCoordinator.target == id { nativeSelectionChanged(nil) }
+            if focusCoordinator.target == id {
+                let snapshot = captureClosureFocus()
+                nativeSelectionChanged(nil)
+                pendingMinimizeFocus = (id, snapshot, focusCoordinator.generation)
+            }
             cancelPendingBrowserFocusHold()
         } else {
             _ = select(id)
@@ -186,6 +190,10 @@ extension BrowserWorkspaceController {
         }
         _ = session.request(request, surfaceID: id, url: url) { reply in
             guard reply == .issued else {
+                if request == .minimize, let pending = self.pendingMinimizeFocus, pending.id == id {
+                    self.pendingMinimizeFocus = nil
+                    if pending.generation == self.focusCoordinator.generation { _ = self.select(id) }
+                }
                 BrowserToolbarController.shared.showFailure(for: id, message: "Browser action could not be completed (\(reply.rawValue)).")
                 return
             }

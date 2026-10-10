@@ -33,7 +33,7 @@ import XCTest
         }
     }
 
-    func testTemporarySpaceContainsOnlyPrivateTabsAndDisappearsAfterLastClose() throws {
+    func testLastPrivateCloseKeepsEmptySpaceUntilUserLeaves() throws {
         let original = focus.workspace, first = page(), second = page()
         receive([first, second], revision: 1)
         let name = try XCTUnwrap(controller.workspaceName(for: first.surfaceID))
@@ -48,12 +48,19 @@ import XCTest
         receive([second], revision: 2)
         XCTAssertNotNil(winMuxWorkspaceState.projectsById[view.projectId])
         receive([], revision: 3)
-        XCTAssertNil(winMuxWorkspaceState.projectsById[view.projectId])
-        XCTAssertFalse(Workspace.all.contains(where: \.isIncognito))
-        XCTAssertFalse(focus.workspace.isIncognito)
+        XCTAssertNotNil(winMuxWorkspaceState.projectsById[view.projectId])
+        XCTAssertEqual(focus.workspace.projectId, view.projectId)
         XCTAssertTrue(controller.privateSurfaces.isEmpty)
         XCTAssertFalse(controller.closedBrowserTabs.contains(first.surfaceID))
         XCTAssertFalse(controller.closedBrowserTabs.contains(second.surfaceID))
+        Workspace.reconcileWorkspaceState()
+        XCTAssertEqual(focus.workspace.projectId, view.projectId)
+        let snapshot = RestartSessionSnapshot.capture()
+        XCTAssertFalse(snapshot.world.workspaces.contains { $0.projectId == view.projectId })
+        XCTAssertTrue(original.focusWorkspace())
+        controller.pruneIncognitoSpaces()
+        XCTAssertNil(winMuxWorkspaceState.projectsById[view.projectId])
+        XCTAssertFalse(Workspace.all.contains(where: \.isIncognito))
     }
 
     func testPrivateStateNeverEntersRestartSnapshotIncludingMonitorMemory() throws {

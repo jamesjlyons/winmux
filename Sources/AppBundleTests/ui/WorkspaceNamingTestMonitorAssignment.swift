@@ -43,6 +43,7 @@ extension WorkspaceNamingTest {
         XCTAssertTrue(projectWorkspace.focusWorkspace())
 
         holdFocusOnWorkspaceProject(project.id, for: 60)
+        noteNativeSpaceActivationIntent(true)
         updateFocusCache(defaultWindow)
 
         XCTAssertTrue(focus.workspace === projectWorkspace)

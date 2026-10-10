@@ -57,17 +57,12 @@ extension BrowserWorkspaceController {
         for space in winMuxWorkspaceState.projectsById.keys.filter(\.isIncognito) {
             guard !privateSurfaces.contains(where: { $0.browserProfileID.map { WorkspaceProjectId.incognito($0) == space } == true }) else { continue }
             let workspaces = projectWorkspaces(projectId: space)
-            let fallbackName = incognitoReturnWorkspaces.removeValue(forKey: space)
+            // Closing the last private page must not navigate to a different
+            // Space. Keep only the empty shell until the user leaves it; private
+            // page data has already been retired and is never persisted.
+            if workspaces.contains(where: { $0.isVisible || focus.workspace === $0 }) { continue }
+            incognitoReturnWorkspaces.removeValue(forKey: space)
             for workspace in workspaces {
-                if workspace.isVisible || focus.workspace === workspace {
-                    let monitor = workspace.workspaceMonitor
-                    let fallback = fallbackName.flatMap { Workspace.existing(byName: $0) }
-                        .flatMap { workspaceIsAvailableForMonitor($0, monitor: monitor) ? $0 : nil }
-                        ?? availablePreferredWorkspace(projectId: workspaceProjectDefaultId, monitor: monitor)
-                        ?? createBlankWorkspace(projectId: workspaceProjectDefaultId, monitor: monitor)
-                    if workspace.isVisible { _ = monitor.setActiveWorkspace(fallback) }
-                    if focus.workspace === workspace { _ = setFocus(to: fallback.toLiveFocus()) }
-                }
                 surfaceTree.removeWorkspace(workspace.name)
                 removeWorkspaceFromRegistry(workspace)
             }

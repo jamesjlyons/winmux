@@ -14,10 +14,13 @@ struct MacosNativeMinimizeCommand: Command {
             return io.err(noWindowIsFocused)
         }
         let newState: Bool = try await !window.isMacosMinimized
+        let controller = BrowserWorkspaceController.shared
+        let snapshot = controller.captureClosureFocus()
         window.asMacWindow().setNativeMinimized(newState)
         if newState { // minimize
             window.rememberMacOsLayoutOrigin()
             window.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: 1, index: INDEX_BIND_LAST)
+            controller.restoreFocusAfterRemovingFromView([window.surfaceID], snapshot: snapshot)
             return true
         } else { // unminimize
             return io.err("The command is uncapable of unminimizing windows yet. Sorry") // dead code. should never be possible, see the comment above

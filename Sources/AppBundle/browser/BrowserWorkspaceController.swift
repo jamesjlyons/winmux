@@ -67,6 +67,7 @@ public final class BrowserWorkspaceController {
     var recentSelections: [SurfaceID] = []
     var tabOpeners: [SurfaceID: SurfaceID] = [:]
     var selectedByWorkspace: [String: SurfaceID] = [:]
+    var pendingMinimizeFocus: (id: SurfaceID, snapshot: SurfaceClosureFocusSnapshot, generation: UInt64)?
     private var restoredPlacements = false
     private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
     private var pendingNativeLayoutFocus: (id: SurfaceID, generation: UInt64, foregroundPID: Int32?)?
@@ -92,6 +93,7 @@ public final class BrowserWorkspaceController {
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
         guard (try? snapshot.validated()) != nil else { return }
         pendingNativeLayoutFocus = nil
+        pendingMinimizeFocus = nil
         usesSurfaceTree = true
         surfaceTree = snapshot.tree
         closedBrowserTabs = snapshot.closedBrowserTabs
@@ -256,11 +258,7 @@ public final class BrowserWorkspaceController {
         unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
         let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection)
         if message.full { reconcileRestoredBrowserPlacements(session.inventory) }
-        if let target = focusCoordinator.target, session.inventory.tabs[target]?.hostMinimized == true {
-            // A native titlebar or Dock action can minimize outside our toolbar.
-            // Stale layout/focus replies must not reactivate that page.
-            nativeSelectionChanged(nil)
-        }
+        let minimizedIDs = Set(session.inventory.tabs.values.filter(\.hostMinimized).map(\.surfaceID))
         let removedIDs = oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs).filter { owner(of: $0) == nil }
         for id in removedIDs {
             tabCreationOperations[id] = nil
@@ -296,16 +294,30 @@ public final class BrowserWorkspaceController {
         reconcileSharedOrganization()
         let closedSelection = closureFocus.selected.map(removedIDs.contains) == true
         restoreFocusAfterClosing(removedIDs, snapshot: closureFocus, workspace: closingWorkspace)
-        if usesSurfaceTree && !closedSelection && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
+        var minimizedSelection = closureFocus.selected.map(minimizedIDs.contains) == true
+        if let pending = pendingMinimizeFocus {
+            if pending.generation != focusCoordinator.generation || removedIDs.contains(pending.id) {
+                pendingMinimizeFocus = nil
+            } else if minimizedIDs.contains(pending.id) {
+                pendingMinimizeFocus = nil
+                minimizedSelection = true
+                restoreFocusAfterRemovingFromView(minimizedIDs, snapshot: pending.snapshot)
+            }
+        } else if minimizedSelection {
+            restoreFocusAfterRemovingFromView(minimizedIDs, snapshot: closureFocus)
+        }
+        if usesSurfaceTree && !closedSelection && !minimizedSelection && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
            !isProfileMoveArrival(focused.surfaceID, session: session),
            let workspaceName = placements[focused.surfaceID],
            let workspace = Workspace.existing(byName: workspaceName),
            workspace.isVisible || ((separateArrivals || focused.privateBrowsing) && !oldIDs.contains(focused.surfaceID)),
+           shouldAcceptNativeSpaceFocus(in: workspace) || !oldIDs.contains(focused.surfaceID),
            focusCoordinator.target != focused.surfaceID {
             // The browser reports native activation. Reflect clicks in the shared
             // selection without issuing a second activation back to Chromium.
+            noteNativeSpaceActivationIntent(false)
             if workspace !== focus.workspace {
                 _ = workspace.focusWorkspace(restoringSurfaceSelection: false)
             }

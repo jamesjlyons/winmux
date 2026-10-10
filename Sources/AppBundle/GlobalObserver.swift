@@ -63,7 +63,9 @@ enum GlobalObserver {
 
     private static func onKeyDown(_ event: NSEvent) {
         let isEscape = event.keyCode == 53
+        let switchesApp = event.modifierFlags.contains(.command) && (event.keyCode == 48 || event.keyCode == 50)
         runOnMainActor {
+            noteNativeSpaceActivationIntent(switchesApp)
             if isEscape { cancelWorkspaceSidebarSurfaceDrag() }
             if isEscape, BrowserWindowDragController.shared.isDragging {
                 BrowserWindowDragController.shared.cancel()
@@ -88,6 +90,7 @@ enum GlobalObserver {
         let timestamp = event.timestamp
         let screenPoint = NSEvent.mouseLocation
         let point = normalizeAppKitScreenPoint(screenPoint)
+        let targetPID = event.cgEvent.map { pid_t($0.getIntegerValueField(.eventTargetUnixProcessID)) }
         runOnMainActor {
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
@@ -96,6 +99,12 @@ enum GlobalObserver {
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
             WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
             if isMouseDownEvent {
+                // Dock activation and clicking a different display are explicit
+                // navigation. An ordinary close/minimize click grants no such
+                // permission to subsequent AX fallback notifications.
+                let clickedDock = targetPID.flatMap(NSRunningApplication.init(processIdentifier:))?.bundleIdentifier == "com.apple.dock"
+                let otherSpace = point.monitorApproximation.activeWorkspace.projectId != focus.workspace.projectId
+                noteNativeSpaceActivationIntent(clickedDock || otherSpace)
                 TrackpadNavigationController.shared.cancelNavigation()
                 BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
             }

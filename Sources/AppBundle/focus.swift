@@ -130,6 +130,9 @@ func replaceWorkspaceNameInFocusState(oldName: String, newName: String) {
         return newFocus.workspace.isVisible || newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     }
     let oldFocus = focus
+    if oldFocus.workspace.projectId != newFocus.workspace.projectId {
+        noteNativeSpaceActivationIntent(false)
+    }
     TrackpadNavigationController.shared.cancelNavigation()
     let status = newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
     guard status else { return false }

@@ -399,6 +399,7 @@ struct RunSessionGuard: Sendable {
 @MainActor
 func refreshModel() {
     materializePersistedWorkspaceProjects()
+    BrowserWorkspaceController.shared.pruneIncognitoSpaces()
     BrowserWorkspaceController.shared.preparePinWorkspaces()
     Workspace.reconcileWorkspaceState()
     checkOnFocusChangedCallbacks()

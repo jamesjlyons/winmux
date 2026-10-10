@@ -10,10 +10,27 @@ import Foundation
 
 @MainActor private var workspaceProjectFocusHold: WorkspaceProjectFocusHold? = nil
 
+// AX activation alone is not navigation intent: closing/minimizing often makes
+// macOS activate another window of the same app in a hidden Space. Explicit
+// WinMux navigation calls setFocus directly; external app switching is recorded
+// by the input observer and consumed by the next native focus change.
+@MainActor private var nativeSpaceActivationDeadline: Date? = nil
+
+@MainActor
+func noteNativeSpaceActivationIntent(_ allowsSpaceChange: Bool) {
+    nativeSpaceActivationDeadline = allowsSpaceChange ? Date().addingTimeInterval(2) : nil
+}
+
+@MainActor
+func shouldAcceptNativeSpaceFocus(in workspace: Workspace) -> Bool {
+    workspace.projectId == focus.workspace.projectId || nativeSpaceActivationDeadline.map({ $0 > .now }) == true
+}
+
 @MainActor
 func resetFocusCacheForTests() {
     lastKnownNativeFocusedWindowId = nil
     workspaceProjectFocusHold = nil
+    nativeSpaceActivationDeadline = nil
 }
 
 @MainActor
@@ -74,7 +91,16 @@ private func shouldIgnoreNativeFocusDuringProjectHold(_ nativeFocused: Window?) 
         )
         return
     }
-    if nativeFocused?.windowId != lastKnownNativeFocusedWindowId {
+    if let workspace = nativeFocused?.visualWorkspace, !shouldAcceptNativeSpaceFocus(in: workspace) {
+        // Keep this rejected ID out of the cache so explicit navigation can
+        // subsequently accept the very same native window.
+        lastKnownNativeFocusedWindowId = nil
+        return
+    }
+    let explicitActivation = nativeSpaceActivationDeadline.map({ $0 > .now }) == true
+    if nativeFocused?.windowId != lastKnownNativeFocusedWindowId ||
+        (explicitActivation && nativeFocused?.visualWorkspace != focus.workspace) {
+        if nativeFocused != nil { nativeSpaceActivationDeadline = nil }
         _ = nativeFocused?.focusWindow()
         lastKnownNativeFocusedWindowId = nativeFocused?.windowId
     }
