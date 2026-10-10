@@ -107,10 +107,7 @@ struct WorkspaceSidebarTabMotionScope: ViewModifier {
                                 .position(x: frame.midX, y: frame.midY)
                         }
                         let frame = geometry[primary.bounds]
-                        WorkspaceSidebarMovingTabSelection(
-                            bounds: CGRect(x: frame.minX, y: frame.minY,
-                                           width: max(0, geometry.size.width - frame.minX), height: frame.height),
-                            isFocused: primary.state.isFocused)
+                        WorkspaceSidebarMovingTabSelection(bounds: frame, isFocused: primary.state.isFocused)
                             // Geometry from an existing row already includes its
                             // layout animation. Only a new selection needs a spring.
                             .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.movement, value: primary.id)
@@ -133,7 +130,7 @@ private struct WorkspaceSidebarMovingTabSelection: View {
         WorkspaceSidebarPositionedTabShape(bounds: bounds)
             .fill(ChromeControlToken.selectionColor(dark: colorScheme == .dark, focused: isFocused))
             .overlay {
-                WorkspaceSidebarPositionedTabShape(bounds: bounds, outlineOnly: true)
+                WorkspaceSidebarPositionedTabShape(bounds: bounds)
                     .stroke(Color.primary.opacity(contrast == .increased ? 0.55 : 0.12),
                             lineWidth: contrast == .increased ? 1 : 0.5)
             }
@@ -144,7 +141,6 @@ private struct WorkspaceSidebarMovingTabSelection: View {
 /// size changes to the list's canvas.
 private struct WorkspaceSidebarPositionedTabShape: Shape {
     var bounds: CGRect
-    var outlineOnly = false
 
     var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>> {
         get { .init(.init(bounds.minX, bounds.minY), .init(bounds.width, bounds.height)) }
@@ -155,29 +151,25 @@ private struct WorkspaceSidebarPositionedTabShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        WorkspaceSidebarConnectedTabShape(outlineOnly: outlineOnly).path(in: bounds)
+        WorkspaceSidebarRoundedTabShape().path(in: bounds)
     }
 }
 
-/// Rotate the reference silhouette: convex corners on the left, small concave
-/// shoulders on the right, and no closing stroke across the content-facing edge.
-struct WorkspaceSidebarConnectedTabShape: Shape {
-    var outlineOnly = false
-
+/// Both edges share the same radius and curve, with a continuous closed outline.
+struct WorkspaceSidebarRoundedTabShape: Shape {
     func path(in rect: CGRect) -> Path {
         let radius = min(8, rect.height / 2, rect.width / 3)
-        let shoulder = min(6, rect.height / 4, rect.width / 3)
-        let right = rect.maxX - shoulder
         var path = Path()
-        path.move(to: .init(x: rect.maxX, y: rect.minY - shoulder))
-        path.addQuadCurve(to: .init(x: right, y: rect.minY), control: .init(x: rect.maxX, y: rect.minY))
-        path.addLine(to: .init(x: rect.minX + radius, y: rect.minY))
-        path.addQuadCurve(to: .init(x: rect.minX, y: rect.minY + radius), control: .init(x: rect.minX, y: rect.minY))
-        path.addLine(to: .init(x: rect.minX, y: rect.maxY - radius))
-        path.addQuadCurve(to: .init(x: rect.minX + radius, y: rect.maxY), control: .init(x: rect.minX, y: rect.maxY))
-        path.addLine(to: .init(x: right, y: rect.maxY))
-        path.addQuadCurve(to: .init(x: rect.maxX, y: rect.maxY + shoulder), control: .init(x: rect.maxX, y: rect.maxY))
-        if !outlineOnly { path.closeSubpath() }
+        path.move(to: .init(x: rect.minX + radius, y: rect.minY))
+        path.addLine(to: .init(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(to: .init(x: rect.maxX, y: rect.minY + radius), control: .init(x: rect.maxX, y: rect.minY))
+        path.addLine(to: .init(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(to: .init(x: rect.maxX - radius, y: rect.maxY), control: .init(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: .init(x: rect.minX + radius, y: rect.maxY))
+        path.addQuadCurve(to: .init(x: rect.minX, y: rect.maxY - radius), control: .init(x: rect.minX, y: rect.maxY))
+        path.addLine(to: .init(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(to: .init(x: rect.minX + radius, y: rect.minY), control: .init(x: rect.minX, y: rect.minY))
+        path.closeSubpath()
         return path
     }
 }
