@@ -20,6 +20,7 @@ struct WorkspaceSidebarDropPreviewViewModel: Hashable {
     let windowCount: Int
     let tabItems: [WorkspaceSidebarDropPreviewTabItem]
     var intentLabel: String?
+    var pinReorderTarget: WorkspaceSidebarPinReorderTarget?
 
     init(
         sourceWindowId: UInt32? = nil,

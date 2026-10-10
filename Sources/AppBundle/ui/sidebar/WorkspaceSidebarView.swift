@@ -896,7 +896,8 @@ extension WorkspaceSidebarView {
                 WorkspaceSidebarPinGrid(workspace: pins, projects: snapshot.projects, isCompact: isCompact,
                     availableWidth: max(1, (isOrganizing ? workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration) : snapshot.visibleWidth) - leadingInset - trailingInset - 4),
                     showsDropWell: isPinDropActive, actions: actions,
-                    expandedAvailableWidth: max(32, snapshot.configuration.expandedWidth - workspaceSidebarContentLeadingInset - workspaceSidebarContentTrailingInset - 4))
+                    expandedAvailableWidth: max(32, snapshot.configuration.expandedWidth - workspaceSidebarContentLeadingInset - workspaceSidebarContentTrailingInset - 4),
+                    reorderTarget: snapshot.dropPreview?.pinReorderTarget)
                     .padding(.leading, leadingInset)
                     .padding(.trailing, trailingInset)
             }

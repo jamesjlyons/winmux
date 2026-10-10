@@ -28,6 +28,7 @@ func workspaceViewDropHint(_ subject: WorkspaceSidebarSurfaceDragSubject,
         }
         return "Release to choose split or stack"
     case .pin(let id):
+        if case .pin = subject { return "Move before this pin" }
         if !source.isPinnedGroup { return "Pin in this Space" }
         if let hit = workspaceSidebarDropTarget(at: pointer),
            pointer.x < hit.rect.topLeftX + min(8, hit.rect.width * 0.2) { return "Move before this pin" }
@@ -42,6 +43,8 @@ func workspaceViewDropHint(_ subject: WorkspaceSidebarSurfaceDragSubject,
 @MainActor
 func requestWorkspaceViewCombination(_ subject: WorkspaceSidebarSurfaceDragSubject,
                                      target: WorkspaceSidebarDropTargetKind) -> Bool {
+    // Pin tiles are insertion targets; their context menus still offer grouping.
+    if case .pin = subject, case .pin = target { return false }
     let controller = BrowserWorkspaceController.shared
     let source: SurfaceID
     switch subject {
@@ -91,12 +94,6 @@ func requestWorkspaceViewCombination(_ subject: WorkspaceSidebarSurfaceDragSubje
             runWorkspaceSidebarSession { _ = reorderWorkspace(name, relativeTo: destination.name, placement: placement) }
             return true
         }
-    }
-    if case .pin(let sourcePin) = subject, case .pin(let targetPin) = target,
-       let hit = workspaceSidebarDropTarget(at: MousePointerTracker.shared.currentSample.point),
-       MousePointerTracker.shared.currentSample.point.x < hit.rect.topLeftX + min(8, hit.rect.width * 0.2) {
-        runWorkspaceSidebarSession { controller.reorderPin(sourcePin, before: targetPin) }
-        return true
     }
     let menu = WorkspaceViewDropMenu()
     for (title, layout, before) in WorkspaceViewDropMenu.choices {

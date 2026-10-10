@@ -134,6 +134,10 @@ func noteWorkspaceSidebarSurfaceDragPointerEvent(type: NSEvent.EventType, at poi
 
 @MainActor
 func workspaceSidebarSurfaceDragTarget(_ subject: WorkspaceSidebarSurfaceDragSubject, at pointer: CGPoint) -> WorkspaceSidebarDropTargetKind? {
+    if case .pin = subject, let insertion = workspaceSidebarPinReorderTarget(at: pointer) {
+        let target = WorkspaceSidebarDropTargetKind.pin(insertion.id)
+        return isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) ? target : nil
+    }
     guard let target = workspaceSidebarDropTarget(at: pointer)?.kind,
           isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return nil }
     return target
@@ -171,16 +175,20 @@ func isActionableWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceD
 @MainActor
 func commitWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, target: WorkspaceSidebarDropTargetKind) {
     guard isActionableWorkspaceSidebarSurfaceDrop(subject, target: target) else { return }
-    if requestWorkspaceViewCombination(subject, target: target) { return }
     let controller = BrowserWorkspaceController.shared
+    if case .pin(let id) = subject, case .pin(let targetPin) = target {
+        let insertion = workspaceSidebarPinReorderTarget(at: MousePointerTracker.shared.currentSample.point)
+        let placement = insertion.flatMap { $0.id == targetPin ? $0.placement : nil } ?? .before
+        runWorkspaceSidebarSession {
+            guard let name = controller.pinWorkspaceName(targetPin), let workspace = Workspace.existing(byName: name) else { return }
+            if controller.pinWorkspaceName(id) != name { guard controller.movePin(id, to: workspace.projectId) else { return } }
+            controller.reorderPin(id, relativeTo: targetPin, placement: placement)
+        }
+        return
+    }
+    if requestWorkspaceViewCombination(subject, target: target) { return }
     if case .pin(let targetPin) = target, let name = controller.pinWorkspaceName(targetPin) {
-        if case .pin(let id) = subject {
-            runWorkspaceSidebarSession {
-                guard let workspace = Workspace.existing(byName: name) else { return }
-                if controller.pinWorkspaceName(id) != name { guard controller.movePin(id, to: workspace.projectId) else { return } }
-                controller.reorderPin(id, before: targetPin)
-            }
-        } else { commitWorkspaceSidebarSurfaceDrop(subject, target: .workspace(name)) }
+        commitWorkspaceSidebarSurfaceDrop(subject, target: .workspace(name))
         return
     }
     if case .workspace(let name) = target, let workspace = Workspace.existing(byName: name), workspace.isPinnedGroup {
@@ -226,6 +234,11 @@ func previewWorkspaceSidebarSurfaceDrop(_ subject: WorkspaceSidebarSurfaceDragSu
         return
     }
     preview.intentLabel = workspaceViewDropHint(subject, target: target)
+    if case .pin = subject, case .pin(let targetPin) = target,
+       let insertion = workspaceSidebarPinReorderTarget(at: MousePointerTracker.shared.currentSample.point), insertion.id == targetPin {
+        preview.pinReorderTarget = insertion
+        preview.intentLabel = insertion.placement == .before ? "Move before this pin" : "Move after this pin"
+    }
     setWorkspaceSidebarDropPreviewIfChanged(preview)
 }
 

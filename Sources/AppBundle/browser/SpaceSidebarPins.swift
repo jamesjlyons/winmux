@@ -227,14 +227,18 @@ extension BrowserWorkspaceController {
         return true
     }
 
-    func legacyReorderPin(_ id: UUID, before target: UUID) {
+    func legacyReorderPin(_ id: UUID, relativeTo target: UUID, placement: WorkspaceReorderPlacement) {
         guard id != target, let workspace = pinWorkspaceName(id), workspace == pinWorkspaceName(target),
               let index = spacePinnedGroups.firstIndex(where: { $0.workspaceName == workspace }) else { return }
         let members = savedPinnedView(id).map { Set($0.view.members.values) } ?? [id]
         let targets = savedPinnedView(target).map { Set($0.view.members.values) } ?? [target]
         let moved = spacePinnedGroups[index].pinOrder.filter { members.contains($0) }
         spacePinnedGroups[index].pinOrder.removeAll { members.contains($0) }
-        if let at = spacePinnedGroups[index].pinOrder.firstIndex(where: { targets.contains($0) }) {
+        let order = spacePinnedGroups[index].pinOrder
+        let insertion = placement == .before
+            ? order.firstIndex(where: { targets.contains($0) })
+            : order.lastIndex(where: { targets.contains($0) }).map { $0 + 1 }
+        if let at = insertion {
             spacePinnedGroups[index].pinOrder.insert(contentsOf: moved, at: at)
         } else { spacePinnedGroups[index].pinOrder += moved }
         scheduleRefresh()

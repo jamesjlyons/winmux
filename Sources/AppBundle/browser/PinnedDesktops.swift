@@ -290,9 +290,20 @@ extension BrowserWorkspaceController {
     }
 
     func reorderPin(_ id: UUID, before target: UUID) {
-        guard let shelf = pinShelves.firstIndex(where: { $0.desktopOrder.contains(id) && $0.desktopOrder.contains(target) }), id != target else { legacyReorderPin(id, before: target); return }
-        pinShelves[shelf].desktopOrder.removeAll { $0 == id }
-        if let index = pinShelves[shelf].desktopOrder.firstIndex(of: target) { pinShelves[shelf].desktopOrder.insert(id, at: index) }
+        reorderPin(id, relativeTo: target, placement: .before)
+    }
+
+    func reorderPin(_ id: UUID, relativeTo target: UUID, placement: WorkspaceReorderPlacement) {
+        guard id != target else { return }
+        guard let shelf = pinShelves.firstIndex(where: { $0.desktopOrder.contains(id) && $0.desktopOrder.contains(target) }) else {
+            legacyReorderPin(id, relativeTo: target, placement: placement)
+            return
+        }
+        var order = pinShelves[shelf].desktopOrder.filter { $0 != id }
+        guard let index = order.firstIndex(of: target) else { return }
+        order.insert(id, at: index + (placement == .after ? 1 : 0))
+        guard order != pinShelves[shelf].desktopOrder else { return }
+        pinShelves[shelf].desktopOrder = order
         scheduleRefresh()
     }
 

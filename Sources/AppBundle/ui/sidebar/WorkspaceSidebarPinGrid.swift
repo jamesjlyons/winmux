@@ -21,6 +21,7 @@ struct WorkspaceSidebarPinGrid: View {
     let showsDropWell: Bool
     let actions: WorkspaceSidebarActions
     var expandedAvailableWidth: CGFloat? = nil
+    var reorderTarget: WorkspaceSidebarPinReorderTarget? = nil
     @State private var hoveredPin: UUID?
 
     private let tileHeight: CGFloat = 40
@@ -105,6 +106,15 @@ struct WorkspaceSidebarPinGrid: View {
         }
         .buttonStyle(.plain)
         .frame(height: tileHeight)
+        .overlay(alignment: insertionAlignment) {
+            if let target = reorderTarget, target.id == pin.id {
+                Capsule().fill(Color.accentColor)
+                    .frame(width: target.isVertical ? tileWidth : 3, height: target.isVertical ? 3 : tileHeight - 4)
+                    .offset(x: target.isVertical ? 0 : (target.placement == .before ? -2 : 2),
+                            y: target.isVertical ? (target.placement == .before ? -2 : 2) : 0)
+                    .allowsHitTesting(false)
+            }
+        }
         .help(pin.isUnavailable ? "\(pin.title) — app unavailable" : pin.title)
         .accessibilityLabel("Pinned \(pin.isGroup ? "View" : pin.isBrowser ? "tab" : "app"): \(pin.title)\(pin.isOpen ? "" : ", closed")")
         .accessibilityIdentifier("winmux.sidebar.pin.\(pin.id.uuidString.lowercased())")
@@ -153,6 +163,12 @@ struct WorkspaceSidebarPinGrid: View {
                 Button(pin.isBrowser ? "Close Tab" : "Close Window") { actions.send(.closeSurface(surface)) }
             }
         }
+    }
+
+    private var insertionAlignment: Alignment {
+        guard let target = reorderTarget else { return .leading }
+        if target.isVertical { return target.placement == .before ? .top : .bottom }
+        return target.placement == .before ? .leading : .trailing
     }
 
     @ViewBuilder

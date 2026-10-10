@@ -90,6 +90,74 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertEqual(controller.spacePinnedGroups.first?.lastRegularWorkspaceName, regular.name)
     }
 
+    func testReorderMixedPinsInBothDirectionsPreservesLayoutsAndSavedOrder() throws {
+        let controller = BrowserWorkspaceController.shared
+        controller.usesSurfaceTree = true
+        let regular = focus.workspace
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        let window = TestWindow.new(id: 95, parent: regular.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([window.surfaceID], in: regular.name)
+        let pages = (1...2).map {
+            BrowserSidebarPin(profileID: UUID(), workspaceName: regular.name, title: "Closed \($0)", url: "https://example.com/\($0)")
+        }
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [regular.name], selected: nil,
+                                                   closedBrowserTabs: [], browserPins: pages))
+        XCTAssertTrue(controller.pinSurface(window.surfaceID))
+        let native = try XCTUnwrap(controller.pinnedViews.first { $0.workspaceName == window.nodeWorkspace?.name })
+        let originalTree = controller.surfaceTree
+        let originalDesktops = controller.pinnedViews
+        let originalWorkspace = window.nodeWorkspace
+
+        controller.reorderPin(pages[0].id, relativeTo: native.id, placement: .after)
+        XCTAssertEqual(controller.pinShelves.first?.desktopOrder, [pages[1].id, native.id, pages[0].id])
+        controller.reorderPin(pages[0].id, relativeTo: pages[1].id, placement: .before)
+        XCTAssertEqual(controller.pinShelves.first?.desktopOrder, [pages[0].id, pages[1].id, native.id])
+        controller.reorderPin(pages[1].id, relativeTo: native.id, placement: .after)
+        let expected = [pages[0].id, native.id, pages[1].id]
+        XCTAssertEqual(controller.pinShelves.first?.desktopOrder, expected)
+        XCTAssertEqual(controller.surfaceTree, originalTree)
+        XCTAssertEqual(controller.pinnedViews, originalDesktops)
+        XCTAssertTrue(window.nodeWorkspace === originalWorkspace)
+        XCTAssertTrue(controller.pendingSidebarPinOpenings.isEmpty)
+
+        let snapshot = try XCTUnwrap(controller.capturePlacementSnapshot()).validated()
+        let restored = BrowserWorkspaceController(); restored.restorePlacementSnapshot(snapshot)
+        XCTAssertEqual(restored.pinShelves.first?.desktopOrder, expected)
+        XCTAssertEqual(restored.pinTilesByWorkspace().values.flatMap { $0 }.sorted { $0.sortOrder < $1.sortOrder }.map(\.id), expected)
+    }
+
+    func testDraggingBetweenOpenPinsReordersInsteadOfOfferingToCombineWindows() throws {
+        let controller = BrowserWorkspaceController.shared
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        let first = TestWindow.new(id: 96, parent: focus.workspace.rootTilingContainer)
+        let second = TestWindow.new(id: 97, parent: focus.workspace.rootTilingContainer)
+        var tree = SurfaceTree(); tree.reconcile([first.surfaceID, second.surfaceID], in: focus.workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        XCTAssertTrue(controller.pinSurface(first.surfaceID))
+        XCTAssertTrue(controller.pinSurface(second.surfaceID))
+        let firstPin = try XCTUnwrap(controller.pinnedViews.first { $0.workspaceName == first.nodeWorkspace?.name })
+        let secondPin = try XCTUnwrap(controller.pinnedViews.first { $0.workspaceName == second.nodeWorkspace?.name })
+        XCTAssertTrue(isActionableWorkspaceSidebarSurfaceDrop(.pin(firstPin.id), target: .pin(secondPin.id)))
+        XCTAssertFalse(requestWorkspaceViewCombination(.pin(firstPin.id), target: .pin(secondPin.id)))
+        XCTAssertEqual(workspaceViewDropHint(.pin(firstPin.id), target: .pin(secondPin.id)), "Move before this pin")
+        XCTAssertFalse(isActionableWorkspaceSidebarSurfaceDrop(.pin(firstPin.id), target: .pin(firstPin.id)))
+    }
+
+    func testReorderingCannotDuplicateOrDropPinsForInvalidTargets() {
+        let controller = BrowserWorkspaceController()
+        let pins = (1...3).map {
+            BrowserSidebarPin(profileID: UUID(), workspaceName: focus.workspace.name, title: "Page \($0)", url: "https://example.com/\($0)")
+        }
+        controller.restorePlacementSnapshot(.init(tree: .init(), layoutWorkspaces: [], selected: nil,
+                                                   closedBrowserTabs: [], browserPins: pins))
+        let original = controller.pinShelves
+        controller.reorderPin(pins[0].id, relativeTo: pins[0].id, placement: .after)
+        controller.reorderPin(pins[0].id, relativeTo: UUID(), placement: .after)
+        controller.reorderPin(UUID(), relativeTo: pins[1].id, placement: .before)
+        controller.reorderPin(pins[0].id, relativeTo: pins[1].id, placement: .before)
+        XCTAssertEqual(controller.pinShelves, original)
+    }
+
     func testDifferentWindowsOfSameAppOwnIndependentDesktops() throws {
         let controller = BrowserWorkspaceController.shared
         controller.usesSurfaceTree = true

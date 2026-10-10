@@ -1,6 +1,6 @@
 import Foundation
 
-enum WorkspaceReorderPlacement: Equatable {
+enum WorkspaceReorderPlacement: Hashable {
     case before
     case after
 }

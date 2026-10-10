@@ -86,6 +86,9 @@ for the interface.
 - **Drag spaces and groups into order.** Rearrange space dots or icons, including Default.
   Drag group headers or compact badges to reorder groups within a space. Groups move aside
   as you drag, with a small trackpad tick at each position. Your order survives a restart.
+- **Rearrange pinned items.** Drag a pinned app, tab, or View across the top shelf. The
+  insertion marker shows where it will land, including after the last pin. The saved order
+  works in both the expanded grid and compact sidebar; right-click to combine windows.
 - **Give spaces their own icons.** Choose Icon… opens a searchable SF Symbols picker that
   works offline and supports the keyboard. Icons use the space's color and stay attached
   when you rename or reorder it. Use Default brings back the colored dot.
