@@ -48,6 +48,7 @@ struct WorkspaceSidebarWindowRow: View {
     var isSelected = false
     var isKeyboardTarget = false
     var isLoading = false
+    var selectionID: String? = nil
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
@@ -71,7 +72,7 @@ struct WorkspaceSidebarWindowRow: View {
             }
             if !isCompact {
                 Text(title)
-                    .font(.system(size: 13, weight: isActiveRow ? .medium : .regular))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(rowTextColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -83,6 +84,7 @@ struct WorkspaceSidebarWindowRow: View {
                 }
             }
         }
+        .transaction { $0.animation = nil }
         .padding(.leading, isCompact ? 0 : workspaceSidebarRowLeadingPadding)
         .padding(.trailing, isCompact ? 0 : workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
@@ -90,7 +92,7 @@ struct WorkspaceSidebarWindowRow: View {
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .background {
             if !externalSelection {
-                ChromeSelectionBackground(state: chromeState, cornerRadius: menuBarStyle ? 5 : 7)
+                WorkspaceSidebarTabBackground(id: selectionID, state: chromeState, cornerRadius: menuBarStyle ? 5 : 7)
             }
         }
         .accessibilityAddTraits(isActiveRow ? .isSelected : [])
@@ -140,7 +142,7 @@ struct WorkspaceSidebarWindowRow: View {
     private var fallbackIcon: some View {
         Image(systemName: fallbackSystemImage)
             .font(.system(size: workspaceSidebarAppIconSize))
-            .foregroundStyle(Color.primary.opacity(0.45))
+            .foregroundStyle(Color.primary.opacity(isActiveRow ? 0.90 : 0.50))
             .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
     }
 
@@ -156,7 +158,7 @@ struct WorkspaceSidebarWindowRow: View {
     }
 
     private var rowIconOpacity: Double {
-        isTabGroupChild && !isActiveRow ? 0.8 : 1
+        isActiveRow ? 1 : 0.8
     }
 
 }

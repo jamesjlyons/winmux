@@ -4,6 +4,7 @@ import SwiftUI
 
 struct WorkspaceSidebarView: View {
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
     @State var projectSwipeTranslation: CGFloat = 0
@@ -927,60 +928,69 @@ extension WorkspaceSidebarView {
                         projectContextColor: nil
                     )
                 }
-                if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
-                    let createMonitorScopeId = workspaceSidebarWorkspaceCreateScope(
-                        selectedScopeId: snapshot.selectedMonitorScopeId,
-                        targetMonitorScopeId: snapshot.targetMonitorScopeId,
-                        focusedScopeId: snapshot.focusedMonitorScopeId,
-                    )
-                    WorkspaceSidebarCreateWorkspaceSection(
-                        projectId: projectId,
-                        monitorScopeId: createMonitorScopeId,
-                        dragPreview: snapshot.dropPreview,
-                        expansionProgress: expansionProgress,
-                        layout: snapshot.configuration,
-                        emitsDropTarget: true,
-                        onCreateWorkspace: {
-                            actions.send(.createWorkspace(
-                                projectId: projectId,
-                                monitorScopeId: createMonitorScopeId
-                            ))
-                        },
-                        onDropPayload: { payload in
-                            switch payload {
-                                case .surface(let id):
-                                    actions.send(.moveSurfaceToNewWorkspace(id, projectId: projectId, monitorScopeId: createMonitorScopeId))
-                                case .surfaceGroup(let id):
-                                    actions.send(.moveSurfaceGroupToNewWorkspace(id, projectId: projectId, monitorScopeId: createMonitorScopeId))
-                                case .window(let windowId):
-                                    actions.send(.moveWindowToNewWorkspace(
-                                        windowId,
-                                        projectId: projectId,
-                                        monitorScopeId: createMonitorScopeId,
-                                    ))
-                                case .tabGroup(let representativeWindowId):
-                                    actions.send(.moveTabGroupToNewWorkspace(
-                                        representativeWindowId,
-                                        projectId: projectId,
-                                        monitorScopeId: createMonitorScopeId,
-                                    ))
-                            }
-                        },
-                        actions: actions,
-                        onNewTab: snapshot.configuration.showsBrowserControls ? {
-                            let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
-                                ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
-                            actions.send(.newBrowserTab(workspaceName: workspace?.name))
-                        } : nil,
-                    )
-                }
             }
             .padding(.leading, leadingInset)
             .padding(.trailing, trailingInset)
             .padding(.bottom, 10)
+            .animation(reduceMotion || !searchText.isEmpty ? nil : WorkspaceSidebarTabMotion.movement,
+                       value: workspaces.filter { !$0.isPinnedGroup }.flatMap { [$0.id] + $0.items.flatMap(\.tabLayoutIdentity) })
+            // Layout animates the rows. Keep the shared selection layer outside
+            // that transaction so insertion cannot animate its geometry twice.
+            .modifier(WorkspaceSidebarTabMotionScope(isEnabled: !isCompact && !snapshot.configuration.menuBarStyle))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .workspaceSidebarDropViewport()
+        Group {
+            if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
+                let createMonitorScopeId = workspaceSidebarWorkspaceCreateScope(
+                    selectedScopeId: snapshot.selectedMonitorScopeId,
+                    targetMonitorScopeId: snapshot.targetMonitorScopeId,
+                    focusedScopeId: snapshot.focusedMonitorScopeId,
+                )
+                WorkspaceSidebarCreateWorkspaceSection(
+                    projectId: projectId,
+                    monitorScopeId: createMonitorScopeId,
+                    dragPreview: snapshot.dropPreview,
+                    expansionProgress: expansionProgress,
+                    layout: snapshot.configuration,
+                    emitsDropTarget: true,
+                    onCreateWorkspace: {
+                        actions.send(.createWorkspace(
+                            projectId: projectId,
+                            monitorScopeId: createMonitorScopeId
+                        ))
+                    },
+                    onDropPayload: { payload in
+                        switch payload {
+                            case .surface(let id):
+                                actions.send(.moveSurfaceToNewWorkspace(id, projectId: projectId, monitorScopeId: createMonitorScopeId))
+                            case .surfaceGroup(let id):
+                                actions.send(.moveSurfaceGroupToNewWorkspace(id, projectId: projectId, monitorScopeId: createMonitorScopeId))
+                            case .window(let windowId):
+                                actions.send(.moveWindowToNewWorkspace(
+                                    windowId,
+                                    projectId: projectId,
+                                    monitorScopeId: createMonitorScopeId,
+                                ))
+                            case .tabGroup(let representativeWindowId):
+                                actions.send(.moveTabGroupToNewWorkspace(
+                                    representativeWindowId,
+                                    projectId: projectId,
+                                    monitorScopeId: createMonitorScopeId,
+                                ))
+                        }
+                    },
+                    actions: actions,
+                    onNewTab: snapshot.configuration.showsBrowserControls ? {
+                        let workspace = workspaces.first { $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId }
+                            ?? workspaces.first(where: \.isFocused) ?? workspaces.first { !$0.isPinnedGroup }
+                        actions.send(.newBrowserTab(workspaceName: workspace?.name))
+                    } : nil,
+                )
+            }
+        }
+        .padding(.leading, leadingInset)
+        .padding(.trailing, trailingInset)
         }
         .padding(.top, topPadding)
         .tabSelectionRoot(scope: "sidebar-\(snapshot.targetMonitorScopeId)-\(projectId.rawValue)")

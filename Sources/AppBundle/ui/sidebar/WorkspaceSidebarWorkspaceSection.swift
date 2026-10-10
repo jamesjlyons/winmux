@@ -79,8 +79,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
     }
 
     var body: some View {
+        regularContent
+            .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+    }
+
+    private var regularContent: some View {
         let _ = faviconCache.revision
-        interactiveSectionContent
+        return interactiveSectionContent
             .padding(.vertical, 1)
             .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
@@ -437,20 +442,23 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
-        switch item.kind {
-            case .surface, .surfaceGroup, .pinnedBrowserTab:
-                sharedSurfaceItemView(item)
-            case .browserTab(let tab):
-                sharedSurfaceItemView(.init(kind: .surface(.init(
-                    surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
-                    appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64,
-                    isSelected: tab.isSelected, isLoading: tab.isLoading
-                ))))
-            case .window(let window):
-                workspaceWindowButton(window, allowsDrag: true)
-            case .tabGroup(let group):
-                workspaceTabGroupView(group)
+        Group {
+            switch item.kind {
+                case .surface, .surfaceGroup, .pinnedBrowserTab:
+                    sharedSurfaceItemView(item)
+                case .browserTab(let tab):
+                    sharedSurfaceItemView(.init(kind: .surface(.init(
+                        surfaceID: tab.surfaceID, title: tab.title, appName: "WinMux Browser", isFocused: tab.isFocused,
+                        appBundleId: "com.jameslyons.winmux.browser.alpha", iconPNGBase64: tab.iconPNGBase64,
+                        isSelected: tab.isSelected, isLoading: tab.isLoading
+                    ))))
+                case .window(let window):
+                    workspaceWindowButton(window, allowsDrag: true)
+                case .tabGroup(let group):
+                    workspaceTabGroupView(group)
+            }
         }
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
     }
 
     func sharedSurfaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
@@ -541,7 +549,9 @@ extension WorkspaceSidebarWorkspaceSection {
     private var viewSummary: some View {
         HStack(spacing: 2) {
             if !isCompact && !workspace.isSingleWindowView {
-                Button { isViewExpanded.toggle() } label: {
+                Button {
+                    withAnimation(reduceMotion ? nil : WorkspaceSidebarTabMotion.movement) { isViewExpanded.toggle() }
+                } label: {
                     Image(systemName: isViewExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 10, weight: .medium)).frame(width: 20, height: rowHeight)
                 }
@@ -570,7 +580,8 @@ extension WorkspaceSidebarWorkspaceSection {
                         favicons: viewIconSurfaces.map(\.iconPNGBase64), fallbackSystemImage: "globe",
                         isSelected: isActiveOnTargetMonitor,
                         isKeyboardTarget: isSearchSelectedWorkspace,
-                        isLoading: workspace.isSingleWindowView && viewIconSurface?.isLoading == true)
+                        isLoading: workspace.isSingleWindowView && viewIconSurface?.isLoading == true,
+                        selectionID: workspace.isSingleWindowView ? workspace.viewSurfaces.first?.surfaceID.description : nil)
                 }
             }
             .buttonStyle(.plain)
@@ -748,6 +759,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     return false
                 },
                 isKeyboardTarget: selectedSearchTarget == .surface(window.surfaceID),
+                selectionID: window.surfaceID.description,
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)

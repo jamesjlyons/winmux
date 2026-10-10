@@ -30,6 +30,7 @@ enum ChromeControlToken {
 struct ChromeSelectionBackground: View {
     let state: ChromeItemState
     var cornerRadius: CGFloat = ChromeControlToken.controlRadius
+    var transition: Animation? = ChromeControlToken.transition
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -48,7 +49,7 @@ struct ChromeSelectionBackground: View {
                     shape.strokeBorder(Color.accentColor, lineWidth: ChromeControlToken.focusRingWidth)
                 }
             }
-            .animation(reduceMotion ? nil : ChromeControlToken.transition, value: state)
+            .animation(reduceMotion ? nil : transition, value: state)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

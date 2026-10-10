@@ -21,7 +21,11 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--view-mode-toast-proof") {
+        if arguments.contains("--sidebar-tab-motion-video") {
+            try recordSidebarTabMotionDemo(to: outputURL)
+        } else if arguments.contains("--sidebar-tab-motion-proof") {
+            try renderSidebarTabMotionProof(in: outputURL)
+        } else if arguments.contains("--view-mode-toast-proof") {
             try renderViewModeToastProof(in: outputURL)
         } else if arguments.contains("--tab-selection-proof") {
             try renderTabSelectionProof(in: outputURL)

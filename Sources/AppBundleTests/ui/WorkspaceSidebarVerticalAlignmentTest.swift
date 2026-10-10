@@ -47,6 +47,53 @@ final class WorkspaceSidebarVerticalAlignmentTest: XCTestCase {
         }
     }
 
+    func testCreationControlsStayFixedAsTabsAreAddedAndRemoved() async throws {
+        var snapshot = fixture(pinCount: 0)
+        let initial = try await frames(snapshot, width: 240)
+        let template = snapshot.workspaces[1]
+        snapshot.workspaces += (0..<20).map { index in
+            .init(name: "extra-\(index)", projectId: template.projectId, displayName: "Extra tab \(index)",
+                  sidebarLabel: "", isGeneratedName: true, monitorScopeId: template.monitorScopeId,
+                  monitorName: nil, isFocused: false, isVisible: false,
+                  items: [.init(kind: .surface(.init(surfaceID: .nativeWindow(UUID()), title: "Extra tab",
+                      appName: "Notes", isFocused: false)))])
+        }
+        let crowded = try await frames(snapshot, width: 240)
+        snapshot.workspaces = [template]
+        let single = try await frames(snapshot, width: 240)
+        for actual in [crowded, single] {
+            XCTAssertEqual(try XCTUnwrap(actual["create"]).minY, try XCTUnwrap(initial["create"]).minY, accuracy: 0.5)
+            XCTAssertEqual(try XCTUnwrap(actual["firstViewport"]).height,
+                           try XCTUnwrap(initial["firstViewport"]).height, accuracy: 0.5)
+        }
+    }
+
+    func testTabEntranceKeepsItsSelectionAnchorAtTheDestination() async throws {
+        let model = TabEntranceFixtureModel()
+        var observed: [CGRect] = []
+        let host = NSHostingView(rootView: TabEntranceFixture(model: model) { observed.append($0) })
+        let window = NSWindow(contentRect: .init(x: -10000, y: -10000, width: 200, height: 150),
+                              styleMask: .borderless, backing: .buffered, defer: false)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(30))
+        model.isInserted = true
+        for _ in 0..<24 {
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(25))
+        }
+
+        let destination = try XCTUnwrap(observed.last)
+        XCTAssertEqual(destination.minY, 38, accuracy: 0.5)
+        for frame in observed {
+            XCTAssertEqual(frame.minX, destination.minX, accuracy: 0.01,
+                           "The visual entrance must not move the selection anchor horizontally")
+            XCTAssertEqual(frame.minY, destination.minY, accuracy: 0.01,
+                           "The visual entrance must not retarget the selection spring")
+        }
+    }
+
     private func frames(_ snapshot: WorkspaceSidebarSnapshot, width: CGFloat) async throws -> [String: CGRect] {
         var snapshot = snapshot
         snapshot.visibleWidth = width
@@ -107,5 +154,51 @@ final class WorkspaceSidebarVerticalAlignmentTest: XCTestCase {
             workspace("arrangement", [item("Split"), .init(kind: .surfaceGroup(UUID(), [item("One"), item("Two")]))]),
             workspace("last", [item("Last tab")]), workspace("blank", [])]
         return snapshot
+    }
+}
+
+@MainActor
+private final class TabEntranceFixtureModel: ObservableObject {
+    @Published var isInserted = false
+}
+
+private struct TabEntranceAnchorKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
+private struct TabEntranceFrameKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
+}
+
+private struct TabEntranceFixture: View {
+    @ObservedObject var model: TabEntranceFixtureModel
+    let observe: (CGRect) -> Void
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Color.clear.frame(height: 32)
+            if model.isInserted {
+                Color.clear.frame(height: 32)
+                    .anchorPreference(key: TabEntranceAnchorKey.self, value: .bounds) { $0 }
+                    .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: false))
+            }
+        }
+        .animation(WorkspaceSidebarTabMotion.movement, value: model.isInserted)
+        .backgroundPreferenceValue(TabEntranceAnchorKey.self) { anchor in
+            GeometryReader { geometry in
+                Color.clear.preference(key: TabEntranceFrameKey.self,
+                                       value: anchor.map { geometry[$0] })
+            }
+        }
+        .onPreferenceChange(TabEntranceFrameKey.self) { frame in
+            if let frame { observe(frame) }
+        }
+        .frame(width: 200, height: 150, alignment: .topLeading)
     }
 }

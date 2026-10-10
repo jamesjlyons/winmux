@@ -6,6 +6,7 @@ import WorkspaceCore
 struct WorkspaceSidebarSurfaceTreeView: View {
     @Environment(\.workspaceSidebarDensity) private var density
     @Environment(\.workspaceSidebarCompactRows) private var isCompact
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let item: WorkspaceSidebarItemViewModel
     let workspaceName: String
     let targetMonitorScopeId: String
@@ -50,6 +51,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
             actions: actions, onActivate: onActivate, onActivatePin: onActivatePin, leadingHitInset: indent, unfilteredItems: unfilteredItems
         )
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
     }
 
     private func surfaceButton(_ surface: WorkspaceSidebarSurfaceItem) -> some View {
@@ -63,7 +65,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 favicons: [surface.iconPNGBase64],
                 fallbackSystemImage: surface.isBrowser ? "globe" : "app",
                 isSelected: surface.isSelected, isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID),
-                isLoading: surface.isLoading
+                isLoading: surface.isLoading,
+                selectionID: surface.surfaceID.description
             )
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)

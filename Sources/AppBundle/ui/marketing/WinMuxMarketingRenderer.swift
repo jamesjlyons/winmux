@@ -202,7 +202,8 @@ func renderMarketingView<Content: View>(
     to outputURL: URL,
     size: CGSize = CGSize(width: 1_600, height: 900),
     renderScale: CGFloat = 1,
-    colorScheme: ColorScheme = .dark
+    colorScheme: ColorScheme = .dark,
+    settleDuration: TimeInterval = 0.8
 ) throws {
     let renderSize = CGSize(width: size.width * renderScale, height: size.height * renderScale)
     let content = rootView
@@ -251,7 +252,7 @@ func renderMarketingView<Content: View>(
     window.orderFrontRegardless()
     hostingView.layoutSubtreeIfNeeded()
     hostingView.displayIfNeeded()
-    RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+    RunLoop.main.run(until: Date().addingTimeInterval(settleDuration))
 
     let windowNumber = CGWindowID(window.windowNumber)
     guard let image = CGWindowListCreateImage(

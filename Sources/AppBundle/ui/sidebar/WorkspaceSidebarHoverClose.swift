@@ -11,9 +11,11 @@ struct WorkspaceSidebarHoverClose: ViewModifier {
     @State private var isHovered = false
     @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     @Environment(\.workspaceSidebarCompactRows) private var isCompact
+    @Environment(\.workspaceSidebarDensity) private var density
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
-        if let surface, !isCompact {
+        if let surface, !isCompact, density != .minimal {
             HStack(spacing: 0) {
                 content
                     .environment(\.workspaceSidebarExternalRowSelection, selection != nil)
@@ -26,18 +28,23 @@ struct WorkspaceSidebarHoverClose: ViewModifier {
                 .buttonStyle(.plain)
                 .help("Close \(title)")
                 .accessibilityLabel("Close \(title)")
-                .opacity(isHovered ? 1 : 0)
-                .allowsHitTesting(isHovered)
+                .opacity(showsClose ? 1 : 0)
+                .allowsHitTesting(showsClose)
+                .accessibilityHidden(!showsClose)
+                .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.hover, value: showsClose)
             }
             .background {
                 if let selection {
-                    ChromeSelectionBackground(state: hoveredSelection(selection), cornerRadius: menuBarStyle ? 5 : 7)
+                    WorkspaceSidebarTabBackground(id: surface.description, state: hoveredSelection(selection),
+                                                  cornerRadius: menuBarStyle ? 5 : 7)
                 }
             }
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }
         } else { content }
     }
+
+    private var showsClose: Bool { isHovered || selection?.isRaised == true }
 
     private func hoveredSelection(_ selection: ChromeItemState) -> ChromeItemState {
         var result = selection
