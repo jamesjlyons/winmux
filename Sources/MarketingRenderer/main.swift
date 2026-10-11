@@ -21,7 +21,9 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--sidebar-tab-motion-video") {
+        if arguments.contains("--sidebar-tab-reorder-proof") {
+            try renderSidebarTabReorderProof(in: outputURL)
+        } else if arguments.contains("--sidebar-tab-motion-video") {
             try recordSidebarTabMotionDemo(to: outputURL)
         } else if arguments.contains("--sidebar-tab-motion-proof") {
             try renderSidebarTabMotionProof(in: outputURL)

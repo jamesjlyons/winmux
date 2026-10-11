@@ -702,6 +702,7 @@ func finishSidebarWindowDrag(pointer: CGPoint? = nil) {
 
 @MainActor
 func finishWorkspaceSidebarDragAfterGlobalMouseUp() {
+    guard !WorkspaceSidebarTabReorderState.shared.isSettling else { return }
     if let subject = currentWorkspaceSidebarSurfaceDragSubject() {
         finishWorkspaceSidebarSurfaceDrag(subject, pointer: currentWorkspaceSidebarDragPointer())
         resetWorkspaceSidebarItemDrag()

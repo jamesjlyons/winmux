@@ -5,6 +5,7 @@ enum WorkspaceSidebarTabMotion {
     static let movement = Animation.interpolatingSpring(mass: 1, stiffness: 529, damping: 46)
     static let hover = Animation.easeOut(duration: 0.065)
     static let removal = Animation.easeOut(duration: 0.09)
+    static let reorder = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.14)
 
     static func transition(reduceMotion: Bool) -> AnyTransition {
         guard !reduceMotion else { return .identity }

@@ -36,6 +36,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var isDropSettling = false
     @State var isViewExpanded = true
     @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
+    @ObservedObject private var tabReorderState = WorkspaceSidebarTabReorderState.shared
     @Environment(\.tabSelection) private var tabSelection
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -192,6 +193,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 value: reorderOffset
             )
             .zIndex(isReorderingWorkspace ? 3 : (isDropTarget ? 1 : 0))
+            .offset(y: tabReorderState.offset(for: workspace.name, monitor: targetMonitorScopeId))
+            .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.reorder,
+                value: tabReorderState.offset(for: workspace.name, monitor: targetMonitorScopeId))
     }
 }
 extension WorkspaceSidebarWorkspaceSection {
@@ -631,11 +635,13 @@ extension WorkspaceSidebarWorkspaceSection {
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragChanged(.surface(id), value) }
                 }, onEnded: { value in
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragEnded(.surface(id), value) }
-                }))
+                }, surface: workspace.isSingleWindowView ? workspace.viewSurfaces.first?.surfaceID : nil))
             .modifier(WorkspaceSidebarHoverClose(surface: workspace.isSingleWindowView && !isCompact ? workspace.viewSurfaces.first?.surfaceID : nil,
                 title: workspace.displayName, actions: actions,
                 selection: .init(isSelected: isActiveOnTargetMonitor, isFocused: workspace.isFocused,
                     isHovered: isHovered, isKeyboardTarget: isSearchSelectedWorkspace)))
+            .modifier(WorkspaceSidebarStandaloneTabDragRow(surface: workspace.isSingleWindowView ? workspace.viewSurfaces.first : nil,
+                title: workspace.displayName, monitor: targetMonitorScopeId, allowsReorder: allowsWorkspaceReordering))
             .tabSelectionItem(workspace.isSingleWindowView && allowsWorkspaceActivation ? workspace.viewSurfaces.first.map { .surface($0.surfaceID) } : nil)
             .tabSelectionMenu(for: workspace.isSingleWindowView ? workspace.viewSurfaces.first.map { .surface($0.surfaceID) } : nil,
                 workspace: workspace.name, monitor: targetMonitorScopeId, actions: actions) {

@@ -32,7 +32,8 @@ final class WindowDropIntentOverlayPanelController {
         panel.level
     }
 
-    func show(_ model: WindowDropIntentOverlayModel) {
+    func show(_ model: WindowDropIntentOverlayModel, revealProgress: CGFloat = 1) {
+        panel.alphaValue = min(1, max(0, revealProgress))
         let activeZone = model.activeZone?.rawValue ?? "nil"
         guard let frame = Self.panelFrame(for: model.targetFrame)?.alignedToBackingPixels() else {
             logWindowDragLive("dropOverlay show aborted: no panel frame target=\(debugDescribe(model.targetFrame)) zone=\(activeZone)")

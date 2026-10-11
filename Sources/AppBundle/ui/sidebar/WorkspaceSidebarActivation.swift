@@ -27,7 +27,7 @@ func resetWorkspaceSidebarItemDrag() {
 
 @MainActor
 func isWorkspaceSidebarItemDragActive() -> Bool {
-    workspaceSidebarItemDragActiveCount > 0
+    workspaceSidebarItemDragActiveCount > 0 || WorkspaceSidebarTabReorderState.shared.isSettling
 }
 
 @MainActor

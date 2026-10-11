@@ -33,6 +33,7 @@ private final class WorkspaceSidebarSurfaceDragDriver {
     var state = WorkspaceSidebarSurfaceDragState()
 
     func update(_ subject: WorkspaceSidebarSurfaceDragSubject, pointer: CGPoint) {
+        guard !WorkspaceSidebarTabReorderState.shared.isSettling else { return }
         guard state.begin(subject) else { return }
         MousePointerTracker.shared.note(point: pointer)
         postWorkspaceSidebarDragPointerNotification(workspaceSidebarDragPointerChangedNotification, pointer: pointer)
@@ -44,7 +45,18 @@ private final class WorkspaceSidebarSurfaceDragDriver {
         guard let subject = state.subject else { return }
         guard let preview = workspaceSidebarSurfaceSourcePreview(subject) else { cancel(); return }
         let pointer = MousePointerTracker.shared.currentSample.point
-        WindowDragCursorProxyPanel.shared.show(preview: preview, mouseScreenPoint: denormalizedAppKitScreenPoint(pointer))
+        let reorder = WorkspaceSidebarTabReorderState.shared
+        let isReordering = reorder.update(pointer: pointer)
+        if reorder.source != nil {
+            WindowDragCursorProxyPanel.shared.hide()
+        } else {
+            WindowDragCursorProxyPanel.shared.show(preview: preview, mouseScreenPoint: denormalizedAppKitScreenPoint(pointer))
+        }
+        if isReordering {
+            clearWorkspaceSidebarDropPreview()
+            WindowDropIntentOverlayPanelController.shared.hide()
+            return
+        }
         if let target = workspaceSidebarSurfaceDragTarget(subject, at: pointer) {
             previewWorkspaceSidebarSurfaceDrop(subject, target: target)
             WindowDropIntentOverlayPanelController.shared.hide()
@@ -53,7 +65,7 @@ private final class WorkspaceSidebarSurfaceDragDriver {
             if WorkspaceSidebarPanel.panel(containing: pointer) == nil,
                case .surface(let id) = subject,
                let drop = resolveBrowserSurfaceDrop(source: id, pointer: pointer) {
-                WindowDropIntentOverlayPanelController.shared.show(drop.overlay)
+                WindowDropIntentOverlayPanelController.shared.show(drop.overlay, revealProgress: reorder.splitProgress(at: pointer))
             } else {
                 WindowDropIntentOverlayPanelController.shared.hide()
             }
@@ -63,6 +75,13 @@ private final class WorkspaceSidebarSurfaceDragDriver {
     func finish(_ subject: WorkspaceSidebarSurfaceDragSubject, pointer: CGPoint) {
         guard state.finish(subject) else { return }
         MousePointerTracker.shared.note(point: pointer)
+        if WorkspaceSidebarTabReorderState.shared.finish(pointer: pointer, completion: { [weak self] in
+            self?.clearFeedback(pointer: pointer)
+        }) {
+            DisplayRefreshDriver.shared.remove(owner: self)
+            state.releasePointer()
+            return
+        }
         let target = workspaceSidebarSurfaceDragTarget(subject, at: pointer)
         let contentDrop: BrowserSurfaceDropDestination?
         if target == nil, WorkspaceSidebarPanel.panel(containing: pointer) == nil, case .surface(let id) = subject {
@@ -80,13 +99,14 @@ private final class WorkspaceSidebarSurfaceDragDriver {
     }
 
     func cancel() {
-        guard state.subject != nil else { return }
+        guard state.subject != nil || WorkspaceSidebarTabReorderState.shared.source != nil else { return }
         state.cancel()
         clearFeedback(pointer: MousePointerTracker.shared.currentSample.point)
         resetWorkspaceSidebarItemDrag()
     }
 
     private func clearFeedback(pointer: CGPoint) {
+        WorkspaceSidebarTabReorderState.shared.cancel()
         DisplayRefreshDriver.shared.remove(owner: self)
         clearWorkspaceSidebarDropPreview()
         WindowDragCursorProxyPanel.shared.hide()

@@ -80,7 +80,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         .modifier(WorkspaceSidebarOptionalDragModifier(
             isEnabled: true,
             onChanged: { actions.surfaceDragChanged(.surface(surface.surfaceID), $0) },
-            onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) }
+            onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) },
+            surface: surface.surfaceID
         ))
         .tabSelectionItem(.surface(surface.surfaceID))
         .tabSelectionMenu(for: .surface(surface.surfaceID), workspace: workspaceName, monitor: targetMonitorScopeId, actions: actions) {
@@ -105,6 +106,8 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             selection: .init(isSelected: surface.isSelected, isFocused: surface.isFocused, isHovered: isHovered,
                 isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID))))
         .onHover { isHovered = $0 }
+        .modifier(WorkspaceSidebarTabDragRow(surface: surface, monitor: targetMonitorScopeId,
+            leadingInset: leadingHitInset, allowsReorder: !isSearchFiltering))
     }
 
     private func stackHeader(id: UUID) -> some View {
