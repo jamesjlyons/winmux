@@ -68,6 +68,12 @@ private let configParser: [String: any ParserProtocol<Config>] = [
                 .orFailure(.semantic(trace, "Expected new-item-placement to be 'new-view', 'tile', 'stack-native', or 'float-native'"))
         }
     },
+    "tiling-algorithm": Parser(\.tilingAlgorithm) { raw, trace in
+        parseString(raw, trace).flatMap {
+            TilingAlgorithm(rawValue: $0)
+                .orFailure(.semantic(trace, "Expected tiling-algorithm to be 'adaptive' or 'dwindle'"))
+        }
+    },
     "automatically-tile-new-windows": Parser(\.newItemPlacement) { raw, trace in
         parseBool(raw, trace).map { $0 ? .tile : .floatNative }
     },

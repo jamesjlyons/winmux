@@ -3,6 +3,7 @@ import SwiftUI
 struct ShortcutBehaviorSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
     @State private var newItemPlacement = config.newItemPlacement
+    @State private var tilingAlgorithm = config.tilingAlgorithm
     @State private var enableShakeToToggleTiling = config.enableShakeToToggleTiling
     @State private var automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps
     @State private var autoReloadConfig = config.autoReloadConfig
@@ -22,6 +23,13 @@ struct ShortcutBehaviorSettingsView: View {
                 } onChange: {
                     if newItemPlacement != config.newItemPlacement {
                         persistRootString("new-item-placement", newItemPlacement.rawValue)
+                    }
+                }
+                SettingsPicker("Tiling algorithm", selection: $tilingAlgorithm, help: tilingAlgorithm.detail) {
+                    ForEach(TilingAlgorithm.allCases, id: \.self) { Text($0.title).tag($0) }
+                } onChange: {
+                    if tilingAlgorithm != config.tilingAlgorithm {
+                        persistRootString("tiling-algorithm", tilingAlgorithm.rawValue)
                     }
                 }
                 SettingsToggle("Unhide macOS-hidden apps", isOn: $automaticallyUnhideMacosHiddenApps, help: "Restore apps macOS has hidden when they receive focus.") { persistRootBool("automatically-unhide-macos-hidden-apps", automaticallyUnhideMacosHiddenApps) }
@@ -59,6 +67,7 @@ struct ShortcutBehaviorSettingsView: View {
         }
         .onChange(of: model.settingsRevision) { _ in
             newItemPlacement = config.newItemPlacement
+            tilingAlgorithm = config.tilingAlgorithm
             enableShakeToToggleTiling = config.enableShakeToToggleTiling
             automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps
             autoReloadConfig = config.autoReloadConfig

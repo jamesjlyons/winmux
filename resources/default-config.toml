@@ -20,6 +20,8 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 automatically-unhide-macos-hidden-apps = false
 new-item-placement = 'new-view'
+# For tiled arrivals: 'adaptive' keeps the current layout; 'dwindle' splits the focused pane.
+tiling-algorithm = 'adaptive'
 # Shake a window horizontally while dragging its title bar to toggle floating/tiling.
 enable-shake-to-toggle-tiling = true
 shortcuts-preset = 'none'

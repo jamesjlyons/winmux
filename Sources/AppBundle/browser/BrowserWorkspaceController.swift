@@ -416,6 +416,8 @@ public final class BrowserWorkspaceController {
         let arrivalContext = focus.workspace
         let separateArrivals = config.newItemPlacement == .newView && previewWindow == nil &&
             !(restoredPlacements && isInitialInventory && message.full)
+        let arrivalSource = focusCoordinator.target ?? focus.windowOrNil?.surfaceID
+        var tiledArrivals: [SurfaceID] = []
         for id in session.inventory.tabs.keys.sorted(by: { $0.description < $1.description }) {
             closedBrowserTabs.remove(id)
             if placements[id] == nil {
@@ -423,11 +425,24 @@ public final class BrowserWorkspaceController {
                     ? incognitoDestination(id, from: arrivalContext)
                     : (separateArrivals ? standaloneBrowserDestination(id, in: regularArrivalWorkspace(arrivalContext)) : workspace)
                 placements[id] = destination
+                if config.newItemPlacement != .newView,
+                   !isInitialInventory, previewWindow == nil,
+                   !isProfileMoveArrival(id, session: session) { tiledArrivals.append(id) }
                 if isWinMuxRuntimeReady || isPrivateSurface(id) { _ = Workspace.get(byName: destination) }
                 Workspace.existing(byName: destination)?.hasContainedItems = true
             }
         }
         reconcileSharedOrganization()
+        // Remove the provisional root leaves together. Each arrival then sees
+        // the preceding layout, even when one inventory contains several tabs.
+        if usesSurfaceTree {
+            for id in tiledArrivals { surfaceTree.remove(id) }
+            for id in tiledArrivals {
+                guard let name = placements[id] else { continue }
+                surfaceTree.reconcile((surfaceTree.roots[name] ?? []).flatMap(\.surfaces) + [id], in: name)
+                _ = placeTiledArrival(id, in: name, after: arrivalSource)
+            }
+        }
         let closedSelection = closureFocus.selected.map(removedIDs.contains) == true
         restoreFocusAfterClosing(removedIDs, snapshot: closureFocus, workspace: closingWorkspace)
         var minimizedSelection = closureFocus.selected.map(minimizedIDs.contains) == true
@@ -605,15 +620,20 @@ public final class BrowserWorkspaceController {
     }
 
     func placeCreatedBrowserTab(_ id: SurfaceID, in workspaceName: String, focusAddress: Bool, selectCreated: Bool, focusGeneration: UInt64,
-                                after source: SurfaceID? = nil) {
+                                after source: SurfaceID? = nil, tileArrival: Bool = false) {
         placements[id] = workspaceName
         closedBrowserTabs.remove(id)
         if isWinMuxRuntimeReady { _ = Workspace.get(byName: workspaceName) }
         if usesSurfaceTree {
+            // Import the existing native splits before a pending page creates
+            // the first shared root, including when its reply precedes inventory.
+            if surfaceTree.roots[workspaceName] == nil { reconcileSharedOrganization() }
             if surfaceTree.workspace(of: id) == nil {
                 surfaceTree.reconcile([id] + (surfaceTree.roots[workspaceName] ?? []).flatMap(\.surfaces), in: workspaceName)
             }
-            _ = surfaceTree.moveToRoot(id, in: workspaceName, after: source)
+            if !tileArrival || !placeTiledArrival(id, in: workspaceName, after: source) {
+                _ = surfaceTree.moveToRoot(id, in: workspaceName, after: source)
+            }
         }
         if selectCreated {
             pendingBrowserTabSelections = [id: focusAddress]

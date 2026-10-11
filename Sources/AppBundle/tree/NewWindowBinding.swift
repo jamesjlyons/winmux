@@ -32,6 +32,8 @@ func bindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> B
     if let tabGroupBinding = autoAddNewWindowToFocusedTabGroupBinding(workspace) {
         return tabGroupBinding
     }
+    if config.tilingAlgorithm == .dwindle, config.newItemPlacement != .newView,
+       let binding = bindingDataForDwindleArrival(workspace) { return binding }
     guard let mruWindow = workspace.mostRecentWindowRecursive,
           let tilingParent = mruWindow.parent as? TilingContainer
     else {

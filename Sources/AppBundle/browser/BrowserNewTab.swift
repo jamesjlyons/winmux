@@ -80,7 +80,7 @@ extension BrowserWorkspaceController {
                     ? self.standaloneBrowserDestination(id, in: requestedWorkspace) : workspace
                 self.placeCreatedBrowserTab(id, in: destination, focusAddress: url == nil,
                                            selectCreated: selectCreated, focusGeneration: startingFocus,
-                                           after: sourceSurface)
+                                           after: sourceSurface, tileArrival: !explicitPlacement)
                 created?(id)
             }
             if reply != .issued, routedProfile != nil, !isUnitTest {

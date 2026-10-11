@@ -122,7 +122,9 @@ extension BrowserWorkspaceController {
                    let index = children.firstIndex(where: { $0.surfaces.contains(anchor) }) {
                     _ = surfaceTree.reorder(.surface(id), inStack: stack, toIndex: index + 1)
                 }
-            } else { _ = surfaceTree.moveToRoot(id, in: source.name, after: anchor) }
+            } else if !placeTiledArrival(id, in: source.name, after: anchor) {
+                _ = surfaceTree.moveToRoot(id, in: source.name, after: anchor)
+            }
             scheduleRefresh()
             return
         }

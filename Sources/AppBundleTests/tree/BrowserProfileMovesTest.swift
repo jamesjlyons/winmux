@@ -176,20 +176,26 @@ import XCTest
     }
 
     func testGroupMoveCommitsAllReplacementsTogetherAndRetainsSplitIdentity() throws {
-        let f = try Fixture(); defer { f.stop() }
-        let a = f.add(), b = f.add(url: "https://example.test/second")
-        XCTAssertTrue(f.controller.editOrganization(of: a) { $0.group(a, with: b, layout: .horizontal) })
-        let group = try XCTUnwrap(f.controller.surfaceTree.containingGroup(of: a))
-        XCTAssertTrue(f.controller.moveGroup(group, to: f.destination))
-        XCTAssertEqual(f.requests.count, 2)
-        let first = f.replacement(0)
-        XCTAssertEqual(f.controller.workspaceName(for: a), f.source.name)
-        XCTAssertTrue(f.closed.isEmpty)
-        let second = f.replacement(1)
-        XCTAssertEqual(f.controller.workspaceName(forGroup: group), f.destination.name)
-        XCTAssertEqual(Set(f.controller.surfaceTree.group(group)?.surfaces ?? []), [first, second])
-        XCTAssertEqual(f.controller.sidebarGroupLayout(group), .horizontal)
-        XCTAssertEqual(f.closed, [a, b])
+        for algorithm in TilingAlgorithm.allCases {
+            for inventoryFirst in [false, true] {
+                let f = try Fixture(); defer { f.stop() }
+                config.tilingAlgorithm = algorithm
+                let a = f.add(), b = f.add(url: "https://example.test/second")
+                XCTAssertTrue(f.controller.editOrganization(of: a) { $0.group(a, with: b, layout: .horizontal) })
+                let group = try XCTUnwrap(f.controller.surfaceTree.containingGroup(of: a))
+                XCTAssertTrue(f.controller.moveGroup(group, to: f.destination))
+                XCTAssertEqual(f.requests.count, 2)
+                let first = f.replacement(0, inventoryFirst: inventoryFirst)
+                XCTAssertEqual(f.controller.workspaceName(for: a), f.source.name)
+                XCTAssertEqual(Set(f.controller.surfaceTree.group(group)?.surfaces ?? []), [a, b])
+                XCTAssertTrue(f.closed.isEmpty)
+                let second = f.replacement(1, inventoryFirst: inventoryFirst)
+                XCTAssertEqual(f.controller.workspaceName(forGroup: group), f.destination.name)
+                XCTAssertEqual(Set(f.controller.surfaceTree.group(group)?.surfaces ?? []), [first, second])
+                XCTAssertEqual(f.controller.sidebarGroupLayout(group), .horizontal)
+                XCTAssertEqual(f.closed, [a, b])
+            }
+        }
     }
 
     func testGroupFailureClosesOnlyCopiesEvenWithLateCreationReply() throws {
