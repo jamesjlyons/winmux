@@ -1,0 +1,346 @@
+{
+  "passed": true,
+  "dark": false,
+  "high_contrast": true,
+  "loopback_host": false,
+  "patch_sha256": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+  "layouts": [
+    {
+      "name": "split",
+      "hosts": [
+        {
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 34
+          },
+          "native_window_id": 83466,
+          "visible": true,
+          "managed": true,
+          "zoomed": false,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 650,
+            "height": 600
+          },
+          "host_id": "host:197866775",
+          "minimized": false,
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:f72189e3-e00f-4b50-9ab3-3ac2a36ccde8"
+        },
+        {
+          "fullscreen": false,
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:149b3e9b-13ec-4b23-bf41-c85a8e8ee54d",
+          "host_id": "host:197866773",
+          "minimized": false,
+          "visible": true,
+          "native_window_id": 83454,
+          "managed": true,
+          "minimum_size": {
+            "height": 90,
+            "width": 500
+          },
+          "zoomed": false,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 30,
+            "height": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "stack",
+      "hosts": [
+        {
+          "fullscreen": false,
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:149b3e9b-13ec-4b23-bf41-c85a8e8ee54d",
+          "host_id": "host:197866773",
+          "minimized": false,
+          "visible": true,
+          "native_window_id": 83454,
+          "managed": true,
+          "minimum_size": {
+            "height": 90,
+            "width": 500
+          },
+          "zoomed": false,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 30,
+            "height": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "fullscreen-restored",
+      "hosts": [
+        {
+          "fullscreen": false,
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:149b3e9b-13ec-4b23-bf41-c85a8e8ee54d",
+          "host_id": "host:197866773",
+          "minimized": false,
+          "visible": true,
+          "native_window_id": 83454,
+          "managed": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "zoomed": false,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 30,
+            "height": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "released",
+      "hosts": [
+        {
+          "host_id": "host:197866773",
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:149b3e9b-13ec-4b23-bf41-c85a8e8ee54d",
+          "native_window_id": 83454,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 30,
+            "height": 600
+          },
+          "managed": false,
+          "minimized": false,
+          "fullscreen": false,
+          "visible": true,
+          "zoomed": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 375
+          }
+        }
+      ]
+    },
+    {
+      "name": "readopted",
+      "hosts": [
+        {
+          "fullscreen": false,
+          "surface_id": "browser:6246196b-67c8-4b6f-845c-d7d1cf1b6a7d:149b3e9b-13ec-4b23-bf41-c85a8e8ee54d",
+          "host_id": "host:197866773",
+          "minimized": false,
+          "visible": true,
+          "native_window_id": 83454,
+          "managed": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "zoomed": false,
+          "frame": {
+            "y": 90,
+            "width": 600,
+            "x": 30,
+            "height": 600
+          }
+        }
+      ]
+    }
+  ],
+  "input": {
+    "after-download_text": [
+      "A Not Secure next.toolbar.test:53..."
+    ],
+    "compact_geometry_passed": true,
+    "download_controls": [
+      {
+        "description": "",
+        "role": "AXWindow",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXToolbar",
+        "title": ""
+      },
+      {
+        "description": "Back",
+        "role": "AXButton",
+        "title": "Back"
+      },
+      {
+        "description": "Forward",
+        "role": "AXButton",
+        "title": "Forward"
+      },
+      {
+        "description": "Reload",
+        "role": "AXButton",
+        "title": "Reload"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Not Secure",
+        "role": "AXPopUpButton",
+        "title": "Not Secure"
+      },
+      {
+        "description": "Address and search bar",
+        "role": "AXTextField",
+        "title": "Address and search bar"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Bookmark this tab",
+        "role": "AXButton",
+        "title": "Bookmark this tab"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Extensions",
+        "role": "AXPopUpButton",
+        "title": "Extensions"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "You",
+        "role": "AXButton",
+        "title": "You"
+      },
+      {
+        "description": "Chromium",
+        "role": "AXPopUpButton",
+        "title": "Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      }
+    ],
+    "downloads_menu_passed": true,
+    "downloads_passed": true,
+    "dragged_text": [
+      "\u2022 \u2022 0 \u2039 c 4 Not Secure docs.toolbar.test:53531"
+    ],
+    "editing_text": [],
+    "extensions_menu_passed": true,
+    "focused_address": "docs.toolbar.test:53531/a/deep/path?query=fixture#anchor",
+    "focused_text": [
+      "\u0410 Not Secure",
+      "docs.toolbar.test:53531/a/"
+    ],
+    "hover_text": [
+      "A Not Secure docs.toolbar.test:53531"
+    ],
+    "idle_text": [
+      "A Not Secure docs.toolbar.test:53531"
+    ],
+    "inactive_capture_passed": true,
+    "inactive_text": [
+      "A Not Secure docs.toolbar.test:53..."
+    ],
+    "internal-page_text": [
+      "\u2022 Chromium",
+      "chrome://version"
+    ],
+    "native_drag_passed": true,
+    "navigated_text": [
+      "Not Secure next.toolbar.test:53531"
+    ],
+    "navigation_copy_editing_passed": true,
+    "passed": true,
+    "pid": 670,
+    "restored_text": [
+      "A Not Secure docs.toolbar.test:53531"
+    ],
+    "toolbar_controls": [
+      "Back",
+      "Forward",
+      "Reload",
+      "Bookmark this tab",
+      "You"
+    ],
+    "width-480_actual_width": 500,
+    "width-480_text": [
+      "Not Secure",
+      "docs.toolbar...."
+    ],
+    "width-1000_actual_width": 1000,
+    "width-1000_text": [
+      "\u2022 \u2022 \u2022 \u2039 \u2192 \u00a9 4 Not Secure docs.toolbar.test:53531"
+    ]
+  },
+  "browser_exit_code": 0,
+  "test_service_removed": true
+}

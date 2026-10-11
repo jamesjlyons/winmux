@@ -1,0 +1,296 @@
+--- a/chrome/browser/ui/views/location_bar/location_bar_view.cc
++++ b/chrome/browser/ui/views/location_bar/location_bar_view.cc
+@@ -6,6 +6,8 @@
+ #include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <algorithm>
++
++#include "base/numerics/safe_conversions.h"
+ #include <memory>
+ #include <ranges>
+ #include <string_view>
+@@ -1369,14 +1371,14 @@
+   if (is_popup_mode_) {
+     SetBackground(views::CreateSolidBackground(background_color_));
+   } else if (GetProperty(winmux::kCompactToolbar)) {
+-    if (!is_caret_visible && !high_contrast) {
+-      const bool dark = color_utils::IsDark(background_color_);
+-      // Leave a little of the native material visible through the inset field.
+-      background_color_ = SkColorSetA(background_color_, dark ? 0xAA : 0xDD);
+-      if (border_color == SK_ColorTRANSPARENT) {
+-        border_color = SkColorSetA(dark ? SK_ColorWHITE : SK_ColorBLACK,
+-                                  dark ? 0x2B : 0x19);
+-      }
++    if (!is_caret_visible && !input_in_progress && !high_contrast) {
++      // The native frame supplies the resting material. Only add a faint wash
++      // on hover; keep drafts, focus and increased-contrast states explicit.
++      const bool dark = color_utils::IsDark(
++          color_provider->GetColor(kColorToolbar));
++      background_color_ = SkColorSetA(dark ? SK_ColorWHITE : SK_ColorBLACK,
++                                     base::ClampRound(opacity * (dark ? 18 : 10)));
++      border_color = SK_ColorTRANSPARENT;
+     }
+     const int radius = GetBorderRadius();
+     auto painter = border_color == SK_ColorTRANSPARENT
+@@ -1392,9 +1394,11 @@
+         /*antialias=*/true, /*should_border_scale=*/true));
+   }
+ 
+-  // Keep the views::Textfield in sync. It needs an opaque background to
+-  // correctly enable subpixel AA.
+-  omnibox_view_->SetBackgroundColor(background_color_);
++  // Paint the compact field's fill once, in its parent. A transparent
++  // textfield also disables subpixel AA over the native material.
++  omnibox_view_->SetBackgroundColor(GetProperty(winmux::kCompactToolbar)
++                                        ? SK_ColorTRANSPARENT
++                                        : background_color_);
+ 
+   // The divider between indicators and request chips should have the same color
+   // as the omnibox.
+--- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+@@ -1787,7 +1787,8 @@
+ 
+   if (toolbar_divider_ && extensions_container_) {
+     views::ManualLayoutUtil(layout_manager_)
+-        .SetViewHidden(toolbar_divider_, !extensions_container_->GetVisible());
++        .SetViewHidden(toolbar_divider_,
++                       compact_navigation || !extensions_container_->GetVisible());
+   }
+   // Cast button visibility is controlled externally.
+ }
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -4640,6 +4640,17 @@
+   }
+ #endif  // BUILDFLAG(IS_MAC)
+ 
++  if (GetProperty(winmux::kIntegratedToolbar) && toolbar_ &&
++      toolbar_->GetProperty(winmux::kCompactToolbar)) {
++    gfx::Point toolbar_point(point);
++    if (ConvertedHitTest(parent(), top_container_, &toolbar_point)) {
++      // Compact pages have no tab strip/title row. Let the native frame drag
++      // from toolbar padding, while preserving every control's hit target.
++      return top_container_->IsPositionInWindowCaption(toolbar_point) ? HTNOWHERE
++                                                               : HTCLIENT;
++    }
++  }
++
+   // Since the TabStrip only renders in some parts of the top of the window,
+   // the un-obscured area is considered to be part of the non-client caption
+   // area of the window. So we need to treat hit-tests in these regions as
+--- a/chrome/browser/ui/views/omnibox/omnibox_view_views.cc
++++ b/chrome/browser/ui/views/omnibox/omnibox_view_views.cc
+@@ -68,6 +68,7 @@
+ #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
+ #include "chrome/browser/ui/views/page_action/page_action_view.h"
+ #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/common/webui_url_constants.h"
+ #include "chrome/grit/branded_strings.h"
+ #include "chrome/grit/generated_resources.h"
+@@ -645,6 +646,30 @@
+       GetPreferredSize().height());
+ }
+ 
++std::u16string OmniboxViewViews::GetCompactDisplayHost() const {
++  const auto* model = controller()->edit_model();
++  const GURL& url = controller()->client()->GetURL();
++  if (!GetProperty(winmux::kCompactToolbar) || model->has_focus() ||
++      model->user_input_in_progress() || GetText().empty() ||
++      GetText() != model->GetPermanentDisplayText() || !url.is_valid() ||
++      !url.SchemeIsHTTPOrHTTPS()) {
++    return {};
++  }
++
++  // Use Chromium's IDN/spoof-safe formatter and parsed offsets. Preserve all
++  // subdomains, IPv6 brackets and non-default ports; never abbreviate the URL
++  // held by the edit model, clipboard or accessibility tree.
++  url::Parsed parsed;
++  const std::u16string formatted = url_formatter::FormatUrl(
++      url, url_formatter::kFormatUrlOmitDefaults,
++      base::UnescapeRule::NORMAL, &parsed, nullptr, nullptr);
++  if (!parsed.host.is_nonempty()) {
++    return {};
++  }
++  const int end = parsed.port.is_nonempty() ? parsed.port.end() : parsed.host.end();
++  return formatted.substr(parsed.host.begin, end - parsed.host.begin);
++}
++
+ void OmniboxViewViews::OnPaint(gfx::Canvas* canvas) {
+   // The metric below is a critical user journey to avoid impact we exclude
+   // free-d memory from additional safety checks.
+@@ -675,7 +700,28 @@
+ 
+   {
+     SCOPED_UMA_HISTOGRAM_TIMER("Omnibox.PaintTime");
+-    Textfield::OnPaint(canvas);
++    const std::u16string host = GetCompactDisplayHost();
++    if (host.empty()) {
++      Textfield::OnPaint(canvas);
++    } else {
++      // A separate renderer keeps selection, IME, undo and AX text offsets tied
++      // to the real omnibox text. No view or hit target is placed over it.
++      if (!compact_host_text_) {
++        compact_host_text_ = gfx::RenderText::CreateRenderText();
++        compact_host_text_->SetDirectionalityMode(gfx::DIRECTIONALITY_AS_URL);
++        compact_host_text_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
++        compact_host_text_->SetElideBehavior(gfx::ELIDE_TAIL);
++        compact_host_text_->SetCursorEnabled(false);
++        compact_host_text_->set_subpixel_rendering_suppressed(true);
++      }
++      compact_host_text_->SetFontList(GetFontList());
++      compact_host_text_->SetColor(GetTextColor());
++      compact_host_text_->SetDisplayRect(GetRenderText()->display_rect());
++      compact_host_text_->SetText(host);
++      OnPaintBackground(canvas);
++      compact_host_text_->Draw(canvas);
++      OnPaintBorder(canvas);
++    }
+   }
+ 
+   // Record an impression of the AIM hint text if it is being shown.
+@@ -1592,6 +1638,12 @@
+ 
+   // TODO(oshima): Get control key state.
+   controller()->edit_model()->OnSetFocus(false);
++  if (GetProperty(winmux::kCompactToolbar) &&
++      controller()->edit_model()->Unelide()) {
++    // Mouse and keyboard focus both reveal the full URL before selection is
++    // calculated. Unelide deliberately leaves user drafts and suggestions alone.
++    saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
++  }
+   // Don't call WebLocationBar::OnSetFocus(), this view has already acquired
+   // focus.
+ 
+--- a/chrome/browser/ui/views/omnibox/omnibox_view_views.h
++++ b/chrome/browser/ui/views/omnibox/omnibox_view_views.h
+@@ -240,6 +240,10 @@
+   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsPlaceholderTest,
+                            TitleChangeUpdatesPlaceholder);
+ 
++  // Empty means use Chromium's ordinary textfield presentation.
++  std::u16string GetCompactDisplayHost() const;
++  std::unique_ptr<gfx::RenderText> compact_host_text_;
++
+   enum class UnelisionGesture {
+     kHomeKeyPressed,
+     kMouseRelease,
+--- a/chrome/browser/ui/views/omnibox/BUILD.gn
++++ b/chrome/browser/ui/views/omnibox/BUILD.gn
+@@ -148,6 +148,7 @@
+     "//chrome/browser/ui/webui/searchbox",
+     "//chrome/browser/ui/webui/top_chrome",
+     "//chrome/browser/user_education",
++    "//chrome/browser/winmux:managed_toolbar",
+     "//chrome/common:buildflags",
+     "//components/lens:features",
+     "//components/omnibox/browser",
+@@ -197,6 +198,7 @@
+     "//chrome/app:command_ids",
+     "//chrome/browser/autocomplete",
+     "//chrome/browser/signin:test_support",
++    "//chrome/browser/winmux:managed_toolbar",
+     "//chrome/browser/ui/browser_window",
+     "//chrome/browser/ui/omnibox",
+     "//chrome/browser/ui/views:bubble_anchor_util_views",
+--- a/chrome/browser/ui/views/omnibox/omnibox_view_views_unittest.cc
++++ b/chrome/browser/ui/views/omnibox/omnibox_view_views_unittest.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ 
+ #include <stddef.h>
+ 
+@@ -79,6 +80,7 @@
+   TestingOmniboxView& operator=(const TestingOmniboxView&) = delete;
+ 
+   using views::Textfield::GetRenderText;
++  using OmniboxViewViews::GetCompactDisplayHost;
+ 
+   void ResetEmphasisTestState();
+ 
+@@ -469,6 +471,81 @@
+ };
+ 
+ // Actual tests ---------------------------------------------------------------
++
++// Compact presentation must not rewrite the omnibox's real URL or draft.
++TEST_F(OmniboxViewViewsTest, CompactHostPresentation) {
++  omnibox_view()->SetProperty(winmux::kCompactToolbar, true);
++  omnibox_view()->GetFocusManager()->ClearFocus();
++  const struct {
++    const char16_t* url;
++    const char16_t* host;
++  } cases[] = {
++      {u"https://www.docs.example.com/path?q=one#part", u"www.docs.example.com"},
++      {u"http://localhost:8123/path?query#fragment", u"localhost:8123"},
++      {u"https://example.com:443/path", u"example.com"},
++      {u"http://example.com:80/path", u"example.com"},
++      {u"https://[::1]:8443/path", u"[::1]:8443"},
++      {u"https://name:secret@example.com/path", u"example.com"},
++      {u"chrome://settings/privacy", u""},
++      {u"file:///tmp/document.html", u""},
++      {u"about:blank", u""},
++  };
++  for (const auto& entry : cases) {
++    SCOPED_TRACE(base::UTF16ToUTF8(entry.url));
++    UpdateDisplayURL(entry.url);
++    EXPECT_EQ(entry.host, omnibox_view()->GetCompactDisplayHost());
++    EXPECT_EQ(entry.url, omnibox_view()->GetText());
++  }
++  UpdateDisplayURL(u"https://example.com/path");
++  omnibox_view()->SetProperty(winmux::kCompactToolbar, false);
++  EXPECT_TRUE(omnibox_view()->GetCompactDisplayHost().empty());
++}
++
++TEST_F(OmniboxViewViewsTest, CompactHostFocusCopyAndDraft) {
++  const std::u16string full = u"https://docs.example.com/path?q=one#part";
++  location_bar_model()->set_formatted_full_url(full);
++  omnibox_view()->SetProperty(winmux::kCompactToolbar, true);
++  omnibox_view()->GetFocusManager()->ClearFocus();
++  UpdateDisplayURL(full);
++  EXPECT_EQ(u"docs.example.com", omnibox_view()->GetCompactDisplayHost());
++
++  omnibox_view()->SetFocus(/*is_user_initiated=*/true);
++  EXPECT_TRUE(omnibox_view()->GetCompactDisplayHost().empty());
++  EXPECT_EQ(full, omnibox_view()->GetText());
++  EXPECT_TRUE(omnibox_view()->IsSelectAll());
++  GetTextfieldTestApi().ExecuteTextEditCommand(ui::TextEditCommand::COPY);
++  EXPECT_EQ(base::UTF16ToUTF8(full), ui::clipboard_test_util::ReadAsciiText(
++      ui::Clipboard::GetForCurrentThread(), ui::ClipboardBuffer::kCopyPaste,
++      /*data_dst=*/nullptr));
++
++  omnibox_view()->SetUserText(u"unfinished search");
++  omnibox_view()->GetFocusManager()->ClearFocus();
++  EXPECT_TRUE(omnibox_view()->GetCompactDisplayHost().empty());
++  EXPECT_EQ(u"unfinished search", omnibox_view()->GetText());
++  omnibox_view()->RevertAll();
++  EXPECT_EQ(u"docs.example.com", omnibox_view()->GetCompactDisplayHost());
++  UpdateDisplayURL(u"https://next.example.com/new-path");
++  EXPECT_EQ(u"next.example.com", omnibox_view()->GetCompactDisplayHost());
++}
++
++TEST_F(OmniboxViewViewsTest, CompactHostMouseRevealsFullURL) {
++  const std::u16string full = u"https://www.example.com/path?q=one#part";
++  location_bar_model()->set_formatted_full_url(full);
++  location_bar_model()->set_url(GURL(full));
++  location_bar_model()->set_url_for_display(u"example.com/path?q=one#part");
++  omnibox_controller()->edit_model()->ResetDisplayTexts();
++  omnibox_view()->SetProperty(winmux::kCompactToolbar, true);
++  omnibox_view()->GetFocusManager()->ClearFocus();
++  omnibox_view()->RevertAll();
++  EXPECT_EQ(u"www.example.com", omnibox_view()->GetCompactDisplayHost());
++  omnibox_textfield()->OnMousePressed(CreateMouseEvent(
++      ui::EventType::kMousePressed, gfx::Point(20, 10)));
++  omnibox_textfield()->OnMouseReleased(CreateMouseEvent(
++      ui::EventType::kMouseReleased, gfx::Point(20, 10)));
++  EXPECT_TRUE(omnibox_view()->GetCompactDisplayHost().empty());
++  EXPECT_EQ(full, omnibox_view()->GetText());
++  EXPECT_TRUE(omnibox_view()->IsSelectAll());
++}
+ 
+ // Checks that a single change of the text in the omnibox invokes
+ // only one call to OmniboxViewViews::UpdatePopup().

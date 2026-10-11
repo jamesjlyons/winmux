@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "patch": "browser/chromium/patches/0029-minimal-compact-toolbar.patch",
+  "patch_sha256": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+  "chromium_build_passed": true,
+  "signed_package_verified": true,
+  "app": "/Users/james/Documents/Codex/winmux/.local/minimal-toolbar/verified-package-4/WinMux Browser Alpha.app",
+  "toolbar_height_points": 34,
+  "button_size_points": 26,
+  "icon_size_points": 16,
+  "background": "Existing system material; no glass-frame changes",
+  "python_regressions": {
+    "passed": 90,
+    "failed": 0
+  },
+  "chromium_header_dependencies": "passed",
+  "cpp_regressions": {
+    "added": 3,
+    "compile_checked": true,
+    "executed": false,
+    "reason": "The full Chromium unit_tests executable is not built in this workspace."
+  },
+  "native_verification": {
+    "light": {
+      "passed": true,
+      "compact_geometry": true,
+      "navigation_copy_editing": true,
+      "extensions_menu": true,
+      "downloads": true,
+      "downloads_bubble": false,
+      "downloads_menu": true,
+      "address_suggestions": "visually verified in editing screenshot",
+      "native_drag": true,
+      "inactive_capture": true,
+      "narrow_width": 500,
+      "wide_width": 1000,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ],
+      "service_removed": true
+    },
+    "dark": {
+      "passed": true,
+      "compact_geometry": true,
+      "navigation_copy_editing": true,
+      "extensions_menu": true,
+      "downloads": true,
+      "downloads_bubble": false,
+      "downloads_menu": true,
+      "address_suggestions": "visually verified in editing screenshot",
+      "native_drag": true,
+      "inactive_capture": true,
+      "narrow_width": 500,
+      "wide_width": 1000,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ],
+      "service_removed": true
+    },
+    "contrast": {
+      "passed": true,
+      "compact_geometry": true,
+      "navigation_copy_editing": true,
+      "extensions_menu": true,
+      "downloads": true,
+      "downloads_bubble": false,
+      "downloads_menu": true,
+      "address_suggestions": "visually verified in editing screenshot",
+      "native_drag": true,
+      "inactive_capture": true,
+      "narrow_width": 500,
+      "wide_width": 1000,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ],
+      "service_removed": true
+    }
+  },
+  "probe_sources_sha256": {
+    "browser/tools/minimal_toolbar_probe.swift": "285fbc658a8cddd9455c455832b7b5fc65c0b9ff553dd6bc708a898aee5f6b5a",
+    "browser/tools/test_browser_minimal_toolbar.py": "fdda57b7af11d81357c746046f35ae6cc5ca6c788922265d541c7cba9f1affd3"
+  },
+  "complete_local_evidence": "/Users/james/Documents/Codex/winmux/.local/minimal-toolbar"
+}

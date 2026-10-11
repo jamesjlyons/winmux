@@ -1,0 +1,34 @@
+--- a/chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.cc
++++ b/chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.cc
+@@ -57,6 +57,11 @@
+       controller_(controller),
+       top_rounded_corners_(top_rounded_corners),
+       last_location_bar_width_(location_bar->BoundsInScreen().width()) {
++  // A preloaded WebUI can finish loading before its popup is opened. Keep
++  // the WebView hidden as well as its widget: SetWebContents/ShowUI can attach
++  // its native view later and otherwise mark an unpresented renderer visible.
++  // Repeated focus/resize events then queue presentation callbacks forever.
++  SetVisible(false);
+   location_bar_->AddLocationBarObserver(this);
+ }
+ 
+--- a/chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.cc
++++ b/chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.cc
+@@ -77,6 +77,9 @@
+   SynchronizePopupBounds();
+ 
+   if (auto* content = GetWebUIContent()) {
++    // Only the presenter opens the view. Host::ShowUI can also arrive while
++    // preloading a closed popup and must not make that content visible.
++    content->SetVisible(true);
+     content->ShowUI();
+ 
+     // Call WasShown to mark the WebContents as visible so that a frame will
+@@ -266,6 +269,7 @@
+   if (widget_ && widget_->ShouldHandleNativeWidgetActivationChanged(false)) {
+     widget_->Hide();
+     if (auto* content = GetWebUIContent()) {
++      content->SetVisible(false);
+       if (base::FeatureList::IsEnabled(
+               omnibox::kOmniboxWebUIPopupMarkAsHidden)) {
+         content->GetWebContents()->WasHidden();

@@ -1,0 +1,339 @@
+{
+  "passed": true,
+  "dark": true,
+  "high_contrast": false,
+  "loopback_host": true,
+  "patch_sha256": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+  "layouts": [
+    {
+      "name": "split",
+      "hosts": [
+        {
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "width": 600,
+            "x": 650
+          },
+          "zoomed": false,
+          "visible": true,
+          "native_window_id": 83362,
+          "fullscreen": false,
+          "minimum_size": {
+            "height": 34,
+            "width": 500
+          },
+          "host_id": "host:1071618831",
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:65d3f96d-f0c1-440d-bafa-1c6a1ac9c2a2",
+          "managed": true,
+          "minimized": false
+        },
+        {
+          "host_id": "host:1071618829",
+          "managed": true,
+          "minimized": false,
+          "native_window_id": 83350,
+          "zoomed": false,
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:bf87d612-8f4a-4233-b81a-5ebbecc56964",
+          "visible": true,
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "frame": {
+            "width": 600,
+            "x": 30,
+            "height": 600,
+            "y": 90
+          }
+        }
+      ]
+    },
+    {
+      "name": "stack",
+      "hosts": [
+        {
+          "host_id": "host:1071618829",
+          "managed": true,
+          "minimized": false,
+          "native_window_id": 83350,
+          "zoomed": false,
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:bf87d612-8f4a-4233-b81a-5ebbecc56964",
+          "visible": true,
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "width": 600,
+            "x": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "fullscreen-restored",
+      "hosts": [
+        {
+          "host_id": "host:1071618829",
+          "managed": true,
+          "minimized": false,
+          "native_window_id": 83350,
+          "zoomed": false,
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:bf87d612-8f4a-4233-b81a-5ebbecc56964",
+          "visible": true,
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "frame": {
+            "x": 30,
+            "height": 600,
+            "y": 90,
+            "width": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "released",
+      "hosts": [
+        {
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "width": 600,
+            "x": 30
+          },
+          "zoomed": false,
+          "visible": true,
+          "native_window_id": 83350,
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 375
+          },
+          "host_id": "host:1071618829",
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:bf87d612-8f4a-4233-b81a-5ebbecc56964",
+          "managed": false,
+          "minimized": false
+        }
+      ]
+    },
+    {
+      "name": "readopted",
+      "hosts": [
+        {
+          "host_id": "host:1071618829",
+          "managed": true,
+          "minimized": false,
+          "native_window_id": 83350,
+          "zoomed": false,
+          "surface_id": "browser:c730d997-9d32-4e60-b366-8c241f170045:bf87d612-8f4a-4233-b81a-5ebbecc56964",
+          "visible": true,
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "frame": {
+            "x": 30,
+            "height": 600,
+            "y": 90,
+            "width": 600
+          }
+        }
+      ]
+    }
+  ],
+  "input": {
+    "after-download_text": [
+      "\u2022 \u2022 \u2022 \u2192 G \u2022 next.localhost:53438"
+    ],
+    "compact_geometry_passed": true,
+    "download_controls": [
+      {
+        "description": "",
+        "role": "AXWindow",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXToolbar",
+        "title": ""
+      },
+      {
+        "description": "Back",
+        "role": "AXButton",
+        "title": "Back"
+      },
+      {
+        "description": "Forward",
+        "role": "AXButton",
+        "title": "Forward"
+      },
+      {
+        "description": "Reload",
+        "role": "AXButton",
+        "title": "Reload"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "View site information",
+        "role": "AXPopUpButton",
+        "title": "View site information"
+      },
+      {
+        "description": "Address and search bar",
+        "role": "AXTextField",
+        "title": "Address and search bar"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Bookmark this tab",
+        "role": "AXButton",
+        "title": "Bookmark this tab"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Extensions",
+        "role": "AXPopUpButton",
+        "title": "Extensions"
+      },
+      {
+        "description": "You",
+        "role": "AXButton",
+        "title": "You"
+      },
+      {
+        "description": "Chromium",
+        "role": "AXPopUpButton",
+        "title": "Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      }
+    ],
+    "downloads_menu_passed": true,
+    "downloads_passed": true,
+    "dragged_text": [
+      "\u2022",
+      "docs.localhost:53438"
+    ],
+    "editing_text": [],
+    "extensions_menu_passed": true,
+    "focused_address": "docs.localhost:53438/a/deep/path?query=fixture#anchor",
+    "focused_text": [],
+    "hover_text": [
+      "docs.localhost:53438"
+    ],
+    "idle_text": [
+      "docs.localhost:53438"
+    ],
+    "inactive_capture_passed": true,
+    "inactive_text": [
+      "docs.localhost:53438"
+    ],
+    "internal-page_text": [
+      "Chromium",
+      "chrome://version"
+    ],
+    "native_drag_passed": true,
+    "navigated_text": [
+      "\u2022 \u2022 \u2022 \u2192 G \u2022 next.localhost:53438"
+    ],
+    "navigation_copy_editing_passed": true,
+    "passed": true,
+    "pid": 490,
+    "restored_text": [
+      "docs.localhost:53438"
+    ],
+    "toolbar_controls": [
+      "Back",
+      "Forward",
+      "Reload",
+      "Bookmark this tab",
+      "You"
+    ],
+    "width-480_actual_width": 500,
+    "width-480_text": [
+      "docs.localhost:53438"
+    ],
+    "width-1000_actual_width": 1000,
+    "width-1000_text": [
+      "\u2022",
+      "docs.localhost:53438"
+    ]
+  },
+  "browser_exit_code": 0,
+  "test_service_removed": true
+}

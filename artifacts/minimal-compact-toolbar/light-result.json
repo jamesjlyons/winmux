@@ -1,0 +1,343 @@
+{
+  "passed": true,
+  "dark": false,
+  "high_contrast": false,
+  "loopback_host": true,
+  "patch_sha256": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+  "layouts": [
+    {
+      "name": "split",
+      "hosts": [
+        {
+          "host_id": "host:1704848374",
+          "minimized": false,
+          "native_window_id": 83402,
+          "fullscreen": false,
+          "managed": true,
+          "zoomed": false,
+          "visible": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:a24c5656-35b8-48da-8e69-e8a7847c4c87",
+          "frame": {
+            "height": 600,
+            "width": 600,
+            "y": 90,
+            "x": 30
+          }
+        },
+        {
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:80c1cc27-cb77-41c7-a9c1-d45e18cd630e",
+          "fullscreen": false,
+          "visible": true,
+          "zoomed": false,
+          "host_id": "host:1704848376",
+          "native_window_id": 83414,
+          "minimized": false,
+          "managed": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 34
+          },
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "x": 650,
+            "width": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "stack",
+      "hosts": [
+        {
+          "host_id": "host:1704848374",
+          "minimized": false,
+          "native_window_id": 83402,
+          "fullscreen": false,
+          "managed": true,
+          "zoomed": false,
+          "visible": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:a24c5656-35b8-48da-8e69-e8a7847c4c87",
+          "frame": {
+            "height": 600,
+            "y": 90,
+            "x": 30,
+            "width": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "fullscreen-restored",
+      "hosts": [
+        {
+          "host_id": "host:1704848374",
+          "minimized": false,
+          "native_window_id": 83402,
+          "fullscreen": false,
+          "managed": true,
+          "zoomed": false,
+          "visible": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:a24c5656-35b8-48da-8e69-e8a7847c4c87",
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "x": 30,
+            "width": 600
+          }
+        }
+      ]
+    },
+    {
+      "name": "released",
+      "hosts": [
+        {
+          "host_id": "host:1704848374",
+          "minimized": false,
+          "native_window_id": 83402,
+          "fullscreen": false,
+          "managed": false,
+          "zoomed": false,
+          "visible": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 375
+          },
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:a24c5656-35b8-48da-8e69-e8a7847c4c87",
+          "frame": {
+            "height": 600,
+            "width": 600,
+            "y": 90,
+            "x": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "readopted",
+      "hosts": [
+        {
+          "host_id": "host:1704848374",
+          "minimized": false,
+          "native_window_id": 83402,
+          "fullscreen": false,
+          "managed": true,
+          "zoomed": false,
+          "visible": true,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "surface_id": "browser:e042927c-aa22-4440-9583-d56c1b23850e:a24c5656-35b8-48da-8e69-e8a7847c4c87",
+          "frame": {
+            "y": 90,
+            "height": 600,
+            "x": 30,
+            "width": 600
+          }
+        }
+      ]
+    }
+  ],
+  "input": {
+    "after-download_text": [
+      "\u2192",
+      "1 next.localhost:53493"
+    ],
+    "compact_geometry_passed": true,
+    "download_controls": [
+      {
+        "description": "",
+        "role": "AXWindow",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": "Minimal toolbar fixture - Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXToolbar",
+        "title": ""
+      },
+      {
+        "description": "Back",
+        "role": "AXButton",
+        "title": "Back"
+      },
+      {
+        "description": "Forward",
+        "role": "AXButton",
+        "title": "Forward"
+      },
+      {
+        "description": "Reload",
+        "role": "AXButton",
+        "title": "Reload"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "View site information",
+        "role": "AXPopUpButton",
+        "title": "View site information"
+      },
+      {
+        "description": "Address and search bar",
+        "role": "AXTextField",
+        "title": "Address and search bar"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Bookmark this tab",
+        "role": "AXButton",
+        "title": "Bookmark this tab"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "Extensions",
+        "role": "AXPopUpButton",
+        "title": "Extensions"
+      },
+      {
+        "description": "You",
+        "role": "AXButton",
+        "title": "You"
+      },
+      {
+        "description": "Chromium",
+        "role": "AXPopUpButton",
+        "title": "Chromium"
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXGroup",
+        "title": ""
+      },
+      {
+        "description": "",
+        "role": "AXButton",
+        "title": ""
+      }
+    ],
+    "downloads_menu_passed": true,
+    "downloads_passed": true,
+    "dragged_text": [
+      "docs.localhost:53493"
+    ],
+    "editing_text": [],
+    "extensions_menu_passed": true,
+    "focused_address": "docs.localhost:53493/a/deep/path?query=fixture#anchor",
+    "focused_text": [
+      "docs.localhost:53493/a/deep/path?qu"
+    ],
+    "hover_text": [
+      "\u2192",
+      "1 docs.localhost:53493"
+    ],
+    "idle_text": [
+      "docs.localhost:53493"
+    ],
+    "inactive_capture_passed": true,
+    "inactive_text": [
+      "\u2022 \u2022 O \u2039 \u2192 c \u2022 docs.localhost:53493"
+    ],
+    "internal-page_text": [
+      "\u2022 Chromium",
+      "chrome://version"
+    ],
+    "native_drag_passed": true,
+    "navigated_text": [
+      "\u2192",
+      "1 next.localhost:53493"
+    ],
+    "navigation_copy_editing_passed": true,
+    "passed": true,
+    "pid": 594,
+    "restored_text": [
+      "docs.localhost:53493"
+    ],
+    "toolbar_controls": [
+      "Back",
+      "Forward",
+      "Reload",
+      "Bookmark this tab",
+      "You"
+    ],
+    "width-480_actual_width": 500,
+    "width-480_text": [
+      "< G",
+      "docs.localhost:53493"
+    ],
+    "width-1000_actual_width": 1000,
+    "width-1000_text": [
+      "docs.localhost:53493"
+    ]
+  },
+  "browser_exit_code": 0,
+  "test_service_removed": true
+}

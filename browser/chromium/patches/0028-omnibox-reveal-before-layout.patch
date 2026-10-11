@@ -1,0 +1,20 @@
+--- a/chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.cc
++++ b/chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.cc
+@@ -74,12 +74,14 @@
+   visual_state_weak_factory_.InvalidateWeakPtrs();
+ 
+   EnsureWidgetCreated();
++  // Reveal before sizing: hidden child views are omitted by the fill layout.
++  // Sizing first can leave a reopened popup with a zero-sized native WebView.
++  if (auto* content = GetWebUIContent()) {
++    content->SetVisible(true);
++  }
+   SynchronizePopupBounds();
+ 
+   if (auto* content = GetWebUIContent()) {
+-    // Only the presenter opens the view. Host::ShowUI can also arrive while
+-    // preloading a closed popup and must not make that content visible.
+-    content->SetVisible(true);
+     content->ShowUI();
+ 
+     // Call WasShown to mark the WebContents as visible so that a frame will
