@@ -82,7 +82,14 @@ extension WindowTabStripPanelController {
             return
         }
 
-        let strips = windowTabStripsWithTransientResizeApplied(TrayMenuModel.shared.windowTabStrips)
+        let strips = windowTabStripsWithTransientResizeApplied(TrayMenuModel.shared.windowTabStrips).map { strip in
+            // A selected split contains multiple content windows; one leaf's
+            // presentation frame cannot describe the enclosing stack shell.
+            if let active = strip.sharedStack?.tabs.first(where: \.isActive), case .group = active.id { return strip }
+            guard let id = strip.activeWindowId,
+                  let frame = WindowLayoutAnimator.shared.presentationFrame(id) else { return strip }
+            return resizingTabGroupStrip(baseStrip: strip, activeWindowRect: frame)
+        }
         let activeIds = Set(strips.map(\.id))
         if let mouseInteractionChromeMode {
             refreshSuppressedChrome(mode: mouseInteractionChromeMode, strips: strips, activeIds: activeIds)

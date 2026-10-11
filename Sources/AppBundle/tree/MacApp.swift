@@ -263,6 +263,44 @@ final class MacApp: AbstractApp {
         }
     }
 
+    /// Each tick supersedes the previous queued job. A slow app only receives
+    /// the newest frame; other apps and the main actor keep running independently.
+    func setAxAnimationFrame(
+        _ windowId: UInt32, _ frame: CGRect, cancellation: RunLoopJob, final: Bool,
+        completion: @MainActor @Sendable @escaping (Rect?) -> Void,
+    ) {
+        setFrameJobs.removeValue(forKey: windowId)?.cancel()
+        setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
+            try cancellation.checkCancellation()
+            if final {
+                do {
+                    try setFrame(window, app: axApp.threadGuarded, frame.origin, frame.size, job,
+                                 animationCancellation: cancellation)
+                    try cancellation.checkCancellation()
+                    try job.checkCancellation()
+                    let actual = window.get(Ax.topLeftCornerAttr).flatMap { point in
+                        window.get(Ax.sizeAttr).map { size in
+                            Rect(topLeftX: point.x, topLeftY: point.y, width: size.width, height: size.height)
+                        }
+                    }
+                    Task { @MainActor in completion(actual) }
+                } catch {
+                    Task { @MainActor in completion(nil) }
+                }
+            } else {
+                try disableAnimations(app: axApp.threadGuarded, job) {
+                    try updateAnimatedWindowFrame(frame,
+                        setPosition: { window.set(Ax.topLeftCornerAttr, $0) },
+                        setSize: { window.set(Ax.sizeAttr, $0) },
+                        checkCancellation: {
+                            try job.checkCancellation()
+                            try cancellation.checkCancellation()
+                        })
+                }
+            }
+        }
+    }
+
     func getAxWindowsCount() async throws -> Int? {
         try await thread?.runInLoop { [axApp] job in
             axApp.threadGuarded.get(Ax.windowsAttr)?.count

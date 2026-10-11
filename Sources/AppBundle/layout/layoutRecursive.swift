@@ -76,7 +76,7 @@ extension TreeNode {
                             window.isFullscreen = false
                         }
                         if !canReuseLastAppliedWindowFrame(previousPhysicalRect: previousPhysicalRect, nextPhysicalRect: physicalRect) {
-                            window.setAxFrame(point, CGSize(width: width, height: height))
+                            window.setLayoutFrame(physicalRect, previous: previousPhysicalRect)
                         }
                     }
                 }

@@ -497,9 +497,11 @@ func refreshObs(_: AXObserver, _ ax: AXUIElement, notif: CFString, _: UnsafeMuta
         isMinimizeStateNotif && invalidateNativeStateWindowId == nil ? axTaskLocalAppThreadToken?.pid : nil
     Task { @MainActor in
         if let invalidateNativeStateWindowId {
+            WindowLayoutAnimator.shared.cancel(invalidateNativeStateWindowId)
             Window.get(byId: invalidateNativeStateWindowId)?.invalidateLastKnownNativeState()
         } else if let invalidateNativeStateAppPid {
             for window in MacWindow.allWindows where window.macApp.pid == invalidateNativeStateAppPid {
+                WindowLayoutAnimator.shared.cancel(window.windowId)
                 window.invalidateLastKnownNativeState()
             }
         }

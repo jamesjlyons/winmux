@@ -1513,6 +1513,11 @@ public final class BrowserWorkspaceController {
                 let rect = Rect(topLeftX: Double(frame.x), topLeftY: Double(frame.y), width: Double(frame.width), height: Double(frame.height))
                 if !canReuseLastAppliedWindowFrame(previousPhysicalRect: window.lastAppliedLayoutPhysicalRect, nextPhysicalRect: rect) {
                     if let native = window as? MacWindow {
+                        if WindowLayoutAnimator.shared.animate(native, to: rect, previous: window.lastAppliedLayoutPhysicalRect) {
+                            window.lastAppliedLayoutPhysicalRect = rect
+                            window.lastAppliedLayoutVirtualRect = rect
+                            continue
+                        }
                         let actual = try await window.applyObservedSharedLayoutFrame(rect, apply: {
                             // AX has no universal minimum-size attribute. Observe the
                             // owner's result after its serialized frame write, never

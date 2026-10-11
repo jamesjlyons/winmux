@@ -3,6 +3,8 @@ import Common
 
 final class MacWindow: Window {
     let macApp: MacApp
+    var layoutAnimationCancellation: RunLoopJob?
+    var skipNextLayoutAnimation = false
     private var unhiddenFrame: WindowParkingSnapshot?
     private var unhiddenWasFloating = false
     /// The corner the window is parked in, together with the monitor rect it was parked
@@ -66,6 +68,7 @@ final class MacWindow: Window {
 
     /// Ownership handoff is not a close: no close cache, replacement focus or AX writes.
     @MainActor func relinquishToBrowser() {
+        layoutAnimationCancellation?.cancel()
         guard MacWindow.allWindowsMap.removeValue(forKey: windowId) === self else { return }
         unregisterSurface()
         unbindFromParent()
@@ -96,10 +99,12 @@ final class MacWindow: Window {
     }
 
     func setNativeFullscreen(_ value: Bool) {
+        layoutAnimationCancellation?.cancel()
         macApp.setNativeFullscreen(windowId, value)
     }
 
     func setNativeMinimized(_ value: Bool) {
+        layoutAnimationCancellation?.cancel()
         macApp.setNativeMinimized(windowId, value)
     }
 
@@ -121,6 +126,7 @@ final class MacWindow: Window {
 
     @MainActor
     func garbageCollect(skipClosedWindowsCache: Bool) {
+        layoutAnimationCancellation?.cancel()
         let controller = BrowserWorkspaceController.shared
         let closureFocus = refreshSessionFocusSnapshot?.surfaceClosureFocus ?? controller.captureClosureFocus()
         if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
@@ -187,6 +193,7 @@ final class MacWindow: Window {
 
     @MainActor
     func requestCloseForProjectDeletion(timeout: TimeInterval = 1.5) async -> Bool {
+        layoutAnimationCancellation?.cancel()
         guard (try? await macApp.pressCloseButton(windowId)) == true else { return false }
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -200,6 +207,7 @@ final class MacWindow: Window {
     }
 
     override func closeAxWindow() {
+        layoutAnimationCancellation?.cancel()
         // Destruction/discovery confirms removal after the app's close flow.
         // A save prompt or rejected AX action must keep the current selection.
         macApp.requestCloseAxWindow(windowId)
@@ -269,6 +277,7 @@ final class MacWindow: Window {
     @MainActor
     func unhideFromCorner() {
         guard let unhiddenFrame else { return }
+        skipNextLayoutAnimation = true
         guard let nodeWorkspace else { return } // hiding only makes sense for workspace windows
         guard let parent else { return }
 
@@ -307,10 +316,12 @@ final class MacWindow: Window {
     }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
+        layoutAnimationCancellation?.cancel()
         macApp.setAxFrame(windowId, topLeft, size)
     }
 
     func setAxFrameBlocking(_ topLeft: CGPoint?, _ size: CGSize?) async throws {
+        layoutAnimationCancellation?.cancel()
         try await macApp.setAxFrameBlocking(windowId, topLeft, size)
     }
 

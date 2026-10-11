@@ -1,9 +1,24 @@
 import AppKit
 
+/// Intermediate animation frames avoid AX reads and retries. The final frame
+/// uses setFrame's readback and monitor-clamp correction instead.
+func updateAnimatedWindowFrame(
+    _ frame: CGRect, setPosition: (CGPoint) -> Void, setSize: (CGSize) -> Void,
+    checkCancellation: () throws -> Void,
+) throws {
+    try checkCancellation()
+    setSize(frame.size)
+    try checkCancellation()
+    setPosition(frame.origin)
+    try checkCancellation()
+    setSize(frame.size)
+}
+
 /// Reads the current frame first and returns before the AXEnhancedUserInterface round-trip when
 /// the frame already matches: layout re-asserts frames constantly and the vast majority of these
 /// calls are no-ops, so the no-op path must not pay the disableAnimations read.
-func setFrame(_ window: AXUIElement, app: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob) throws {
+func setFrame(_ window: AXUIElement, app: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job: RunLoopJob,
+              animationCancellation: RunLoopJob? = nil) throws {
     let interval = signposter.beginInterval("Apply window frame")
     defer { signposter.endInterval("Apply window frame", interval) }
     try updateWindowFrame(
@@ -12,7 +27,10 @@ func setFrame(_ window: AXUIElement, app: AXUIElement, _ topLeft: CGPoint?, _ si
         getSize: { window.get(Ax.sizeAttr) },
         setPosition: { window.set(Ax.topLeftCornerAttr, $0) },
         setSize: { window.set(Ax.sizeAttr, $0) },
-        checkCancellation: { try job.checkCancellation() },
+        checkCancellation: {
+            try job.checkCancellation()
+            try animationCancellation?.checkCancellation()
+        },
         perform: { body in try disableAnimations(app: app, job, body) }
     )
 }

@@ -22,6 +22,7 @@ struct EnableCommand: Command {
         TrayMenuModel.shared.isEnabled = newState
         TrackpadNavigationController.shared.sync()
         if !newState {
+            WindowLayoutAnimator.shared.cancelAll()
             TrayMenuModel.shared.isWorkspaceSidebarExpanded = false
             clearPendingWindowDragIntent()
             cancelManipulatedWithMouseState()
