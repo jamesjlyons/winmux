@@ -164,6 +164,26 @@ import XCTest
         XCTAssertFalse(command.shouldResetClosedWindowsCache)
     }
 
+    func testExplicitBrowserSwitchPreservesFocusSynchronizationWithoutExtraDiscovery() async throws {
+        let outgoing = SurfaceFocusQueryProbeApp()
+        appForTests = outgoing
+        defer { appForTests = nil; setScheduledRefreshOverrideForTests(nil) }
+        TrayMenuModel.shared.isEnabled = true
+        var refreshes = 0
+        setScheduledRefreshOverrideForTests { _, _, _ in refreshes += 1 }
+        let command = try XCTUnwrap(parseCommand(["surface", "focus", tab.description]).cmdOrNil)
+        let result = try await runSocketCommandSession(command, .forceRun) {
+            try await command.run(.defaultEnv, .emptyStdin)
+        }
+        try await waitForScheduledRefreshForTests()
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(outgoing.queries, 1)
+        XCTAssertEqual(controller.focusCoordinator.target, tab)
+        XCTAssertEqual(requests.last?.action, .focus)
+        XCTAssertEqual(requests.last?.surfaceID, tab)
+        XCTAssertEqual(refreshes, 0)
+    }
+
     func testNativeSelectionAfterDisconnectRetiresBrowserTarget() async throws {
         controller.disconnected(connection)
         XCTAssertEqual(controller.focusCoordinator.target, tab)
@@ -492,5 +512,18 @@ import XCTest
         XCTAssertEqual(focus.workspace.projectId, project.id)
         XCTAssertEqual(controller.focusCoordinator.target, tab)
         XCTAssertEqual(Window.get(byId: 71)?.nodeWorkspace, source)
+    }
+}
+
+private final class SurfaceFocusQueryProbeApp: AbstractApp {
+    let pid: Int32 = 9876
+    let rawAppBundleId: String? = "test.surface-focus-query"
+    let name: String? = "Surface focus query probe"
+    let execPath: String? = nil
+    let bundlePath: String? = nil
+    @MainActor var queries = 0
+    @MainActor func getFocusedWindow() async throws -> Window? {
+        queries += 1
+        return nil
     }
 }

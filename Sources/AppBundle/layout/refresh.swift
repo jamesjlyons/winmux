@@ -123,11 +123,23 @@ func runRefreshSessionBlocking(
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
     if AppShutdownCoordinator.shared.isShuttingDown { return }
+    // Discovery/recovery can observe changes from applications that omit AX
+    // notifications. Ordinary selection retains the event-invalidated cache.
+    if event.requiresWindowRefreshBarrier && scope.requiresDiscovery {
+        if case .apps(let pids) = scope {
+            let windows: [Window] = isUnitTest ? Workspace.all.flatMap(\.allLeafWindowsRecursive) : MacWindow.allWindows
+            WorkspaceLayoutCache.shared.invalidate(workspaces: Set(windows.filter { pids.contains($0.app.pid) }.compactMap(\.nodeWorkspace)))
+        } else {
+            WorkspaceLayoutCache.shared.invalidate()
+        }
+        reconciledModelRevision = nil
+    }
     if case .windows(let owners) = scope {
         for (id, pid) in owners {
             if let window = Window.get(byId: id), window.app.pid == pid,
                id != currentlyManipulatedWithMouseWindowId {
                 window.lastAppliedLayoutPhysicalRect = nil
+                window.recordChange(.geometry)
             }
         }
     }
@@ -212,8 +224,8 @@ func runRefreshSessionBlocking(
                         }
                     }
                 }
-                await updateWorkspaceSidebarModel()
-                await updateWindowTabModel()
+                InteractionChromeScheduler.shared.schedule()
+                if event.isStartup { await InteractionChromeScheduler.shared.flush() }
                 RestartSessionController.shared.checkpoint()
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }
@@ -300,8 +312,7 @@ func runLightSession<T>(
                     }
                 }
                 try checkCancellation()
-                await updateWorkspaceSidebarModel()
-                await updateWindowTabModel()
+                InteractionChromeScheduler.shared.schedule()
                 RestartSessionController.shared.checkpoint()
                 if shouldSchedulePostRefresh {
                     scheduleRefreshSession(event, scope: scope)
@@ -398,6 +409,17 @@ struct RunSessionGuard: Sendable {
 
 @MainActor
 func refreshModel() {
+    let input = RefreshModelRevision()
+    if reconciledModelRevision == input {
+        checkOnFocusChangedCallbacks()
+        // User callbacks can mutate the tree synchronously.
+        if RefreshModelRevision() == input { return }
+    }
+    let interval = signposter.beginInterval("Reconcile model")
+    defer {
+        reconciledModelRevision = RefreshModelRevision()
+        signposter.endInterval("Reconcile model", interval)
+    }
     materializePersistedWorkspaceProjects()
     BrowserWorkspaceController.shared.pruneIncognitoSpaces()
     BrowserWorkspaceController.shared.preparePinWorkspaces()
@@ -525,6 +547,14 @@ private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) ->
         return
     }
     let monitors = monitors
+    let cache = WorkspaceLayoutCache.shared
+    cache.prune(Workspace.all)
+    let monitorRects = monitors.map(\.rect)
+    if previousLayoutMonitorRects != monitorRects {
+        previousLayoutMonitorRects = monitorRects
+        cache.invalidate()
+    }
+    let cacheToken = cache.token()
     var monitorToOptimalHideCorner: [CGPoint: OptimalHideCorner] = [:]
     for monitor in monitors {
         let xOff = monitor.width * 0.1
@@ -553,6 +583,8 @@ private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) ->
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
+        let revision = WorkspaceLayoutRevision(workspace, includeBrowser: BrowserWorkspaceController.shared.hasSharedLayout(in: workspace))
+        guard cache.needsLayout(workspace, revision: revision) else { continue }
         let hiddenSharedSurfaces = BrowserWorkspaceController.shared.hiddenSurfacesInSharedLayout(in: workspace)
         workspace.allLeafWindowsRecursive.forEach { window in
             guard let macWindow = window as? MacWindow else { return }
@@ -562,28 +594,23 @@ private func applyWorkspaceLayouts(onVisibleLayoutsApplied: @MainActor (Bool) ->
             macWindow.unhideFromCorner()
         }
         try await workspace.layoutWorkspace()
+        try checkCancellation()
+        cache.record(workspace, revision: revision, token: cacheToken)
     }
     BrowserWorkspaceController.shared.publishBrowserLayouts()
     try checkCancellation()
     onVisibleLayoutsApplied(BrowserWorkspaceController.shared.finishNativeGroupFocusAfterLayout())
     for workspace in Workspace.all where !workspace.isVisible {
+        let revision = WorkspaceLayoutRevision(workspace, includeBrowser: false)
+        guard cache.needsLayout(workspace, revision: revision) || refreshSessionEvent?.requiresHiddenWindowsReassertion == true else { continue }
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
-        let shouldReassertHiddenWindows = refreshSessionEvent?.requiresHiddenWindowsReassertion == true
-        for window in workspace.allLeafWindowsRecursive {
-            guard let macWindow = window as? MacWindow else { continue }
-            // A nil cached rect means a geometry event arrived since the window was last
-            // observed — including our own parking move, but also an app repositioning its
-            // parked window (document restore, [NSWindow center], ...). Re-observe and
-            // re-park exactly those windows: this keeps the drift self-heal the old
-            // reassert-everything-on-every-event behavior provided, while windows with a
-            // confirmed parked position cost nothing.
-            let geometryUnconfirmed = macWindow.lastKnownActualRect == nil
-            if geometryUnconfirmed && macWindow.isHiddenInCorner {
-                _ = try? await macWindow.getAxRect()
-            }
-            try await macWindow.hideInCorner(corner, force: shouldReassertHiddenWindows || geometryUnconfirmed)
-            macWindow.lastAppliedLayoutPhysicalRect = nil
-            macWindow.lastAppliedLayoutVirtualRect = nil
+        let force = refreshSessionEvent?.requiresHiddenWindowsReassertion == true
+        if cache.wasHidden(workspace), !force {
+            HiddenLayoutMaintenance.shared.schedule(workspace, corner: corner)
+        } else {
+            let completed = try await parkHiddenWorkspace(workspace, corner: corner, force: force)
+            try checkCancellation()
+            if completed { cache.record(workspace, revision: revision, token: cacheToken) }
         }
     }
 }
@@ -601,7 +628,53 @@ func shouldKeepWindowHiddenForVisibleWorkspaceLayout(_ window: Window, hiddenSha
 @MainActor
 private func normalizeContainers() {
     // Can't do it only for visible workspace because most of the commands support --window-id and --workspace flags
-    for workspace in Workspace.all {
+    let workspaces = Workspace.all
+    let live = Set(workspaces.map(ObjectIdentifier.init))
+    normalizedWorkspaceRevisions = normalizedWorkspaceRevisions.filter { live.contains($0.key) }
+    for workspace in workspaces {
+        let id = ObjectIdentifier(workspace)
+        let input = [workspace.revisions.structure, configurationRevision]
+        guard normalizedWorkspaceRevisions[id] != input else { continue }
         workspace.normalizeContainers()
+        normalizedWorkspaceRevisions[id] = [workspace.revisions.structure, configurationRevision]
     }
+}
+
+@MainActor private var previousLayoutMonitorRects: [Rect] = []
+@MainActor private var normalizedWorkspaceRevisions: [ObjectIdentifier: [UInt64]] = [:]
+
+private struct RefreshModelRevision: Equatable {
+    let session: RestartSessionRevision
+    let configuration: UInt64
+    let browser: UInt64
+
+    @MainActor init() {
+        session = RestartSessionRevision()
+        configuration = configurationRevision
+        browser = BrowserWorkspaceController.shared.interactionRevision
+    }
+}
+@MainActor private var reconciledModelRevision: RefreshModelRevision?
+
+@MainActor
+func parkHiddenWorkspace(_ workspace: Workspace, corner: OptimalHideCorner, force: Bool = false) async throws -> Bool {
+    guard !workspace.isVisible, Workspace.existing(byName: workspace.name) === workspace else { return false }
+    let interval = signposter.beginInterval("Hidden workspace layout")
+    defer { signposter.endInterval("Hidden workspace layout", interval) }
+    var completed = true
+    for window in workspace.allLeafWindowsRecursive {
+        try checkCancellation()
+        guard !workspace.isVisible else { return false }
+        guard let macWindow = window as? MacWindow, macWindow.nodeWorkspace === workspace else { continue }
+        let geometryUnconfirmed = macWindow.lastKnownActualRect == nil
+        if geometryUnconfirmed && macWindow.isHiddenInCorner { _ = try? await macWindow.getAxRect() }
+        try checkCancellation()
+        guard !workspace.isVisible else { return false }
+        try await macWindow.hideInCorner(corner, force: force || geometryUnconfirmed, whileHiddenIn: workspace)
+        guard !workspace.isVisible, macWindow.nodeWorkspace === workspace else { return false }
+        if !macWindow.isHiddenInCorner { completed = false }
+        macWindow.lastAppliedLayoutPhysicalRect = nil
+        macWindow.lastAppliedLayoutVirtualRect = nil
+    }
+    return completed
 }

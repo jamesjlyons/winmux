@@ -4,7 +4,7 @@ import CoreGraphics
 func buildWindowTabChromeItemsFromSource10Tree() async -> [WindowTabChromeItem] {
     guard TrayMenuModel.shared.isEnabled, config.windowTabs.enabled else { return [] }
     guard !shouldSuppressChromeForNativeFullscreenContent else { return [] }
-    pruneCachedWindowTitles()
+    pruneNativeTabCache()
 
     var items: [WindowTabChromeItem] = []
     for workspace in Workspace.all where workspace.isVisible {

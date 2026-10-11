@@ -18,6 +18,7 @@ final class RestartSessionController {
     private var saveTask: Task<Void, Never>?
     private let writer = RestartSessionWriter()
     private var saveRevision: UInt64 = 0
+    private var lastSavedInputs: RestartSessionRevision?
     private var allowsSaving = true
     private var restoring = false
     private var sessionIsActive = true
@@ -164,14 +165,14 @@ final class RestartSessionController {
         }
     }
 
-    func workspaceSignatures() -> [String: FrozenWorkspace] {
+    func workspaceSignatures() -> [String: WorkspaceRestoreRevision] {
         guard pending != nil else { return [:] }
         return Dictionary(uniqueKeysWithValues: Workspace.all.map { workspace in
-            (workspace.name, FrozenWorkspace(workspace))
+            (workspace.name, WorkspaceRestoreRevision(workspace))
         })
     }
 
-    func cancelChangedWorkspaces(since before: [String: FrozenWorkspace]) {
+    func cancelChangedWorkspaces(since before: [String: WorkspaceRestoreRevision]) {
         guard pending != nil else { return }
         let after = workspaceSignatures()
         for name in Set(before.keys).union(after.keys) where before[name] != after[name] { cancelledWorkspaces.insert(name) }
@@ -184,12 +185,18 @@ final class RestartSessionController {
 
     func checkpoint() {
         guard canCapture, pending == nil, allowsSaving, saveTask == nil else { return }
+        guard RestartSessionRevision() != lastSavedInputs else { return }
         saveTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled, let self else { return }
-            defer { self.saveTask = nil }
-            guard self.canCapture else { return }
-            await self.save()?.value
+            guard self.canCapture else { self.saveTask = nil; return }
+            let attempted = RestartSessionRevision()
+            if attempted != self.lastSavedInputs { await self.save()?.value }
+            self.saveTask = nil
+            // An edit arriving during disk I/O must not be lost behind the
+            // single in-flight checkpoint. Failed unchanged saves retry on the
+            // next request, rather than spinning on a broken destination.
+            if RestartSessionRevision() != attempted { self.checkpoint() }
         }
     }
 
@@ -205,6 +212,7 @@ final class RestartSessionController {
         guard pending == nil, allowsSaving else { return nil }
         // Capture synchronously before any cleanup or refresh can change the live tree.
         let snapshot = RestartSessionSnapshot.capture()
+        let inputs = RestartSessionRevision()
         let file = file
         saveRevision += 1
         let revision = saveRevision
@@ -212,6 +220,7 @@ final class RestartSessionController {
             do {
                 let result = try await writer.write(snapshot, to: file, revision: revision)
                 guard let self, self.saveRevision == revision, let result else { return }
+                self.lastSavedInputs = inputs
                 self.lastSave = "\(result.snapshot.savedAt.formatted(.iso8601)); \(result.snapshot.world.windowIds.count) windows"
             } catch {
                 guard let self, self.saveRevision == revision else { return }

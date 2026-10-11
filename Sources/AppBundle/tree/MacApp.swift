@@ -115,14 +115,16 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func closeAndUnregisterAxWindow(_ windowId: UInt32) {
+    func requestCloseAxWindow(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
-        _ = withWindowAsync(windowId) { [windows] window, job in
+        _ = withWindowAsync(windowId) { window, job in
             guard let closeButton = window.get(Ax.closeButtonAttr) else { return }
-            if AXUIElementPerformAction(closeButton.cast, kAXPressAction as CFString) == .success {
-                windows.threadGuarded.removeValue(forKey: windowId)
-            }
+            // AX success only acknowledges the press; the app may close later
+            // or show a save prompt. Keep the AxWindow and its subscriptions
+            // until discovery confirms removal, so its destruction event can
+            // still trigger cleanup of the sidebar and workspace.
+            _ = AXUIElementPerformAction(closeButton.cast, kAXPressAction as CFString)
         }
     }
 

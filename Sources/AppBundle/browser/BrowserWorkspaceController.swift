@@ -16,27 +16,102 @@ struct BrowserSidebarProjection {
 public final class BrowserWorkspaceController {
     public static let shared = BrowserWorkspaceController()
     let focusCoordinator = SurfaceFocusCoordinator()
+    private(set) var interactionRevision: UInt64 = 0
+    private(set) var persistenceRevision: UInt64 = 0
+    private(set) var layoutEpoch: UInt64 = 0
+    private(set) var layoutPlanBuildCount: UInt64 = 0
+    private var selectionLayoutRevisions: [String: UInt64] = [:]
+
+    func layoutSelectionRevision(in workspace: Workspace) -> UInt64 { selectionLayoutRevisions[workspace.name] ?? 0 }
+
+    private func invalidateSelectionLayouts(_ ids: [SurfaceID]) {
+        for name in Set(ids.compactMap { workspaceName(for: $0) ?? surfaceTree.workspace(of: $0) }) {
+            selectionLayoutRevisions[name, default: 0] &+= 1
+        }
+    }
+    private var reconciledOrganizationRevision: OrganizationRevision?
+    private var organizedRowsCache: [String: (BrowserOrganizedRowsRevision, [WorkspaceSidebarItemViewModel])] = [:]
+    private var layoutPlanCache: [ObjectIdentifier: (WorkspaceLayoutRevision, SurfaceLayoutPlan)] = [:]
+
+    private struct MembershipRevision: Equatable {
+        let workspace: WorkspaceId?
+        let nativeOwner: ObjectIdentifier?
+        let structure: UInt64?
+        let geometry: UInt64?
+        let configuration: UInt64
+        let browser: [SurfaceID]
+        let roots: [SurfaceTreeNode]?
+        let reservations: Set<SurfaceID>
+    }
+    private var reconciledMembership: [String: MembershipRevision] = [:]
+
+    private func membershipRevision(_ workspace: Workspace?, name: String, browser: [SurfaceID]) -> MembershipRevision {
+        .init(workspace: workspace?.id, nativeOwner: workspace.map(ObjectIdentifier.init),
+              structure: workspace?.revisions.structure, geometry: workspace?.revisions.geometry,
+              configuration: configurationRevision, browser: browser,
+              roots: surfaceTree.roots[name], reservations: unresolvedNativeItems)
+    }
+
+    private struct OrganizationRevision: Equatable {
+        let browser: UInt64
+        let configuration: UInt64
+        let native: [ObjectIdentifier: [UInt64]]
+    }
+
+    private func organizationRevision() -> OrganizationRevision {
+        .init(browser: interactionRevision, configuration: configurationRevision, native: Dictionary(uniqueKeysWithValues: Workspace.all.map {
+            (ObjectIdentifier($0), [$0.revisions.structure, $0.revisions.metadata, $0.revisions.geometry])
+        }))
+    }
     private let foregroundProcessID: @MainActor () -> Int32?
 
     init(foregroundProcessID: @escaping @MainActor () -> Int32? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }) {
         self.foregroundProcessID = foregroundProcessID
     }
 
-    var privateSurfaces: Set<SurfaceID> = []
+    var privateSurfaces: Set<SurfaceID> = [] {
+        didSet { if oldValue != privateSurfaces { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
     var incognitoReturnWorkspaces: [WorkspaceProjectId: String] = [:]
-    var savedViews: [SavedView] = []
-    var legacyBrowserPins: [BrowserSidebarPin] = []
-    var legacyAppPins: [NativeAppSidebarPin] = []
-    var browserMemberOrder: [UUID] = []
-    var appMemberOrder: [UUID] = []
-    var pinShelves: [SpacePinShelf] = []
-    var spacePinnedGroups: [SpacePinnedGroup] = []
-    var browserProfiles: [WorkspaceBrowserProfile] = []
-    var browserProfileBySpace: [String: UUID] = [:]
-    var pendingNativePinLaunches: [UUID: UUID] = [:]
-    var failedNativePinLaunches: Set<UUID> = []
-    var pendingSidebarPinOpenings: Set<UUID> = []
-    var unresolvedSidebarPinOwners: [SurfaceID: UUID] = [:]
+    var savedViews: [SavedView] = [] {
+        didSet { if oldValue != savedViews { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var legacyBrowserPins: [BrowserSidebarPin] = [] {
+        didSet { if oldValue != legacyBrowserPins { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var legacyAppPins: [NativeAppSidebarPin] = [] {
+        didSet { if oldValue != legacyAppPins { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var browserMemberOrder: [UUID] = [] {
+        didSet { if oldValue != browserMemberOrder { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var appMemberOrder: [UUID] = [] {
+        didSet { if oldValue != appMemberOrder { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var pinShelves: [SpacePinShelf] = [] {
+        didSet { if oldValue != pinShelves { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var spacePinnedGroups: [SpacePinnedGroup] = [] {
+        didSet { if oldValue != spacePinnedGroups { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var browserProfiles: [WorkspaceBrowserProfile] = [] {
+        didSet { if oldValue != browserProfiles { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var browserProfileBySpace: [String: UUID] = [:] {
+        didSet { if oldValue != browserProfileBySpace { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var pendingNativePinLaunches: [UUID: UUID] = [:] {
+        didSet { if oldValue != pendingNativePinLaunches { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var failedNativePinLaunches: Set<UUID> = [] {
+        didSet { if oldValue != failedNativePinLaunches { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var pendingSidebarPinOpenings: Set<UUID> = [] {
+        didSet { if oldValue != pendingSidebarPinOpenings { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var unresolvedSidebarPinOwners: [SurfaceID: UUID] = [:] {
+        didSet { if oldValue != unresolvedSidebarPinOwners { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
     var pendingProfileMoves: [UUID: BrowserProfileMove] = [:]
     var profileMoveCopiesToClose: Set<SurfaceID> = []
     var committingProfileMove = false
@@ -48,10 +123,30 @@ public final class BrowserWorkspaceController {
     var tabInventoryArrivalTimes: [SurfaceID: UInt64] = [:]
     var pendingBrowserTabFocusGeneration: UInt64?
     private var processBindings: [UUID: (pid: pid_t, launch: Date?)] = [:]
-    var surfaceTree = SurfaceTree()
-    var usesSurfaceTree = false
-    var placements: [SurfaceID: String] = [:]
-    var standaloneBrowserViews: [SurfaceID: String] = [:]
+    var surfaceTree = SurfaceTree() {
+        didSet {
+            guard oldValue != surfaceTree else { return }
+            interactionRevision &+= 1
+            persistenceRevision &+= 1
+            if oldValue.roots != surfaceTree.roots || oldValue.layouts != surfaceTree.layouts || oldValue.weights != surfaceTree.weights {
+                layoutEpoch &+= 1
+                selectionLayoutRevisions = selectionLayoutRevisions.filter { surfaceTree.roots[$0.key] != nil }
+            } else {
+                let groups = Set(oldValue.activeSurfaces.keys).union(surfaceTree.activeSurfaces.keys)
+                let changed = groups.filter { oldValue.activeSurfaces[$0] != surfaceTree.activeSurfaces[$0] }
+                invalidateSelectionLayouts(changed.flatMap { [oldValue.activeSurfaces[$0], surfaceTree.activeSurfaces[$0]].compactMap { $0 } })
+            }
+        }
+    }
+    var usesSurfaceTree = false {
+        didSet { if oldValue != usesSurfaceTree { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var placements: [SurfaceID: String] = [:] {
+        didSet { if oldValue != placements { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var standaloneBrowserViews: [SurfaceID: String] = [:] {
+        didSet { if oldValue != standaloneBrowserViews { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
     private var previewWindow: NSWindow?
     private let previewState = BrowserSidebarPreviewState()
     private lazy var refreshScheduler = CoalescedBrowserRefreshScheduler(isReady: { [weak self] in
@@ -60,16 +155,48 @@ public final class BrowserWorkspaceController {
         await self?.performScheduledRefresh()
     }
     private var browserFocusDeadline: Date?
-    private var unresolvedNativeItems: Set<SurfaceID> = []
-    private var unresolvedBrowserItems: Set<SurfaceID> = []
-    var closedBrowserTabs: Set<SurfaceID> = []
-    var restoredSelection: SurfaceID?
-    var recentSelections: [SurfaceID] = []
+    private var unresolvedNativeItems: Set<SurfaceID> = [] {
+        didSet { if oldValue != unresolvedNativeItems { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    private var unresolvedBrowserItems: Set<SurfaceID> = [] {
+        didSet { if oldValue != unresolvedBrowserItems { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var closedBrowserTabs: Set<SurfaceID> = [] {
+        didSet { if oldValue != closedBrowserTabs { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var restoredSelection: SurfaceID? {
+        didSet { if oldValue != restoredSelection { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+    }
+    var recentSelections: [SurfaceID] = [] {
+        didSet {
+            guard oldValue != recentSelections else { return }
+            interactionRevision &+= 1
+            let count = max(oldValue.count, recentSelections.count)
+            var changed: [SurfaceID] = []
+            for index in 0..<count {
+                let before = index < oldValue.count ? oldValue[index] : nil
+                let after = index < recentSelections.count ? recentSelections[index] : nil
+                if before != after { changed += [before, after].compactMap { $0 } }
+            }
+            invalidateSelectionLayouts(changed)
+        }
+    }
     var tabOpeners: [SurfaceID: SurfaceID] = [:]
-    var selectedByWorkspace: [String: SurfaceID] = [:]
+    var selectedByWorkspace: [String: SurfaceID] = [:] {
+        didSet {
+            guard oldValue != selectedByWorkspace else { return }
+            interactionRevision &+= 1
+            persistenceRevision &+= 1
+            for name in Set(oldValue.keys).union(selectedByWorkspace.keys) where oldValue[name] != selectedByWorkspace[name] {
+                selectionLayoutRevisions[name, default: 0] &+= 1
+            }
+        }
+    }
     var pendingMinimizeFocus: (id: SurfaceID, snapshot: SurfaceClosureFocusSnapshot, generation: UInt64)?
     private var restoredPlacements = false
-    private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:]
+    private var observedNativeMinimums: [SurfaceID: SurfaceMinimumSize] = [:] {
+        didSet { if oldValue != observedNativeMinimums { interactionRevision &+= 1; layoutEpoch &+= 1 } }
+    }
     private var pendingNativeLayoutFocus: (id: SurfaceID, generation: UInt64, foregroundPID: Int32?)?
 
     func capturePlacementSnapshot() -> SurfaceWorkspaceSnapshot? {
@@ -203,6 +330,8 @@ public final class BrowserWorkspaceController {
     func cancelPendingBrowserFocusHold() { browserFocusDeadline = nil }
 
     public func connected(_ connection: UUID, processID: Int32, sendLayout: BrowserSurfaceSession.LayoutTransport? = nil, sendNewTab: BrowserSurfaceSession.NewTabTransport? = nil, sendHistory: BrowserSurfaceSession.HistoryTransport? = nil, send: @escaping BrowserSurfaceSession.Transport) {
+        interactionRevision &+= 1
+        layoutEpoch &+= 1
         let processLaunch = NSRunningApplication(processIdentifier: processID)?.launchDate
         for (id, oldConnection) in unresolvedSidebarPinOwners {
             guard let binding = processBindings[oldConnection] else {
@@ -231,6 +360,8 @@ public final class BrowserWorkspaceController {
     }
 
     public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID, protocolVersion: Int = 2) {
+        interactionRevision &+= 1
+        layoutEpoch &+= 1
         guard let session = sessions[connection], protocolVersion >= 7 || !message.tabs.contains(where: \.privateBrowsing) else { return }
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
@@ -336,6 +467,8 @@ public final class BrowserWorkspaceController {
     }
 
     public func disconnected(_ connection: UUID) {
+        interactionRevision &+= 1
+        layoutEpoch &+= 1
         guard let session = sessions.removeValue(forKey: connection) else { return }
         unresolvedBrowserItems.formUnion(session.inventory.tabs.keys)
         for pin in browserSidebarPins {
@@ -666,17 +799,31 @@ public final class BrowserWorkspaceController {
     /// cannot determine membership or import an out-of-date native arrangement.
     func reconcileSharedOrganization() {
         guard usesSurfaceTree else { return }
+        let input = organizationRevision()
+        guard reconciledOrganizationRevision != input else { return }
+        let interval = signposter.beginInterval("Shared organization reconcile")
+        defer {
+            reconciledOrganizationRevision = organizationRevision()
+            let live = Set(Workspace.all.map(ObjectIdentifier.init))
+            layoutPlanCache = layoutPlanCache.filter { live.contains($0.key) }
+            organizedRowsCache = organizedRowsCache.filter { surfaceTree.roots[$0.key] != nil }
+            signposter.endInterval("Shared organization reconcile", interval)
+        }
         retireResolvedNativeReservations()
         let browserByWorkspace = Dictionary(grouping: placements.keys, by: { placements[$0]! })
         let workspaces = Dictionary(uniqueKeysWithValues: Workspace.all.map { ($0.name, $0) })
         let names = Set(workspaces.keys).union(surfaceTree.roots.keys).union(browserByWorkspace.keys)
         let knownSurfaces = Set(surfaceTree.roots.values.flatMap { $0.flatMap(\.surfaces) })
+        reconciledMembership = reconciledMembership.filter { names.contains($0.key) }
         for name in names.sorted() {
+            let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }
+                .sorted { $0.description < $1.description }
+            let input = membershipRevision(workspaces[name], name: name, browser: browserIDs)
+            guard reconciledMembership[name] != input else { continue }
+            defer { reconciledMembership[name] = membershipRevision(workspaces[name], name: name, browser: browserIDs) }
             let root = workspaces[name]?.existingRootTilingContainer
             let native = root?.allLeafWindowsRecursive.filter(hasSharedTilingBinding) ?? []
             let nativeIDs = native.map(\.surfaceID)
-            let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }
-                .sorted { $0.description < $1.description }
             let temporaryNative = Set((surfaceTree.roots[name] ?? []).flatMap(\.surfaces).filter {
                 guard let window = Window.get(bySurfaceID: $0), window.nodeWorkspace?.name == name else { return false }
                 return !window.isFloating && !participatesInSharedTiling(window)
@@ -708,6 +855,14 @@ public final class BrowserWorkspaceController {
                        projection: BrowserSidebarProjection? = nil) -> [WorkspaceSidebarItemViewModel] {
         let browserRows = projection.map { $0.rowsByWorkspace[workspace] ?? [] } ?? rows(in: workspace)
         guard usesSurfaceTree else { return native + browserRows }
+        let roots = surfaceTree.roots[workspace] ?? []
+        let selected = (projection?.selectedSurfaces ?? workspaceSidebarSelectedSurfaces(in: surfaceTree))
+            .intersection(Set(roots.flatMap(\.surfaces)))
+        let nativeOwner = Workspace.existing(byName: workspace)
+        let revision = BrowserOrganizedRowsRevision(native: native, browser: browserRows, roots: roots,
+            layouts: surfaceTree.layouts, selected: selected, appPaths: projection?.appPaths ?? [:],
+            nativeStructure: nativeOwner?.revisions.structure, nativeGeometry: nativeOwner?.revisions.geometry)
+        if projection != nil, let cached = organizedRowsCache[workspace], cached.0 == revision { return cached.1 }
         var available: [SurfaceID: WorkspaceSidebarItemViewModel] = [:]
         var nativeOnlyRows: [WorkspaceSidebarItemViewModel] = []
         func collect(_ item: WorkspaceSidebarItemViewModel) {
@@ -735,7 +890,6 @@ public final class BrowserWorkspaceController {
             }
         }
         (native + browserRows).forEach(collect)
-        let selected = projection?.selectedSurfaces ?? workspaceSidebarSelectedSurfaces(in: surfaceTree)
         func project(_ node: SurfaceTreeNode) -> [WorkspaceSidebarItemViewModel] {
             switch node {
             case .surface(let id):
@@ -751,7 +905,9 @@ public final class BrowserWorkspaceController {
                 return (surfaceTree.layouts[id] ?? .stack) == .stack ? [.init(kind: .surfaceGroup(id, visible))] : visible
             }
         }
-        return (surfaceTree.roots[workspace] ?? []).flatMap(project) + nativeOnlyRows
+        let result = roots.flatMap(project) + nativeOnlyRows
+        if projection != nil { organizedRowsCache[workspace] = (revision, result) }
+        return result
     }
 
     private func participatesInSharedTiling(_ window: Window) -> Bool {
@@ -1298,13 +1454,17 @@ public final class BrowserWorkspaceController {
     }
 
     func plannedLayout(in workspace: Workspace) -> SurfaceLayoutPlan {
+        let revision = WorkspaceLayoutRevision(workspace, controller: self)
+        let identity = ObjectIdentifier(workspace)
+        if let cached = layoutPlanCache[identity], cached.0 == revision { return cached.1 }
+        layoutPlanBuildCount &+= 1
         let interval = signposter.beginInterval("Shared layout plan")
         defer { signposter.endInterval("Shared layout plan", interval) }
         let livePlan = liveLayoutTree(in: workspace)
         let fullscreen = sharedFullscreenPane(in: workspace, liveTree: livePlan)
         let rect = fullscreen?.noOuterGaps == true ? workspace.workspaceMonitor.visibleRect
             : workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        return livePlan.layout(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
+        let result = livePlan.layout(in: workspace.name, frame: .init(x: Int(rect.topLeftX.rounded()),
             y: Int(rect.topLeftY.rounded()), width: Int(rect.width.rounded()), height: Int(rect.height.rounded())),
             visible: workspace.isVisible, minimumSizes: minimumSizes(in: workspace),
             selectedSurface: rootPresentation(in: workspace) == .selectedRoot
@@ -1312,6 +1472,8 @@ public final class BrowserWorkspaceController {
                 : focusCoordinator.target,
             recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace),
             gaps: layoutGaps(in: workspace), expandedPane: fullscreen?.pane)
+        layoutPlanCache[identity] = (revision, result)
+        return result
     }
 
     func layoutGaps(in workspace: Workspace) -> SurfaceLayoutGaps {

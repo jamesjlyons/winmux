@@ -49,6 +49,47 @@ final class SessionPerformanceTest: XCTestCase {
         XCTAssertEqual(outgoing.queries, 1)
     }
 
+    func testColdSurfaceFocusSynchronizesNativeFocusWithoutExtraDiscovery() async throws {
+        let outgoing = FocusQueryProbeApp()
+        appForTests = outgoing
+        let first = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        _ = first.focusWindow()
+        let destination = Workspace.get(byName: "destination")
+        let target = TestWindow.new(id: 2, parent: destination.rootTilingContainer)
+        let command = parseCommand("surface focus \(target.surfaceID)").cmdOrDie
+        var refreshes = 0
+        setScheduledRefreshOverrideForTests { _, _, _ in refreshes += 1 }
+
+        let result = try await runSocketCommandSession(command, .forceRun) {
+            try await command.run(.defaultEnv, .emptyStdin)
+        }
+        try await waitForScheduledRefreshForTests()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(outgoing.queries, 1, "The initial native focus cache must be synchronized")
+        XCTAssertTrue(focus.workspace === destination)
+        XCTAssertTrue(TestApp.shared.focusedWindow === target)
+        XCTAssertGreaterThan(target.frameWriteCount, 0, "The light-session layout must still run")
+        XCTAssertEqual(refreshes, 0)
+    }
+
+    func testSelectedSurfaceFocusStillReadsActualNativeFocus() async throws {
+        let first = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        let second = TestWindow.new(id: 2, parent: focus.workspace.rootTilingContainer)
+        _ = first.focusWindow()
+        appForTests = TestApp.shared
+        TestApp.shared.focusedWindow = second
+        let command = parseCommand("surface focus selected").cmdOrDie
+
+        let result = try await runSocketCommandSession(command, .forceRun) {
+            try await command.run(.defaultEnv, .emptyStdin)
+        }
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(focus.windowOrNil === second)
+        XCTAssertTrue(TestApp.shared.focusedWindow === second)
+    }
+
     func testPollingQueryKeepsNativeFocusAccurateWithoutPlacingWindows() async throws {
         let first = TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
         let second = TestWindow.new(id: 2, parent: focus.workspace.rootTilingContainer)

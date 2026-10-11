@@ -12,6 +12,11 @@ func updateWorkspaceSidebarModel() async {
 
     let previousTopPadding = TrayMenuModel.shared.workspaceSidebarTopPadding
     pruneCachedWindowTitles()
+    let revision = ChromePublicationRevision()
     let state = await buildWorkspaceSidebarModelState()
+    guard !Task.isCancelled, revision == ChromePublicationRevision() else {
+        InteractionChromeScheduler.shared.schedule()
+        return
+    }
     applyWorkspaceSidebarModelState(state, previousTopPadding: previousTopPadding)
 }

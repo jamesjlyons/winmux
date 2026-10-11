@@ -13,7 +13,12 @@ func updateWindowTabModel() async {
         debugFocusLog("updateWindowTabModel disabled -> cleared")
         return
     }
+    let revision = ChromePublicationRevision()
     let strips = await buildWindowTabStripViewModelsFromChromeItems()
+    guard !Task.isCancelled, revision == ChromePublicationRevision() else {
+        InteractionChromeScheduler.shared.schedule()
+        return
+    }
 
     if TrayMenuModel.shared.windowTabStrips != strips {
         debugFocusLog("updateWindowTabModel apply strips old=\(TrayMenuModel.shared.windowTabStrips.map(\.frame)) new=\(strips.map(\.frame))")

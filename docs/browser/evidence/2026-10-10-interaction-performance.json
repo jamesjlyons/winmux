@@ -1,0 +1,158 @@
+{
+  "date": "2026-10-10",
+  "scope": "Native interaction scheduling, workspace layout and sidebar/tab presentation; Chromium engine unchanged.",
+  "changes": [
+    "Removed double-sided flip capture, overlays, settings and global event tap; existing two-window groups use ordinary tabs.",
+    "Preserved native layout animations and excluded their own geometry notifications from layout/persistence invalidation.",
+    "Native mutation revisions replace repeated tree snapshots and permit unchanged layouts, normalization and presentation to be reused.",
+    "Shared layout plans, native sidebar/tab data and organized browser rows are cached with identity, state and configuration invalidation.",
+    "Input focus precedes deferred coalesced chrome publication; suspended stale model builds cannot publish.",
+    "Mouse-release discovery targets clicked/dragged apps; unknown targets retain coalesced rate-limited global recovery.",
+    "Already-hidden workspace repair runs outside the input path with visibility, ownership, monitor and cancellation guards.",
+    "Unchanged session inputs skip checkpoint scheduling; edits arriving during disk I/O schedule a trailing save.",
+    "Removed synchronous stack symbolication on every native tree unbind.",
+    "Added browser layout dispatch/reply/timeout signposts and 200-page/soak options to the live switching probe."
+  ],
+  "verification": {
+    "app": {
+      "tests": 1237,
+      "failures": 0,
+      "log": ".local/interaction-performance/app-tests-final.log"
+    },
+    "native_core": {
+      "tests": 209,
+      "failures": 0
+    },
+    "native_bridge": {
+      "tests": 26,
+      "failures": 0,
+      "log": ".local/interaction-performance/native-tests.log"
+    },
+    "browser_tooling": {
+      "tests": 90,
+      "failures": 0,
+      "log": ".local/interaction-performance/tool-tests.log"
+    },
+    "focused_after": {
+      "tests": 28,
+      "failures": 0,
+      "log": ".local/interaction-performance/benchmarks-after.log"
+    },
+    "diff_whitespace": "passed",
+    "signed_package_smoke": {
+      "passed": true,
+      "test_service_removed": true,
+      "existing_helper_unchanged": true,
+      "browser_exit_code": 0,
+      "evidence": ".local/interaction-performance/smoke/result.json"
+    }
+  },
+  "benchmark_configuration": "Optimized Swift release with -DDEBUG, same machine/workloads; after measurements use --skip-build with compilation stopped.",
+  "benchmarks": [
+    {
+      "workload": "SHARED_LAYOUT_PLANNING_BENCHMARK",
+      "views": 50,
+      "before": {
+        "median_ms": 0.418166,
+        "p95_ms": 0.429875
+      },
+      "after": {
+        "median_ms": 0.236042,
+        "p95_ms": 0.253458
+      },
+      "median_reduction_percent": 43.6
+    },
+    {
+      "workload": "SHARED_LAYOUT_PLANNING_BENCHMARK",
+      "views": 200,
+      "before": {
+        "median_ms": 1.639625,
+        "p95_ms": 1.697041
+      },
+      "after": {
+        "median_ms": 0.852417,
+        "p95_ms": 0.867125
+      },
+      "median_reduction_percent": 48.0
+    },
+    {
+      "workload": "VIEWS_SIDEBAR_BENCHMARK",
+      "views": 50,
+      "before": {
+        "median_ms": 0.289042,
+        "p95_ms": 0.294166
+      },
+      "after": {
+        "median_ms": 0.266334,
+        "p95_ms": 0.309208
+      },
+      "median_reduction_percent": 7.9
+    },
+    {
+      "workload": "VIEWS_MODEL_AND_SIDEBAR_BENCHMARK",
+      "views": 50,
+      "before": {
+        "median_ms": 0.742667,
+        "p95_ms": 0.7625
+      },
+      "after": {
+        "median_ms": 0.289666,
+        "p95_ms": 0.334541
+      },
+      "median_reduction_percent": 61.0
+    },
+    {
+      "workload": "VIEWS_SIDEBAR_BENCHMARK",
+      "views": 200,
+      "before": {
+        "median_ms": 0.7815,
+        "p95_ms": 0.932292
+      },
+      "after": {
+        "median_ms": 0.707958,
+        "p95_ms": 0.743667
+      },
+      "median_reduction_percent": 9.4
+    },
+    {
+      "workload": "VIEWS_MODEL_AND_SIDEBAR_BENCHMARK",
+      "views": 200,
+      "before": {
+        "median_ms": 2.556375,
+        "p95_ms": 2.910625
+      },
+      "after": {
+        "median_ms": 0.796625,
+        "p95_ms": 0.834291
+      },
+      "median_reduction_percent": 68.8
+    }
+  ],
+  "source_hashes": ".local/interaction-performance/source-final.json",
+  "baseline_source_hashes": ".local/interaction-performance/source-before.json",
+  "preexisting_patch": ".local/interaction-performance/preexisting.patch",
+  "package": {
+    "status": "verified",
+    "path": "/Users/james/Documents/Codex/winmux/.local/interaction-performance/package/WinMux Browser Alpha.app",
+    "manifest": "/Users/james/Documents/Codex/winmux/.local/interaction-performance/package/winmux-package-manifest.json",
+    "native_source_files_verified": 684,
+    "notarized": false,
+    "installed": false
+  },
+  "live_qualification": {
+    "status": "pending",
+    "reason": "The running workspace owns the native-management lease; isolated switching fixtures refuse to displace it.",
+    "targets_p95_ms": {
+      "warm": 50,
+      "frozen": 100,
+      "space": 150
+    },
+    "soak_minutes": 30
+  },
+  "limitations": [
+    "CPU benchmarks are synthetic, not input-to-present or compositor measurements.",
+    "No end-to-end speedup, idle-energy reduction or memory-reduction claim is made.",
+    "Full discovery remains for recovery and unclassified events; browser inventory and structural edits conservatively invalidate layout caches.",
+    "Existing unrelated working-tree changes were retained. No installed app has been replaced."
+  ]
+}

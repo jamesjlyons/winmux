@@ -1,0 +1,161 @@
+@testable import AppBundle
+import AppKit
+import Common
+import WorkspaceCore
+import XCTest
+
+@MainActor
+final class InteractionInvalidationTest: XCTestCase {
+    override func setUp() async throws {
+        await InteractionChromeScheduler.shared.flush()
+        setUpWorkspacesForTests()
+        TrayMenuModel.shared.isEnabled = true
+    }
+
+    override func tearDown() async throws {
+        await InteractionChromeScheduler.shared.flush()
+        await waitForBackgroundWindowTitlesForTests()
+        appForTests = nil
+    }
+
+    func testNativeSidebarReusesUntouchedWorkspaceAndInvalidatesTitleAndMembership() async {
+        let first = focus.workspace
+        let second = Workspace.get(byName: "other")
+        let one = TestWindow.new(id: 1, parent: first.rootTilingContainer)
+        _ = TestWindow.new(id: 2, parent: second.rootTilingContainer)
+        _ = await buildWorkspaceSidebarNativeItems(for: first, currentFocus: focus)
+        _ = await buildWorkspaceSidebarNativeItems(for: second, currentFocus: focus)
+        await waitForBackgroundWindowTitlesForTests()
+        _ = await buildWorkspaceSidebarNativeItems(for: first, currentFocus: focus)
+        _ = await buildWorkspaceSidebarNativeItems(for: second, currentFocus: focus)
+        let builds = nativeSidebarBuildCount
+        _ = await buildWorkspaceSidebarNativeItems(for: first, currentFocus: focus)
+        _ = await buildWorkspaceSidebarNativeItems(for: second, currentFocus: focus)
+        XCTAssertEqual(nativeSidebarBuildCount, builds)
+
+        one.recordChange(.metadata)
+        _ = await buildWorkspaceSidebarNativeItems(for: first, currentFocus: focus)
+        _ = await buildWorkspaceSidebarNativeItems(for: second, currentFocus: focus)
+        XCTAssertEqual(nativeSidebarBuildCount, builds + 1)
+
+        one.bind(to: second.rootTilingContainer, adaptiveWeight: 1, index: INDEX_BIND_LAST)
+        let firstItems = await buildWorkspaceSidebarNativeItems(for: first, currentFocus: focus)
+        let secondItems = await buildWorkspaceSidebarNativeItems(for: second, currentFocus: focus)
+        XCTAssertTrue(firstItems.isEmpty)
+        XCTAssertEqual(secondItems.flatMap(\.surfaceItems).count, 2)
+    }
+
+    func testCleanHiddenWorkspaceSurvivesUnrelatedSelectionButGeometryInvalidatesIt() {
+        let hidden = Workspace.get(byName: "hidden")
+        let window = TestWindow.new(id: 11, parent: hidden.rootTilingContainer)
+        let visible = TestWindow.new(id: 12, parent: focus.workspace.rootTilingContainer)
+        let cache = WorkspaceLayoutCache()
+        let revision = WorkspaceLayoutRevision(hidden, includeBrowser: false)
+        cache.record(hidden, revision: revision, token: cache.token())
+        visible.markAsMostRecentChild()
+        XCTAssertFalse(cache.needsLayout(hidden, revision: WorkspaceLayoutRevision(hidden, includeBrowser: false)))
+        window.invalidateLastKnownNativeState()
+        XCTAssertTrue(cache.needsLayout(hidden, revision: WorkspaceLayoutRevision(hidden, includeBrowser: false)))
+    }
+
+    func testAnimationOutputDoesNotInvalidateLayoutOrPersistTiledFrames() {
+        let workspace = focus.workspace
+        let window = TestWindow.new(id: 20, parent: workspace.rootTilingContainer)
+        let layout = WorkspaceLayoutRevision(workspace)
+        let session = RestartSessionRevision()
+        window.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 10, topLeftY: 10, width: 800, height: 600)
+        window.invalidateLastKnownNativeState(layoutChanged: false)
+        XCTAssertEqual(WorkspaceLayoutRevision(workspace), layout)
+        XCTAssertEqual(RestartSessionRevision(), session)
+        window.invalidateLastKnownNativeState(includingSharedLayoutSize: true)
+        XCTAssertNotEqual(WorkspaceLayoutRevision(workspace), layout)
+    }
+
+    func testExplicitFrameRepairInvalidatesAnOtherwiseCleanLayout() {
+        let workspace = focus.workspace
+        let window = TestWindow.new(id: 21, parent: workspace.rootTilingContainer)
+        window.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 10, topLeftY: 10, width: 800, height: 600)
+        let revision = WorkspaceLayoutRevision(workspace)
+        window.lastAppliedLayoutPhysicalRect = nil
+        XCTAssertNotEqual(WorkspaceLayoutRevision(workspace), revision)
+    }
+
+    func testSelectionDoesNotReplanAnotherHiddenBrowserWorkspace() {
+        let controller = BrowserWorkspaceController()
+        let first = focus.workspace
+        let hidden = Workspace.get(byName: "hidden-browser")
+        let a = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree()
+        tree.reconcile([a], in: first.name)
+        tree.reconcile([b], in: hidden.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        _ = controller.plannedLayout(in: first)
+        let before = controller.plannedLayout(in: hidden)
+        let builds = controller.layoutPlanBuildCount
+        controller.recentSelections = [a]
+        _ = controller.focusCoordinator.select(a)
+        XCTAssertEqual(controller.plannedLayout(in: hidden), before)
+        XCTAssertEqual(controller.layoutPlanBuildCount, builds)
+        _ = controller.plannedLayout(in: first)
+        XCTAssertEqual(controller.layoutPlanBuildCount, builds + 1)
+    }
+
+    func testRecoveryInvalidationCannotBeAcknowledgedByAnOlderPass() {
+        let cache = WorkspaceLayoutCache()
+        let workspace = focus.workspace
+        let revision = WorkspaceLayoutRevision(workspace)
+        let old = cache.token()
+        cache.invalidate()
+        cache.record(workspace, revision: revision, token: old)
+        XCTAssertTrue(cache.needsLayout(workspace, revision: revision))
+        cache.record(workspace, revision: revision, token: cache.token())
+        XCTAssertFalse(cache.needsLayout(workspace, revision: revision))
+        config.gaps.inner.horizontal = .constant(31)
+        XCTAssertTrue(cache.needsLayout(workspace, revision: WorkspaceLayoutRevision(workspace)))
+    }
+
+    func testPersistenceRevisionTracksEditsButIgnoresTitleAndPresentation() {
+        let workspace = focus.workspace
+        let window = TestWindow.new(id: 30, parent: workspace.rootTilingContainer)
+        let baseline = RestartSessionRevision()
+        window.recordChange(.metadata)
+        window.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 0, topLeftY: 0, width: 500, height: 400)
+        XCTAssertEqual(RestartSessionRevision(), baseline)
+        window.setWeight(.h, 2)
+        XCTAssertNotEqual(RestartSessionRevision(), baseline)
+        let resized = RestartSessionRevision()
+        window.setWeight(.h, 2)
+        XCTAssertEqual(RestartSessionRevision(), resized)
+        workspace.retainsEmptyView.toggle()
+        XCTAssertNotEqual(RestartSessionRevision(), resized)
+    }
+
+    func testMouseReleaseUsesClickedAndDraggedAppsWithoutGlobalDiscovery() {
+        var scopes: [WindowRefreshScope] = []
+        let recovery = MouseReleaseDiscovery(discover: { scopes.append($0) })
+        recovery.mouseDown(targetPID: 42)
+        recovery.mouseUp(dragOwner: 43)
+        XCTAssertEqual(scopes, [.apps([42, 43])])
+        recovery.cancel()
+    }
+
+    func testUnknownMouseReleasesCoalesceIntoOneRecovery() async {
+        var scopes: [WindowRefreshScope] = []
+        let recovery = MouseReleaseDiscovery(discover: { scopes.append($0) })
+        for _ in 0..<100 { recovery.mouseUp() }
+        XCTAssertTrue(scopes.isEmpty)
+        await recovery.waitForRecoveryForTests()
+        XCTAssertEqual(scopes, [.all])
+    }
+
+    func testHoverCoalescingFlushesLatestPositionBeforeButtonAction() {
+        let coalescer = PointerActivityCoalescer()
+        var positions: [Int] = []
+        for i in 0..<100 { coalescer.submit { positions.append(i) } }
+        coalescer.flush()
+        positions.append(100) // button handler
+        coalescer.flush()
+        XCTAssertEqual(positions, [99, 100])
+    }
+}

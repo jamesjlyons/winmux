@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(os)
+import os
+#endif
 
 public enum BrowserSurfaceAction: String, Sendable {
     case focus, close, back, forward, reload, stop, navigate, extensions, minimize, fullscreen, zoom
@@ -47,6 +50,9 @@ public struct BrowserFocusIntent: Equatable, Sendable {
 /// and forwards its validated inventory. Workspace placement belongs elsewhere.
 @MainActor
 public final class BrowserSurfaceSession {
+    #if canImport(os)
+    private static let layoutSignposter = OSSignposter(subsystem: "com.jameslyons.winmux", category: .pointsOfInterest)
+    #endif
     public typealias Transport = @MainActor (BrowserActionRequest, @escaping @MainActor (BrowserActionReply) -> Void) -> Void
     public private(set) var epoch: UUID?
     public private(set) var inventory = BrowserInventory()
@@ -210,6 +216,9 @@ public final class BrowserSurfaceSession {
 
     private func layoutDeadlineExpired(_ request: BrowserLayoutRequest) {
         guard epoch == request.epoch, inFlightLayout == request.operation else { return }
+        #if canImport(os)
+        Self.layoutSignposter.emitEvent("Browser layout timeout", "generation: \(request.generation)")
+        #endif
         clearLayoutDeadline()
         inFlightLayout = nil
         lastLayoutReply = .unavailable
@@ -250,11 +259,17 @@ public final class BrowserSurfaceSession {
         let completion = layoutCompletion
         let acknowledgementToken = layoutAcknowledgementToken
         layoutDispatchedAt = DispatchTime.now().uptimeNanoseconds
+        #if canImport(os)
+        Self.layoutSignposter.emitEvent("Browser layout dispatch", "generation: \(request.generation) hosts: \(hosts.count)")
+        #endif
         cancelLayoutDeadline = scheduleLayoutDeadline(.seconds(1 << layoutTimeoutRetries)) { [weak self] in
             self?.layoutDeadlineExpired(request)
         }
         sendLayout(request) { [weak self] reply in
             guard let self, self.epoch == epoch, self.inFlightLayout == request.operation else { return }
+            #if canImport(os)
+            Self.layoutSignposter.emitEvent("Browser layout reply", "generation: \(request.generation) elapsed ms: \(self.pendingLayoutMilliseconds ?? 0)")
+            #endif
             self.clearLayoutDeadline()
             self.layoutTimeoutRetries = 0
             self.inFlightLayout = nil

@@ -2,9 +2,13 @@ import AppKit
 import Common
 
 final class TilingContainer: TreeNode, NonLeafTreeNodeObject { // todo consider renaming to GenericContainer
-    fileprivate var _orientation: Orientation
+    fileprivate var _orientation: Orientation {
+        didSet { if oldValue != _orientation { recordChange([.structure, .geometry, .persistence]) } }
+    }
     var orientation: Orientation { _orientation }
-    var layout: Layout
+    var layout: Layout {
+        didSet { if oldValue != layout { recordChange([.structure, .geometry, .persistence]) } }
+    }
 
     @MainActor
     init(parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, _ orientation: Orientation, _ layout: Layout, index: Int) {

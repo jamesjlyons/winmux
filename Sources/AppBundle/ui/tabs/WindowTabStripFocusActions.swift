@@ -61,9 +61,6 @@ func focusWindowFromTabStrip(_ windowId: UInt32, fallbackWorkspace: String) {
     window.markAsMostRecentChild()
     _ = setFocus(to: liveFocus)
     window.nativeFocus()
-    Task { @MainActor in
-        await updateWindowTabModel()
-    }
     // Within a tab group no new windows can appear, so skip the heavy refresh barrier.
     scheduleRefreshSession(isTabSwitch ? .onTabSwitched : .menuBarButton)
 }

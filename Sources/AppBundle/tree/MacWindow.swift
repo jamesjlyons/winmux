@@ -202,13 +202,20 @@ final class MacWindow: Window {
     override func closeAxWindow() {
         // Destruction/discovery confirms removal after the app's close flow.
         // A save prompt or rejected AX action must keep the current selection.
-        macApp.closeAndUnregisterAxWindow(windowId)
+        macApp.requestCloseAxWindow(windowId)
     }
 
     // todo it's part of the window layout and should be moved to layoutRecursive.swift
     @MainActor
-    func hideInCorner(_ corner: OptimalHideCorner, force: Bool = false) async throws {
-        guard let nodeMonitor else { return }
+    func hideInCorner(_ corner: OptimalHideCorner, force: Bool = false, whileHiddenIn expectedWorkspace: Workspace? = nil) async throws {
+        let expectedMonitorRect = expectedWorkspace?.workspaceMonitor.visibleRect
+        func stillHidden() -> Bool {
+            expectedWorkspace.map {
+                nodeWorkspace === $0 && !$0.isVisible && Workspace.existing(byName: $0.name) === $0 &&
+                    $0.workspaceMonitor.visibleRect == expectedMonitorRect
+            } ?? true
+        }
+        guard stillHidden(), let nodeMonitor else { return }
         if !force, isHiddenInCorner, hiddenInCorner?.corner == corner,
            hiddenInCorner?.monitorVisibleRect == nodeMonitor.visibleRect
         {
@@ -226,6 +233,8 @@ final class MacWindow: Window {
                 windowRect = try await getAxRect()
             }
             guard let windowRect else { return }
+            // Visibility and ownership may change while an AX app is suspended.
+            guard stillHidden(), !Task.isCancelled else { return }
             // Check for isHiddenInCorner for the second time because of the suspension point above
             if !isHiddenInCorner {
                 unhiddenFrame = WindowParkingSnapshot(frame: windowRect, monitorRect: nodeMonitor.rect)
@@ -252,6 +261,7 @@ final class MacWindow: Window {
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
                 p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
         }
+        guard stillHidden(), !Task.isCancelled else { return }
         setAxFrame(p, nil)
         hiddenInCorner = (corner, nodeMonitor.visibleRect)
     }

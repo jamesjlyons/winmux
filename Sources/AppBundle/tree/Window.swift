@@ -7,10 +7,18 @@ open class Window: TreeNode, Hashable {
     @MainActor private static var surfaceWindows: [SurfaceID: WeakSurfaceWindow] = [:]
     let windowId: UInt32
     let app: any AbstractApp
-    var lastFloatingSize: CGSize?
-    var isFullscreen: Bool = false
-    var noOuterGapsInFullscreen: Bool = false
-    var layoutReason: LayoutReason = .standard
+    var lastFloatingSize: CGSize? {
+        didSet { if oldValue != lastFloatingSize { recordChange([.geometry, .persistence]) } }
+    }
+    var isFullscreen: Bool = false {
+        didSet { if oldValue != isFullscreen { recordChange([.structure, .geometry, .persistence]) } }
+    }
+    var noOuterGapsInFullscreen: Bool = false {
+        didSet { if oldValue != noOuterGapsInFullscreen { recordChange([.structure, .geometry, .persistence]) } }
+    }
+    var layoutReason: LayoutReason = .standard {
+        didSet { if oldValue != layoutReason { recordChange([.structure, .geometry, .persistence]) } }
+    }
     /// A size verified after a completed shared-layout AX write. Parking only changes
     /// position, so returning to this size need not wait for another minimum-size probe.
     @MainActor var lastConfirmedSharedLayoutSize: CGSize?
@@ -32,7 +40,11 @@ open class Window: TreeNode, Hashable {
     @MainActor private var lastKnownNativeStateGeneration: UInt64 = 0
 
     @MainActor
-    func invalidateLastKnownNativeState(includingSharedLayoutSize: Bool = false) {
+    func invalidateLastKnownNativeState(includingSharedLayoutSize: Bool = false, layoutChanged: Bool = true) {
+        if layoutChanged {
+            recordChange(.geometry)
+            if isFloating { recordChange(.persistence) }
+        }
         lastKnownNativeStateGeneration += 1
         lastKnownActualRect = nil
         lastKnownNativeFullscreen = nil
@@ -47,6 +59,10 @@ open class Window: TreeNode, Hashable {
     @MainActor
     func recordObservedActualRect(_ rect: Rect?, token: UInt64) {
         if lastKnownNativeStateGeneration == token {
+            if lastKnownActualRect != rect {
+                recordChange(.presentation)
+                if isFloating { recordChange(.persistence) }
+            }
             lastKnownActualRect = rect
             if let rect, rect.size != lastConfirmedSharedLayoutSize { lastConfirmedSharedLayoutSize = nil }
         }
@@ -55,6 +71,9 @@ open class Window: TreeNode, Hashable {
     @MainActor
     func recordObservedNativeState(fullscreen: Bool, minimized: Bool, token: UInt64) {
         if lastKnownNativeStateGeneration == token {
+            if lastKnownNativeFullscreen != fullscreen || lastKnownNativeMinimized != minimized {
+                recordChange([.structure, .geometry])
+            }
             lastKnownNativeFullscreen = fullscreen
             lastKnownNativeMinimized = minimized
         }
@@ -63,6 +82,7 @@ open class Window: TreeNode, Hashable {
     @MainActor
     func recordObservedNativeFullscreen(_ fullscreen: Bool, token: UInt64) {
         if lastKnownNativeStateGeneration == token {
+            if lastKnownNativeFullscreen != fullscreen { recordChange([.structure, .geometry]) }
             lastKnownNativeFullscreen = fullscreen
         }
     }
@@ -72,6 +92,7 @@ open class Window: TreeNode, Hashable {
     /// observation so a slow fetch can't clobber the deliberately written value.
     @MainActor
     func recordAuthoritativeActualRect(_ rect: Rect?) {
+        if isFloating, lastKnownActualRect != rect { recordChange(.persistence) }
         lastKnownNativeStateGeneration += 1
         lastKnownActualRect = rect
         if let rect, rect.size != lastConfirmedSharedLayoutSize { lastConfirmedSharedLayoutSize = nil }
@@ -102,6 +123,7 @@ open class Window: TreeNode, Hashable {
         guard let existing = Window.get(bySurfaceID: id) else {
             unregisterSurface()
             surfaceID = id
+            recordChange([.structure, .persistence])
             Window.surfaceWindows[id] = WeakSurfaceWindow(self)
             return true
         }

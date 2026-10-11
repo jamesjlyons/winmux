@@ -92,29 +92,38 @@ enum GlobalObserver {
         let point = normalizeAppKitScreenPoint(screenPoint)
         let targetPID = event.cgEvent.map { pid_t($0.getIntegerValueField(.eventTargetUnixProcessID)) }
         runOnMainActor {
-            MousePointerTracker.shared.note(point: point, timestamp: timestamp)
-            noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
-            SharedStackDragController.shared.notePointerEvent(type: eventType, at: point)
-            BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
-            WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-            WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
-            if isMouseDownEvent {
-                // Dock activation and clicking a different display are explicit
-                // navigation. An ordinary close/minimize click grants no such
-                // permission to subsequent AX fallback notifications.
-                let clickedDock = targetPID.flatMap(NSRunningApplication.init(processIdentifier:))?.bundleIdentifier == "com.apple.dock"
-                let otherSpace = point.monitorApproximation.activeWorkspace.projectId != focus.workspace.projectId
-                noteNativeSpaceActivationIntent(clickedDock || otherSpace)
-                TrackpadNavigationController.shared.cancelNavigation()
-                BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
-            }
-            WindowTabStripPanelController.shared.updateMousePolicies(at: screenPoint)
-            if isLeftMouseDownEvent {
-                Task { @MainActor in
-                    await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
+            noteTapBindingKeyDown()
+            let work: @MainActor () -> Void = {
+                MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+                noteWorkspaceSidebarSurfaceDragPointerEvent(type: eventType, at: point)
+                SharedStackDragController.shared.notePointerEvent(type: eventType, at: point)
+                BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
+                WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
+                WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
+                if isMouseDownEvent {
+                    // Dock activation and clicking a different display are explicit
+                    // navigation. An ordinary close/minimize click grants no such
+                    // permission to subsequent AX fallback notifications.
+                    let clickedDock = targetPID.flatMap(NSRunningApplication.init(processIdentifier:))?.bundleIdentifier == "com.apple.dock"
+                    let otherSpace = point.monitorApproximation.activeWorkspace.projectId != focus.workspace.projectId
+                    if isLeftMouseDownEvent { MouseReleaseDiscovery.shared.mouseDown(targetPID: clickedDock ? nil : targetPID) }
+                    noteNativeSpaceActivationIntent(clickedDock || otherSpace)
+                    TrackpadNavigationController.shared.cancelNavigation()
+                    BrowserWorkspaceController.shared.cancelPendingBrowserFocusHold()
+                }
+                WindowTabStripPanelController.shared.updateMousePolicies(at: screenPoint)
+                if isLeftMouseDownEvent {
+                    Task { @MainActor in
+                        await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
+                    }
                 }
             }
-            noteTapBindingKeyDown()
+            if eventType == .mouseMoved || eventType == .scrollWheel {
+                PointerActivityCoalescer.shared.submit(work)
+            } else {
+                PointerActivityCoalescer.shared.flush()
+                work()
+            }
         }
     }
 
@@ -140,6 +149,7 @@ enum GlobalObserver {
             Task { @MainActor in
                 finishWorkspaceSidebarDragAfterGlobalMouseUp()
                 guard let token: RunSessionGuard = .isServerEnabled else { return }
+                let dragOwner = currentlyManipulatedWithMouseWindowId.flatMap { Window.get(byId: $0)?.app.pid }
                 try await resetManipulatedWithMouseIfPossible()
                 // Drag-end releases the sidebar expansion locks without any pointer movement;
                 // hover must be re-evaluated for a stationary cursor.
@@ -155,7 +165,7 @@ enum GlobalObserver {
                     // Detect close button clicks for unfocused windows. Yes, kAXUIElementDestroyedNotification is that unreliable
                     //  And trigger new window detection that could be delayed due to mouseDown event
                     default:
-                        scheduleRefreshSession(.globalObserverLeftMouseUp)
+                        MouseReleaseDiscovery.shared.mouseUp(dragOwner: dragOwner)
                 }
             }
         })

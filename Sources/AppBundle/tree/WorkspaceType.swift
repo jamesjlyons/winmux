@@ -5,13 +5,27 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     let id: WorkspaceId
     private(set) var name: String
     nonisolated private var nameLogicalSegments: StringLogicalSegments
-    private(set) var namingStyle: WorkspaceNamingStyle = .explicit
-    var projectId: WorkspaceProjectId = workspaceProjectDefaultId
-    var preferredMonitorPoint: CGPoint?
-    var lifecycle: WorkspaceLifecycle = .durable
-    var isPinnedGroup = false
-    var hasContainedItems = false
-    var retainsEmptyView = false
+    private(set) var namingStyle: WorkspaceNamingStyle = .explicit {
+        didSet { if oldValue != namingStyle { recordChange([.metadata, .persistence]) } }
+    }
+    var projectId: WorkspaceProjectId = workspaceProjectDefaultId {
+        didSet { if oldValue != projectId { recordChange([.metadata, .persistence]) } }
+    }
+    var preferredMonitorPoint: CGPoint? {
+        didSet { if oldValue != preferredMonitorPoint { recordChange([.metadata, .persistence]) } }
+    }
+    var lifecycle: WorkspaceLifecycle = .durable {
+        didSet { if oldValue != lifecycle { recordChange([.metadata, .persistence]) } }
+    }
+    var isPinnedGroup = false {
+        didSet { if oldValue != isPinnedGroup { recordChange([.metadata, .persistence]) } }
+    }
+    var hasContainedItems = false {
+        didSet { if oldValue != hasContainedItems { recordChange([.metadata, .persistence]) } }
+    }
+    var retainsEmptyView = false {
+        didSet { if oldValue != retainsEmptyView { recordChange([.metadata, .persistence]) } }
+    }
 
     var isIncognito: Bool { projectId.isIncognito }
 

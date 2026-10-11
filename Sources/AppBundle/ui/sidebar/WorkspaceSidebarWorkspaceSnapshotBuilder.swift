@@ -5,6 +5,7 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     availableMonitors: [Monitor],
 ) async -> [WorkspaceSidebarWorkspaceViewModel] {
     let orderedWorkspaces = orderedWorkspacesForPresentation()
+    pruneNativeSidebarCache(orderedWorkspaces)
     let automaticIndices = automaticWorkspaceDisplayIndices(workspaces: orderedWorkspaces, focusedWorkspace: currentFocus.workspace)
     var nativeItems: [String: [WorkspaceSidebarItemViewModel]] = [:]
     for workspace in orderedWorkspaces {

@@ -12,6 +12,10 @@ final class AppShutdownCoordinator {
         // Capture now, then wait for the serialized writer before moving windows for cleanup.
         let finalSave = persistFrozenWorldForRestartIfPossible()
         isShuttingDown = true
+        InteractionChromeScheduler.shared.cancel()
+        HiddenLayoutMaintenance.shared.cancel()
+        MouseReleaseDiscovery.shared.cancel()
+        PointerActivityCoalescer.shared.cancel()
         TrackpadNavigationController.shared.shutdown()
         let task = Task { @MainActor in
             await finalSave?.value

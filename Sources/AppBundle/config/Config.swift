@@ -29,7 +29,10 @@ var defaultConfigUrl: URL {
     }
     return parsedConfig.config
 }()
-@MainActor var config: Config = defaultConfig // todo move to Ctx?
+@MainActor private(set) var configurationRevision: UInt64 = 0
+@MainActor var config: Config = defaultConfig { // todo move to Ctx?
+    didSet { configurationRevision &+= 1 }
+}
 @MainActor var configUrl: URL = defaultConfigUrl
 
 struct Config: ConvenienceCopyable {

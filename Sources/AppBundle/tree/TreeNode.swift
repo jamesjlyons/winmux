@@ -2,6 +2,13 @@ import AppKit
 import Common
 
 open class TreeNode: Equatable, WinMuxAny {
+    private(set) var revisions = TreeRevisions()
+
+    func recordChange(_ change: TreeChange) {
+        revisions.record(change)
+        _parent?.recordChange(change)
+    }
+
     private var _children: [TreeNode] = []
     var children: [TreeNode] { _children }
     fileprivate final weak var _parent: NonLeafTreeNodeObject? = nil
@@ -16,8 +23,17 @@ open class TreeNode: Equatable, WinMuxAny {
     // - resize with mouse
     // - drag window with mouse
     // - move-mouse command
-    var lastAppliedLayoutPhysicalRect: Rect? = nil // with real inner gaps
-    final var unboundStacktrace: String? = nil
+    var lastAppliedLayoutPhysicalRect: Rect? = nil { // with real inner gaps
+        didSet {
+            if oldValue != lastAppliedLayoutPhysicalRect {
+                recordChange(.presentation)
+                // Clearing an applied frame is the existing explicit repair
+                // signal used by drag, resize and native-window recovery paths.
+                if lastAppliedLayoutPhysicalRect == nil { recordChange(.geometry) }
+            }
+        }
+    }
+    final var lastUnbindingDescription: String? = nil
     var isBound: Bool { parent != nil } // todo drop, once https://github.com/nikitabobko/WinMux/issues/1215 is fixed
 
     @MainActor
@@ -41,7 +57,10 @@ open class TreeNode: Equatable, WinMuxAny {
                 if parent.layout != .tiles {
                     die("Weight can be changed only for nodes whose parent has 'tiles' layout")
                 }
-                adaptiveWeight = newValue
+                if adaptiveWeight != newValue {
+                    adaptiveWeight = newValue
+                    recordChange([.geometry, .persistence])
+                }
             default:
                 die("Can't change weight")
         }
@@ -94,7 +113,8 @@ open class TreeNode: Equatable, WinMuxAny {
         }
         newParent._children.insert(self, at: index != INDEX_BIND_LAST ? index : newParent._children.count)
         _parent = newParent
-        unboundStacktrace = nil
+        recordChange([.structure, .geometry, .persistence])
+        lastUnbindingDescription = nil
         // todo consider disabling automatic mru propogation
         // 1. "floating windows" in FocusCommand break the MRU because of that :(
         // 2. Misbehaved apps that abuse real window as popups https://github.com/nikitabobko/WinMux/issues/106 (the
@@ -109,16 +129,20 @@ open class TreeNode: Equatable, WinMuxAny {
     private func unbindIfBound() -> BindingData? {
         guard let _parent else { return nil }
 
+        recordChange([.structure, .geometry, .persistence])
         let index = _parent._children.remove(element: self) ?? dieT("Can't find child in its parent")
         check(_parent._mruChildren.remove(self))
         self._parent = nil
-        unboundStacktrace = getStringStacktrace()
+        lastUnbindingDescription = "Parent: \(type(of: _parent)); index: \(index)"
 
         return BindingData(parent: _parent, adaptiveWeight: adaptiveWeight, index: index)
     }
 
     func markAsMostRecentChild() {
         guard let _parent else { return }
+        if _parent._mruChildren.mostRecent !== self {
+            _parent.recordChange([.selection, .persistence])
+        }
         _parent._mruChildren.pushOrRaise(self)
         _parent.markAsMostRecentChild()
     }
@@ -136,7 +160,7 @@ open class TreeNode: Equatable, WinMuxAny {
 
     @discardableResult
     func unbindFromParent() -> BindingData {
-        unbindIfBound() ?? dieT("\(self) is already unbound. The stacktrace where it was unbound:\n\(unboundStacktrace ?? "nil")")
+        unbindIfBound() ?? dieT("\(self) is already unbound. Last unbinding:\n\(lastUnbindingDescription ?? "nil")")
     }
 
     nonisolated public static func == (lhs: TreeNode, rhs: TreeNode) -> Bool {

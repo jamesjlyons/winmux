@@ -139,6 +139,8 @@ final class FocusLatencyTest: XCTestCase {
         try await runLightSession(.hotkeyBinding, .forceRun, shouldSchedulePostRefresh: false) {
             XCTAssertTrue(target.focusWindow())
         }
+        XCTAssertEqual(target.focusRequests, 1, "Input focus must not wait for deferred chrome")
+        await InteractionChromeScheduler.shared.flush()
         XCTAssertTrue(published)
         XCTAssertEqual(target.focusRequests, 1)
     }

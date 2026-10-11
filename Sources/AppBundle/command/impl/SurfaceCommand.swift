@@ -5,7 +5,9 @@ import WorkspaceCore
 struct SurfaceCommand: Command {
     let args: SurfaceCmdArgs
     var shouldResetClosedWindowsCache: Bool { args.operands.first != "list" }
-    var canSkipPostCommandRefresh: Bool { args.operands.first == "list" }
+    // Focus updates selection and runs the normal light-session layout. A
+    // second discovery pass only competes with the incoming page's first input.
+    var canSkipPostCommandRefresh: Bool { ["list", "focus"].contains(args.operands.first ?? "") }
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         let controller = BrowserWorkspaceController.shared
