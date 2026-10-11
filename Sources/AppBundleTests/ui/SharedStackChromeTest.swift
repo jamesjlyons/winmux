@@ -42,6 +42,28 @@ import XCTest
         controller.usesSurfaceTree = false
     }
 
+    func testDroppingMixedGroupOntoPinnedAppRetainsEntireGroup() throws {
+        let previousPath = TestApp.shared.bundlePath
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        defer { TestApp.shared.bundlePath = previousPath }
+        let original = try XCTUnwrap(controller.surfaceTree.group(group))
+        XCTAssertTrue(controller.pinSurface(second.surfaceID))
+        let pin = try XCTUnwrap(controller.pinnedViews.first)
+        XCTAssertEqual(controller.selectPin(pin.id), .issued)
+        let workspace = try XCTUnwrap(second.nodeWorkspace)
+        let placement = try XCTUnwrap(controller.plannedSurfaces(in: workspace).first { $0.surfaceID == second.surfaceID && $0.visible })
+        let frame = try XCTUnwrap(surfaceDropTargetFrame(placement, workspace: workspace, controller: controller))
+        let zone = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: frame).first { $0.zone == .left })
+        let drop = try XCTUnwrap(resolveSharedStackDrop(.group(group), pointer: zone.frame.center))
+        XCTAssertTrue(commitSharedStackDrop(drop, pointer: zone.frame.center))
+        XCTAssertEqual(controller.surfaceTree.group(group), original)
+        XCTAssertEqual(controller.pinnedViews.first?.id, pin.id)
+        XCTAssertEqual(controller.pinnedViews.first?.memberIDs.count, 3)
+        XCTAssertTrue(first.nodeWorkspace === second.nodeWorkspace)
+        XCTAssertEqual(controller.workspaceName(for: page), pin.workspaceName)
+        XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
+    }
+
     func testProjectionUsesSharedStackAndRealHostOrderingWithoutChangingEitherTree() async throws {
         let tree = controller.surfaceTree, root = focus.workspace.rootTilingContainer
         let nativeOrder = root.children.map(ObjectIdentifier.init)

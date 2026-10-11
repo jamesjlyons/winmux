@@ -31,8 +31,12 @@ func resolveBrowserSurfaceDrop(source: SurfaceID, pointer: CGPoint,
           let sourceWorkspace = controller.surfaceTree.workspace(of: source),
           controller.workspaceName(for: source) == sourceWorkspace else { return nil }
     let workspace = pointer.monitorApproximation.activeWorkspace
-    guard workspace.isVisible else { return nil }
+    guard workspace.isVisible, let sourceOwner = Workspace.existing(byName: sourceWorkspace),
+          sourceOwner.projectId == workspace.projectId,
+          sourceOwner.isPinnedGroup == workspace.isPinnedGroup || controller.pinnedViews.contains(where: { $0.workspaceName == workspace.name }),
+          controller.canCombinePinnedView(containing: source) else { return nil }
     if let header = sharedStackHeaderTarget(at: pointer, excluding: [source], in: workspace, controller: controller) {
+        guard controller.canCombinePinnedView(containing: header.surface) else { return nil }
         return .init(source: source, target: header.surface, zone: .tab, targetFrame: header.frame,
             sourceWorkspace: sourceWorkspace, targetWorkspace: workspace.name, targetStack: header.id)
     }
@@ -40,7 +44,7 @@ func resolveBrowserSurfaceDrop(source: SurfaceID, pointer: CGPoint,
     // selected member of a stack is a destination that the user can see.
     for placement in controller.plannedSurfaces(in: workspace) where placement.visible && placement.surfaceID != source {
         let target = placement.surfaceID
-        guard canDropSurface(target, controller: controller),
+        guard canDropSurface(target, controller: controller), controller.canCombinePinnedView(containing: target),
               controller.workspaceName(for: target) == workspace.name,
               let frame = surfaceDropTargetFrame(placement, workspace: workspace, controller: controller),
               let zone = WindowIntentZoneBuilder.zone(at: pointer, in: frame),
@@ -74,7 +78,10 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
           destination.zone != .tab || config.windowTabs.enabled,
           destination.zone != .middle || destination.sourceWorkspace == destination.targetWorkspace else { return false }
     guard let source = Workspace.existing(byName: destination.sourceWorkspace),
-          source.projectId == workspace.projectId, source.isPinnedGroup == workspace.isPinnedGroup else { return false }
+          source.projectId == workspace.projectId,
+          source.isPinnedGroup == workspace.isPinnedGroup || controller.pinnedViews.contains(where: { $0.workspaceName == workspace.name }),
+          controller.canCombinePinnedView(containing: destination.source),
+          controller.canCombinePinnedView(containing: destination.target) else { return false }
 
     let edit: (inout SurfaceTree) -> Bool = { tree in
         switch destination.zone {

@@ -112,6 +112,9 @@ public final class BrowserWorkspaceController {
     var unresolvedSidebarPinOwners: [SurfaceID: UUID] = [:] {
         didSet { if oldValue != unresolvedSidebarPinOwners { interactionRevision &+= 1; layoutEpoch &+= 1 } }
     }
+    // Chromium can restore a saved tab after its first full inventory. Keep
+    // its exact former pin identity until that tab returns or is replaced.
+    var restoringSidebarPinBindings: [SurfaceID: UUID] = [:]
     var pendingProfileMoves: [UUID: BrowserProfileMove] = [:]
     var profileMoveCopiesToClose: Set<SurfaceID> = []
     var committingProfileMove = false
@@ -240,6 +243,7 @@ public final class BrowserWorkspaceController {
         restorePinnedGroups()
         pendingSidebarPinOpenings = []
         unresolvedSidebarPinOwners = [:]
+        restoringSidebarPinBindings = [:]
         for pin in browserSidebarPins { _ = Workspace.get(byName: pin.workspaceName) }
         restoredSelection = snapshot.selected
         recentSelections = snapshot.selected.map { [$0] } ?? []
@@ -305,7 +309,7 @@ public final class BrowserWorkspaceController {
             return profiles.contains(profile) && owner(of: id) == nil
         }
         for id in missing {
-            browserPinDidClose(id)
+            browserPinDidClose(id, retainingForRestore: true)
             retireAbsentPinnedPage(id)
             if restoredSelection == id { restoredSelection = nil }
             recentSelections.removeAll { $0 == id }
@@ -387,7 +391,8 @@ public final class BrowserWorkspaceController {
         }
         for icon in message.tabs.compactMap(\.iconPNGBase64) { WorkspaceSidebarFaviconCache.shared.prepare(icon) }
         unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
-        let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection)
+        let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection,
+            removed: message.removed)
         if message.full { reconcileRestoredBrowserPlacements(session.inventory) }
         let minimizedIDs = Set(session.inventory.tabs.values.filter(\.hostMinimized).map(\.surfaceID))
         let removedIDs = oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs).filter { owner(of: $0) == nil }
@@ -395,7 +400,7 @@ public final class BrowserWorkspaceController {
             tabCreationOperations[id] = nil
             tabInventoryArrivalTimes[id] = nil
             if privateSurfaces.contains(id) { retirePrivateSurface(id); continue }
-            browserPinDidClose(id)
+            browserPinDidClose(id, retainingForRestore: message.full && !message.removed.contains(id))
             closedBrowserTabs.insert(id)
             unresolvedBrowserItems.remove(id)
             placements.removeValue(forKey: id)
@@ -1189,6 +1194,7 @@ public final class BrowserWorkspaceController {
                 if !floating.contains(effect.surfaceID), !admittingFloating.contains(effect.surfaceID) { nativeMoves.append((window, destination)) }
             }
         }
+        guard let pinnedMembers = pinnedMembersForOrganizationChange(change) else { return false }
         if !nativeMoves.isEmpty || !nativeFloats.isEmpty {
             syncClosedWindowsCacheToCurrentWorld()
             suppressPostDragAxObserverEvents(for: (nativeMoves + nativeFloats).map { $0.0.windowId })
@@ -1203,6 +1209,7 @@ public final class BrowserWorkspaceController {
         }
         surfaceTree = change.tree
         for id in floating { surfaceTree.remove(id) }
+        commitPinnedMembers(pinnedMembers)
         scheduleRefresh()
         return true
     }

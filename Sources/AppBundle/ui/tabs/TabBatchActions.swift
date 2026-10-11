@@ -34,7 +34,7 @@ func canGroupSelectedTabs(_ panes: [SurfacePane], controller: BrowserWorkspaceCo
           let first = ids.first, let name = controller.workspaceName(for: first), let source = Workspace.existing(byName: name) else { return false }
     return ids.allSatisfy {
         guard let name = controller.workspaceName(for: $0), let workspace = Workspace.existing(byName: name) else { return false }
-        return workspace.projectId == source.projectId && workspace.isPinnedGroup == source.isPinnedGroup && controller.canCombinePinnedView(containing: $0)
+        return workspace.projectId == source.projectId && controller.canCombinePinnedView(containing: $0)
     }
 }
 
@@ -71,8 +71,11 @@ func performTabBatchAction(_ panes: [SurfacePane], action: TabBatchAction, contr
         // group and must not change the remaining context-menu targets.
         return ids.map { controller.close($0) }.allSatisfy { $0 == .issued }
     case .group(let layout):
+        let anchor = ids.first { id in
+            controller.workspaceName(for: id).flatMap { Workspace.existing(byName: $0) }?.isPinnedGroup == true
+        } ?? first
         guard canGroupSelectedTabs(panes, controller: controller),
-              let name = controller.workspaceName(for: first), let destination = Workspace.existing(byName: name) else { return false }
+              let name = controller.workspaceName(for: anchor), let destination = Workspace.existing(byName: name) else { return false }
         if controller.usesSurfaceTree { return controller.arrangeSelectedTabs(panes, in: destination, grouping: layout) }
         let windows = ids.compactMap(Window.get(bySurfaceID:))
         guard let anchor = windows.first else { return false }

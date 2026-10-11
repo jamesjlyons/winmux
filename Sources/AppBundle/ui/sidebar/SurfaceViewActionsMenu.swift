@@ -4,13 +4,14 @@ import WorkspaceCore
 struct SurfaceViewActionsMenu: View {
     let surface: SurfaceID
     let actions: WorkspaceSidebarActions
+    var addingToPinnedView = false
 
     private var targets: [WorkspaceSidebarSurfaceItem] {
         let controller = BrowserWorkspaceController.shared
         guard controller.canCombinePinnedView(containing: surface) else { return [] }
         guard let name = controller.workspaceName(for: surface), let source = Workspace.existing(byName: name) else { return [] }
         let workspaces = TrayMenuModel.shared.workspaceSidebarWorkspaces.filter {
-            $0.projectId == source.projectId && $0.isPinnedGroup == source.isPinnedGroup
+            $0.projectId == source.projectId
         }
         return workspaces.flatMap { workspace in
             workspace.items.flatMap(\.surfaceItems) + workspace.pins.compactMap { pin in
@@ -21,7 +22,7 @@ struct SurfaceViewActionsMenu: View {
     }
 
     var body: some View {
-        Menu("Combine with…") {
+        Menu(addingToPinnedView ? "Add to View…" : "Combine with…") {
             ForEach(targets, id: \.surfaceID) { target in
                 Menu(target.title) {
                     action("Stack", target: target.surfaceID, layout: .stack)
@@ -37,6 +38,10 @@ struct SurfaceViewActionsMenu: View {
     }
 
     private func action(_ title: String, target: SurfaceID, layout: SurfaceContainerLayout, before: Bool = false) -> some View {
-        Button(title) { actions.send(.combineViews(surface, with: target, layout: layout, before: before)) }
+        Button(title) {
+            actions.send(addingToPinnedView
+                ? .combineViews(target, with: surface, layout: layout, before: before)
+                : .combineViews(surface, with: target, layout: layout, before: before))
+        }
     }
 }

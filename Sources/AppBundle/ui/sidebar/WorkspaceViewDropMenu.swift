@@ -29,11 +29,11 @@ func workspaceViewDropHint(_ subject: WorkspaceSidebarSurfaceDragSubject,
         return "Release to choose split or stack"
     case .pin(let id):
         if case .pin = subject { return "Move before this pin" }
-        if !source.isPinnedGroup { return "Pin in this Space" }
-        if let hit = workspaceSidebarDropTarget(at: pointer),
+        if controller.pinWorkspaceName(id).flatMap({ Workspace.existing(byName: $0) })?.projectId != source.projectId { return "Pin in this Space" }
+        if source.isPinnedGroup, let hit = workspaceSidebarDropTarget(at: pointer),
            pointer.x < hit.rect.topLeftX + min(8, hit.rect.width * 0.2) { return "Move before this pin" }
         let live = controller.pinTiles(in: controller.pinWorkspaceName(id) ?? "").first { $0.id == id }?.surfaceID
-        return live == nil ? "Move before this pin" : "Release to choose split or stack"
+        return live == nil ? "Pin in this Space" : "Release to choose split or stack"
     default: return nil
     }
 }
@@ -80,8 +80,7 @@ func requestWorkspaceViewCombination(_ subject: WorkspaceSidebarSurfaceDragSubje
             }
             return true
         }
-        // Dropping an ordinary window onto Pinned retains the explicit pin action.
-        return false
+        guard destination.isPinnedGroup, controller.pinnedViews.contains(where: { $0.workspaceName == destination.name }) else { return false }
     }
     // The edge of a normal row is an insertion point, not a combine target.
     if case .workspace = target, !sourceWorkspace.isPinnedGroup,

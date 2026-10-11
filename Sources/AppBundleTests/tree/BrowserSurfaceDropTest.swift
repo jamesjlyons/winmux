@@ -36,6 +36,23 @@ import XCTest
         }
     }
 
+    func testDroppingNativeAppOntoPinnedBrowserTabPersistsBothMembers() throws {
+        let fixture = fixture()
+        let previousPath = TestApp.shared.bundlePath
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        defer { TestApp.shared.bundlePath = previousPath }
+        XCTAssertTrue(fixture.controller.pinSurface(fixture.page))
+        let pin = try XCTUnwrap(fixture.controller.pinnedViews.first)
+        XCTAssertEqual(fixture.controller.selectPin(pin.id), .issued)
+        let drop = try resolve(source: fixture.native.surfaceID, target: fixture.page, zone: .left, controller: fixture.controller)
+        XCTAssertTrue(commitBrowserSurfaceDrop(drop, controller: fixture.controller))
+        XCTAssertEqual(fixture.native.nodeWorkspace?.name, pin.workspaceName)
+        XCTAssertEqual(fixture.controller.pinnedViews.first?.id, pin.id)
+        XCTAssertEqual(fixture.controller.pinnedViews.first?.kind, .group)
+        XCTAssertEqual(fixture.controller.pinnedViews.first?.members.count, 2)
+        XCTAssertNoThrow(try fixture.controller.capturePlacementSnapshot()?.validated())
+    }
+
     func testNativeOnlyViewUsesSharedLayoutBeforeDropAndRetainsNativeOwnerBindings() throws {
         let controller = BrowserWorkspaceController(), workspace = focus.workspace
         let first = TestWindow.new(id: 4001, parent: workspace.rootTilingContainer)

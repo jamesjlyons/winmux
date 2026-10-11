@@ -134,8 +134,8 @@ struct WorkspaceSidebarPinGrid: View {
         }
         .tabSelectionItem(pin.isOpen && !pin.isGroup ? pin.surfaceID.map(SurfacePane.surface) : nil)
         .tabSelectionMenu(for: pin.isOpen && !pin.isGroup ? pin.surfaceID.map(SurfacePane.surface) : nil, workspace: workspace.name, actions: actions) {
-            if !pin.isGroup, let id = pin.surfaceID {
-                SurfaceViewActionsMenu(surface: id, actions: actions)
+            if let id = pin.surfaceID {
+                SurfaceViewActionsMenu(surface: id, actions: actions, addingToPinnedView: true)
                 Divider()
             }
             if pin.isGroup {

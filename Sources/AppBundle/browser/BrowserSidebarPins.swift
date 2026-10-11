@@ -40,6 +40,7 @@ extension BrowserWorkspaceController {
                 self.retireAbsentPinnedPage(previous)
             }
             self.browserSidebarPins[index].surfaceID = surfaceID
+            self.restoringSidebarPinBindings = self.restoringSidebarPinBindings.filter { $0.value != id }
             let destination = self.browserSidebarPins[index].workspaceName
             if self.workspaceName(for: surfaceID) != destination {
                 self.placeCreatedBrowserTab(surfaceID, in: destination, focusAddress: false, selectCreated: false, focusGeneration: self.focusCoordinator.generation)
@@ -108,19 +109,44 @@ extension BrowserWorkspaceController {
             prunePinnedMembers()
             capturePinnedLayouts()
         }
+        let pinIDs = Set(browserSidebarPins.map(\.id))
+        restoringSidebarPinBindings = restoringSidebarPinBindings.filter { pinIDs.contains($0.value) }
         syncPinnedViewGroups()
     }
 
-    func browserPinDidClose(_ surfaceID: SurfaceID) {
+    func browserPinDidClose(_ surfaceID: SurfaceID, retainingForRestore: Bool = false) {
         capturePinnedLayouts()
+        if !retainingForRestore { restoringSidebarPinBindings.removeValue(forKey: surfaceID) }
         for index in browserSidebarPins.indices where browserSidebarPins[index].surfaceID == surfaceID {
-            pendingSidebarPinOpenings.remove(browserSidebarPins[index].id)
+            let pinID = browserSidebarPins[index].id
+            // Retiring an absent saved ID must keep any replacement request
+            // pending until its creation reply arrives.
+            if retainingForRestore {
+                restoringSidebarPinBindings = restoringSidebarPinBindings.filter { $0.value != pinID }
+                restoringSidebarPinBindings[surfaceID] = pinID
+            } else {
+                pendingSidebarPinOpenings.remove(pinID)
+            }
             browserSidebarPins[index].surfaceID = nil
         }
         unresolvedSidebarPinOwners.removeValue(forKey: surfaceID)
     }
 
-    func reconcileSidebarPinInventory(_ inventory: BrowserInventory, full: Bool, connection: UUID) -> Set<SurfaceID> {
+    func reconcileSidebarPinInventory(_ inventory: BrowserInventory, full: Bool, connection: UUID,
+                                      removed: [SurfaceID] = []) -> Set<SurfaceID> {
+        for id in removed { restoringSidebarPinBindings.removeValue(forKey: id) }
+        // Reattach before ordinary arrivals allocate a View. Match durable IDs
+        // only; a second page at the same URL is still an independent tab.
+        for (surfaceID, pinID) in restoringSidebarPinBindings where inventory.tabs[surfaceID] != nil && owner(of: surfaceID) != nil {
+            restoringSidebarPinBindings.removeValue(forKey: surfaceID)
+            guard let index = browserSidebarPins.firstIndex(where: { $0.id == pinID }),
+                  browserSidebarPins[index].surfaceID == nil, !pendingSidebarPinOpenings.contains(pinID),
+                  !browserSidebarPins.contains(where: { $0.surfaceID == surfaceID }),
+                  adoptPinnedSurface(surfaceID, into: browserSidebarPins[index].workspaceName) else { continue }
+            browserSidebarPins[index].surfaceID = surfaceID
+            restorePinnedViewLayout(containing: pinID)
+            restorePinnedDesktopLayout(workspace: browserSidebarPins[index].workspaceName)
+        }
         var absent: Set<SurfaceID> = []
         let profiles = Set(inventory.tabs.keys.compactMap { id -> UUID? in
             if case .browserTab(let profile, _) = id { return profile }
@@ -135,7 +161,7 @@ extension BrowserWorkspaceController {
                         (unresolvedSidebarPinOwners[surfaceID] == connection ||
                             (unresolvedSidebarPinOwners[surfaceID] == nil && !pendingSidebarPinOpenings.contains(pin.id) && profiles.contains(pin.profileID))) {
                 absent.insert(surfaceID)
-                browserPinDidClose(surfaceID)
+                browserPinDidClose(surfaceID, retainingForRestore: !removed.contains(surfaceID))
             }
         }
         return absent

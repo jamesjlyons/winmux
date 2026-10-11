@@ -74,8 +74,8 @@ extension BrowserWorkspaceController {
         }
     }
 
-    private func launchDescriptors(_ surfaces: [SurfaceID], workspace: String) -> ([BrowserSidebarPin], [NativeAppSidebarPin])? {
-        reconcileSavedViews()
+    private func launchDescriptors(_ surfaces: [SurfaceID], workspace: String, reconcile: Bool = true) -> ([BrowserSidebarPin], [NativeAppSidebarPin])? {
+        if reconcile { reconcileSavedViews() }
         var pages: [BrowserSidebarPin] = [], apps: [NativeAppSidebarPin] = []
         for surface in surfaces {
             if var page = sidebarPin(for: surface) { page.workspaceName = workspace; pages.append(page); continue }
@@ -94,6 +94,51 @@ extension BrowserWorkspaceController {
             }
         }
         return (pages, apps)
+    }
+
+    /// New panes need durable launch records before any live owner moves into a
+    /// pin. Keep this preflight read-only so failed edits leave saved intent intact.
+    func pinnedMembersForOrganizationChange(_ change: SurfaceOrganizationChange) -> [String: [ViewMember]]? {
+        var additions: [String: [ViewMember]] = [:]
+        for view in pinnedViews where change.workspaces.contains(view.workspaceName) {
+            let existing = Set(view.bindings.values)
+            let incoming = (change.tree.roots[view.workspaceName] ?? []).flatMap(\.surfaces).filter { !existing.contains($0) }
+            guard !incoming.isEmpty else { continue }
+            guard view.members.allSatisfy({ $0.surfaceID.map(isAvailable) == true }),
+                  !incoming.contains(where: isPrivateSurface),
+                  let descriptors = launchDescriptors(incoming, workspace: view.workspaceName, reconcile: false) else { return nil }
+            let members = descriptors.0.map(ViewMember.init) + descriptors.1.map(ViewMember.init)
+            guard members.allSatisfy(\.isValid), view.members.count + members.count <= 10_000 else { return nil }
+            additions[view.workspaceName] = members
+        }
+        guard !additions.isEmpty else { return [:] }
+        let existing = Set(browserSidebarPins.map(\.id) + nativeAppSidebarPins.map(\.id))
+        let added = Set(additions.values.flatMap { $0.map(\.id) }).subtracting(existing)
+        guard existing.count + added.count <= 10_000 else { return nil }
+        return additions
+    }
+
+    func commitPinnedMembers(_ additions: [String: [ViewMember]]) {
+        guard !additions.isEmpty else { return }
+        let moved = Set(additions.values.flatMap { $0.map(\.id) })
+        // A member has exactly one saved owner, including when combining two pins.
+        for index in savedViews.indices {
+            savedViews[index].members.removeAll { moved.contains($0.id) }
+            let retained = Set(savedViews[index].memberIDs)
+            savedViews[index].layout = savedViews[index].layout.compactMap { $0.keeping(retained) }
+            if let selected = savedViews[index].selectedMember, !retained.contains(selected) {
+                savedViews[index].selectedMember = nil
+            }
+        }
+        legacyBrowserPins.removeAll { moved.contains($0.id) }
+        legacyAppPins.removeAll { moved.contains($0.id) }
+        for index in savedViews.indices {
+            guard savedViews[index].isPinned, let members = additions[savedViews[index].workspaceName] else { continue }
+            savedViews[index].members += members
+            savedViews[index].kind = .group
+        }
+        prunePinnedMembers()
+        capturePinnedLayouts()
     }
 
     @discardableResult

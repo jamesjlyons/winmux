@@ -46,8 +46,14 @@ extension BrowserWorkspaceController {
               let sourceWorkspace = Workspace.existing(byName: sourceName),
               let targetName = workspaceName(for: target), let destination = Workspace.existing(byName: targetName),
               sourceWorkspace.projectId == destination.projectId,
-              sourceWorkspace.isPinnedGroup == destination.isPinnedGroup,
               isAvailable(source), isAvailable(target) else { return false }
+        // Combining from a pin's menu keeps that pin as the destination.
+        if sourceWorkspace.isPinnedGroup && !destination.isPinnedGroup {
+            guard pinnedViews.contains(where: { $0.workspaceName == sourceName }) else { return false }
+            return combineViews(target, with: source, layout: layout, before: layout == .stack ? false : !before)
+        }
+        guard sourceWorkspace.isPinnedGroup == destination.isPinnedGroup ||
+            pinnedViews.contains(where: { $0.workspaceName == targetName }) else { return false }
         let changed = editOrganization(of: source, movingTo: destination) { tree in
             layout == .stack ? tree.insertIntoStack(source, with: target)
                 : tree.split(source, beside: target, layout: layout, before: before)
@@ -92,7 +98,8 @@ extension BrowserWorkspaceController {
               group.surfaces.allSatisfy({ canCombinePinnedView(containing: $0) }), canCombinePinnedView(containing: target),
               let name = workspaceName(forGroup: id), let source = Workspace.existing(byName: name),
               let targetName = workspaceName(for: target), let destination = Workspace.existing(byName: targetName),
-              source.projectId == destination.projectId, source.isPinnedGroup == destination.isPinnedGroup,
+              source.projectId == destination.projectId,
+              source.isPinnedGroup == destination.isPinnedGroup || pinnedViews.contains(where: { $0.workspaceName == targetName }),
               let first = group.surfaces.first else { return false }
         let edit: (inout SurfaceTree) -> Bool = { $0.combineRootGroup(id, with: target, layout: layout, before: before) }
         let changed = source === destination ? editOrganization(of: first, edit) : moveGroup(id, to: destination, edit: edit)

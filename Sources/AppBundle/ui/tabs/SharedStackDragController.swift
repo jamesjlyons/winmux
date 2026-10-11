@@ -13,13 +13,16 @@ func resolveSharedStackDrop(_ pane: SurfacePane, pointer: CGPoint,
           moving.surfaces.allSatisfy(controller.canMoveSurface), let representative = moving.surfaces.first,
           let name = controller.surfaceTree.workspace(of: pane), let source = Workspace.existing(byName: name) else { return nil }
     let workspace = pointer.monitorApproximation.activeWorkspace
-    guard workspace.isVisible, workspace.projectId == source.projectId, workspace.isPinnedGroup == source.isPinnedGroup else { return nil }
+    guard workspace.isVisible, workspace.projectId == source.projectId,
+          workspace.isPinnedGroup == source.isPinnedGroup || controller.pinnedViews.contains(where: { $0.workspaceName == workspace.name }),
+          moving.surfaces.allSatisfy({ controller.canCombinePinnedView(containing: $0) }) else { return nil }
     if let header = sharedStackHeaderTarget(at: pointer, excluding: Set(moving.surfaces), in: workspace, controller: controller) {
+        guard controller.canCombinePinnedView(containing: header.surface) else { return nil }
         return .init(pane: pane, destination: .init(source: representative, target: header.surface, zone: .tab,
             targetFrame: header.frame, sourceWorkspace: name, targetWorkspace: workspace.name, targetStack: header.id))
     }
     for placement in controller.plannedSurfaces(in: workspace) where placement.visible && !moving.surfaces.contains(placement.surfaceID) {
-        guard controller.canMoveSurface(placement.surfaceID),
+        guard controller.canMoveSurface(placement.surfaceID), controller.canCombinePinnedView(containing: placement.surfaceID),
               let frame = surfaceDropTargetFrame(placement, workspace: workspace, controller: controller),
               let zone = WindowIntentZoneBuilder.zone(at: pointer, in: frame),
               zone != .tab || config.windowTabs.enabled,
