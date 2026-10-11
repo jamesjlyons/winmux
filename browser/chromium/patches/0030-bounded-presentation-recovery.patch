@@ -1,0 +1,171 @@
+--- /dev/null
++++ b/third_party/blink/renderer/platform/widget/compositing/bounded_presentation_callbacks.h
+@@ -0,0 +1,48 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WIDGET_COMPOSITING_BOUNDED_PRESENTATION_CALLBACKS_H_
++#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WIDGET_COMPOSITING_BOUNDED_PRESENTATION_CALLBACKS_H_
++
++#include <cstddef>
++#include <cstdint>
++#include <utility>
++#include <vector>
++
++namespace blink::internal {
++
++// Keep recent callbacks when a hidden/occluded surface stops presenting. Return
++// expired callbacks to the caller for failure completion AFTER updating the
++// queue, so callbacks may reenter registration without invalidating iterators.
++// Queue supports move-only callbacks and nondecreasing frame tokens.
++template <typename Callback, typename Queue>
++std::vector<Callback> EnqueueBoundedPresentationCallback(
++    uint32_t frame_token,
++    Callback callback,
++    Queue& queue,
++    size_t max_frames,
++    size_t max_callbacks_per_frame) {
++  std::vector<Callback> expired;
++  if (!queue.empty() && queue.back().first == frame_token) {
++    auto& same_frame = queue.back().second;
++    same_frame.push_back(std::move(callback));
++    if (same_frame.size() > max_callbacks_per_frame) {
++      expired.push_back(std::move(same_frame.front()));
++      same_frame.erase(same_frame.begin());
++    }
++  } else {
++    std::vector<Callback> callbacks;
++    callbacks.push_back(std::move(callback));
++    queue.emplace_back(frame_token, std::move(callbacks));
++    if (queue.size() > max_frames) {
++      expired = std::move(queue.front().second);
++      queue.pop_front();
++    }
++  }
++  return expired;
++}
++
++}  // namespace blink::internal
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_WIDGET_COMPOSITING_BOUNDED_PRESENTATION_CALLBACKS_H_
+--- a/third_party/blink/renderer/platform/BUILD.gn
++++ b/third_party/blink/renderer/platform/BUILD.gn
+@@ -1635,6 +1635,7 @@
+     "widget/compositing/blink_categorized_worker_pool_delegate.h",
+     "widget/compositing/layer_tree_settings.cc",
+     "widget/compositing/layer_tree_settings.h",
++    "widget/compositing/bounded_presentation_callbacks.h",
+     "widget/compositing/layer_tree_view.cc",
+     "widget/compositing/layer_tree_view.h",
+     "widget/compositing/layer_tree_view_delegate.h",
+--- a/third_party/blink/renderer/platform/widget/compositing/layer_tree_view.h
++++ b/third_party/blink/renderer/platform/widget/compositing/layer_tree_view.h
+@@ -135,7 +135,8 @@
+   void DidRunBeginMainFrame() override;
+ 
+   // Registers a callback that will be run on the first successful presentation
+-  // for `frame_token` or a following frame.
++  // for `frame_token` or a following frame. If presentation feedback stalls
++  // beyond the bounded queue, the oldest callbacks complete with failure.
+   void AddPresentationCallback(
+       uint32_t frame_token,
+       base::OnceCallback<void(const viz::FrameTimingDetails&)> callback);
+@@ -161,7 +162,7 @@
+           render_frame_metadata_observer);
+ 
+   template <typename Callback>
+-  void AddCallback(
++  std::vector<Callback> AddCallback(
+       uint32_t frame_token,
+       Callback callback,
+       base::circular_deque<std::pair<uint32_t, std::vector<Callback>>>&
+--- a/third_party/blink/renderer/platform/widget/compositing/layer_tree_view.cc
++++ b/third_party/blink/renderer/platform/widget/compositing/layer_tree_view.cc
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
+ #include "third_party/blink/renderer/platform/widget/compositing/layer_tree_view.h"
++
++#include "third_party/blink/renderer/platform/widget/compositing/bounded_presentation_callbacks.h"
+ 
+ #include <stddef.h>
+ 
+@@ -518,40 +520,59 @@
+ void LayerTreeView::AddPresentationCallback(
+     uint32_t frame_token,
+     base::OnceCallback<void(const viz::FrameTimingDetails&)> callback) {
+-  AddCallback(frame_token, std::move(callback), presentation_callbacks_);
++  auto expired =
++      AddCallback(frame_token, std::move(callback), presentation_callbacks_);
++  if (expired.empty()) {
++    return;
++  }
++  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
++      FROM_HERE, base::BindOnce([](std::vector<base::OnceCallback<void(
++                                    const viz::FrameTimingDetails&)>> expired) {
++  viz::FrameTimingDetails failure;
++  // A null timestamp lets ReportTimeSwapPromise use the original swap time;
++  // never manufacture a successful hardware presentation for a missing frame.
++  failure.presentation_feedback.flags = gfx::PresentationFeedback::kFailure;
++#if BUILDFLAG(IS_APPLE)
++  failure.presentation_feedback.ca_layer_error_code = gfx::kCALayerFailedUnknown;
++#endif
++  for (auto& pending : expired) {
++    std::move(pending).Run(failure);
++  }
++      }, std::move(expired)));
+ }
+ 
+ #if BUILDFLAG(IS_APPLE)
+ void LayerTreeView::AddCoreAnimationErrorCodeCallback(
+     uint32_t frame_token,
+     base::OnceCallback<void(gfx::CALayerResult)> callback) {
+-  AddCallback(frame_token, std::move(callback),
+-              core_animation_error_code_callbacks_);
++  auto expired = AddCallback(frame_token, std::move(callback),
++                             core_animation_error_code_callbacks_);
++  if (expired.empty()) {
++    return;
++  }
++  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
++      FROM_HERE, base::BindOnce([](std::vector<base::OnceCallback<void(
++                                    gfx::CALayerResult)>> expired) {
++        for (auto& pending : expired) {
++          std::move(pending).Run(gfx::kCALayerFailedUnknown);
++        }
++      }, std::move(expired)));
+ }
+ #endif
+ 
+ template <typename Callback>
+-void LayerTreeView::AddCallback(
++std::vector<Callback> LayerTreeView::AddCallback(
+     uint32_t frame_token,
+     Callback callback,
+     base::circular_deque<std::pair<uint32_t, std::vector<Callback>>>&
+         callbacks) {
+   DCHECK(delegate_);
+   if (!callbacks.empty()) {
+-    auto& previous = callbacks.back();
+-    uint32_t previous_frame_token = previous.first;
+-    if (previous_frame_token == frame_token) {
+-      previous.second.push_back(std::move(callback));
+-      DCHECK_LE(previous.second.size(), 250u);
+-      return;
+-    }
+-    DCHECK_GT(frame_token, previous_frame_token);
+-  }
+-  std::vector<Callback> new_callbacks;
+-  new_callbacks.push_back(std::move(callback));
+-  callbacks.emplace_back(frame_token, std::move(new_callbacks));
+-  DCHECK_LE(callbacks.size(),
+-            cc::PresentationTimeCallbackBuffer::kMaxBufferSize);
++    DCHECK_GE(frame_token, callbacks.back().first);
++  }
++  return internal::EnqueueBoundedPresentationCallback(
++      frame_token, std::move(callback), callbacks,
++      cc::PresentationTimeCallbackBuffer::kMaxBufferSize, 250u);
+ }
+ 
+ }  // namespace blink

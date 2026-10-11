@@ -1,0 +1,17 @@
+--- a/src/codegen/source-position.cc
++++ b/src/codegen/source-position.cc
+@@ -156,7 +156,13 @@
+     script = handle(Cast<Script>(maybe_script), isolate);
+   }
+   Script::PositionInfo info;
+-  if (Script::GetPositionInfo(script, pos.ScriptOffset(), &info)) {
++  // Deoptimization/profiling can request positions under DisallowGarbageCollection.
++  // Use the non-allocating lookup there instead of initializing line_ends on
++  // the managed heap. Keep the cached fast path for ordinary callers.
++  const bool found = AllowHeapAllocation::IsAllowed()
++                         ? Script::GetPositionInfo(script, pos.ScriptOffset(), &info)
++                         : script->GetPositionInfo(pos.ScriptOffset(), &info);
++  if (found) {
+     line = info.line;
+     column = info.column;
+   }

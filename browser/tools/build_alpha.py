@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -46,6 +47,18 @@ def owned_patch_state(source, patch):
 
 def integration_patches():
     return sorted((CONFIG / "patches").glob("*.patch"))
+
+
+def v8_patch_inputs(source):
+    """Pin the separate V8 checkout to the revision in Chromium's pinned DEPS."""
+    deps = subprocess.check_output(["git", "show", "HEAD:DEPS"], cwd=source, text=True)
+    match = re.search(r"'v8_revision':\s*'([0-9a-f]{40})'", deps)
+    if not match:
+        raise RuntimeError("Missing pinned V8 revision in Chromium DEPS")
+    revision = match.group(1)
+    if chromium.output("git", "rev-parse", "HEAD", cwd=source / "v8") != revision:
+        raise RuntimeError("Unexpected V8 revision; refusing to patch")
+    return revision, sorted((CONFIG / "v8-patches").glob("*.patch"))
 
 
 def owned_patch_prefix(source, patches):
@@ -120,6 +133,8 @@ def build(args, engine):
         args.allow_configuration_change)
     patches = integration_patches()
     patch_prefix = owned_patch_prefix(source, patches)
+    v8_revision, v8_patches = v8_patch_inputs(source)
+    v8_patch_prefix = owned_patch_prefix(source / "v8", v8_patches)
     state_path = engine / "alpha-build-state.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     old_hashes = state.get("overlay_sha256", {})
@@ -154,7 +169,10 @@ def build(args, engine):
     marker.write_text(json.dumps(owner, indent=2) + "\n")
     for patch in patches[patch_prefix:]:
         chromium.run("git", "apply", "--check", str(patch), cwd=source)
-        chromium.run("git", "apply", str(patch), cwd=source)
+        chromium.run("git", "apply", "--intent-to-add", str(patch), cwd=source)
+    for patch in v8_patches[v8_patch_prefix:]:
+        chromium.run("git", "apply", "--check", str(patch), cwd=source / "v8")
+        chromium.run("git", "apply", "--intent-to-add", str(patch), cwd=source / "v8")
     for name, data in overlay.items():
         target = source / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -162,6 +180,8 @@ def build(args, engine):
             target.write_bytes(data)
     state = {**owner, "configuration": "alpha-milestone-0", "build_succeeded": False,
              **configuration, "patches_sha256": {p.name: digest(p.read_bytes()) for p in patches},
+             "v8_revision": v8_revision,
+             "v8_patches_sha256": {p.name: digest(p.read_bytes()) for p in v8_patches},
              "overlay_sha256": {name: digest(data) for name, data in overlay.items()},
              "build_jobs": args.jobs, "build_directory": str(output),
              "control_directory": str(control)}

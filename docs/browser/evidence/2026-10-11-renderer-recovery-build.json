@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-11",
+  "status": "bounded_checks_passed_remote_trigger_unconfirmed",
+  "candidate": "browser-alpha-renderer-recovery-2026-10-11-rc1",
+  "package_manifest_sha256": "da9bbd308258a7b0b32a9abd54de82c04e4aa13c7839714536a1ae836db5ed46",
+  "changes": [
+    "Bound pending presentation callbacks to 60 frame tokens and 250 callbacks per token; complete expired callbacks asynchronously with failure feedback.",
+    "Use V8 non-allocating source position lookup under forbidden heap allocation scopes.",
+    "Defer serialization of an accessibility tree dirtied during finalization and schedule a rebuild while preserving AX objects.",
+    "Include all current native source, resource, default configuration and engine changes."
+  ],
+  "assertions_sandbox_and_site_isolation_retained": true,
+  "callback_regression": {
+    "binary_sha256": "4b3846c2ba7c580ed1649905fdf81c0df675fe2893fe3afecdf8b4faaa039e59",
+    "header_sha256": "c0a9a65daee514e79bd2fc0395b9a94d07f71b0d3480d67119da8b39eff71241",
+    "compiler_flags": [
+      "-std=c++20",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fsanitize=address,undefined"
+    ],
+    "exit_code": 0
+  },
+  "tests": {
+    "native_application": 1253,
+    "workspace_core": 215,
+    "bridge_core": 26,
+    "python_browser_tools": 93,
+    "bounded_callback_queue": "3000 registrations across stalled-frame, same-token and normal-completion workloads; ASan and UBSan enabled",
+    "live_browser_checks": {
+      "candidate-inventory": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-inventory/result.json",
+        "sha256": "864392c7ae7bb2fba9d5e30893b1db9676a507fca5f012e50b59bcf5710744c2",
+        "scope": "actual_signed_browser_protocol11_page_windows_profiles",
+        "test_service_removed": true
+      },
+      "candidate-profiler": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-profiler/result.json",
+        "sha256": "e9d97488fceb090f04d937f9a03ad23f4793248b3cb9ee88cf44afdf417b871b",
+        "scope": "isolated_injected_failure_capture_and_bounded_recovery",
+        "cases": [
+          {
+            "name": "profiler-deopt",
+            "passed": true,
+            "deoptimization": {
+              "optimized": 41,
+              "result": "changed1",
+              "after": 65
+            }
+          }
+        ]
+      },
+      "candidate-accessibility": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-accessibility/result.json",
+        "sha256": "513d565e7ab4ed007b4e304dcfa84779e3028417d639967ad99d047086398f0d",
+        "scope": "isolated_injected_failure_capture_and_bounded_recovery",
+        "cases": [
+          {
+            "name": "accessibility-churn",
+            "passed": true,
+            "cycles": 120
+          }
+        ]
+      },
+      "candidate-helper": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-helper/result.json",
+        "sha256": "39ef4b640065d3f33ebdbe6337e54c9f5df0a186c7c1bb65036fa30ed508491b",
+        "scope": "isolated_helper_process_failure_and_inventory_recovery",
+        "recovery_seconds": 1.2029398749999998,
+        "test_service_removed": true
+      },
+      "candidate-popup": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-popup/result.json",
+        "sha256": "82dbf02d28fd2e294db89a1e4af5cbf96fb424e82407c808a4a580cba8ef8885",
+        "scope": "isolated_visible_popup_lifecycle",
+        "cases": [
+          {
+            "name": "popup-lifecycle",
+            "passed": true,
+            "resize_focus_cycles": 80,
+            "open_close_cycles": 5
+          }
+        ]
+      },
+      "candidate-media-return": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-media-return/result.json",
+        "sha256": "25bf98d58c5a71b4d1ec0eda41f0ee098f1865a77e5f60f9d4f123ea40eed60e",
+        "scope": "isolated_headed_media_background_freeze_discard_return",
+        "cases": [
+          {
+            "kind": "mp4",
+            "passed": true
+          },
+          {
+            "kind": "mse",
+            "passed": true
+          },
+          {
+            "kind": "webm",
+            "passed": true
+          }
+        ]
+      },
+      "candidate-video": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-video/result.json",
+        "sha256": "a458062680944d4846bd2036738fc7e3c9fc05baddb39a7f04f592d18c10026c",
+        "scope": "isolated_visible_managed_video_fullscreen",
+        "test_service_removed": true,
+        "feed_samples_count": 72,
+        "samples_count": 18,
+        "native_cases_count": 3
+      },
+      "candidate-switching": {
+        "passed": true,
+        "result_path": ".local/browser-renderer-recovery-2026-10-11/candidate-switching/result.json",
+        "sha256": "79b546fddfe9bc4e009817c4fc318bf09ed0df53a3286acac09a5d9651fff67d",
+        "scope": "isolated_live_pinned_desktop_switching",
+        "metrics": {
+          "warm": {
+            "command_ms": {
+              "count": 60,
+              "median_ms": 9.0488125,
+              "p95_ms": 13.341083,
+              "p99_ms": 58.082458,
+              "max_ms": 58.082458
+            },
+            "input_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 25.6276455,
+              "p95_ms": 37.66225,
+              "p99_ms": 64.621542,
+              "max_ms": 64.621542
+            },
+            "animation_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 39.556062,
+              "p95_ms": 46.687791,
+              "p99_ms": 70.052,
+              "max_ms": 70.052
+            }
+          },
+          "space": {
+            "command_ms": {
+              "count": 60,
+              "median_ms": 8.5369585,
+              "p95_ms": 16.507291,
+              "p99_ms": 18.4205,
+              "max_ms": 18.4205
+            },
+            "input_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 35.156271000000004,
+              "p95_ms": 46.112666,
+              "p99_ms": 58.720334,
+              "max_ms": 58.720334
+            },
+            "animation_upper_bound_ms": {
+              "count": 60,
+              "median_ms": 41.150771,
+              "p95_ms": 53.399458,
+              "p99_ms": 69.857917,
+              "max_ms": 69.857917
+            }
+          }
+        },
+        "cleanup": {
+          "input_selector": true,
+          "input_probe": true,
+          "environment": true,
+          "browser": true,
+          "sleep_assertion": true,
+          "service": true,
+          "native_fixture": true,
+          "server": true
+        },
+        "samples_count": 120
+      }
+    }
+  },
+  "limits": [
+    "The original authenticated Twitter incident on the other laptop has not been directly reproduced.",
+    "The profiler and accessibility workloads passed; they do not independently reproduce the exact two reported assertions.",
+    "Callback backlog recovery prevents the recorded queue-limit failure; the upstream cause of missing presentation feedback is not established.",
+    "Long-duration and sleep/wake soak tests remain deferred.",
+    "Short runtime checks used this Mac on macOS 27.0.1; timings on the other laptop may differ."
+  ],
+  "source_sha256": {
+    "browser/tests/bounded_presentation_callbacks_test.cc": "0540b04173ff4b788b60f838ad3c35ae1240b8fc5f41a7f37c03eebf60e8a6f5",
+    "browser/tools/test_browser_failure_capture.mjs": "e012ae29bf1e7b7ae42320b307a25c5e26c76c0e60282068665ef9faf7a0a75c",
+    "browser/tools/test_browser_media_return.mjs": "277e7f79c18e56c07bff62143631423663465fe85d5eb1a84877348c19bf834b",
+    "browser/tools/build_alpha.py": "45316a95706656f1a06e0fabd2928c704bb781b84deab56463a08ec0c97a95ac",
+    "browser/tools/package_alpha.py": "50d751f8407de08eb6f3da03666f64ed28fb87e669dcd2f9f4d6654fe937ad4a"
+  }
+}

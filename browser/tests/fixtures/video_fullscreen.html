@@ -13,12 +13,17 @@ p { padding: 12px; }
 const peer = location.pathname === '/peer';
 const video = document.querySelector('video');
 let pending, handled = 0, completed = 0, objectURL;
+let feed, feedSteps = 0;
+const feedPlayers = [];
 const events = [];
 function state(event, extra = {}) {
   const value = {peer, event, completed, prepared: pending?.sequence ?? 0,
     fullscreen: !!document.fullscreenElement, frames: video.getVideoPlaybackQuality().totalVideoFrames,
     audioBytes: video.webkitAudioDecodedByteCount, currentTime: video.currentTime,
-    paused: video.paused, readyState: video.readyState, events: events.slice(-40), ...extra};
+    paused: video.paused, readyState: video.readyState, feedSteps,
+    feedPlayers: feedPlayers.map(player => ({frames: player.getVideoPlaybackQuality().totalVideoFrames,
+      paused: player.paused, error: player.error?.code ?? null})),
+    events: events.slice(-40), ...extra};
   fetch('/event', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value)});
 }
 document.addEventListener('fullscreenchange', () => {
@@ -40,12 +45,66 @@ window.addEventListener('keydown', async event => {
     // commands or inject scripts between activation and requestFullscreen().
     if (command.action === 'enter') await video.requestFullscreen();
     else if (command.action === 'exit') await document.exitFullscreen();
+    else if (command.action.startsWith('feed-')) await feedAction(command);
     else if (command.action !== 'ack') throw new Error('Unexpected input action');
     completed = command.sequence;
     state('input_complete', {trusted: event.isTrusted});
   } catch (error) { state('input_error', {error: String(error), sequence: command.sequence}); }
 });
 window.addEventListener('pointerdown', event => state('pointer_received', {trusted: event.isTrusted}));
+const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+async function feedAction(command) {
+  if (command.action === 'feed-start') {
+    if (feed) throw new Error('Feed already exists');
+    feed = document.createElement('section');
+    feed.style.cssText = 'height:240px;overflow:auto';
+    video.after(feed);
+    for (let index = 0; index < 3; index++) {
+      const card = document.createElement('article');
+      card.style.minHeight = '220px';
+      const player = document.createElement('video');
+      player.muted = true; player.loop = true; player.controls = true;
+      player.src = index % 2 ? '/bear-vp9-opus.webm' : '/bear-1280x720.mp4';
+      player.addEventListener('error', () => state('feed_error', {error: player.error?.message || 'Feed media error'}));
+      card.append(player); feed.append(card); feedPlayers.push(player);
+      await player.play();
+    }
+    return;
+  }
+  if (!feed) throw new Error('Feed is missing');
+  if (command.action === 'feed-stop') {
+    for (const player of feedPlayers) {
+      player.pause(); player.removeAttribute('src'); player.load(); player.remove();
+    }
+    feedPlayers.length = 0; feed.remove(); feed = undefined; window.scrollTo(0, 0);
+    return;
+  }
+  const index = command.step;
+  const player = feedPlayers[index % feedPlayers.length];
+  switch (index % 6) {
+    case 0:
+      player.currentTime = Math.min(1, player.duration / 2);
+      await player.play(); break;
+    case 1:
+      player.pause(); await delay(60); await player.play(); break;
+    case 2:
+      player.pause(); player.removeAttribute('src'); player.load();
+      player.src = index % 12 === 2 ? '/bear-vp9-opus.webm' : '/bear-1280x720.mp4';
+      await player.play(); break;
+    case 3: {
+      const card = player.parentElement;
+      player.pause(); player.remove(); card.append(player); await player.play(); break;
+    }
+    case 4:
+      player.playbackRate = index % 12 === 4 ? 1.5 : 0.5; break;
+    case 5:
+      feed.prepend(feed.lastElementChild); break;
+  }
+  feed.scrollTop = player.parentElement.offsetTop - feed.offsetTop;
+  await delay(120);
+  if (player.error || player.paused) throw new Error('Feed player failed to resume');
+  feedSteps++;
+}
 async function load(kind) {
   video.pause();
   video.removeAttribute('src');

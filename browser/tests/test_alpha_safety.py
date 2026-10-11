@@ -43,6 +43,7 @@ def alpha_build_fixture(build_args):
                 "depot_tools" if kwargs.get("cwd") == engine / "depot_tools" else "chromium"]["revision"]))
         run = mocks.enter_context(patch.object(build_alpha.chromium, "run"))
         mocks.enter_context(patch.object(build_alpha, "owned_patch_prefix", return_value=0))
+        mocks.enter_context(patch.object(build_alpha, "v8_patch_inputs", return_value=("a" * 40, [])))
         mocks.enter_context(patch("prepare_blocking.prepare", return_value={"library_sha256": "fixture-library"}))
         yield SimpleNamespace(engine=engine, source=source, output=output, control=control,
                               baseline=baseline, archived=archived, run=run,

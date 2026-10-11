@@ -1,0 +1,32 @@
+--- a/third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.cc
++++ b/third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.cc
+@@ -3749,14 +3749,21 @@
+         }
+ #endif
+ 
+-        // Updating the tree did not add dirty objects.
+-        // TODO(crbug.com/500793607): Investigate and convert to CHECK.
+-        DCHECK(!IsDirty())
+-            << "Cache dirtied at bad time:" << "\nAll: " << mark_all_dirty_
+-            << "\nRoot children: " << Root()->NeedsToUpdateChildren()
+-            << "\nRoot descendants: " << Root()->HasDirtyDescendants()
+-            << "\nRelation cache: " << relation_cache_->IsDirty()
+-            << "\nUpdates paused: " << tree_updates_paused_;
++        // Finalization can dirty another relation or subtree. Do not serialize
++        // an inconsistent tree or terminate the renderer. Preserve AX objects
++        // and rebuild their cached properties on the next lifecycle update.
++        if (IsDirty()) {
++          lifecycle_.EnsureStateAtMost(AXObjectCacheLifecycle::kDeferTreeUpdates);
++          MarkDocumentDirty();
++          // Schedule after the current animation/lifecycle pass; an immediate
++          // ScheduleAXUpdate() is ignored while animations are being serviced.
++          document.GetTaskRunner(blink::TaskType::kInternalDefault)->PostTask(
++              FROM_HERE,
++              BindOnce(&AXObjectCacheImpl::ScheduleAXUpdate,
++                       WrapPersistent(weak_factory_for_serialization_pipeline_
++                                          .GetWeakCell())));
++          return false;
++        }
+       }
+     }
+   }

@@ -1,0 +1,234 @@
+{
+  "date": "2026-10-10",
+  "status": "crash_signatures_identified_remote_trigger_not_yet_reproduced",
+  "input": {
+    "filename": "WinMux-diagnostics-20261010-214732.json",
+    "sha256": "b40999744b38732347b0acfc507d2dea1ae79928a58844d56ad031e2c2a9d592",
+    "collected_utc": "2026-10-11T04:47:32Z",
+    "recent_dump_files": 55,
+    "summarized_crashes": 20,
+    "system": {
+      "chip": "Apple M3 Pro",
+      "macos": "27.0",
+      "macos_build": "26A428",
+      "memory_bytes": "38654705664",
+      "model": "Mac15,6"
+    }
+  },
+  "installed_package": {
+    "release": "browser-alpha-window-animations-2026-10-10",
+    "sha256": {
+      "browser": "991ea788db09f8fd3bafffdd804820472c35064cd9de3e59040e609b119114c1",
+      "framework": "15852ffc6030be96b4b03882a7492cfb0144ecdffdf676c392aaae2fab90d32f",
+      "helper": "afad5cb08bb565d41de6d2ff49ee3a4074d1feb9ef516d5b11782ce32037aa65"
+    },
+    "framework_uuid": "AB5A4EF7-23ED-3585-9609-C604C31481FF",
+    "engine_uuid_matches_stability_fixes_rc5": true,
+    "popup_patches_0027_and_0028_present_in_both_manifests": true
+  },
+  "method": "UUID-matched LLVM symbolizer, PC unchanged; return addresses adjusted to ARM64 call instruction; function symbols only, no line tables",
+  "counts": {
+    "presentation_callback_buffer_limit": 18,
+    "v8_profiler_heap_allocation_assertion": 1,
+    "accessibility_dirty_cache_assertion": 1
+  },
+  "findings": {
+    "presentation_callback_buffer_limit": {
+      "assertion": "callbacks.size() <= cc::PresentationTimeCallbackBuffer::kMaxBufferSize (60)",
+      "source": "third_party/blink/renderer/platform/widget/compositing/layer_tree_view.cc:558",
+      "rc5_engine_crashes": 13,
+      "older_engine_crashes": 5,
+      "meaning": "Pending presentation callbacks for more than 60 frame tokens trigger a fatal DCHECK. The failure point is established; the cause of missing successful presentation feedback is not.",
+      "prior_fix": "The popup visibility patch did not eliminate this crash signature; the report does not identify which page or internal renderer crashed."
+    },
+    "v8_profiler_heap_allocation_assertion": {
+      "assertion": "AllowHeapAllocation::IsAllowed()",
+      "source": "v8/src/heap/heap-allocator-inl.h:94",
+      "stack": "ProfilerListener::AttachDeoptInlinedFrames -> SourcePosition::InliningStack -> Script::GetPositionInfo -> InitLineEnds -> HeapAllocator::AllocateRaw -> V8_Dcheck",
+      "meaning": "Heap allocation attempted inside a scope that forbids it while recording deoptimization information. This stack is not evidence of out-of-memory.",
+      "return_address_correction": "Subtracting 4 from ARM64 return addresses is essential: unadjusted addresses coincide with the next function and can incorrectly name FatalOOM."
+    },
+    "accessibility_dirty_cache_assertion": {
+      "assertion": "!IsDirty()",
+      "source": "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.cc:3754",
+      "meaning": "Accessibility cache remains dirty after committing tree updates. Seen once in the older engine."
+    },
+    "release_configuration": {
+      "source": "build/config/dcheck_always_on.gni",
+      "meaning": "Non-official Chromium builds enable fatal DCHECKs by default even with is_debug=false. The supplied release arguments do not override that default. All 20 sampled stacks terminate through DCHECKs. Disabling assertions alone is not a verified fix for callback retention or the underlying state errors."
+    }
+  },
+  "groups": {
+    "presentation_callback_buffer_limit": [
+      {
+        "dump_name": "0dd26572-0797-438d-974e-c545f0ef2ed2.dmp",
+        "generated_utc": "2026-10-11T04:11:15Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "ab288d40-cd6b-4931-99bb-d66c8db383c0.dmp",
+        "generated_utc": "2026-10-11T04:11:14Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "0a790576-7d83-4609-b889-ea8f2f624788.dmp",
+        "generated_utc": "2026-10-11T04:11:14Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "abc23cdf-596f-41fe-b7ad-58a05f876f65.dmp",
+        "generated_utc": "2026-10-11T04:11:11Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "b1fc798f-6b61-4310-b517-5f05919d9b1a.dmp",
+        "generated_utc": "2026-10-10T20:40:19Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "5bd8fd72-ef6f-45e1-b524-e82858ccac61.dmp",
+        "generated_utc": "2026-10-10T20:40:19Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "128568dd-3166-423b-889b-8c29425a312e.dmp",
+        "generated_utc": "2026-10-10T20:40:17Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "7dbf2650-499c-4eed-af2a-fb198e37834f.dmp",
+        "generated_utc": "2026-10-10T20:40:15Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "10df8205-6d67-4814-b759-cf0232abc7ca.dmp",
+        "generated_utc": "2026-10-10T04:45:55Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "aad60130-4694-4d21-a7e0-492d26b2b706.dmp",
+        "generated_utc": "2026-10-10T04:45:52Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "addfd40f-d392-4a15-a4bc-deb30acc364f.dmp",
+        "generated_utc": "2026-10-10T03:29:10Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "a1c7ee9f-2af0-437c-b6ea-10cb6f72efba.dmp",
+        "generated_utc": "2026-10-10T03:29:08Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "5ca83d74-dc82-43ea-8a44-bf2b5059f561.dmp",
+        "generated_utc": "2026-10-10T03:29:05Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      },
+      {
+        "dump_name": "7fa0c688-eb3a-414f-be47-c226db834e0b.dmp",
+        "generated_utc": "2026-10-09T19:51:54Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      },
+      {
+        "dump_name": "9cb46c6b-eb2a-45e7-a86c-bdf90b5773e2.dmp",
+        "generated_utc": "2026-10-09T19:51:37Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      },
+      {
+        "dump_name": "fc5c3f99-0a7c-4830-8965-678f08e12680.dmp",
+        "generated_utc": "2026-10-09T17:34:04Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      },
+      {
+        "dump_name": "2c4e22b6-dde5-41a1-9311-128a7eea86c0.dmp",
+        "generated_utc": "2026-10-09T16:32:40Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      },
+      {
+        "dump_name": "12396464-48f8-4b43-924f-b941db778134.dmp",
+        "generated_utc": "2026-10-09T16:32:38Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      }
+    ],
+    "v8_profiler_heap_allocation_assertion": [
+      {
+        "dump_name": "5ae80206-f1a2-48cc-9e15-5dadf05ca80b.dmp",
+        "generated_utc": "2026-10-10T20:42:53Z",
+        "framework_uuid": "ab5a4ef7-23ed-3585-9609-c604c31481ff"
+      }
+    ],
+    "accessibility_dirty_cache_assertion": [
+      {
+        "dump_name": "b7f5ac61-1a96-4c83-b420-c3643d4c3c3c.dmp",
+        "generated_utc": "2026-10-09T18:42:56Z",
+        "framework_uuid": "bfb6e221-fe06-3299-859d-2eaa61b12fc3"
+      }
+    ]
+  },
+  "follow_up_priority": [
+    "Verify the new RC1 candidate on the affected laptop when returning to Twitter; the user confirms this activity coincided with the latest callback-backlog crash cluster.",
+    "Trace visibility and presentation feedback at the failing host, retaining the existing closed-popup regression.",
+    "Resolve V8 profiler allocation and accessibility assertions separately; do not interpret either as system memory pressure.",
+    "Review shipping build DCHECK policy separately from fixing and testing callback lifecycle."
+  ],
+  "limits": [
+    "The 20 newest summaries do not characterize all 55 recent dump files.",
+    "The collector intentionally excludes page URLs; these stacks cannot prove which reports belong to Twitter.",
+    "No main-browser or GPU-process crash appears among the 20 summaries; this does not rule out unsampled or unrecorded failures.",
+    "The other laptop is not connected for live inspection.",
+    "No production engine changes or new fixed package have been made for this incident.",
+    "Long-duration tests remain deferred."
+  ],
+  "local_artifacts": {
+    "v8-allocation-callsite.txt": "f0313c9bf8507acff2c3acbdb3a8a53e48b2bf166378aa4abd5c93f8b7276900",
+    "symbolicated-report.json": "d64f1b971b5b8c3048227208e2f77006f1dc6019d4b02a6dac60ed6ef9baa7b2",
+    "presentation-buffer-callsite.txt": "e1f3035309ccfe89758c6191b76517247481413e0858419985386474812aac03",
+    "accessibility-callsite.txt": "740528f1d1bcdb9973d2a7f1efde2afa8ec0cf269ba4ea5fa166f77cc17cc315"
+  },
+  "bounded_verification": {
+    "native_media_return": {
+      "passed": true,
+      "result_path": ".local/twitter-crash-analysis-2026-10-10/native-media-return/result.json",
+      "result_sha256": "bcfa1b4f971a410c784168b8d59c00db41642eb5263df59e2c9a5fab060e06d9",
+      "codecs": [
+        "mp4",
+        "mse",
+        "webm"
+      ],
+      "transitions": 12,
+      "scope": "isolated_headed_media_background_freeze_discard_return",
+      "package_manifest_sha256": "f90b3ccc08f8c75dcb82668991f569def5e749fe898a1805c6fcb4552841ba0d",
+      "unexpected_renderer_crashes": 0,
+      "browser_exit_after_cleanup": {
+        "code": 0,
+        "signal": null
+      },
+      "limits": [
+        "Pinned local clips and a fresh profile; no authenticated Twitter, extensions, or user data.",
+        "Native browser window with explicit freeze/discard; no managed workspace, automatic aging, or compositor qualification.",
+        "Short bounded transitions; long-duration testing remains deferred."
+      ]
+    },
+    "node_syntax": "pass"
+  },
+  "test_source_sha256": {
+    "browser/tools/test_browser_media_return.mjs": "277e7f79c18e56c07bff62143631423663465fe85d5eb1a84877348c19bf834b",
+    "browser/tests/fixtures/media_background_return.html": "e9124adf119e89f0ea64f9bbe9a3cc7d79629fa43c0a9af56a404eb7af829b47"
+  },
+  "incident_correlation": {
+    "confirmed_by": "user follow-up on 2026-10-11",
+    "local_time": "2026-10-10 around 21:11 America/Los_Angeles",
+    "activity": "Returning to Twitter",
+    "matching_crash_times_utc": [
+      "2026-10-11T04:11:11Z",
+      "2026-10-11T04:11:14Z",
+      "2026-10-11T04:11:15Z"
+    ],
+    "signature": "presentation_callback_buffer_limit",
+    "scope": "User correlates the latest renderer crash cluster with returning to Twitter. The report omits page URLs, so individual renderer origins remain unverified.",
+    "candidate": "browser-alpha-renderer-recovery-2026-10-11-rc1",
+    "candidate_evidence": "docs/browser/evidence/2026-10-11-renderer-recovery-build.json",
+    "post_fix_remote_verification": "not yet reported"
+  }
+}

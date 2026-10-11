@@ -183,6 +183,11 @@ def package(args, identity, team, source):
     patches = build_alpha.integration_patches()
     if build_alpha.owned_patch_prefix(source, patches) != len(patches):
         raise RuntimeError("Compiled alpha patch is no longer applied to the checkout")
+    v8_revision, v8_patches = build_alpha.v8_patch_inputs(source)
+    if (manifest.get("v8_revision") != v8_revision or
+            manifest.get("v8_patches_sha256") != {p.name: sha256(p) for p in v8_patches} or
+            build_alpha.owned_patch_prefix(source / "v8", v8_patches) != len(v8_patches)):
+        raise RuntimeError("V8 source or patch provenance changed since compilation")
     for name, expected in manifest.get("blocking", {}).get("source_sha256", {}).items():
         if sha256(ROOT / name) != expected:
             raise RuntimeError("Blocker source changed since compilation")
@@ -231,6 +236,8 @@ def package(args, identity, team, source):
     notices = app / "Contents/Resources/WinMuxBlocking"
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
     native = ROOT / "browser/native"
+    agent_source = native / (HELPER_ID + ".plist")
+    agent_source_hash = sha256(agent_source)
     native_build = ROOT / ".local/browser/sidebar-native-build"
     native_hashes = native_source_hashes()
     native_package_hash = sha256(ROOT / "Package.swift")
@@ -261,7 +268,7 @@ def package(args, identity, team, source):
                      timestamp, str(destination))
     agents = app / "Contents/Library/LaunchAgents"
     agents.mkdir(parents=True, exist_ok=True)
-    agent = plistlib.loads((native / (HELPER_ID + ".plist")).read_bytes())
+    agent = plistlib.loads(agent_source.read_bytes())
     agent["BundleProgram"] = helper_relative
     (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
     # Workspace Setup runs inside the embedded helper application. Its separate
@@ -273,11 +280,13 @@ def package(args, identity, team, source):
         "Label": managed_id, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
         "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace"],
         "MachServices": {managed_id: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+        "ThrottleInterval": agent["ThrottleInterval"],
     }))
     (managed_agents / (validation_service + ".plist")).write_bytes(plistlib.dumps({
         "Label": validation_service, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
         "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace", validation_service],
         "MachServices": {validation_service: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+        "ThrottleInterval": agent["ThrottleInterval"],
     }))
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
                  "--options", "runtime", timestamp, str(helper_app))
@@ -312,6 +321,7 @@ def package(args, identity, team, source):
     # smoke tests do not start native management or load this configuration.
     subprocess.run([str(helper), "--validate-bundled-config"], check=True, timeout=30)
     if (native_hashes != native_source_hashes()
+            or agent_source_hash != sha256(agent_source)
             or native_package_hash != sha256(ROOT / "Package.swift")
             or default_config_hash != sha256(ROOT / "resources/default-config.toml")
             or default_config_hash != sha256(helper_app / "Contents/Resources/default-config.toml")):
@@ -320,6 +330,9 @@ def package(args, identity, team, source):
                   browser_executable_sha256=sha256(app / "Contents/MacOS/Chromium"),
                   native_sources_sha256=native_hashes,
                   native_package_sha256=native_package_hash,
+                  launch_agent_source_sha256=agent_source_hash,
+                  launch_agents_sha256={str(p.relative_to(app)): sha256(p)
+                      for directory in (agents, managed_agents) for p in sorted(directory.glob("*.plist"))},
                   default_config_sha256=default_config_hash, bundled_config_validated=True,
                   package_tool_sha256=sha256(Path(__file__)),
                   app_icon_source_sha256=sha256(icon_source),

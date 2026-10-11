@@ -68,12 +68,17 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples", type=int, default=60)
     parser.add_argument("--pages", type=int, default=35)
+    parser.add_argument("--soak-minutes", type=float, default=0, help="Repeat warm switches for this duration before the frozen-page checks")
     parser.add_argument("--skip-freeze", action="store_true", help="Warm-path diagnostic only")
+    parser.add_argument("--require-targets", action="store_true",
+                        help="Fail when any requested input-latency target is missed")
     parser.add_argument("--failure-hold-seconds", type=int, default=0,
                         help="Keep a failed isolated fixture open briefly for UI diagnosis")
     args = parser.parse_args()
-    if args.samples < 2 or not 15 <= args.pages <= 64:
-        parser.error("Use at least two samples and 15–64 fixture pages")
+    if args.samples < 2 or not 15 <= args.pages <= 200:
+        parser.error("Use at least two samples and 15–200 fixture pages")
+    if not math.isfinite(args.soak_minutes) or not 0 <= args.soak_minutes <= 120:
+        parser.error("Soak duration must be between 0 and 120 minutes")
     if not 0 <= args.failure_hold_seconds <= 120:
         parser.error("Failure hold must be between zero and 120 seconds")
     app = args.app.resolve(strict=True)
@@ -140,7 +145,7 @@ speed-space = 'Speed fixture'
     endpoint = Path(f"/tmp/winmux-browser-{os.getuid()}-{digest}.sock")
     result = dict(scope="isolated_live_pinned_desktop_switching", passed=False, samples=[],
                   requested_warm_samples=args.samples, requested_space_samples=args.samples,
-                  fixture_page_count=args.pages, freeze_check_requested=not args.skip_freeze,
+                  fixture_page_count=args.pages, soak_minutes=args.soak_minutes, freeze_check_requested=not args.skip_freeze,
                   package_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                   probe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   fixture_sha256=hashlib.sha256((ROOT / "browser/tools/switch_page_fixture.py").read_bytes()).hexdigest(),
@@ -215,6 +220,7 @@ speed-space = 'Speed fixture'
         # cancelled while Chromium attaches that page to its singleton host.
         print(json.dumps(dict(phase="mapping_keyboard_targets", pages=len(ids))), flush=True)
         for surface in ids:
+            result["mapping_target"] = surface
             request(endpoint, ["surface", "focus", surface])
             wait_until(lambda: next((r for r in rows() if r["id"] == surface and r["browser"].get("requestedVisible")
                                     and r["browser"].get("layoutReply") == "issued"), None))
@@ -284,9 +290,14 @@ speed-space = 'Speed fixture'
         with (output / "environment.log").open("x") as log:
             environment = subprocess.Popen([str(environment_binary), "--pid", str(browser.pid),
                 "--executable", str(executable), "--output", str(environment_path),
-                "--seconds", "600", "--interval", "1", "--until-file", str(environment_done)],
+                "--seconds", str(600 + math.ceil(args.soak_minutes * 60)), "--interval", "1", "--until-file", str(environment_done)],
                 stdout=log, stderr=subprocess.STDOUT)
-        wait_until(lambda: environment_path.exists() and len(environment_path.read_text().splitlines()) >= 2)
+        def environment_ready():
+            if environment.poll() is not None:
+                detail = (output / "environment.log").read_text().strip()
+                raise RuntimeError(f"Environment observer exited before measurement: {detail}")
+            return environment_path.exists() and len(environment_path.read_text().splitlines()) >= 2
+        wait_until(environment_ready)
         print(json.dumps(dict(phase="warm", samples=args.samples)), flush=True)
 
         def measure(surface, kind, command=None):
@@ -364,6 +375,14 @@ speed-space = 'Speed fixture'
         if not (min(split_widths) > 0 and max(split_widths) < .6 * min(full_widths)):
             raise RuntimeError("Individual and grouped pins did not receive full and split desktop widths")
         result["dedicated_and_shared_desktop_widths_verified"] = True
+        if args.soak_minutes:
+            print(json.dumps(dict(phase="soak", minutes=args.soak_minutes)), flush=True)
+            request(endpoint, ["surface", "focus", warm_peer]); time.sleep(.2)
+            soak_end = time.monotonic() + args.soak_minutes * 60
+            iteration = 0
+            while time.monotonic() < soak_end:
+                measure(first if iteration % 2 == 0 else warm_peer, "soak")
+                iteration += 1
         if not args.skip_freeze:
             print(json.dumps(dict(phase="waiting_for_real_freeze", deadline_seconds=190)), flush=True)
             def frozen_pages():
@@ -410,6 +429,10 @@ speed-space = 'Speed fixture'
         result["passed"] = True
     except (Exception, KeyboardInterrupt) as error:
         result["error"] = f"{type(error).__name__}: {error}"
+        try:
+            result["failure_inventory"] = rows()
+        except Exception as inventory_error:
+            result["failure_inventory_error"] = str(inventory_error)
         if args.failure_hold_seconds and not isinstance(error, KeyboardInterrupt):
             (output / "failure.json").write_text(json.dumps(dict(
                 error=result["error"], browser_pid=browser.pid if browser else None,
@@ -434,6 +457,14 @@ speed-space = 'Speed fixture'
                        if kind in groups else None)
             for kind, limit in targets.items()
         }
+        result["functional_passed"] = result["passed"]
+        required_kinds = ("warm", "space") if args.skip_freeze else ("warm", "space", "frozen")
+        result["input_targets_passed"] = all(
+            result["input_observation_targets"][kind]["passed"] is True for kind in required_kinds)
+        result["input_targets_required"] = args.require_targets
+        if args.require_targets and not result["input_targets_passed"]:
+            result["passed"] = False
+            result.setdefault("error", "A requested input-latency target was missed or not measured")
         result["cleanup"] = {}
         def stop_environment():
             environment_done.touch(exist_ok=True)

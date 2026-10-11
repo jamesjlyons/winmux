@@ -123,11 +123,15 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--helper-override", type=Path, help="New diagnostic helper copied and signed separately from the baseline browser")
     parser.add_argument("--cycles", type=int, default=2)
+    parser.add_argument("--feed-cycles", type=int, default=0,
+                        help="Bounded six-action video-feed cycles in each managed layout (0–20)")
     parser.add_argument("--layouts", nargs="+", choices=("standalone", "stack", "split"), default=["standalone", "stack", "split"])
     parser.add_argument("--media", nargs="+", choices=("mp4", "mse", "webm"), default=["mp4", "mse", "webm"])
     args = parser.parse_args()
     if not 1 <= args.cycles <= 20:
         parser.error("Use 1–20 cycles")
+    if not 0 <= args.feed_cycles <= 20:
+        parser.error("Use 0–20 feed cycles")
     app = args.app.resolve(strict=True)
     manifest_path = app.parent / "winmux-package-manifest.json"
     manifest = read_json(manifest_path)
@@ -199,7 +203,9 @@ def main():
         package_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         helper_sha256=hashlib.sha256(helper.read_bytes()).hexdigest(), fixture_chromium_revision=revision,
         fixtures_sha256={name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()},
-        samples=[], native_cases=[], limits=["Local pinned clips; no remote sites or extensions", "Existing workspace and profiles preserved"])
+        samples=[], native_cases=[], feed_samples=[],
+        limits=["Local pinned clips; no remote sites or extensions", "Existing workspace and profiles preserved",
+                "Feed mutations and scrolling are scripted; player commands use trusted process-scoped keyboard input"])
     browser = input_probe = None
     bootstrapped = False
     selector = selectors.DefaultSelector()
@@ -209,12 +215,22 @@ def main():
         bootstrapped = True
         with (output / "browser.log").open("x") as log:
             browser = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        result["browser_pid"] = browser.pid
+
+        def journal(action, **details):
+            with (output / "actions.jsonl").open("a") as events:
+                events.write(json.dumps(dict(monotonic=time.monotonic(), action=action, **details)) + "\n")
 
         def wait(predicate, timeout=15):
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 if browser.poll() is not None:
                     raise RuntimeError(f"Browser exited during fullscreen test: {browser.returncode}")
+                # An auxiliary renderer can crash while the main browser and
+                # video fixture remain responsive. Preserve that failure too.
+                log_text = (output / "browser.log").read_text(errors="replace")
+                if re.search(r"(?:FATAL:|Check failed|CHECK failed|DCHECK failed|Received signal)", log_text):
+                    raise RuntimeError("Browser process tree logged a fatal error; inspect browser.log")
                 with fixture.lock:
                     errors = list(fixture.errors)
                 if errors:
@@ -227,6 +243,8 @@ def main():
 
         def control(action, peer=False):
             nonlocal sequence
+            result["control_phase"] = dict(action=action, peer=peer)
+            journal("window_control", control=action, peer=peer)
             sequence += 1
             temporary = command_path.with_suffix(".tmp")
             temporary.write_text(json.dumps(dict(sequence=sequence, action=action, peer=peer)))
@@ -264,6 +282,7 @@ def main():
 
         def player(action, peer=False, **extra):
             result["phase"] = dict(action=action, peer=peer, **extra)
+            journal("player_action", player_action=action, peer=peer, **extra)
             seq = fixture.prepare(action, peer, **extra)
             if action == "load":
                 wait(lambda: fixture.state(peer).get("completed") == seq and fixture.state(peer).get("frames", 0) > 0)
@@ -286,6 +305,23 @@ def main():
             key("page")
             wait(lambda: hosts().get(seed, {}).get("managed") is True)
             saved = hosts()
+            if args.feed_cycles:
+                player("load", kind="mp4")
+                player("feed-start")
+                wait(lambda: len(fixture.state().get("feedPlayers", [])) == 3
+                     and all(item["frames"] > 0 for item in fixture.state()["feedPlayers"]))
+                for step in range(args.feed_cycles * 6):
+                    state = player("feed-step", step=step)
+                    if any(item["error"] for item in state["feedPlayers"]):
+                        raise RuntimeError("Feed player reported an error")
+                    result["feed_samples"].append(dict(layout=layout, step=step, state=state))
+                    if step % 6 == 5:
+                        control("peer-layout")
+                        control(layout)
+                        control("focus")
+                        key("page")
+                result["feed_samples"][-1]["primary_playback"] = progress()
+                player("feed-stop")
             for kind in args.media:
                 player("load", kind=kind)
                 for cycle in range(args.cycles):

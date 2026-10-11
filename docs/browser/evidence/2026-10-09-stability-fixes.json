@@ -1,0 +1,746 @@
+{
+  "date": "2026-10-09",
+  "status": "pass_with_scope_limits",
+  "scope": "Relevant bounded checks for the reproduced renderer crash, 35-page switching, and helper reconnect. Long-duration tests deferred.",
+  "package": {
+    "path": ".local/releases/browser-alpha-stability-fixes-2026-10-09-rc5/staging/WinMux Browser Alpha.app",
+    "manifest": {
+      "path": ".local/releases/browser-alpha-stability-fixes-2026-10-09-rc5/staging/winmux-package-manifest.json",
+      "sha256": "15dd4f50a910f7e82739ffd87eb7153a5db6a79bf13f28c76fcfd70d216ec439"
+    },
+    "signature_verified": true,
+    "notarized": false,
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230",
+    "launch_agents_sha256": {
+      "Contents/Library/LaunchAgents/com.jameslyons.winmux.browser.alpha.workspace.plist": "e7d5d9ea0d7224e2d2aad4714bd9b1b60f341e1047307e6db97a003136b4bc62",
+      "Contents/Helpers/WinMux Workspace.app/Contents/Library/LaunchAgents/com.jameslyons.winmux.browser.alpha.workspace.managed.plist": "6a90c8727345decfa7dc1c290a37347606767bedf275b63b435ac45128c04ed7",
+      "Contents/Helpers/WinMux Workspace.app/Contents/Library/LaunchAgents/com.jameslyons.winmux.browser.alpha.workspace.test.2dfcff24-2695-4a55-8f25-f58a4faad9e2.plist": "8217dc0d03639571aa1db49005d7cd3e78bea069113ae1cc18c2cb4c32dac946"
+    },
+    "installed": false,
+    "native_working_tree_sources_match_manifest": true
+  },
+  "cases": [
+    {
+      "name": "popup-lifecycle",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-final-rc5/result.json",
+        "sha256": "5f724a5066cfe580921d0ac242378b53a58c5d3f9a3baf8bbd54d08117151058"
+      },
+      "scope": "isolated_visible_popup_lifecycle",
+      "resize_focus_cycles": 80,
+      "autocomplete_open_close_cycles": 5
+    },
+    {
+      "name": "35-pages-run-1",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-safe-final/switching-35-repeat/result.json",
+        "sha256": "47889a5a795141e4d05d671562c893a3cd3a0b7c2c39e241386ab20f219ed112"
+      },
+      "scope": "isolated_live_pinned_desktop_switching",
+      "metrics": {
+        "warm": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 12.0116665,
+            "p95_ms": 16.437,
+            "p99_ms": 69.222333,
+            "max_ms": 69.222333
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 26.324229000000003,
+            "p95_ms": 39.326125,
+            "p99_ms": 73.488875,
+            "max_ms": 73.488875
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 53.199583000000004,
+            "p95_ms": 62.264084,
+            "p99_ms": 89.955958,
+            "max_ms": 89.955958
+          }
+        },
+        "space": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 11.113896,
+            "p95_ms": 14.942292,
+            "p99_ms": 38.070291,
+            "max_ms": 38.070291
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 27.0224165,
+            "p95_ms": 39.536125,
+            "p99_ms": 52.540291,
+            "max_ms": 52.540291
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 56.002187500000005,
+            "p95_ms": 63.4925,
+            "p99_ms": 67.479083,
+            "max_ms": 67.479083
+          }
+        }
+      },
+      "input_observation_targets": {
+        "warm": {
+          "limit_p95_ms": 50,
+          "measured": true,
+          "passed": true
+        },
+        "frozen": {
+          "limit_p95_ms": 100,
+          "measured": false,
+          "passed": null
+        },
+        "space": {
+          "limit_p95_ms": 150,
+          "measured": true,
+          "passed": true
+        }
+      },
+      "input_targets_required": true,
+      "cleanup": {
+        "input_selector": true,
+        "input_probe": true,
+        "environment": true,
+        "browser": true,
+        "sleep_assertion": true,
+        "service": true,
+        "native_fixture": true,
+        "server": true
+      }
+    },
+    {
+      "name": "35-pages-run-2",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/confirmation-final/switching-35/result.json",
+        "sha256": "af961d9fc37c5a3b320813ce6c7238b7a1e6f06daa34215cfedca5a03d5f53fb"
+      },
+      "scope": "isolated_live_pinned_desktop_switching",
+      "metrics": {
+        "warm": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 11.951270999999998,
+            "p95_ms": 15.079,
+            "p99_ms": 16.862834,
+            "max_ms": 16.862834
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 32.145812500000005,
+            "p95_ms": 42.394292,
+            "p99_ms": 50.384,
+            "max_ms": 50.384
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 56.8426875,
+            "p95_ms": 73.955958,
+            "p99_ms": 75.065042,
+            "max_ms": 75.065042
+          }
+        },
+        "space": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 11.334208,
+            "p95_ms": 13.700625,
+            "p99_ms": 23.735541,
+            "max_ms": 23.735541
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 27.8972915,
+            "p95_ms": 43.412375,
+            "p99_ms": 46.295416,
+            "max_ms": 46.295416
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 57.712896,
+            "p95_ms": 72.784583,
+            "p99_ms": 76.054791,
+            "max_ms": 76.054791
+          }
+        }
+      },
+      "input_observation_targets": {
+        "warm": {
+          "limit_p95_ms": 50,
+          "measured": true,
+          "passed": true
+        },
+        "frozen": {
+          "limit_p95_ms": 100,
+          "measured": false,
+          "passed": null
+        },
+        "space": {
+          "limit_p95_ms": 150,
+          "measured": true,
+          "passed": true
+        }
+      },
+      "input_targets_required": true,
+      "cleanup": {
+        "input_selector": true,
+        "input_probe": true,
+        "environment": true,
+        "browser": true,
+        "sleep_assertion": true,
+        "service": true,
+        "native_fixture": true,
+        "server": true
+      }
+    },
+    {
+      "name": "20-pages-and-real-freezing",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-safe-final/switching-20/result.json",
+        "sha256": "5aca48489cdb51ccdbdb9c04908ff0258bd7901401a9dda97b823c4e66e39219"
+      },
+      "scope": "isolated_live_pinned_desktop_switching",
+      "metrics": {
+        "warm": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 21.0935625,
+            "p95_ms": 27.393459,
+            "p99_ms": 28.659708,
+            "max_ms": 28.659708
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 32.2829375,
+            "p95_ms": 49.767459,
+            "p99_ms": 53.832708,
+            "max_ms": 53.832708
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 57.7664585,
+            "p95_ms": 72.954167,
+            "p99_ms": 77.010875,
+            "max_ms": 77.010875
+          }
+        },
+        "space": {
+          "command_ms": {
+            "count": 60,
+            "median_ms": 8.2753125,
+            "p95_ms": 9.472792,
+            "p99_ms": 10.279083,
+            "max_ms": 10.279083
+          },
+          "input_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 25.174271,
+            "p95_ms": 38.707875,
+            "p99_ms": 41.323584,
+            "max_ms": 41.323584
+          },
+          "animation_upper_bound_ms": {
+            "count": 60,
+            "median_ms": 56.3923335,
+            "p95_ms": 58.47225,
+            "p99_ms": 72.371333,
+            "max_ms": 72.371333
+          }
+        },
+        "frozen": {
+          "command_ms": {
+            "count": 6,
+            "median_ms": 16.5145005,
+            "p95_ms": 26.809041,
+            "p99_ms": 26.809041,
+            "max_ms": 26.809041
+          },
+          "input_upper_bound_ms": {
+            "count": 6,
+            "median_ms": 33.830792,
+            "p95_ms": 43.517666,
+            "p99_ms": 43.517666,
+            "max_ms": 43.517666
+          },
+          "animation_upper_bound_ms": {
+            "count": 6,
+            "median_ms": 59.626771,
+            "p95_ms": 63.926875,
+            "p99_ms": 63.926875,
+            "max_ms": 63.926875
+          }
+        }
+      },
+      "input_observation_targets": {
+        "warm": {
+          "limit_p95_ms": 50,
+          "measured": true,
+          "passed": true
+        },
+        "frozen": {
+          "limit_p95_ms": 100,
+          "measured": true,
+          "passed": true
+        },
+        "space": {
+          "limit_p95_ms": 150,
+          "measured": true,
+          "passed": true
+        }
+      },
+      "input_targets_required": true,
+      "web_lock_protection_retained": true,
+      "cleanup": {
+        "input_selector": true,
+        "input_probe": true,
+        "environment": true,
+        "browser": true,
+        "sleep_assertion": true,
+        "service": true,
+        "native_fixture": true,
+        "server": true
+      }
+    },
+    {
+      "name": "layout-reply-recovery",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-safe-final/layout-watchdog/result.json",
+        "sha256": "cdacb4b216ba5bcb0ec916c4d526d4f69eb40f05d227e4b41ad512e9b4aab4c2"
+      },
+      "scope": "signed_isolated_workspace_layout_watchdog",
+      "test_service_removed": true
+    },
+    {
+      "name": "video-feed-fullscreen",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/confirmation-final/video-feed/result.json",
+        "sha256": "ac197ab0f3ff7002e27a71231a266c28bcc7789b1c075d66690d42a2067bc8e2"
+      },
+      "scope": "isolated_visible_managed_video_fullscreen",
+      "test_service_removed": true,
+      "browser_cleanup": true,
+      "feed_actions": 108,
+      "fullscreen_cycles": 27,
+      "native_cases": 3
+    },
+    {
+      "name": "helper-recovery-1",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/confirmation-final/helper-recovery-1/result.json",
+        "sha256": "7e39c69131de41de13d52413ff64606d5d2d3566119ffa40c8b4b9cde091b4aa"
+      },
+      "scope": "isolated_helper_process_failure_and_inventory_recovery",
+      "recovery_seconds": 2.155236375,
+      "stable_seconds": 18,
+      "packaged_launch_policy": {
+        "ProcessType": "Interactive",
+        "ThrottleInterval": 2
+      },
+      "browser_identity_preserved": true,
+      "surfaces_preserved": true,
+      "automatic_service_relaunch": true,
+      "test_service_removed": true,
+      "browser_cleanup": true
+    },
+    {
+      "name": "helper-recovery-2",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/confirmation-final/helper-recovery-2/result.json",
+        "sha256": "c44a0c2faf1872d0c746753b2ff1a10b2a62add9247efc8579f4075eccf98a13"
+      },
+      "scope": "isolated_helper_process_failure_and_inventory_recovery",
+      "recovery_seconds": 2.158364959,
+      "stable_seconds": 18,
+      "packaged_launch_policy": {
+        "ProcessType": "Interactive",
+        "ThrottleInterval": 2
+      },
+      "browser_identity_preserved": true,
+      "surfaces_preserved": true,
+      "automatic_service_relaunch": true,
+      "test_service_removed": true,
+      "browser_cleanup": true
+    }
+  ],
+  "earlier_replays_of_unchanged_engine": [
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-final/video-feed-1/result.json",
+        "sha256": "6796b853404f4ae319268a149e36ba018b76d46764d468ba838745392be52d66"
+      },
+      "manifest_sha256": "f4adec99c6d495a4d45c17a753e686096a201fe966cc925e6647d60c027b4af9",
+      "feed_actions": 108,
+      "fullscreen_cycles": 27,
+      "native_cases": 3
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-final/video-feed-2/result.json",
+        "sha256": "25eed1fadeb888719fdd99a08fdaaa3ac8c8916e3a0f26b9a95bc0422e5361f2"
+      },
+      "manifest_sha256": "f4adec99c6d495a4d45c17a753e686096a201fe966cc925e6647d60c027b4af9",
+      "feed_actions": 108,
+      "fullscreen_cycles": 27,
+      "native_cases": 3
+    }
+  ],
+  "unit_checks": [
+    {
+      "count": 34,
+      "scope": "Native focus, command, selection and layout regressions",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/focus-regressions-final.log",
+        "sha256": "ad2ea008771f25aa29103e96c79322f39ddb4e82d5e92aacb3295a388852d0e3"
+      }
+    },
+    {
+      "count": 84,
+      "scope": "Browser tooling regressions",
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/python-tests-complete.log",
+        "sha256": "4f5a75331198afe062eece3441951d35f0c4a5aff692c4435ac7fdb6340a9507"
+      }
+    }
+  ],
+  "intermediate_attempts": [
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-after/popup-lifecycle/result.json",
+        "sha256": "2809a3bc93ef419c8fd4217710defecf7b01c6f2d763f7c73d53fe202b624f90"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-after/result.json",
+        "sha256": "1b5da56942e56c6ec3c7a3e07ce1bba4338f6ad20818cc9efed29c5c3482e216"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-before/popup-lifecycle/result.json",
+        "sha256": "89f5fb3e8cd9262019cf06d4bddde6f63aa327e225c74460bdb85a188101e0ee"
+      },
+      "passed": false,
+      "error": "Error: A closed omnibox popup is visible or focused"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-before/result.json",
+        "sha256": "3c85bd59e48ce1af7da54d21a35985cdab61ad372274bc05b3435ab3506efbe6"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-bundled-input/popup-lifecycle/result.json",
+        "sha256": "877c4f3d2dd544f63b749d0687446b4312f288dc9423501d3c85fbf454e5f80d"
+      },
+      "passed": false,
+      "error": "Error: Condition timed out after 5 seconds"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-bundled-input/result.json",
+        "sha256": "e7454e288a45028c17094624e4d862b01777c122c76877cbaa53a70af738a6c7"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-delivery-rc3/popup-lifecycle/result.json",
+        "sha256": "9d2d146167418351615f6e7c50a77742c1db609d42bda8ffa9a8854e885e429e"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-delivery-rc3/result.json",
+        "sha256": "1626aed4bc7dc84171c497efaf8cdb0f3c4260146ecf4c1639d9b40380d3718f"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-diagnostic/result.json",
+        "sha256": "16d6603b3988f831c1bc673c336f8689e50504644afd2e1755be7eb308e4b5de"
+      },
+      "passed": false,
+      "error": "RuntimeError: Process-scoped input unavailable: player_exit_unavailable"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-final/popup-lifecycle/result.json",
+        "sha256": "34c2587571a9e9e93667945876f99d4b5d96b945ab9aa316445726f9863e0edf"
+      },
+      "passed": false,
+      "error": "Error: Condition timed out after 5 seconds"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-final/result.json",
+        "sha256": "ab496f960dc23c4abc97be4397667f2efec60b378bbe53f8b7de75f70c30161e"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-final-rc5/popup-lifecycle/result.json",
+        "sha256": "1b89f259589c5cc5d97971ce7941800d8402350f7255161a763cefecfb618e4e"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-input-baseline-diagnostic/popup-lifecycle/result.json",
+        "sha256": "5051c1621b24696d5a7d26ce13a04bd59a949923a7efa520b7e06c8fb61fcfac"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-input-baseline-diagnostic/result.json",
+        "sha256": "27ee44d5cea9e0ad417117ac3c4d3c19fd1f0633101c7a3afcddb78a850bc704"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-input-recheck/popup-lifecycle/result.json",
+        "sha256": "84f5de7a0b2ab979aa40fa0f05cb93a478170245c6e874e7c317666e27ac97e1"
+      },
+      "passed": false,
+      "error": "Error: Condition timed out after 5 seconds"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-input-recheck/result.json",
+        "sha256": "c19373be89bb2801ea8c48230264f6af8c5abbd5e41c72a3074752250072b032"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-lifecycle-verified/popup-lifecycle/result.json",
+        "sha256": "0f6286fb42b055d156e4df9b87c0f327c22c4e43b3fc04cc96fc7878cfd9829e"
+      },
+      "passed": false,
+      "error": "Error: Condition timed out after 5 seconds"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-lifecycle-verified/result.json",
+        "sha256": "6f62c69c4dbe94d1017f7bad6f0dad3b5e8f45142e66122eee2a8650ddcb63ee"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-reopen-rc3/popup-lifecycle/result.json",
+        "sha256": "ca128fc40d8927728ca71a401d216c0e52344f8e7dff6aa27c988baaa35ae1eb"
+      },
+      "passed": false,
+      "error": "Error: Condition timed out after 5 seconds"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/popup-reopen-rc3/result.json",
+        "sha256": "d03494694c2e654fd7135559e25316e445e64321f27c945871d5539431c86b0f"
+      },
+      "passed": false,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-final/video-feed-1/result.json",
+        "sha256": "6796b853404f4ae319268a149e36ba018b76d46764d468ba838745392be52d66"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-final/video-feed-2/result.json",
+        "sha256": "25eed1fadeb888719fdd99a08fdaaa3ac8c8916e3a0f26b9a95bc0422e5361f2"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-rc1/video-feed-1/result.json",
+        "sha256": "56419a4d3ea06b971201b6ddde54c08d8d63b9343fd9b6dd13dad50d6a564262"
+      },
+      "passed": false,
+      "error": "RuntimeError: Process-scoped input unavailable: player_exit_unavailable"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-rc1/video-feed-2/result.json",
+        "sha256": "9e2e5e1f7e26ade7ebdaeb029cf030a38409e23561b8876674b066a2baeb1585"
+      },
+      "passed": false,
+      "error": "RuntimeError: Process-scoped input unavailable: player_exit_unavailable"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-recheck/video-feed-1/result.json",
+        "sha256": "b733c3ce9ad413948dd64d4ecdf3f1541cd0591737b257decb15a55619d751c8"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/renderer-recheck/video-feed-2/result.json",
+        "sha256": "fa61b7e4075abe9e6d796e08c4529cb5883827d175ef17bacae8f607678333aa"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/startup-diagnostic/switching-35/result.json",
+        "sha256": "fb7e3dc06b5db1a7c86bfeaeddfb39ba9745c903cc7567f97c3505cdedf4943b"
+      },
+      "passed": false,
+      "error": "TimeoutError: Fixture state did not become ready"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-final/layout-watchdog/result.json",
+        "sha256": "65357786d2bcb97d6c99c6f18d5294a3f92ea6c37dd99a418b0f73b9dcdfb185"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-final/switching-20/result.json",
+        "sha256": "7210b227df8786c087cef2be8fc6abd2cf21cd1342dc8752d221486918de7bb4"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-final/switching-35/result.json",
+        "sha256": "20a60ebc0d22ca2fa841c3ca31811550073f68ef2257b8d6fc841458c9b7a7ba"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-final/switching-35-repeat/result.json",
+        "sha256": "e6529e602b8301f3e64aae6d8d8b7a3f58487bb0def28f5e4278a5366a7cf95f"
+      },
+      "passed": false,
+      "error": "A requested input-latency target was missed or not measured"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-focus-final/layout-watchdog/result.json",
+        "sha256": "912e5954132f497356ce6d0dfec1e68986ee650027c860b1914e82f674b863c4"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-focus-final/switching-20/result.json",
+        "sha256": "97aea06b950019d138afb322b19593ef4606d367a2306847faa57a64c74d18ea"
+      },
+      "passed": true,
+      "error": null
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-focus-final/switching-35/result.json",
+        "sha256": "508b2cd1822dc8594b1e11a0f9e4d94594591e8b7f20c0a0733821161effe371"
+      },
+      "passed": false,
+      "error": "TimeoutError: Fixture state did not become ready"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-focus-final/switching-35-repeat/result.json",
+        "sha256": "1311dee00275445cfb48d30ecd3d6c8f722b720c6206e0835070ffa7f2078dcc"
+      },
+      "passed": false,
+      "error": "TimeoutError: Fixture state did not become ready"
+    },
+    {
+      "raw": {
+        "path": ".local/browser-stability-fixes-2026-10-09/switching-safe-final/switching-35/result.json",
+        "sha256": "3f771fcdecd3580e1fee20f49669c0e9b1f903d64b0c88dd3fb90cb2465060bd"
+      },
+      "passed": false,
+      "error": "TimeoutError: Fixture state did not become ready"
+    }
+  ],
+  "interpretation": [
+    "Original RC6 reproduced an internal omnibox renderer callback-buffer assertion twice; main browser survived both failures.",
+    "Closed preloaded WebUI is now hidden at the View layer; the presenter reveals it before sizing and hides it on dismissal.",
+    "Renderer-only RC3 still missed the repeated warm-switch gate at 52.266417 ms. The final helper removes redundant post-focus discovery and retains native focus synchronization.",
+    "RC4 skipped native focus synchronization and lost startup selection; that optimization was removed.",
+    "First RC5 35-page attempt completed mapping but its environment observer rejected target identity. No latency samples were collected; this invalid attempt is retained and excluded from the two accepted runs.",
+    "Early autocomplete probe failures included dropped events from a short-lived sender; it now waits for delivery and verifies the typed query through Accessibility.",
+    "Native video controls can auto-hide; the driver reveals controls with Tab and still requires a real exit-button Accessibility press.",
+    "Helper production launch policy sets ThrottleInterval to two seconds; fixture copies that packaged policy and retains a ten-second budget."
+  ],
+  "limits": [
+    "Input latency includes command and probe observation overhead; not compositor presentation latency. Sequential 60-sample runs do not establish long-run population percentiles.",
+    "Helper process-death checks use an observe-only helper and prove automatic transport/inventory recovery. Managed layout reply-loss is a separate test.",
+    "Original whole-browser disappearance remains unreproduced. Authenticated Twitter/X video and native hang-stack capture remain unqualified.",
+    "No long-duration, aged-profile, sleep/wake, multi-display or sustained memory-pressure qualification was performed.",
+    "Existing unrelated native/sidebar working-tree changes are included in the signed package and fingerprinted; this is not an isolated helper A/B against the original RC6."
+  ],
+  "source_hashes": {
+    "browser/chromium/patches/0027-hidden-omnibox-content.patch": "20dc01cb85eeaec51cbba59d913a1f18fdffab6554d8426b1bf37fff412a05e0",
+    "browser/chromium/patches/0028-omnibox-reveal-before-layout.patch": "c331b87e669a190681d5c712cb116b27aebef9c191ce6b2fcfd15db5fd76f683",
+    "Sources/AppBundle/command/impl/SurfaceCommand.swift": "6216263db18b6b9a8a94e43ec8499c279993cabca882b764e3ba6c82ecf7844f",
+    "browser/native/com.jameslyons.winmux.browser.alpha.workspace.plist": "a80c33e8b13a9950597f6a2d76155981a5d88d396791606030db8e7630b120b0",
+    "browser/tools/package_alpha.py": "2f86fbaf5e998629ff5571b06d4d8d26d46f4641624e5730ac184770e91e1c9a",
+    "browser/tools/test_browser_switch_speed.py": "6f8e66d0f7d13d6abd870f1b8cd890f72ccd61033f415afaae07363ccdfc242f",
+    "browser/tools/test_browser_helper_recovery.py": "390239fa4eef8ee73e8ae4e88db40dbf821232a95f74fae1c05207de964ca198",
+    "browser/tools/test_browser_failure_capture.mjs": "18df3c3a9f828f11b16b3bc000ad665cb2c6cce8171a31249a5c10c5a4115363",
+    "browser/tools/fullscreen_input_probe.swift": "e42a5c21be382ee653bba2066909754a97dee4c7063b30570640bfcdea234cdf",
+    "browser/tools/popup_input_probe.swift": "accefa5f4be977db9d23cdcb6d0e481d6351a0c8968935cbf36a21ab66d52c65",
+    "browser/tools/observe_environment.swift": "f128db5898b2785b64c4aa0b95dcc079dc15262e828eb94c835531ee98812b3a"
+  },
+  "cleanup": {
+    "workspace_ready": true,
+    "browser_path_unchanged": true,
+    "original_browser_ids_preserved": true,
+    "fixture_processes": [],
+    "installed_candidate": false,
+    "long_duration_tests_run": false
+  }
+}

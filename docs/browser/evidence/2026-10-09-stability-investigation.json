@@ -1,0 +1,189 @@
+{
+  "observed_at": "2026-10-09T14:37:11.596367-07:00",
+  "scope": "Read-only local crash triage and test planning; no live workload or rollout",
+  "user_symptom": "Whole browser disappears, especially during video and Twitter/X browsing",
+  "active_browser": {
+    "pid_at_observation": 6517,
+    "app": ".local/page-menu-fix/package/WinMux Browser Alpha.app",
+    "manifest_sha256": "01c8aa84ed2d99300428cadfe225b49eb05375b4e257ee282825bfdda82fc05d",
+    "package_created_utc": "2026-10-09T05:02:37.251361+00:00",
+    "native_revision": "13b2f688a04dd48e3ec5263a27bedb53bae98ff7",
+    "native_dirty": true,
+    "browser_executable_matches_manifest": true,
+    "bundled_helper_matches_manifest": true,
+    "lifetime_policy_matches_current_checkout": false
+  },
+  "dump_summary": {
+    "total": 16,
+    "browser": 14,
+    "renderer": 2,
+    "browser_with_test_service": 14,
+    "latest_generated_local": "2026-10-08T21:59:46-07:00",
+    "attribution": "No retained dump positively attributed to the user-reported current browsing crashes"
+  },
+  "dumps": [
+    {
+      "id": "2f8927af-f321-4f78-89dd-f903bb0f4a15.dmp",
+      "generated_local": "2026-10-08T21:59:46-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "4422c68d-0df1-48b9-9437-371c04049e59.dmp",
+      "generated_local": "2026-10-08T14:33:18-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "5aaf32b7-433b-4501-b3da-c1c8a9bfe931.dmp",
+      "generated_local": "2026-10-08T14:32:36-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "8e6c7564-0b3c-440b-a489-7c633b823051.dmp",
+      "generated_local": "2026-10-08T14:28:08-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "72899ef6-1004-4815-b38b-fb883ed826f2.dmp",
+      "generated_local": "2026-10-08T14:27:52-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "91aa56db-7164-4231-a1e7-601a2cb32298.dmp",
+      "generated_local": "2026-10-08T14:19:26-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 0,
+      "fatal_first_line": "native_widget_mac_ns_window_host.mm:595: DCHECK failed: !size.IsEmpty() || !widget->GetMinimumSize().IsEmpty(). Zero-sized windows are not supported on Mac"
+    },
+    {
+      "id": "c432a7c5-3f02-4679-b3e0-648df25403ec.dmp",
+      "generated_local": "2026-10-08T14:19:03-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 0,
+      "fatal_first_line": "native_widget_mac_ns_window_host.mm:595: DCHECK failed: !size.IsEmpty() || !widget->GetMinimumSize().IsEmpty(). Zero-sized windows are not supported on Mac"
+    },
+    {
+      "id": "7751494b-431f-4b48-9e29-20ceddb3e176.dmp",
+      "generated_local": "2026-10-08T14:17:11-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 1,
+      "fatal_first_line": ""
+    },
+    {
+      "id": "88ce2fea-0938-43e2-bd7c-43f5faef61ca.dmp",
+      "generated_local": "2026-10-06T15:46:54-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "simple_url_loader.cc:1333: DCHECK failed: max_body_size <= kMaxBoundedStringDownloadSize (8388608 vs. 5242880). "
+    },
+    {
+      "id": "c9743662-ac3d-4cfe-8b47-0d18f107bebf.dmp",
+      "generated_local": "2026-10-06T14:15:23-07:00",
+      "process_type": "renderer",
+      "test_service_flag_present": false,
+      "exception_code": 0,
+      "fatal_first_line": "layer_tree_view.cc:554: DCHECK failed: callbacks.size() <= cc::PresentationTimeCallbackBuffer::kMaxBufferSize (61 vs. 60). "
+    },
+    {
+      "id": "d09fb387-acee-41f6-a653-d08c557f52d0.dmp",
+      "generated_local": "2026-10-06T12:38:40-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "pref_registry.cc:57: DCHECK failed: defaults_->GetValue(pref_name, &current_value). Setting default for unregistered pref: default_search_provider_data.template_url_data"
+    },
+    {
+      "id": "e1255e70-894f-441f-b44c-9597b70a5136.dmp",
+      "generated_local": "2026-10-06T12:38:40-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "pref_registry.cc:57: DCHECK failed: defaults_->GetValue(pref_name, &current_value). Setting default for unregistered pref: default_search_provider_data.template_url_data"
+    },
+    {
+      "id": "43747852-1e9a-4aee-a038-08328e67c9e9.dmp",
+      "generated_local": "2026-10-06T12:38:40-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "pref_registry.cc:57: DCHECK failed: defaults_->GetValue(pref_name, &current_value). Setting default for unregistered pref: default_search_provider_data.template_url_data"
+    },
+    {
+      "id": "453ca5eb-b0d3-4e4a-a861-c48a8a426103.dmp",
+      "generated_local": "2026-10-05T16:02:19-07:00",
+      "process_type": "renderer",
+      "test_service_flag_present": false,
+      "exception_code": 0,
+      "fatal_first_line": "layer_tree_view.cc:554: DCHECK failed: callbacks.size() <= cc::PresentationTimeCallbackBuffer::kMaxBufferSize (61 vs. 60). "
+    },
+    {
+      "id": "e39de3f8-0518-4915-abca-d47ba4a1264e.dmp",
+      "generated_local": "2026-10-03T17:27:55-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "shortcuts_database.cc:68: database is locked"
+    },
+    {
+      "id": "4499c058-3227-46a9-9263-e762cfbec057.dmp",
+      "generated_local": "2026-10-01T13:22:17-07:00",
+      "process_type": "browser",
+      "test_service_flag_present": true,
+      "exception_code": 6,
+      "fatal_first_line": "partition_alloc_support.cc:746: Check failed: !errors. "
+    }
+  ],
+  "symbolicated_latest_dump": {
+    "id": "2f8927af-f321-4f78-89dd-f903bb0f4a15.dmp",
+    "process_pid": 3057,
+    "stop_reason": "EXC_BAD_ACCESS (code=1, address=0x88)",
+    "frames": [
+      "ShouldEnableCommand at saved_tab_group_everything_menu.cc:230",
+      "MenuItemView at menu_item_view.cc:1006",
+      "AddMenuItemAt at menu_item_view.cc:408",
+      "PopulateMenu at app_menu.cc:1609"
+    ],
+    "interpretation": "Consistent with the previously documented menu command ID collision in an isolated test process"
+  },
+  "current_checkout_checks": {
+    "page_lifetime_policy": {
+      "tests": 1,
+      "passed": true
+    },
+    "video_fullscreen_fixture": {
+      "tests": 4,
+      "passed": true,
+      "note": "First attempt blocked by sandbox loopback binding; rerun with loopback access passed"
+    },
+    "interaction_qualification_evaluator": {
+      "tests": 5,
+      "passed": true
+    },
+    "scope": "Policy and harness regression tests only; no signed-browser media, fullscreen, or soak run in this investigation"
+  },
+  "limits": [
+    "No current whole-browser crash reproduced or diagnosed",
+    "Bundled helper hash verification does not establish the running helper binary identity",
+    "Crashpad database contains test reports and is not a daily-use incident count",
+    "No live browser session restarted or installed app replaced",
+    "No raw dump, browsing content, or complete process command line included"
+  ]
+}

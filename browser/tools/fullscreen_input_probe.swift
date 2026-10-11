@@ -67,10 +67,22 @@ while let command = readLine() {
         print(pressed ? "posted" : "green_button_unavailable"); fflush(stdout); continue
     }
     if command == "player-exit" {
-        let application = AXUIElementCreateApplication(pid)
-        let window = element(attribute(application, kAXFocusedWindowAttribute as CFString))
-        let button = window.flatMap { webArea($0) }.flatMap { playerExit($0) }
-        let pressed = button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } ?? false
+        // Native video controls auto-hide during playback. Reveal them with
+        // ordinary keyboard navigation, then allow the AX tree to catch up.
+        // Still require the real player exit button and its press action.
+        if let down = CGEvent(keyboardEventSource: source, virtualKey: 48, keyDown: true),
+           let up = CGEvent(keyboardEventSource: source, virtualKey: 48, keyDown: false) {
+            down.postToPid(pid); up.postToPid(pid)
+        }
+        let controlsDeadline = DispatchTime.now().uptimeNanoseconds + 2_000_000_000
+        var pressed = false
+        repeat {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.025))
+            let application = AXUIElementCreateApplication(pid)
+            let window = element(attribute(application, kAXFocusedWindowAttribute as CFString))
+            let button = window.flatMap { webArea($0) }.flatMap { playerExit($0) }
+            pressed = button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } ?? false
+        } while !pressed && DispatchTime.now().uptimeNanoseconds < controlsDeadline
         print(pressed ? "posted" : "player_exit_unavailable"); fflush(stdout); continue
     }
     let key: CGKeyCode

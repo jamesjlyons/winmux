@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Isolated background media return</title>
+<video muted loop playsinline></video>
+<script>
+const video = document.querySelector('video');
+const kind = new URL(location.href).searchParams.get('kind');
+const token = sessionStorage.token ||= crypto.randomUUID();
+window.fixture = {ready: false, errors: [], events: [], beats: 0, token};
+setInterval(() => fixture.beats++, 100);
+for (const type of ['freeze', 'resume', 'visibilitychange']) {
+  document.addEventListener(type, () => fixture.events.push({type,
+    beats: fixture.beats, hidden: document.hidden}));
+}
+video.addEventListener('error', () => fixture.errors.push(video.error?.message || 'media error'));
+window.snapshot = () => ({...fixture, events: fixture.events.slice(-30),
+  hidden: document.hidden, discarded: document.wasDiscarded,
+  frames: video.getVideoPlaybackQuality().totalVideoFrames,
+  paused: video.paused, mediaError: video.error?.code ?? null});
+window.resumePlayback = async () => { await video.play(); return snapshot(); };
+(async () => {
+  if (kind === 'mse') {
+    const media = new MediaSource();
+    const opened = new Promise(resolve => media.addEventListener('sourceopen', resolve, {once: true}));
+    video.src = URL.createObjectURL(media);
+    await opened;
+    const source = media.addSourceBuffer('video/mp4; codecs="avc1.64001f, mp4a.40.2"');
+    const data = await (await fetch('/bear-1280x720-av_frag.mp4')).arrayBuffer();
+    const appended = new Promise((resolve, reject) => {
+      source.addEventListener('updateend', resolve, {once: true});
+      source.addEventListener('error', () => reject(new Error('MSE append failed')), {once: true});
+    });
+    source.appendBuffer(data);
+    await appended;
+    media.endOfStream();
+  } else {
+    video.src = kind === 'webm' ? '/bear-vp9-opus.webm' : '/bear-1280x720.mp4';
+  }
+  await video.play();
+  fixture.ready = true;
+})().catch(error => fixture.errors.push(String(error)));
+</script>

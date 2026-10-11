@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-09",
+  "status": "fail",
+  "scope": "Bounded tests requested by user; long-duration qualification deferred.",
+  "package": {
+    "path": ".local/releases/browser-alpha-stabilized-2026-10-09-rc6/staging/WinMux Browser Alpha.app",
+    "manifest_sha256": "db723b4754f105b9393a6de194056321940ac99e6f721fb7541d6cfab7db7439",
+    "chromium_version": "153.0.8010.53",
+    "chromium_revision": "792bf6722e73a45aa9e47c163b9901bdc17f3230"
+  },
+  "unexpected_failure": {
+    "process": "renderer",
+    "reproductions": 2,
+    "renderer_pids": [
+      18526,
+      22420
+    ],
+    "loaded_origin": "chrome://omnibox-popup.top-chrome",
+    "signature": "layer_tree_view.cc:554: DCHECK failed: callbacks.size() <= cc::PresentationTimeCallbackBuffer::kMaxBufferSize (61 vs. 60).",
+    "browser_disappearance_reproduced": false,
+    "raw_metadata": {
+      "path": ".local/browser-stability-2026-10-09-run1/unexpected-renderer-crash/metadata.json",
+      "sha256": "706774f3b67d35077c5fdc2c82798093aa3c1c5feabd92eed00c95daf1d17daf"
+    }
+  },
+  "cases": [
+    {
+      "name": "media",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/media/result.json",
+        "sha256": "af17e8ca36c07fc37c5206e9a6d36b587ba5552d0b03125091bb53cc798b495f"
+      }
+    },
+    {
+      "name": "inventory",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/inventory/result.json",
+        "sha256": "403a9830baaa74df8b7bb7dc6e79cd8e7ed787e9bb877e4a7ad68176d821f2d2"
+      }
+    },
+    {
+      "name": "private",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/private/result.json",
+        "sha256": "51e76f4fed7d14fae5350bdec21aa70361b2a0c3f12ca99be0de1845c5ace6d8"
+      }
+    },
+    {
+      "name": "window-controls",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/window-controls/result.json",
+        "sha256": "abc0c32ef2b0af79fe3af3ac78c80837a8f4f710c218eb496564a70315672a2c"
+      }
+    },
+    {
+      "name": "page-menu",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/page-menu/result.json",
+        "sha256": "628c005b9de1f4c9aa354cd9acebbd68f05b3eabd59fddda6c2e6737b774d96e"
+      }
+    },
+    {
+      "name": "profile-restart",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/profile-restart/result.json",
+        "sha256": "b1266c4264f414d87829d90ed549f495a4b6b817beab5097398b2b70838b45b0"
+      }
+    },
+    {
+      "name": "layout-watchdog",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/layout-watchdog/result.json",
+        "sha256": "0fdcc006e770f5a32ca9cde8ea34fc28b038a4d9b575453f3998e300fb3fdf0b"
+      }
+    },
+    {
+      "name": "filter-updates",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/filter-updates/result.json",
+        "sha256": "d791ac7e8000482ffe7d1ae06ee6b325f12ac0945e9dbfc1914824166172d311"
+      }
+    },
+    {
+      "name": "tab-session",
+      "status": "pass",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/tab-session/results.json",
+        "sha256": "f3ff92401c8517ced1ad7cdaafa721b4030e4c797b43560075315bd3985b34c5"
+      },
+      "scope": "Controlled restart; full crash-session restoration not tested."
+    },
+    {
+      "name": "video-feed-fullscreen",
+      "status": "fail",
+      "completed_feed_actions": 108,
+      "completed_fullscreen_samples": 27,
+      "completed_native_cases": [
+        "green_button_and_video_inside_native_fullscreen",
+        "release_during_fullscreen",
+        "close_fullscreen_page"
+      ],
+      "unexpected_browser_exit": false,
+      "cleanup_exit": 0,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/video-feed-fullscreen/result.json",
+        "sha256": "ed64f2aa27b78197ce3dbcc9bcf6a0d5f3e1b7952d15b78bc9f8485c0b61d627"
+      }
+    },
+    {
+      "name": "video-feed-replay",
+      "status": "fail",
+      "completed_feed_actions": 106,
+      "completed_fullscreen_samples": 18,
+      "completed_native_cases": [],
+      "unexpected_browser_exit": false,
+      "cleanup_exit": 0,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/video-feed-replay/result.json",
+        "sha256": "17ca41b9a90f9a5314edda43732569ff10c713178a9667d311aca98d860de301"
+      }
+    },
+    {
+      "name": "switching-20",
+      "status": "pass",
+      "functional_passed": true,
+      "observed_input_targets": {
+        "warm": {
+          "samples": 60,
+          "input_upper_bound_p95_ms": 40.190292,
+          "limit_p95_ms": 50,
+          "measured": true,
+          "passed": true
+        },
+        "space": {
+          "samples": 60,
+          "input_upper_bound_p95_ms": 35.679833,
+          "limit_p95_ms": 150,
+          "measured": true,
+          "passed": true
+        },
+        "frozen": {
+          "samples": 5,
+          "input_upper_bound_p95_ms": 96.385333,
+          "limit_p95_ms": 100,
+          "measured": true,
+          "passed": true
+        }
+      },
+      "qualified": false,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/switching-20/result.json",
+        "sha256": "dcc72b8110fc84cec1000fda6b49239a2b37cc48b440bcddd10bbc6567dd9e3c"
+      }
+    },
+    {
+      "name": "switching-35",
+      "status": "fail",
+      "functional_passed": true,
+      "observed_input_targets": {
+        "warm": {
+          "samples": 20,
+          "input_upper_bound_p95_ms": 75.777208,
+          "limit_p95_ms": 50,
+          "measured": true,
+          "passed": false
+        },
+        "space": {
+          "samples": 20,
+          "input_upper_bound_p95_ms": 36.496583,
+          "limit_p95_ms": 150,
+          "measured": true,
+          "passed": true
+        }
+      },
+      "qualified": false,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/switching-35/result.json",
+        "sha256": "e14fb0a744affc646ada91bb92ad4f4c3d0b7e3d2c03936e761a336c52f78e55"
+      }
+    },
+    {
+      "name": "injected-renderer-crash",
+      "status": "pass",
+      "expected_failure": true,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/failure-capture/renderer-crash/result.json",
+        "sha256": "c643139d3e58c3db6ae76018fb32394905f4f3c53a5e4c84f64389bb408f4c49"
+      },
+      "dumps": [
+        {
+          "file": "5b6f33d7-485a-4a9c-b7bd-9622449d3ae6.dmp",
+          "ver": "153.0.8010.53",
+          "pid": "20801",
+          "ptype": "renderer",
+          "generated_epoch_seconds": 1791587052
+        }
+      ]
+    },
+    {
+      "name": "injected-gpu-crash",
+      "status": "pass",
+      "expected_failure": true,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/failure-capture/gpu-crash/result.json",
+        "sha256": "d4bef5c64fb3f633c61d913c15b74b237039b53890c7b9a36ba104b26c63a152"
+      },
+      "dumps": []
+    },
+    {
+      "name": "injected-network-lifecycle-pressure",
+      "status": "pass",
+      "expected_failure": false,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/failure-capture/network-lifecycle-pressure/result.json",
+        "sha256": "fe532246841c017cb62f12c2fd42b4a284eec8b73be64c7ebea099ec7b72814c"
+      },
+      "dumps": []
+    },
+    {
+      "name": "injected-browser-crash",
+      "status": "pass",
+      "expected_failure": true,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/failure-capture/browser-crash/result.json",
+        "sha256": "492beea01d4fce85a2354205187b4033002fd3ff5fea65cbbb2afeddb28c0f87"
+      },
+      "dumps": [
+        {
+          "file": "c8009151-8d2f-43d2-8a5d-149e7acbab05.dmp",
+          "ver": "153.0.8010.53",
+          "pid": "21037",
+          "ptype": "browser",
+          "generated_epoch_seconds": 1791587077
+        }
+      ]
+    },
+    {
+      "name": "injected-renderer-hang",
+      "status": "partial",
+      "detection_ms": 2500.8947500000004,
+      "browser_survived": true,
+      "renderer_recovered": true,
+      "javascript_cpu_profile_captured": true,
+      "native_thread_sample_captured": false,
+      "native_thread_sample_error": "Error: spawnSync /usr/bin/sample ETIMEDOUT",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/hang-capture-recheck/result.json",
+        "sha256": "f1954dfe548d2e6e52a5c5a7900fffa48195dec3e480bedb2e047453c337ad9a"
+      }
+    },
+    {
+      "name": "helper-death-recovery",
+      "status": "fail",
+      "recovery_seconds": 10.145485208999999,
+      "budget_seconds": 10,
+      "functional_checks_completed_before_budget_assertion": true,
+      "functional_check_basis": "The executed runner checks new helper launch identity, original browser identity, unchanged surfaces and 18 seconds of stability before its final timing assertion. The raw result omits success flags because that assertion failed; raw data is unchanged.",
+      "scope": "Observe-only helper and automatic XPC-demand relaunch; managed native-layout recovery unqualified.",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/helper-recovery-recheck/result.json",
+        "sha256": "da8db6ac0e24034b4de7f7c90163843d1402766f528cbfa9c5fa164579516989"
+      }
+    },
+    {
+      "name": "helper-initial-harness-attempt",
+      "status": "invalid",
+      "reason": "Redundant kickstart -k raced automatic XPC-demand relaunch and timed out. Not established as a product failure.",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/helper-recovery/result.json",
+        "sha256": "0ac49c84a77bb432d08946c179d58d29ed15e945198e4896f466f114fecd1c28"
+      }
+    },
+    {
+      "name": "public-sites",
+      "status": "blocked",
+      "twitter_x": "net::ERR_HTTP_RESPONSE_CODE_FAILURE; error page only",
+      "youtube": "Homepage loaded; zero playing videos observed",
+      "authenticated_video_feed_covered": false,
+      "normalization": "Raw passed=true denotes browser survival only. Runner subsequently corrected to mark failed site navigation blocked.",
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/public-site-smoke/result.json",
+        "sha256": "25835c147f9d89bea1828a41b2667b9207e63be7c043d951b9e4bcfdb1f84d36"
+      }
+    },
+    {
+      "name": "python-tooling-tests",
+      "status": "pass",
+      "tests": 84,
+      "raw": {
+        "path": ".local/browser-stability-2026-10-09-run1/python-tests.log",
+        "sha256": "8dee19a542962d3b4f7601508e6eb0bb230af902348af13ceed9db757a14a33b"
+      }
+    }
+  ],
+  "limits": [
+    "No long-duration runs.",
+    "No compositor presentation qualification or full resource-budget qualification.",
+    "Timing sample counts fall below the planned 1000 interactions per category.",
+    "Five real frozen returns only; 35-page run skipped freezing.",
+    "Simulated CDP memory-pressure notifications are not OS-level pressure, reclaim cadence or pressure-clearance qualification.",
+    "Native hang stack unavailable; JavaScript CPU profile retained.",
+    "No authenticated real-site video playback.",
+    "Installed extensions, aged profiles, physical sleep/wake and multiple displays unqualified.",
+    "Initial failure-capture hang result lacked a usable stack; recheck provides JavaScript samples only.",
+    "Post-run public-site status handling and helper result-reporting changes received syntax checks, not additional live reruns."
+  ],
+  "cleanup": {
+    "normal_workspace_restored": true,
+    "preexisting_browser_surface_ids_preserved": true,
+    "no_fixture_processes_at_final_check": true,
+    "daily_browser_replaced": false,
+    "raw": {
+      "path": ".local/browser-stability-2026-10-09-run1/exclusive-results.json",
+      "sha256": "5cd660bee5ad009c67038088d56224ea7c3ea21ae4d61729d2d37cde807fc659"
+    }
+  },
+  "report": "docs/browser/stability-results-2026-10-09.md"
+}

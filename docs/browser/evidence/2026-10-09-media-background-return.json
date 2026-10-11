@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-09",
+  "recorded_utc": "2026-10-10T05:21:32.569760+00:00",
+  "user_report": "Twitter tabs crash when returning to them after a while.",
+  "status": "not_reproduced_in_bounded_media_lifecycle_check",
+  "affected_machine_build_and_error": {
+    "confirmed_on": "2026-10-10",
+    "machine": "other laptop",
+    "build": "RC5",
+    "scope": "only the tab",
+    "visible_error_or_code": {
+      "page": "Chromium Aw, Snap",
+      "error_code": "0",
+      "source": "user report"
+    }
+  },
+  "local_observations": {
+    "running_build": ".local/page-menu-fix/package/WinMux Browser Alpha.app",
+    "running_build_is_rc5": false,
+    "twitter_tabs_in_current_workspace": 0,
+    "new_crash_dump_after_prior_test_session_found": false
+  },
+  "test": {
+    "result": ".local/twitter-media-return-2026-10-09/rc5-run2/result.json",
+    "sha256": "90073662759c6a89b492b43e8e230ac379400b11dd390a85761e31c5e5ea3548",
+    "package_manifest_sha256": "15dd4f50a910f7e82739ffd87eb7153a5db6a79bf13f28c76fcfd70d216ec439",
+    "passed": true,
+    "codecs": [
+      "mp4",
+      "mse",
+      "webm"
+    ],
+    "transitions": 12,
+    "per_codec": [
+      "10-second background return",
+      "two 5-second explicit freezes and returns",
+      "explicit discard and return"
+    ],
+    "checks": [
+      "decoded frames resume",
+      "freeze/resume events and suspended timers",
+      "session storage survives",
+      "document.wasDiscarded true after discard",
+      "no crash events or fatal logs",
+      "clean browser exit"
+    ]
+  },
+  "initial_harness_attempt": {
+    "result": ".local/twitter-media-return-2026-10-09/rc5-run1/result.json",
+    "classification": "harness_setup_failure",
+    "reason": "Chromium internal diagnostic UI was disabled in the new profile; enabled only in the isolated profile before the accepted rerun."
+  },
+  "source_sha256": {
+    "browser/tools/test_browser_media_return.mjs": "95e16b39cab7b5b36609692c3b621e7ca62b2bf257b4f371b22afb50c31b8255",
+    "browser/tests/fixtures/media_background_return.html": "e9124adf119e89f0ea64f9bbe9a3cc7d79629fa43c0a9af56a404eb7af829b47"
+  },
+  "limits": [
+    "Pinned local clips and a fresh profile; no authenticated Twitter, extensions, or user data.",
+    "Headless browser with explicit freeze/discard; no native workspace, automatic aging, or compositor qualification.",
+    "Short bounded transitions; long-duration testing remains deferred."
+  ],
+  "production_change": null,
+  "possible_diagnostic_workaround": "Try Keep Active on affected pages to distinguish automatic page lifecycle from other failures; effectiveness is unverified."
+}

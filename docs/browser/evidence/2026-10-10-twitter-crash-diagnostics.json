@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-10",
+  "user_confirmation": {
+    "machine": "other laptop",
+    "build": "RC5",
+    "failure_scope": "tab only",
+    "visible_error": "Chromium Aw, Snap browser error page",
+    "error_code": "0",
+    "diagnostic_report": "WinMux-diagnostics-20261010-214732.json received"
+  },
+  "status": "affected_laptop_report_received_and_symbolicated",
+  "collector_archive": {
+    "path": ".local/releases/browser-twitter-diagnostics-2026-10-10/WinMux-Twitter-Diagnostics-2026-10-10.zip",
+    "bytes": 8021,
+    "sha256": "51626cd8395f50915389ab3649c160b084bb37d938978af059157cba5d08d389"
+  },
+  "checks": {
+    "parser_tests_passed": 6,
+    "perl_and_zsh_syntax": "pass",
+    "zip_crc_and_round_trip": "pass",
+    "extracted_launcher_integration": "pass",
+    "local_dumps_summarized": 20,
+    "raw_dump_or_profile_copied": false,
+    "nothing_uploaded": true
+  },
+  "rc5_sha256": {
+    "browser": "1b074c60692dc27522421f48f5ee5b5365843bcd4c90d885687f2146a3e904b0",
+    "framework": "cc1d413789a0950f2965596276e91a74feb44097e178731840a000169a7e6583",
+    "helper": "b852bade98502c781dadbb9e0334b01115b62ad0b0b9400f3d76bc1f7f7ada01"
+  },
+  "known_renderer_reference": {
+    "pid": "22420",
+    "stack_frames": 30
+  },
+  "local_validation_report_sha256": "98ab62c87803a9578c30d658532f776c3d8c83a6bcf1b2c6c5f2684a0e381011",
+  "source_sha256": {
+    "browser/tools/collect_browser_diagnostics.pl": "a2e68811deedcd0c0f761136be54bb30e46133babf73eade4e44e15abde83899",
+    "browser/tools/Collect-WinMux-Diagnostics.command": "51db657022725cea78b0f2b01ae6705f1ce14fa1258cec87072bd0658e91c316",
+    "browser/tests/test_crash_diagnostics.py": "fc0c5f2d9a4a2784d692005618933f4ebb21dab613b7f8db2b56bb2ba99a8ae3"
+  },
+  "limits": [
+    "Affected laptop not connected to this session.",
+    "Frame-pointer walk is bounded and may omit frames; raw dumps stay on their original Mac.",
+    "Crash signatures identified; the specific remote return-to-Twitter trigger is not yet reproduced or fixed."
+  ],
+  "analysis_evidence": "docs/browser/evidence/2026-10-10-twitter-crash-analysis.json"
+}

@@ -184,6 +184,37 @@ This creates a fresh profile and loopback fixture server, checks codec support,
 and requires MP4 H.264/AAC, Media Source H.264/AAC, and WebM VP9/Opus playback to
 finish with decoded audio and video frames. It leaves existing sessions alone.
 
+For a bounded background-video return check (Node 22 or newer):
+
+```sh
+node browser/tools/test_browser_media_return.mjs \
+  --app '/path/to/staged/WinMux Browser Alpha.app' \
+  --chromium-source /path/to/apfs/winmux-engine/chromium/src \
+  --output .local/browser/new-media-return-check
+```
+
+Each codec must resume decoded frames after a ten-second hidden interval, two
+five-second freezes, and an actual WebContents discard. The fixture verifies
+freeze/resume events, suspended page timers, preserved session storage, and
+`document.wasDiscarded` on reload. Unexpected renderer crashes or fatal browser
+logs fail the run. Chromium's internal diagnostic page is enabled only in the
+fresh test profile. The default is headless. Add `--headed` to exercise the same
+transitions in a temporary native browser window; this also records the window
+bounds and requires foreground page visibility before playback verification.
+Neither mode covers managed workspace switching, automatic aging, native
+presentation timing, or authenticated Twitter/X.
+
+For a crash on another Mac, keep `Collect-WinMux-Diagnostics.command` and
+`collect_browser_diagnostics.pl` from `browser/tools` together and run the
+command there. It uses macOS's system Perl and saves a JSON report on Desktop.
+The browser can stay open. The report includes build fingerprints and up to
+20 recent Crashpad summaries with process identity, exception codes, and bounded
+ARM64 stack offsets. Raw dumps, stack memory, page URLs, and profile data stay
+on that Mac; nothing is uploaded. `--app` selects a nonstandard installation and
+`--output` chooses a new report path. Absence of a dump does not rule out a killed,
+hung, or site-error tab. Parser regressions run with
+`python3 -B -m unittest discover -s browser/tests -p test_crash_diagnostics.py -v`.
+
 Video fullscreen needs a visible macOS check in addition to headless decoding:
 
 ```sh
@@ -294,6 +325,18 @@ evidence. Application foreground is not proof of the selected tab's visibility,
 and display mode refresh is not a measurement of actual frame cadence.
 
 ## Qualification
+
+The [stability and performance test plan](../docs/browser/stability-test-plan.md)
+defines crash capture, video/feed stress, lifecycle and recovery coverage,
+long-running qualification, and release gates. It includes the October 9 crash
+triage and distinguishes existing fixtures from the remaining harness work.
+The [bounded RC6 results](../docs/browser/stability-results-2026-10-09.md)
+record the reproduced renderer assertion, switching measurements, recovery
+checks, and outstanding coverage gaps, with commands for the new feed and
+failure-injection fixtures.
+The [bounded fix verification](../docs/browser/stability-fixes-2026-10-09.md)
+records the renderer, switching, and helper-recovery fixes and their reruns on
+the signed stability-fixes RC5 candidate. Long-duration qualification is deferred.
 
 For tab creation, build and sign the candidate first, then run the isolated
 fixture on an unlocked console with native workspace ownership free:

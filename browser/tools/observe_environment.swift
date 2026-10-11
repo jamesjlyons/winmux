@@ -185,9 +185,17 @@ struct Main {
                   let path = options["--executable"], let output = options["--output"],
                   let seconds = Double(options["--seconds"] ?? "600"), seconds.isFinite, seconds > 0, seconds <= 3600,
                   let interval = Double(options["--interval"] ?? "2"), interval.isFinite, interval >= 0.25,
-                  interval <= min(10, seconds), let expected = identity(pid),
-                  expected.path == URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
-            else { throw NSError(domain: "ArgumentsOrTargetIdentity", code: 3) }
+                  interval <= min(10, seconds)
+            else { throw NSError(domain: "Arguments", code: 3) }
+            guard let expected = identity(pid) else {
+                throw NSError(domain: "TargetIdentity", code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "Cannot read live process identity for PID \(pid)"])
+            }
+            let expectedPath = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+            guard expected.path == expectedPath else {
+                throw NSError(domain: "TargetIdentity", code: 5,
+                    userInfo: [NSLocalizedDescriptionKey: "Executable mismatch for PID \(pid): expected \(expectedPath), observed \(expected.path)"])
+            }
             try Recorder(pid: pid, expected: expected, output: output, interval: interval, seconds: seconds,
                          untilFile: options["--until-file"]).run()
         } catch {
