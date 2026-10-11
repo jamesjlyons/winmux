@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ShortcutBehaviorSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
-    @State private var doubleSidedWindows = ExperimentalUISettings().doubleSidedWindows
     @State private var newItemPlacement = config.newItemPlacement
     @State private var enableShakeToToggleTiling = config.enableShakeToToggleTiling
     @State private var automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps
@@ -26,19 +25,6 @@ struct ShortcutBehaviorSettingsView: View {
                     }
                 }
                 SettingsToggle("Unhide macOS-hidden apps", isOn: $automaticallyUnhideMacosHiddenApps, help: "Restore apps macOS has hidden when they receive focus.") { persistRootBool("automatically-unhide-macos-hidden-apps", automaticallyUnhideMacosHiddenApps) }
-            }
-            SettingsSection("Window pairs") {
-                SettingsToggle("Double-sided windows", isOn: $doubleSidedWindows, help: "Replace two-window tab strips with two sides. Option-click anywhere in the window or press Option-Tab to flip.") {
-                    var settings = ExperimentalUISettings()
-                    settings.doubleSidedWindows = doubleSidedWindows
-                    if doubleSidedWindows { requestScreenRecordingPermissionsIfNeeded() }
-                    scheduleRefreshSession(.menuBarButton)
-                }
-                Text("Option-click anywhere in the window or press Option-Tab to flip between two windows. Three or more windows use tabs. Window tabs must be enabled. Rotation uses Screen Recording access and respects Reduce Motion.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(14)
             }
             TrackpadSettingsSection(model: model)
             SettingsSection("Interaction") {
@@ -72,7 +58,6 @@ struct ShortcutBehaviorSettingsView: View {
             }
         }
         .onChange(of: model.settingsRevision) { _ in
-            doubleSidedWindows = ExperimentalUISettings().doubleSidedWindows
             newItemPlacement = config.newItemPlacement
             enableShakeToToggleTiling = config.enableShakeToToggleTiling
             automaticallyUnhideMacosHiddenApps = config.automaticallyUnhideMacosHiddenApps

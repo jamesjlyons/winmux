@@ -51,12 +51,8 @@ final class TrackpadNavigationController: ObservableObject {
             isUnitTest ? focus.windowOrNil?.app.pid : NSWorkspace.shared.frontmostApplication?.processIdentifier
         },
         now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime },
-        activate: @escaping @MainActor (Window, Window) -> Void = { source, destination in
-            if serverArgs.browserState == nil, source.nearestWindowTabGroup?.usesDoubleSidedWindows == true {
-                DoubleSidedWindowController.shared.flip(source)
-            } else {
-                focusWindowFromTabStrip(destination.windowId, fallbackWorkspace: focus.workspace.name)
-            }
+        activate: @escaping @MainActor (Window, Window) -> Void = { _, destination in
+            focusWindowFromTabStrip(destination.windowId, fallbackWorkspace: focus.workspace.name)
         }
     ) {
         self.backend = backend

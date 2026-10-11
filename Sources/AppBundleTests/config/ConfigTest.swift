@@ -186,35 +186,6 @@ final class ConfigTest: XCTestCase {
         XCTAssertEqual(tapBindingPressedModifiersForTests(), [.leftAlt])
     }
 
-    func testFlipEventTapCancelsOptionLauncherButPreservesSingleTap() async throws {
-        resetHotKeys()
-        defer { resetHotKeys() }
-        let saved = UserDefaults.standard.object(forKey: "doubleSidedWindows")
-        defer { UserDefaults.standard.set(saved, forKey: "doubleSidedWindows") }
-        UserDefaults.standard.set(false, forKey: "doubleSidedWindows")
-        config.modes = [mainModeId: Mode(bindings: [:], tapBindings: [
-            "left-alt": TapBinding(.leftAlt, [FocusCommand.new(direction: .left)]),
-        ])]
-        try await activateMode(mainModeId)
-        let optionDown: NSEvent.ModifierFlags = [.option, TapModifierKey.leftAlt.deviceSpecificModifierFlag]
-        let gesture = DoubleSidedWindowGesture()
-        // These key and mouse paths do not post events through the proxy.
-        let proxy = OpaquePointer(bitPattern: 1)!
-        let event = CGEvent(keyboardEventSource: nil, virtualKey: 48, keyDown: true)!
-        event.flags = .maskAlternate
-        for type: CGEventType in [.keyDown, .leftMouseDown] {
-            noteTapBindingFlagsChanged(keyCode: 58, modifierFlags: optionDown)
-            XCTAssertTrue(hasPendingTapBindingForTests())
-            // Bypass NSEvent monitors, as happens when the flip tap consumes input.
-            _ = gesture.handle(proxy: proxy, type: type, event: event)
-            noteTapBindingFlagsChanged(keyCode: 58, modifierFlags: [])
-            XCTAssertFalse(hasPendingTapBindingForTests())
-        }
-        noteTapBindingFlagsChanged(keyCode: 58, modifierFlags: optionDown)
-        noteTapBindingFlagsChanged(keyCode: 58, modifierFlags: [])
-        XCTAssertTrue(hasPendingTapBindingForTests())
-    }
-
     func testBindingEqualityChecksCommandCount() {
         let focusLeft = FocusCommand.new(direction: .left)
         let focusRight = FocusCommand.new(direction: .right)

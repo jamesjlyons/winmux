@@ -21,10 +21,9 @@ Public global event monitoring cannot suppress native gesture actions.
 
 One deliberate swipe changes one tab as soon as the threshold is crossed. Lift
 all fingers before another switch; there is no cooldown between swipes. Rapid
-swipes advance from the latest selected tab, and a new swipe can reverse an
-in-progress two-window flip. Windows outside a tab group and one-tab groups
-do nothing. Two-window pairs use their existing flip behavior; Screen Recording
-is not required to switch, and Reduce Motion disables the rotation as before.
+swipes advance from the latest selected tab. Windows outside a tab group and
+one-tab groups do nothing. Two-window pairs use ordinary tabs; switching does
+not capture the screen. Native layout animations remain independently configurable.
 
 ## Implementation
 

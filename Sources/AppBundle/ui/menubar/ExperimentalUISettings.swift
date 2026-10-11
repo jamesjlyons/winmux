@@ -1,11 +1,6 @@
 import SwiftUI
 
 struct ExperimentalUISettings {
-    var doubleSidedWindows: Bool {
-        get { UserDefaults.standard.bool(forKey: "doubleSidedWindows") }
-        set { UserDefaults.standard.set(newValue, forKey: "doubleSidedWindows") }
-    }
-
     var displayStyle: MenuBarStyle {
         get {
             if let value = UserDefaults.standard.string(forKey: ExperimentalUISettingsItems.displayStyle.rawValue) {
