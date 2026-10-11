@@ -65,7 +65,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 favicons: [surface.iconPNGBase64],
                 fallbackSystemImage: surface.isBrowser ? "globe" : "app",
                 isSelected: surface.isSelected, isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID),
-                isLoading: surface.isLoading,
+                isLoading: surface.isLoading, isFloating: surface.isFloating,
                 selectionID: surface.surfaceID.description
             )
             .padding(.leading, leadingHitInset)
@@ -73,7 +73,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(surface.isBrowser ? "Browser tab" : "Native window"): \(surface.title)")
+        .accessibilityLabel("\(surface.isFloating ? "Floating window" : surface.isBrowser ? "Browser tab" : "Native window"): \(surface.title)")
         .help(surface.title)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())

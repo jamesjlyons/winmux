@@ -11,7 +11,10 @@ func workspaceSidebarSearchSelections(
     workspaces: [WorkspaceSidebarWorkspaceViewModel],
 ) -> [WorkspaceSidebarSearchSelection] {
     workspaces.flatMap { workspace -> [WorkspaceSidebarSearchSelection] in
-        if workspace.isPinnedGroup { return workspace.pins.map { .pinnedBrowserTab($0.id) } }
+        if workspace.isPinnedGroup {
+            return workspace.pins.map { .pinnedBrowserTab($0.id) } +
+                workspace.floatingItems.flatMap(\.surfaceIDs).map { .surface($0) }
+        }
         let itemSelections = workspace.items.flatMap { item -> [WorkspaceSidebarSearchSelection] in
             switch item.kind {
                 case .pinnedBrowserTab(let tab):

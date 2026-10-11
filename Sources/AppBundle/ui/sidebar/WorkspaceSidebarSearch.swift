@@ -31,7 +31,10 @@ private func workspaceSidebarFilteredWorkspace(
             workspaceSidebarSearchTextMatches([pin.title, pin.bundleIdentifier, projectName,
                 "Pinned", pin.url] + pin.groupMembers.flatMap { [$0.title, $0.bundleIdentifier, $0.url] }, terms: terms)
         }
-        return result.pins.isEmpty ? nil : result
+        result.items = workspace.floatingItems.compactMap {
+            workspaceSidebarSearchResultItem($0, workspace: workspace, projectName: projectName, terms: terms)
+        }
+        return result.pins.isEmpty && result.items.isEmpty ? nil : result
     }
     let matchingItems = workspace.items.compactMap { item in
         workspaceSidebarSearchResultItem(item, workspace: workspace, projectName: projectName, terms: terms)

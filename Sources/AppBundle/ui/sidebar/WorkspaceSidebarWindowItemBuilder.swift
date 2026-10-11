@@ -21,6 +21,7 @@ func makeWorkspaceSidebarWindowViewModel(
         title: title,
         isFocused: !BrowserWorkspaceController.shared.hasBrowserSelection && currentFocus.windowOrNil == window,
         surfaceID: window.surfaceID,
+        isFloating: window.isFloating,
     )
 }
 

@@ -42,7 +42,9 @@ func workspaceHasLifecycleWindows(_ workspace: Workspace) -> Bool {
 @MainActor
 func isUserFacingWorkspace(_ workspace: Workspace, focusedWorkspace: Workspace? = nil) -> Bool {
     if workspaceShouldRemoveEmptyView(workspace) { return false }
-    if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
+    if workspace.isPinnedGroup {
+        return BrowserWorkspaceController.shared.hasPins(in: workspace.name) || !workspace.floatingWindows.isEmpty
+    }
     return !workspace.isArchived && (workspaceHasSidebarVisibleWindows(workspace) ||
         !workspaceOwnedMinimizedWindows(workspace).isEmpty || workspace.preservesEmptyView ||
         (!workspaceHasLifecycleWindows(workspace) && workspaceIsRetainedEmptySlot(workspace)))
@@ -55,7 +57,9 @@ func userFacingWorkspaces(_ workspaces: [Workspace], focusedWorkspace: Workspace
     return workspaces.filter { workspace in
         guard !workspace.isArchived else { return false }
         if workspaceShouldRemoveEmptyView(workspace) { return false }
-        if workspace.isPinnedGroup { return BrowserWorkspaceController.shared.hasPins(in: workspace.name) }
+        if workspace.isPinnedGroup {
+            return BrowserWorkspaceController.shared.hasPins(in: workspace.name) || !workspace.floatingWindows.isEmpty
+        }
         if workspaceHasSidebarVisibleWindows(workspace) ||
             workspace.preservesEmptyView || minimizedNames.contains(workspace.name)
         { return true }

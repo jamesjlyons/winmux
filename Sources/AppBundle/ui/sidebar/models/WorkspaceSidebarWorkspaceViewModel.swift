@@ -8,7 +8,7 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     let monitorName: String?
     let isFocused: Bool
     let isVisible: Bool
-    let items: [WorkspaceSidebarItemViewModel]
+    var items: [WorkspaceSidebarItemViewModel]
 
     var isPinnedGroup: Bool = false
     var pins: [WorkspaceSidebarPinViewModel] = []
@@ -17,6 +17,17 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     var viewSurfaces: [WorkspaceSidebarSurfaceItem] { items.flatMap(\.surfaceItems) }
     var viewSurfaceCount: Int { totalViewSurfaceCount ?? viewSurfaces.count }
     var isSingleWindowView: Bool { viewSurfaceCount == 1 }
+    var floatingItems: [WorkspaceSidebarItemViewModel] {
+        items.filter { item in
+            switch item.kind {
+            case .window(let window): window.isFloating
+            case .surface(let surface): surface.isFloating
+            default: false
+            }
+        }
+    }
+    // Pin desktops can also own floating dialogs that have no pin tile.
+    var showsWindowSection: Bool { !isPinnedGroup || !floatingItems.isEmpty }
 
     var id: String { name }
 }

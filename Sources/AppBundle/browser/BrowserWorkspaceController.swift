@@ -871,7 +871,9 @@ public final class BrowserWorkspaceController {
                 guard let owner = Window.get(bySurfaceID: window.surfaceID),
                       owner.nodeWorkspace?.name == workspace else { return }
                 if !participatesInSharedTiling(owner) {
-                    nativeOnlyRows.append(item)
+                    var current = window
+                    current.isFloating = owner.isFloating
+                    nativeOnlyRows.append(.init(kind: .window(current)))
                     return
                 }
                 available[window.surfaceID] = .init(kind: .surface(.init(surfaceID: window.surfaceID,

@@ -48,6 +48,7 @@ struct WorkspaceSidebarWindowRow: View {
     var isSelected = false
     var isKeyboardTarget = false
     var isLoading = false
+    var isFloating = false
     var selectionID: String? = nil
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
@@ -69,6 +70,9 @@ struct WorkspaceSidebarWindowRow: View {
                 } else {
                     appIconStack.fixedSize()
                 }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if isFloating { WorkspaceSidebarFloatingIndicator().offset(x: 4, y: 3) }
             }
             if !isCompact {
                 Text(title)
@@ -96,7 +100,7 @@ struct WorkspaceSidebarWindowRow: View {
             }
         }
         .accessibilityAddTraits(isActiveRow ? .isSelected : [])
-        .accessibilityLabel(title)
+        .accessibilityLabel(isFloating ? "\(title), floating window" : title)
         .onAppear { favicons.compactMap { $0 }.forEach { faviconCache.prepare($0) } }
         .onChange(of: favicons) { icons in icons.compactMap { $0 }.forEach { faviconCache.prepare($0) } }
         .contentShape(Rectangle())
@@ -161,4 +165,17 @@ struct WorkspaceSidebarWindowRow: View {
         isActiveRow ? 1 : 0.8
     }
 
+}
+
+struct WorkspaceSidebarFloatingIndicator: View {
+    var body: some View {
+        Image(systemName: "rectangle.on.rectangle")
+            .font(.system(size: 8, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(2)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .help("Floating window")
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+    }
 }

@@ -9,6 +9,7 @@ struct WorkspaceSidebarWindowViewModel: Hashable, Identifiable {
     let title: String?
     let isFocused: Bool
     let surfaceID: SurfaceID
+    var isFloating = false
 
     var id: SurfaceID { surfaceID }
 }

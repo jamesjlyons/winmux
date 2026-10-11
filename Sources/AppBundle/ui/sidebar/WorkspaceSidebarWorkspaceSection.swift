@@ -79,8 +79,32 @@ struct WorkspaceSidebarWorkspaceSection: View {
     }
 
     var body: some View {
-        regularContent
-            .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+        Group {
+            if workspace.isPinnedGroup {
+                floatingWindowContent
+            } else {
+                regularContent
+            }
+        }
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+    }
+
+    // Pin tiles represent saved arrangements. Floating owners stay selectable
+    // below the shelf without exposing its hidden desktop as an editable View.
+    private var floatingWindowContent: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(workspace.floatingItems) { workspaceItemView($0) }
+        }
+        .padding(.vertical, 1)
+        .padding(.horizontal, isCompact ? compactMetrics.horizontalInset : workspaceSidebarSectionInnerHorizontalInset)
+        .frame(width: sectionWidth, alignment: .leading)
+        .environment(\.workspaceSidebarDensity, density)
+        .environment(\.workspaceSidebarCompactRows, isCompact)
+        .overlay {
+            inUseOverrideOverlay
+                .opacity(allowsWorkspaceActivation && isShowingInUseOverlay ? 1 : 0)
+                .allowsHitTesting(allowsWorkspaceActivation && isShowingInUseOverlay)
+        }
     }
 
     private var regularContent: some View {
@@ -182,8 +206,13 @@ extension WorkspaceSidebarWorkspaceSection {
             activeInUseOverrideWorkspaceName = workspace.name
             return
         }
-        if workspace.isSingleWindowView, let id = workspace.viewSurfaces.first?.surfaceID,
-           !tabSelection.activate(.surface(id)) { return }
+        if workspace.isSingleWindowView, let surface = workspace.viewSurfaces.first {
+            guard tabSelection.activate(.surface(surface.surfaceID)) else { return }
+            if surface.isFloating {
+                actions.send(.selectSurface(surface.surfaceID))
+                return
+            }
+        }
         actions.send(.selectWorkspace(workspace.name))
     }
 
@@ -529,6 +558,9 @@ extension WorkspaceSidebarWorkspaceSection {
                 viewSummary
                 if !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
                     windowRows
+                } else if !workspace.isSingleWindowView {
+                    // Floating owners are outside the collapsed arrangement.
+                    ForEach(workspace.floatingItems) { workspaceItemView($0) }
                 }
             } else {
             headerSlot
@@ -568,7 +600,13 @@ extension WorkspaceSidebarWorkspaceSection {
                         } else {
                             Image(systemName: workspace.isSingleWindowView ? "globe" : "rectangle.split.2x1")
                         }
-                    }.frame(maxWidth: .infinity, minHeight: rowHeight)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if workspace.isSingleWindowView, viewIconSurface?.isFloating == true {
+                            WorkspaceSidebarFloatingIndicator().offset(x: 4, y: 3)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: rowHeight)
                 } else {
                     WorkspaceSidebarWindowRow(title: workspace.displayName,
                         badge: workspace.isSingleWindowView ? nil : "\(workspace.viewSurfaceCount)",
@@ -581,12 +619,13 @@ extension WorkspaceSidebarWorkspaceSection {
                         isSelected: isActiveOnTargetMonitor,
                         isKeyboardTarget: isSearchSelectedWorkspace,
                         isLoading: workspace.isSingleWindowView && viewIconSurface?.isLoading == true,
+                        isFloating: workspace.isSingleWindowView && viewIconSurface?.isFloating == true,
                         selectionID: workspace.isSingleWindowView ? workspace.viewSurfaces.first?.surfaceID.description : nil)
                 }
             }
             .buttonStyle(.plain)
-            .help(workspace.displayName)
-            .accessibilityLabel(workspace.displayName)
+            .help(viewSummaryLabel)
+            .accessibilityLabel(viewSummaryLabel)
             .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: workspace.isSingleWindowView,
                 onChanged: { value in
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragChanged(.surface(id), value) }
@@ -632,6 +671,11 @@ extension WorkspaceSidebarWorkspaceSection {
 
     private var viewIconSurfaces: [WorkspaceSidebarSurfaceItem] {
         viewIconSurface.map { [$0] } ?? workspace.viewSurfaces
+    }
+
+    private var viewSummaryLabel: String {
+        workspace.isSingleWindowView && viewIconSurface?.isFloating == true
+            ? "\(workspace.displayName), floating window" : workspace.displayName
     }
 
     @ViewBuilder
@@ -759,6 +803,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     return false
                 },
                 isKeyboardTarget: selectedSearchTarget == .surface(window.surfaceID),
+                isFloating: window.isFloating,
                 selectionID: window.surfaceID.description,
             )
             .padding(.leading, leadingHitInset)
@@ -788,7 +833,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .workspaceSidebarDrag(enabled: allowsDrag) {
             WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
         }
-        .help(window.title ?? window.appName)
+        .help((window.title ?? window.appName) + (window.isFloating ? " · Floating window" : ""))
         .modifier(WorkspaceSidebarHoverClose(surface: window.surfaceID, title: window.title ?? window.appName, actions: actions,
             selection: .init(isSelected: workspace.items.contains { item in
                 if case .tabGroup(let group) = item.kind { return group.representativeWindowId == window.windowId }

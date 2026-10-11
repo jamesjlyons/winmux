@@ -918,7 +918,7 @@ extension WorkspaceSidebarView {
                         projectContextColor: projectColor(snapshot.activeProjectId)
                     )
                 }
-                ForEach(workspaces.filter { !$0.isPinnedGroup }) { workspace in
+                ForEach(workspaces.filter(\.showsWindowSection)) { workspace in
                     workspaceSection(
                         workspace: workspace,
                         expansionProgress: expansionProgress,
@@ -934,7 +934,7 @@ extension WorkspaceSidebarView {
             .padding(.trailing, trailingInset)
             .padding(.bottom, 10)
             .animation(reduceMotion || !searchText.isEmpty ? nil : WorkspaceSidebarTabMotion.movement,
-                       value: workspaces.filter { !$0.isPinnedGroup }.flatMap { [$0.id] + $0.items.flatMap(\.tabLayoutIdentity) })
+                       value: workspaces.filter(\.showsWindowSection).flatMap { [$0.id] + $0.items.flatMap(\.tabLayoutIdentity) })
             // Layout animates the rows. Keep the shared selection layer outside
             // that transaction so insertion cannot animate its geometry twice.
             .modifier(WorkspaceSidebarTabMotionScope(isEnabled: !isCompact && !snapshot.configuration.menuBarStyle))
