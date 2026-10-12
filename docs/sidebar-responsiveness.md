@@ -23,6 +23,11 @@ retaining a 200-item selection across viewport changes, pruning removed rows, an
 existing layout, drag, search, cancellation, and momentum behavior. These measure
 rendered work and correctness, not live display frame pacing.
 
+Release and snap-back now use a subtle spring (0.28-second response, 0.86 damping).
+Finger tracking remains direct. Outgoing pages stay mounted through a 450 ms
+settling window, and a new gesture can interrupt immediately. Reduce Motion still
+skips the animation.
+
 ## October 11: hover scheduling and keyboard controls
 
 Deliberate hover entry now expands synchronously in the delivered pointer event.

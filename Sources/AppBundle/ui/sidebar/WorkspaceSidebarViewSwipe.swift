@@ -76,8 +76,11 @@ extension WorkspaceSidebarView {
     func settleProjectSwipe(to translation: CGFloat, target: WorkspaceProjectId?, direction: Int) {
         let settlement = WorkspaceSidebarProjectSwipeSettlement(target: target, direction: direction)
         projectSwipeSettlement = settlement
-        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.3
-        withAnimation(duration == 0 ? nil : .timingCurve(0.22, 0.72, 0.25, 1, duration: duration)) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        // A small overshoot on release, with enough time for the spring's tail
+        // before retiring the outgoing page. New gestures still interrupt it.
+        let duration = reduceMotion ? 0 : 0.45
+        withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.86)) {
             projectSwipeTranslation = translation
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
