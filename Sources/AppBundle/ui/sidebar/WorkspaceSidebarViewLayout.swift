@@ -7,29 +7,7 @@ extension WorkspaceSidebarView {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
-        let projectSwipeDirection = projectSwipeSettlement?.direction ?? workspaceSidebarProjectSwipeDirection(
-            horizontalTranslation: projectSwipeTranslation,
-            verticalTranslation: 0,
-            minimumDistance: 1,
-        )
-        let activeProjectIndex = projectPagerDisplayIndex
-        let projectSwipeProgress = workspaceSidebarProjectEdgeCreationProgress(
-            currentIndex: activeProjectIndex,
-            projectCount: snapshot.projects.count,
-            direction: projectSwipeDirection,
-            distance: abs(projectSwipeTranslation),
-            allowsCreation: snapshot.configuration.swipeToCreateProjects,
-        )
-        let hasSwipeTarget = projectSwipeDirection.flatMap { direction in
-            workspaceSidebarProjectIndexAfterSwipe(
-                currentIndex: activeProjectIndex,
-                projectCount: snapshot.projects.count,
-                direction: direction,
-            )
-        } != nil
-        let projectSwitchProgress = hasSwipeTarget
-            ? workspaceSidebarProjectSwipeSwitchProgress(distance: abs(projectSwipeTranslation))
-            : 0
+        let swipeDirection = projectSwipeSettlement?.direction ?? projectSwipeDirection
         let visibleWorkspacesByProject = workspaceSidebarVisibleWorkspacesByProject(
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,
@@ -62,7 +40,7 @@ extension WorkspaceSidebarView {
                 trailingInset: trailingInset,
                 topPadding: 0,
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
-                swipeDirection: projectSwipeDirection,
+                swipeDirection: swipeDirection,
             )
             .frame(
                 width: workspaceSidebarContentFrameWidth(expansionProgress: expansionProgress),
@@ -77,9 +55,6 @@ extension WorkspaceSidebarView {
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,
                     trailingInset: trailingInset,
-                    swipeDirection: projectSwipeDirection,
-                    switchProgress: projectSwitchProgress,
-                    edgeProgress: projectSwipeProgress,
                 )
             }
 

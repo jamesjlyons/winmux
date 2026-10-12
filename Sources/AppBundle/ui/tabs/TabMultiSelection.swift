@@ -92,16 +92,21 @@ private struct TabSelectionOrderKey: PreferenceKey {
 
 private struct TabSelectionRoot: ViewModifier {
     let scope: String
+    let explicitOrder: [SurfacePane]?
     @StateObject private var model = TabSelectionModel()
     @State private var order: [SurfacePane] = []
 
     func body(content: Content) -> some View {
         content
-            .environment(\.tabSelection, .init(model: model, state: model.state, order: order))
+            .environment(\.tabSelection, .init(model: model, state: model.state, order: explicitOrder ?? order))
             .onPreferenceChange(TabSelectionOrderKey.self) { values in
+                guard explicitOrder == nil else { return }
                 var seen: Set<SurfacePane> = []
                 let next = values.filter { seen.insert($0).inserted }
                 if next != order { order = next; model.state.prune(to: next) }
+            }
+            .onChange(of: explicitOrder) { values in
+                if let values { model.state.prune(to: values) }
             }
             .onChange(of: scope) { _ in model.state = .init() }
     }
@@ -127,6 +132,10 @@ private struct TabSelectionItem: ViewModifier {
 }
 
 extension View {
-    func tabSelectionRoot(scope: String) -> some View { modifier(TabSelectionRoot(scope: scope)) }
+    /// Lazy lists supply their complete displayed order so scrolling cannot
+    /// prune selected offscreen rows or truncate a Shift-selection range.
+    func tabSelectionRoot(scope: String, order: [SurfacePane]? = nil) -> some View {
+        modifier(TabSelectionRoot(scope: scope, explicitOrder: order))
+    }
     func tabSelectionItem(_ pane: SurfacePane?) -> some View { modifier(TabSelectionItem(pane: pane)) }
 }

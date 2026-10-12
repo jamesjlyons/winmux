@@ -111,7 +111,7 @@ final class SurfaceSidebarInteractionTest: XCTestCase {
             renamingWorkspaceName: .constant(editingName), renamingWorkspaceText: .constant(""),
             onBeginRenameWorkspace: {}, onCommitRenameWorkspace: {}, onCancelRenameWorkspace: {},
             selectedSearchTarget: nil, isSearchFiltering: false, activeInUseOverrideWorkspaceName: override,
-            actions: actions
+            actions: actions, isViewExpanded: .constant(true)
         )
     }
 }

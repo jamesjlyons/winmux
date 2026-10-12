@@ -48,6 +48,7 @@ extension WorkspaceSidebarView {
         ) else {
             return
         }
+        if projectSwipeDirection != direction { projectSwipeDirection = direction }
         let activeProjectIndex = projectPagerDisplayIndex
         let shouldCreate = shouldCreateWorkspaceSidebarProjectAfterSwipe(
             currentIndex: activeProjectIndex,

@@ -28,13 +28,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let isSearchFiltering: Bool
     @Binding var activeInUseOverrideWorkspaceName: String?
     let actions: WorkspaceSidebarActions
+    @Binding var isViewExpanded: Bool
 
     @State var isHovered = false
     @State var hoveredWindowId: UInt32? = nil
     @State var hoveredTabGroupId: UInt32? = nil
     @State var isDropTargeted = false
     @State var isDropSettling = false
-    @State var isViewExpanded = true
     @ObservedObject private var reorderState = WorkspaceSidebarWorkspaceReorderState.shared
     @ObservedObject private var tabReorderState = WorkspaceSidebarTabReorderState.shared
     @Environment(\.tabSelection) private var tabSelection
@@ -445,7 +445,7 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var windowRows: some View {
         if !workspace.items.isEmpty {
-            VStack(alignment: .leading, spacing: 1) {
+            LazyVStack(alignment: .leading, spacing: 1) {
                 if !pinnedItems.isEmpty {
                         Text("Pinned")
                             .font(.system(size: 10.5, weight: .medium))
@@ -706,7 +706,7 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     func tabGroupTabs(_ group: WorkspaceSidebarTabGroupViewModel, isDragging: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        LazyVStack(alignment: .leading, spacing: 1) {
             ForEach(group.searchVisibleTabs ?? group.tabs) { tab in
                 workspaceWindowButton(
                     tab,

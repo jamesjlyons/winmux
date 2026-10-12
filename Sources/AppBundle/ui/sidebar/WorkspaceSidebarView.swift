@@ -7,7 +7,10 @@ struct WorkspaceSidebarView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
-    @State var projectSwipeTranslation: CGFloat = 0
+    // The offset modifier observes continuous travel. Keep that publication out
+    // of this view so each input event cannot rebuild every page and row.
+    @State var projectSwipePosition = WorkspaceSidebarProjectSwipePosition()
+    @State var projectSwipeDirection: Int? = nil
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
     @State var projectSwipeDidCrossBreakPoint = false
     @State var projectSwipeSettlement: WorkspaceSidebarProjectSwipeSettlement? = nil
@@ -25,10 +28,16 @@ struct WorkspaceSidebarView: View {
     @State var lastProjectEdgeDragDirection: Int? = nil
     @State var lastProjectEdgeDragSwitchAt: Date = .distantPast
     @State var showsPinnedActiveWorkspaceForBrowsedProject = true
+    @State var collapsedWorkspaceNames: Set<String> = []
 
     init(snapshot: WorkspaceSidebarSnapshot, actions: WorkspaceSidebarActions = WorkspaceSidebarActions()) {
         self.snapshot = snapshot
         self.actions = actions
+    }
+
+    var projectSwipeTranslation: CGFloat {
+        get { projectSwipePosition.translation }
+        nonmutating set { projectSwipePosition.move(to: newValue) }
     }
 
     var body: some View {
@@ -399,13 +408,6 @@ extension WorkspaceSidebarView {
         GeometryReader { geometry in
             let pageWidth = max(geometry.size.width, 1)
             let displayIndex = projectPagerDisplayIndex ?? 0
-            let dragOffset = workspaceSidebarProjectPagerDragOffset(
-                horizontalTranslation: projectSwipeTranslation,
-                currentIndex: displayIndex,
-                projectCount: snapshot.projects.count,
-                pageWidth: pageWidth,
-            )
-
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(snapshot.projects.enumerated()), id: \.element.id) { index, project in
                     projectPageSlot(
@@ -422,7 +424,10 @@ extension WorkspaceSidebarView {
                     )
                 }
             }
-            .offset(x: -CGFloat(displayIndex) * pageWidth + dragOffset)
+            .modifier(WorkspaceSidebarProjectSwipeOffset(
+                position: projectSwipePosition, displayIndex: displayIndex,
+                projectCount: snapshot.projects.count, pageWidth: pageWidth
+            ))
             .onAppear { projectPagerWidth = pageWidth }
             .onChange(of: pageWidth) { projectPagerWidth = $0 }
         }
@@ -434,9 +439,6 @@ extension WorkspaceSidebarView {
         expansionProgress: CGFloat,
         leadingInset: CGFloat,
         trailingInset: CGFloat,
-        swipeDirection: Int?,
-        switchProgress: CGFloat,
-        edgeProgress: CGFloat,
     ) -> some View {
         WorkspaceSidebarProjectPager(
             projects: snapshot.projects,
@@ -581,6 +583,7 @@ extension WorkspaceSidebarView {
     func resetProjectSwipe() {
         projectSwipeSettlement = nil
         projectSwipeTranslation = 0
+        projectSwipeDirection = nil
         projectSwipeStartProjectId = nil
         projectSwipeDidCrossBreakPoint = false
     }
@@ -897,6 +900,14 @@ extension WorkspaceSidebarView {
         allowsActivation: Bool? = nil,
     ) -> some View {
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
+        let pinnedWorkspace = showsPinnedActiveWorkspace
+            ? pinnedActiveWorkspace(displayedProjectId: projectId, pageWorkspaces: workspaces) : nil
+        let allowsActivation = allowsActivation ?? allowsWorkspaceActivation(projectId: projectId)
+        let selectionOrder = workspaceSidebarPageSelectionOrder(
+            workspaces: workspaces, pinnedActiveWorkspace: pinnedWorkspace,
+            allowsActivation: allowsActivation, collapsedWorkspaceNames: collapsedWorkspaceNames,
+            renamingWorkspaceName: renamingWorkspaceName, isSearchFiltering: !searchText.isEmpty
+        )
         return VStack(alignment: .leading, spacing: 0) {
             if let pins = workspaceSidebarCombinedPins(workspaces) {
                 WorkspaceSidebarPinGrid(workspace: pins, projects: snapshot.projects, isCompact: isCompact,
@@ -908,12 +919,8 @@ extension WorkspaceSidebarView {
                     .padding(.trailing, trailingInset)
             }
         ScrollView {
-            VStack(alignment: .leading, spacing: workspaceSidebarSectionGap) {
-                if showsPinnedActiveWorkspace,
-                   let pinnedActiveWorkspace = pinnedActiveWorkspace(
-                    displayedProjectId: projectId,
-                    pageWorkspaces: workspaces
-                ) {
+            LazyVStack(alignment: .leading, spacing: workspaceSidebarSectionGap) {
+                if let pinnedActiveWorkspace = pinnedWorkspace {
                     workspaceSection(
                         workspace: pinnedActiveWorkspace,
                         expansionProgress: expansionProgress,
@@ -929,7 +936,7 @@ extension WorkspaceSidebarView {
                         workspace: workspace,
                         expansionProgress: expansionProgress,
                         emitsDropTarget: true,
-                        allowsWorkspaceActivation: allowsActivation ?? allowsWorkspaceActivation(projectId: projectId),
+                        allowsWorkspaceActivation: allowsActivation,
                         isPinnedActiveWorkspace: false,
                         projectContextLabel: nil,
                         projectContextColor: nil
@@ -1000,7 +1007,7 @@ extension WorkspaceSidebarView {
         .padding(.trailing, trailingInset)
         }
         .padding(.top, topPadding)
-        .tabSelectionRoot(scope: "sidebar-\(snapshot.targetMonitorScopeId)-\(projectId.rawValue)")
+        .tabSelectionRoot(scope: "sidebar-\(snapshot.targetMonitorScopeId)-\(projectId.rawValue)", order: selectionOrder)
     }
 
     @ViewBuilder
@@ -1050,6 +1057,13 @@ extension WorkspaceSidebarView {
             isSearchFiltering: !searchText.isEmpty,
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             actions: actions,
+            isViewExpanded: Binding(
+                get: { !collapsedWorkspaceNames.contains(workspace.name) },
+                set: { expanded in
+                    if expanded { collapsedWorkspaceNames.remove(workspace.name) }
+                    else { collapsedWorkspaceNames.insert(workspace.name) }
+                }
+            ),
         )
     }
 

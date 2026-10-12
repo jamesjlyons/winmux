@@ -29,7 +29,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             surfaceButton(surface)
         case .surfaceGroup(let id, let children):
             if BrowserWorkspaceController.shared.sidebarGroupLayout(id) == .stack {
-                VStack(alignment: .leading, spacing: 1) {
+                LazyVStack(alignment: .leading, spacing: 1) {
                     stackHeader(id: id)
                     ForEach(children) { child in
                         childView(child, indent: isCompact ? 0 : density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent)
@@ -37,7 +37,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
                 }
                 .padding(.vertical, 1)
             } else {
-                VStack(alignment: .leading, spacing: 1) {
+                LazyVStack(alignment: .leading, spacing: 1) {
                     ForEach(children) { child in childView(child, indent: leadingHitInset) }
                 }
             }

@@ -1,5 +1,28 @@
 # Sidebar opening and closing — September 15, 2026
 
+## October 11: swiping crowded Spaces
+
+Continuous horizontal travel is now observed only by the pager offset modifier.
+The sidebar still updates for discrete changes such as swipe direction, selection,
+and settlement, but each input delta no longer recomputes page grouping, selection
+inputs, or the row tree. Unused per-delta progress calculations were removed.
+
+The vertical page list and arrangement children use lazy stacks. They mount nearby
+rows as a Space enters the pager instead of building all windows and tabs at once.
+Arrangement expansion state belongs to the sidebar so recycling offscreen rows
+does not reset collapsed arrangements. Selection gets its complete displayed order
+from the page data, preserving offscreen Shift/Command selections while excluding
+closed, filtered, and collapsed rows as appropriate.
+
+All **311 sidebar, shortcut, selection, and bootstrap tests passed**. The offscreen
+AppKit/SwiftUI fixture mounted **14 of 200** separate rows and **13 of 200** children
+in a single arrangement. Twenty horizontal offset updates caused **zero content
+rebuilds** in the hosted offset fixture; the page moved the expected 100 points and
+returned to its original position. Checks also cover scrolling to the last row,
+retaining a 200-item selection across viewport changes, pruning removed rows, and
+existing layout, drag, search, cancellation, and momentum behavior. These measure
+rendered work and correctness, not live display frame pacing.
+
 ## October 11: hover scheduling and keyboard controls
 
 Deliberate hover entry now expands synchronously in the delivered pointer event.

@@ -101,7 +101,7 @@ final class WorkspaceSidebarFloatingWindowTest: XCTestCase {
             renamingWorkspaceName: .constant(nil), renamingWorkspaceText: .constant(""),
             onBeginRenameWorkspace: {}, onCommitRenameWorkspace: {}, onCancelRenameWorkspace: {},
             selectedSearchTarget: nil, isSearchFiltering: false, activeInUseOverrideWorkspaceName: .constant(nil),
-            actions: .init(send: { sent.append($0) }))
+            actions: .init(send: { sent.append($0) }), isViewExpanded: .constant(true))
         section.handleSectionClick()
         XCTAssertEqual(sent, [.selectSurface(workspace.viewSurfaces[0].surfaceID)])
     }
