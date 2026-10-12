@@ -5,6 +5,37 @@ import XCTest
 
 @MainActor
 final class WorkspaceSidebarTransitionTest: XCTestCase {
+    func testDeepHoverPublishesOnlyFinalWidthBeforeReturning() async {
+        await withSidebar { panel in
+            // Hover-enter supplies region membership; put the fixture to the
+            // right of the pointer to exercise its depth check without warping it.
+            panel.setFrame(CGRect(x: 100000, y: 100000, width: 280, height: 600), display: false)
+            for restingWidth: CGFloat in [0, 28] {
+                panel.viewModel.isWorkspaceSidebarExpanded = false
+                panel.viewModel.workspaceSidebarVisibleWidth = restingWidth
+                var widths: [CGFloat] = []
+                let subscription = panel.viewModel.$workspaceSidebarVisibleWidth.dropFirst().sink { widths.append($0) }
+                panel.handleHoverEnter(expandedWidth: 280, collapsedWidth: restingWidth)
+                XCTAssertTrue(panel.viewModel.isWorkspaceSidebarExpanded)
+                XCTAssertEqual(widths, [280])
+                subscription.cancel()
+            }
+        }
+    }
+
+    func testExplicitCollapseWaitsForPointerExitBeforeHoverCanReopen() async {
+        await withSidebar { panel in
+            panel.commandSuppressesHoverExpansion = true
+            closeWorkspaceSidebarFromCommand(panel)
+            for _ in 0 ..< 50 { panel.setHovering(true) }
+            XCTAssertFalse(panel.viewModel.isWorkspaceSidebarExpanded)
+            XCTAssertEqual(panel.viewModel.workspaceSidebarVisibleWidth, 28)
+            XCTAssertTrue(panel.commandSuppressesHoverExpansion)
+            panel.setHovering(false)
+            XCTAssertFalse(panel.commandSuppressesHoverExpansion)
+        }
+    }
+
     func testRepeatedExpansionRequestsDoNotPublishOrRestartTransition() async {
         await withSidebar { panel in
             var publications = 0
@@ -174,6 +205,7 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
         let oldMenuDepth = panel.menuTrackingDepth
         let oldMenuGrace = panel.menuTrackingGraceUntil
         let oldCommandLock = panel.commandExpansionLocksCollapse
+        let oldHoverSuppression = panel.commandSuppressesHoverExpansion
         let wasVisible = panel.isVisible
         defer {
             panel.cancelExpansionWork()
@@ -187,6 +219,7 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
             panel.menuTrackingDepth = oldMenuDepth
             panel.menuTrackingGraceUntil = oldMenuGrace
             panel.commandExpansionLocksCollapse = oldCommandLock
+            panel.commandSuppressesHoverExpansion = oldHoverSuppression
             panel.setFrame(oldFrame, display: false)
             if wasVisible { panel.orderFront(nil) }
         }
@@ -201,6 +234,7 @@ final class WorkspaceSidebarTransitionTest: XCTestCase {
         panel.menuTrackingDepth = 0
         panel.menuTrackingGraceUntil = .distantPast
         panel.commandExpansionLocksCollapse = false
+        panel.commandSuppressesHoverExpansion = false
         panel.viewModel.isWorkspaceSidebarExpanded = true
         panel.viewModel.workspaceSidebarVisibleWidth = 280
         panel.setFrame(CGRect(x: -10000, y: -10000, width: 280, height: 600), display: false)

@@ -59,9 +59,22 @@ struct WorkspaceSidebarView: View {
                 resetTransientSidebarState()
                 finishSidebarSearch(clearText: true)
             }
-            if visibleWidth >= expandedWidth - 0.5 {
-                beginSidebarSearchIfNeeded()
+        }
+        .task(id: snapshot.visibleWidth) {
+            guard snapshot.visibleWidth >= expandedWidth - 0.5 else { return }
+            // App activation and event-tap installation must not compete with
+            // the opening frames. Width changes cancel stale hover-search work.
+            if !reduceMotion {
+                do { try await Task.sleep(for: .seconds(workspaceSidebarExpansionDuration)) }
+                catch { return }
             }
+            guard !Task.isCancelled,
+                  let panel = currentPanel(),
+                  panel.viewModel.isWorkspaceSidebarExpanded,
+                  panel.viewModel.workspaceSidebarVisibleWidth >= expandedWidth - 0.5,
+                  !panel.isResizingSidebar
+            else { return }
+            beginSidebarSearchIfNeeded(panel: panel)
         }
         .onChange(of: snapshot.activeProjectId) { projectId in
             debugWorkspaceSidebarProjectLog(
@@ -97,13 +110,6 @@ struct WorkspaceSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
             finishSidebarSearch(clearText: true)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillExpandNotification)) { notification in
-            guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
-            let panel = notificationPanel(from: notification)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                beginSidebarSearchIfNeeded(panel: panel)
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarCommandSearchKeyNotification)) { notification in
             guard let panel = notificationPanel(from: notification),

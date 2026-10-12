@@ -1,5 +1,58 @@
 # Sidebar opening and closing — September 15, 2026
 
+## October 11: hover scheduling and keyboard controls
+
+Deliberate hover entry now expands synchronously in the delivered pointer event.
+The zero-delay expansion dispatch and the sidebar's separate 60 Hz throttle have
+been removed. Pointer movement is already coalesced by `PointerActivityCoalescer`
+at the display refresh rate. Geometry changes still schedule one deferred hover
+recheck, so stationary-pointer updates do not recurse into expansion.
+
+Hover-triggered search activation waits for the opening animation interval before
+activating the app and installing keyboard monitors. The task is cancelled when
+the width changes or the view disappears, preventing stale activation after a
+quick exit. Explicit keyboard search still arms and buffers typing immediately.
+Opening an existing visible panel no longer refreshes all display panels first.
+
+Settings → Shortcuts → Sidebar exposes these commands:
+
+| Action | Command | Starter shortcut |
+| --- | --- | --- |
+| Show / hide | `sidebar toggle` | Option–Shift–S |
+| Expand / collapse | `sidebar toggle-expanded` | Option–Shift–E |
+| Show the compact rail (retain Expanded if selected) | `sidebar show` | Assign in Settings |
+| Auto-hide, with edge hover available | `sidebar hide` | Assign in Settings |
+| Keep expanded | `sidebar expand` | Assign in Settings |
+| Keep the compact rail | `sidebar collapse` | Assign in Settings |
+| Open sidebar search | `open-sidebar` | Control–F |
+
+Visibility commands save the same app-wide setting as the sidebar menu and apply
+to all displays. `toggle` switches visible modes to Auto-hide and Auto-hide to
+Compact. `toggle-expanded` switches Expanded to Compact and other modes to
+Expanded. Existing configurations retain their bindings; assign the new shortcuts
+in Settings or add them to `[mode.main.binding]`. Requests are serialized across
+config reloads. An explicit hide/collapse suppresses hover reopening until the
+pointer leaves the activation region. Existing menus, dragging, and editor locks
+remain in effect for ordinary hover transitions.
+
+Regression tests cover synchronous entry with a single final-width publication,
+duplicate opens, close reversal, pointer suppression, every command/state pair,
+rapid toggles, failed saves, and configuration round trips. These are controller
+and configuration checks, not proof of frame pacing under every system load.
+The release build and all 90 targeted tests passed. The duplicate-open fixture
+reported zero publications and zero expansion notifications for 100 requests.
+
+The follow-up input audit removed another source of repeated work. Search uses no
+pointer-exit monitors because it intentionally survives pointer exit; rename
+sessions install that monitor set once. Handing buffered command search to SwiftUI
+updates callbacks without reactivating the app or recreating its keyboard event
+tap. Command-open mouse unlocking now uses the existing coalesced pointer stream,
+with the same 80 ms grace and one-point movement threshold. It no longer allocates
+a separate monitor pair or queues delayed installers that can outlive a quick
+open/close/open sequence.
+All 297 sidebar and shortcut tests passed after this follow-up, including monitor
+reuse, buffered-search handoff, unlock grace/distance, and rapid rearming checks.
+
 ## Causes
 
 - Every pointer update inside an expanded sidebar called `expandSidebar`. That method

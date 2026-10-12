@@ -84,6 +84,7 @@ extension Command {
                  is MoveNodeToWorkspaceCommand,
                  is MoveWorkspaceToMonitorCommand,
                  is OpenSidebarCommand,
+                 is SidebarCommand,
                  is ToggleViewModeCommand,
                  is ProjectCommand,
                  is ResizeCommand,

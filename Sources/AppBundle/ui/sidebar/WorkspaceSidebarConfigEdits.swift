@@ -1,3 +1,4 @@
+import Common
 import Foundation
 
 private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
@@ -8,19 +9,12 @@ private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
 func setWorkspaceSidebarVisibilityFromMenu(_ visibility: WorkspaceSidebarVisibility) {
     Task { @MainActor in
         do {
-            let url = preferredWorkspaceSidebarConfigUrl()
-            let current = try String(contentsOf: url, encoding: .utf8)
-            let updated = updateWorkspaceSidebarVisibilityConfig(in: current, visibility: visibility)
-            let parsed = parseConfig(updated)
-            guard parsed.errors.isEmpty else {
-                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: parsed.errors.map(\.description).joined(separator: "\n")])
+            let action: SidebarCmdArgs.Action = switch visibility {
+                case .autoHide: .hide
+                case .compact: .collapse
+                case .expanded: .expand
             }
-            try updated.write(to: url, atomically: true, encoding: .utf8)
-            guard try await reloadConfig(forceConfigUrl: url) else {
-                throw NSError(domain: "WinMux", code: 1, userInfo: [NSLocalizedDescriptionKey: "Saved the sidebar setting, but could not reload the config."])
-            }
-            ShortcutSettingsModel.shared.reload()
-            WorkspaceSidebarPanel.refreshAll()
+            try await SidebarVisibilityController.shared.perform(action)
         } catch {
             showWorkspaceSidebarError(error.localizedDescription)
         }

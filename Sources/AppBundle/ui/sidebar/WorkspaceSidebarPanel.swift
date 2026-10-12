@@ -115,9 +115,7 @@ extension WorkspaceSidebarPanel {
     }
 
     func cancelExpansionWork() {
-        debugWorkspaceSidebarHoverLog("cancelExpansionWork panel=\(monitorScopeId) pendingExpand=\(pendingExpand != nil) pendingCollapse=\(pendingCollapse != nil) pendingFinalize=\(pendingCollapseFinalize != nil)")
-        pendingExpand?.cancel()
-        pendingExpand = nil
+        debugWorkspaceSidebarHoverLog("cancelExpansionWork panel=\(monitorScopeId) pendingCollapse=\(pendingCollapse != nil) pendingFinalize=\(pendingCollapseFinalize != nil)")
         pendingCollapse?.cancel()
         pendingCollapse = nil
         pendingCollapseFinalize?.cancel()
@@ -379,17 +377,22 @@ extension WorkspaceSidebarPanel {
         onKeyDown: (@MainActor (WorkspaceSidebarInlineTextKey) -> Void)? = nil
     ) {
         debugWorkspaceSidebarRenameLog("beginInlineTextEditing isKeyBefore=\(isKeyWindow) firstResponder=\(String(describing: firstResponder)) mouseInside=\(isMouseInsideVisibleRegion())")
+        let startsSession = !inlineTextEditingActive || Self.activeInlineTextEditingPanel !== self
         inlineTextEditingActive = true
         inlineTextEditingLocksExpansion = locksExpansion
         inlineTextEditingCancelsOnPointerExit = cancelsOnPointerExit
         WorkspaceSidebarPanel.activeInlineTextEditingPanel = self
         inlineTextEditingCancel = onCancel
         inlineTextEditingKeyDown = onKeyDown
-        inlineTextEditingStartedAt = .now
-        inlineTextEditingPointerEnteredVisibleRegion = isMouseInsideVisibleRegion()
-        prepareForInlineTextEditing()
+        // Command search hands its buffered keys to SwiftUI without starting
+        // another session, activating the app again, or replacing the event tap.
+        if startsSession {
+            inlineTextEditingStartedAt = .now
+            inlineTextEditingPointerEnteredVisibleRegion = isMouseInsideVisibleRegion()
+            prepareForInlineTextEditing()
+            installInlineTextEditingKeyEventTap()
+        }
         installInlineTextEditingEventMonitors()
-        installInlineTextEditingKeyEventTap()
     }
 
     func endInlineTextEditing() {
@@ -457,7 +460,13 @@ extension WorkspaceSidebarPanel {
     }
 
     func installInlineTextEditingEventMonitors() {
-        removeInlineTextEditingEventMonitors()
+        // Search deliberately stays active on pointer exit. Installing four
+        // monitors for that policy only enqueued no-op work on every mouse move.
+        guard inlineTextEditingCancelsOnPointerExit else {
+            removeInlineTextEditingEventMonitors()
+            return
+        }
+        guard inlineTextEditingEventMonitors.isEmpty else { return }
         let mouseDownMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         let localMouseDown = NSEvent.addLocalMonitorForEvents(matching: mouseDownMask) { [weak self] event in
             guard let self else { return event }
@@ -603,6 +612,12 @@ extension WorkspaceSidebarPanel {
 extension WorkspaceSidebarPanel {
     func setHovering(_ isHovering: Bool) {
         guard !isResizingSidebar else { return }
+        // An explicit hide/collapse must survive a stationary pointer. Re-arm
+        // hover after it leaves the activation region; a keyboard open bypasses it.
+        if commandSuppressesHoverExpansion {
+            guard !isHovering else { return }
+            commandSuppressesHoverExpansion = false
+        }
         let expandedWidth = CGFloat(config.workspaceSidebar.width)
         let collapsedWidth = workspaceSidebarRestingWidth(config.workspaceSidebar)
         if viewModel.workspaceSidebarVisibleWidth > collapsedWidth + 0.5 || pendingCollapse != nil {
@@ -632,7 +647,14 @@ extension WorkspaceSidebarPanel {
     }
 }
 extension WorkspaceSidebarPanel {
-    func showHoverCue(cueWidth: CGFloat, expandedWidth: CGFloat, collapsedWidth: CGFloat) {
+    func showHoverCue(cueWidth: CGFloat, expandedWidth: CGFloat) {
+        // A deliberate entry goes straight to its final width in this event.
+        // Dispatching even a zero-delay work item puts opening behind unrelated
+        // main-queue work and can cost an extra display frame.
+        if isMouseDeepEnoughToExpand() {
+            expandSidebar(to: expandedWidth)
+            return
+        }
         if !isVisible {
             refresh()
         }
@@ -644,27 +666,6 @@ extension WorkspaceSidebarPanel {
         } else {
             updateMousePassthrough()
         }
-
-        guard isMouseDeepEnoughToExpand() else {
-            pendingExpand?.cancel()
-            pendingExpand = nil
-            return
-        }
-        scheduleHoverExpansion(expandedWidth: expandedWidth, collapsedWidth: collapsedWidth)
-    }
-
-    func scheduleHoverExpansion(expandedWidth: CGFloat, collapsedWidth: CGFloat) {
-        guard pendingExpand == nil else { return }
-        let expand = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.pendingExpand = nil
-            guard self.isMouseInsideHoverRegion(),
-                  self.isMouseDeepEnoughToExpand()
-            else { return }
-            self.expandSidebar(to: expandedWidth)
-        }
-        pendingExpand = expand
-        DispatchQueue.main.asyncAfter(deadline: .now() + hoverOpenDelay, execute: expand)
     }
 }
 extension WorkspaceSidebarPanel {
@@ -682,8 +683,6 @@ extension WorkspaceSidebarPanel {
         pendingCollapseFinalize?.cancel()
         pendingCollapseFinalize = nil
         if shouldSuppressDragExpansion {
-            pendingExpand?.cancel()
-            pendingExpand = nil
             updateMousePassthrough()
             return
         }
@@ -702,12 +701,10 @@ extension WorkspaceSidebarPanel {
             expandSidebar(to: expandedWidth)
             return
         }
-        showHoverCue(cueWidth: cueWidth, expandedWidth: expandedWidth, collapsedWidth: collapsedWidth)
+        showHoverCue(cueWidth: cueWidth, expandedWidth: expandedWidth)
     }
 
     func showCollapsedSidebarDuringExternalDrag(collapsedWidth: CGFloat) {
-        pendingExpand?.cancel()
-        pendingExpand = nil
         if !isVisible {
             refresh()
         }
@@ -721,8 +718,6 @@ extension WorkspaceSidebarPanel {
 extension WorkspaceSidebarPanel {
     func handleHoverExit(collapsedWidth: CGFloat) {
         debugWorkspaceSidebarHoverLog("handleHoverExit panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) expanded=\(viewModel.isWorkspaceSidebarExpanded) suppressActive=\(Date() < organizeCollapseSuppressedUntil) mouse=\(NSEvent.mouseLocation)")
-        pendingExpand?.cancel()
-        pendingExpand = nil
         guard Date() >= organizeCollapseSuppressedUntil, !shouldLockExpansionForSidebarDrag() else { return }
         if workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) {
             cancelExpansionWork()
@@ -838,9 +833,14 @@ extension WorkspaceSidebarPanel {
     /// rechecks at the points where the panel itself appears or resizes (geometry changes).
     /// This used to be a permanent CVDisplayLink subscription polling at 30Hz, which kept the
     /// display link running and woke the main actor every vsync even when the machine was idle.
-    static func noteHoverPointerActivityForVisiblePanels(timestamp: TimeInterval) {
+    /// PointerActivityCoalescer already limits movement to the display refresh rate;
+    /// do not add another timer here, especially on displays faster than 60 Hz.
+    static func noteHoverPointerActivityForVisiblePanels() {
         for panel in visiblePanels {
-            panel.noteHoverPointerActivity(timestamp: timestamp)
+            // Use the existing coalesced pointer stream instead of installing
+            // another monitor pair (and delayed installers) on each keyboard open.
+            panel.unlockCommandSidebarExpansionIfMouseMoved()
+            panel.updateHoverStateFromMousePosition()
         }
     }
 
@@ -850,25 +850,6 @@ extension WorkspaceSidebarPanel {
     static func scheduleHoverRecheckForVisiblePanels() {
         for panel in visiblePanels {
             panel.scheduleHoverRecheckSoon()
-        }
-    }
-
-    /// Rate-limited to `hoverPollInterval`, with a trailing recheck so the final position of an
-    /// event burst is always evaluated (a leading-edge-only throttle could drop the last event
-    /// and leave hover state stale until the next mouse move).
-    private func noteHoverPointerActivity(timestamp: TimeInterval) {
-        if timestamp - lastHoverMonitorTimestamp >= hoverPollInterval {
-            lastHoverMonitorTimestamp = timestamp
-            updateHoverStateFromMousePosition()
-        } else if !hasPendingHoverRecheck {
-            hasPendingHoverRecheck = true
-            let delay = max(hoverPollInterval - (timestamp - lastHoverMonitorTimestamp), 0.001)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self else { return }
-                self.hasPendingHoverRecheck = false
-                self.lastHoverMonitorTimestamp = ProcessInfo.processInfo.systemUptime
-                self.updateHoverStateFromMousePosition()
-            }
         }
     }
 
@@ -973,7 +954,6 @@ extension WorkspaceSidebarPanel {
                 ? layout.expandedWidth
                 : layout.collapsedWidth
         } else if !viewModel.isWorkspaceSidebarExpanded,
-                  pendingExpand == nil,
                   pendingCollapse == nil,
                   viewModel.workspaceSidebarVisibleWidth != layout.collapsedWidth
         {

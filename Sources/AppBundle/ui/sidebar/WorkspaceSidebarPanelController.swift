@@ -11,10 +11,8 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     let viewModel: TrayMenuModel
     let hostingView: WorkspaceSidebarHostingView
     let monitorScopeId: String
-    var pendingExpand: DispatchWorkItem?
     var pendingCollapse: DispatchWorkItem?
     var pendingCollapseFinalize: DispatchWorkItem?
-    var lastHoverMonitorTimestamp: CFTimeInterval = 0
     var hasPendingHoverRecheck = false
     var menuTrackingDepth = 0
     var menuTrackingGraceUntil: Date = .distantPast
@@ -29,10 +27,11 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var inlineTextEditingStartedAt: Date = .distantPast
     var inlineTextEditingPointerEnteredVisibleRegion = false
     var commandExpansionLocksCollapse = false
+    var commandSuppressesHoverExpansion = false
     var shouldLockNextSidebarSearchExpansion = false
     var bufferedCommandSidebarSearchKeys: [WorkspaceSidebarInlineTextKey] = []
     var commandMouseUnlockPoint: CGPoint?
-    var commandMouseUnlockMonitors: [Any] = []
+    var commandMouseUnlockAfter: TimeInterval = 0
     var menuTrackingObservers: [NSObjectProtocol] = []
     var lastEdgeTrapSample: MousePointerSample?
     var edgeTrapStartedAt: TimeInterval?
@@ -44,8 +43,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var isResizingSidebar = false
     var projectIconPicker: WorkspaceSidebarProjectIconPickerController?
     let hoverExitTolerance: CGFloat = 6
-    let hoverPollInterval: TimeInterval = 1.0 / 60.0
-    let hoverOpenDelay: TimeInterval = 0
     let hoverCueAnimationResponse: TimeInterval = 0.12
     let animationDuration: TimeInterval = workspaceSidebarExpansionDuration
     let menuTrackingEndGrace: TimeInterval = 0.12

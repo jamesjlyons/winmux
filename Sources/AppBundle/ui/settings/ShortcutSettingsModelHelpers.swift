@@ -7,6 +7,17 @@ import MASShortcut
 @MainActor
 func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
     return [
+        .init(id: "sidebar", category: .managed, title: "Sidebar",
+              summary: "Show, hide, or resize the sidebar on all displays. Hide keeps edge hover available.",
+              actions: [
+                shortcutAction(id: "sidebar-toggle", title: "Show / Hide Sidebar", command: "sidebar toggle"),
+                shortcutAction(id: "sidebar-toggle-expanded", title: "Expand / Collapse Sidebar", command: "sidebar toggle-expanded"),
+                shortcutAction(id: "sidebar-show", title: "Show Sidebar", command: "sidebar show"),
+                shortcutAction(id: "sidebar-hide", title: "Hide Sidebar", command: "sidebar hide"),
+                shortcutAction(id: "sidebar-expand", title: "Expand Sidebar", command: "sidebar expand"),
+                shortcutAction(id: "sidebar-collapse", title: "Collapse Sidebar", command: "sidebar collapse"),
+                shortcutAction(id: "open-sidebar", title: "Open Sidebar Search", command: "open-sidebar"),
+              ]),
         .init(id: "browser", category: .managed, title: "Browser",
               summary: "Open a page from any app. Change this shortcut if another app uses it.",
               actions: [shortcutAction(id: "browser-new-tab", title: "New Tab Window",

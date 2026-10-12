@@ -99,7 +99,9 @@ enum GlobalObserver {
                 SharedStackDragController.shared.notePointerEvent(type: eventType, at: point)
                 BrowserWindowDragController.shared.notePointerEvent(type: eventType, at: point)
                 WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-                WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels(timestamp: timestamp)
+                // PointerActivityCoalescer already delivers once per display refresh.
+                // A second sidebar throttle can defer entry by another frame.
+                WorkspaceSidebarPanel.noteHoverPointerActivityForVisiblePanels()
                 if isMouseDownEvent {
                     // Dock activation and clicking a different display are explicit
                     // navigation. An ordinary close/minimize click grants no such
