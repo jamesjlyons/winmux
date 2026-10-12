@@ -1,4 +1,5 @@
 @testable import AppBundle
+import AppKit
 import Common
 import Foundation
 import XCTest
@@ -22,6 +23,7 @@ final class SidebarCommandTest: XCTestCase {
         let text = starterConfigText()
         XCTAssertTrue(parseConfig(text).errors.isEmpty)
         let bindings = readModeBindingEntries(in: text)
+        XCTAssertEqual(bindings["alt-ctrl-cmd-shift-s"], "sidebar cycle")
         XCTAssertEqual(bindings["alt-shift-s"], "sidebar toggle")
         XCTAssertEqual(bindings["alt-shift-e"], "sidebar toggle-expanded")
         XCTAssertEqual(bindings["ctrl-f"], "open-sidebar")
@@ -37,12 +39,32 @@ final class SidebarCommandTest: XCTestCase {
             (.collapse, [.compact, .compact, .compact]),
             (.toggle, [.compact, .autoHide, .autoHide]),
             (.toggleExpanded, [.expanded, .expanded, .compact]),
+            (.cycle, [.compact, .expanded, .autoHide]),
         ]
         for (action, expected) in expectations {
             for (current, next) in zip([WorkspaceSidebarVisibility.autoHide, .compact, .expanded], expected) {
                 XCTAssertEqual(workspaceSidebarVisibility(after: action, current: current), next)
             }
         }
+    }
+
+    func testHyperShortcutRecorderRoundTrip() throws {
+        let shortcut = try XCTUnwrap(masShortcut(from: "alt-ctrl-cmd-shift-s"))
+        XCTAssertEqual(shortcut.modifierFlags, [.control, .option, .shift, .command])
+        XCTAssertEqual(notation(from: shortcut), "alt-ctrl-cmd-shift-s")
+    }
+
+    func testOverlappingCyclesVisitEveryVisibilityAndWrap() async throws {
+        var current = WorkspaceSidebarVisibility.autoHide
+        var applied: [WorkspaceSidebarVisibility] = []
+        let controller = SidebarVisibilityController(current: { current }, save: {
+            await Task.yield()
+            current = $0
+        }, apply: { applied.append($0) })
+        let requests = (0..<6).map { _ in Task { try await controller.perform(.cycle) } }
+        for request in requests { try await request.value }
+        XCTAssertEqual(applied, [.compact, .expanded, .autoHide, .compact, .expanded, .autoHide])
+        XCTAssertEqual(current, .autoHide)
     }
 
     func testOverlappingTogglesUseLastSavedState() async throws {

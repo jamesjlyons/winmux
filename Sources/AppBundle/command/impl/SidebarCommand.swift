@@ -27,11 +27,17 @@ func workspaceSidebarVisibility(after action: SidebarCmdArgs.Action, current: Wo
     case .collapse: .compact
     case .toggle: current == .autoHide ? .compact : .autoHide
     case .toggleExpanded: current == .expanded ? .compact : .expanded
+    case .cycle:
+        switch current {
+        case .autoHide: .compact
+        case .compact: .expanded
+        case .expanded: .autoHide
+        }
     }
 }
 
 /// Config reload suspends while re-registering shortcuts. Serialize requests so
-/// rapid toggles read the result of the previous request, including after failure.
+/// rapid visibility changes read the result of the previous request, including after failure.
 @MainActor
 final class SidebarVisibilityController {
     static let shared = SidebarVisibilityController(

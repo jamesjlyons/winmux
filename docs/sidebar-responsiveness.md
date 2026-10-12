@@ -18,6 +18,7 @@ Settings → Shortcuts → Sidebar exposes these commands:
 
 | Action | Command | Starter shortcut |
 | --- | --- | --- |
+| Cycle Auto-hide → Compact → Expanded → Auto-hide | `sidebar cycle` | Hyper–S (Control–Option–Shift–Command–S) |
 | Show / hide | `sidebar toggle` | Option–Shift–S |
 | Expand / collapse | `sidebar toggle-expanded` | Option–Shift–E |
 | Show the compact rail (retain Expanded if selected) | `sidebar show` | Assign in Settings |
@@ -34,6 +35,12 @@ in Settings or add them to `[mode.main.binding]`. Requests are serialized across
 config reloads. An explicit hide/collapse suppresses hover reopening until the
 pointer leaves the activation region. Existing menus, dragging, and editor locks
 remain in effect for ordinary hover transitions.
+
+For a single shortcut through all three visibility modes, assign **Cycle Sidebar
+Visibility** in Settings, or add `alt-ctrl-cmd-shift-s = 'sidebar cycle'` to
+`[mode.main.binding]`. This is Hyper–S; a remapped Hyper key works as long as it
+emits Control, Option, Shift, and Command together. The cycle starts from the saved
+visibility mode, including when the pointer has temporarily expanded the sidebar.
 
 Regression tests cover synchronous entry with a single final-width publication,
 duplicate opens, close reversal, pointer suppression, every command/state pair,
@@ -52,6 +59,8 @@ a separate monitor pair or queues delayed installers that can outlive a quick
 open/close/open sequence.
 All 297 sidebar and shortcut tests passed after this follow-up, including monitor
 reuse, buffered-search handoff, unlock grace/distance, and rapid rearming checks.
+With the cycle action added, all 299 tests passed, including Hyper shortcut
+recording and six overlapping cycle requests completing two full visibility loops.
 
 ## Causes
 

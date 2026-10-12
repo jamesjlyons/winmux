@@ -10,6 +10,9 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
         .init(id: "sidebar", category: .managed, title: "Sidebar",
               summary: "Show, hide, or resize the sidebar on all displays. Hide keeps edge hover available.",
               actions: [
+                shortcutAction(id: "sidebar-cycle", title: "Cycle Sidebar Visibility",
+                               subtitle: "Auto-hide → Compact → Expanded → Auto-hide",
+                               command: "sidebar cycle"),
                 shortcutAction(id: "sidebar-toggle", title: "Show / Hide Sidebar", command: "sidebar toggle"),
                 shortcutAction(id: "sidebar-toggle-expanded", title: "Expand / Collapse Sidebar", command: "sidebar toggle-expanded"),
                 shortcutAction(id: "sidebar-show", title: "Show Sidebar", command: "sidebar show"),

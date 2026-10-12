@@ -4,7 +4,7 @@ public struct SidebarCmdArgs: CmdArgs {
     public var action: Lateinit<Action> = .uninitialized
 
     public enum Action: String, CaseIterable, Sendable {
-        case show, hide, expand, collapse, toggle
+        case show, hide, expand, collapse, toggle, cycle
         case toggleExpanded = "toggle-expanded"
     }
 
@@ -12,7 +12,7 @@ public struct SidebarCmdArgs: CmdArgs {
         kind: .sidebar,
         allowInConfig: true,
         help: """
-        USAGE: sidebar (show|hide|expand|collapse|toggle|toggle-expanded)
+        USAGE: sidebar (show|hide|expand|collapse|toggle|toggle-expanded|cycle)
 
         Change the saved sidebar visibility on all displays.
         show: reveal the compact rail, retaining Expanded if already selected.
@@ -20,6 +20,7 @@ public struct SidebarCmdArgs: CmdArgs {
         expand: keep the full sidebar visible. collapse: keep the compact rail visible.
         toggle: switch between auto-hide and the compact rail.
         toggle-expanded: switch between Expanded and Compact.
+        cycle: advance Auto-hide -> Compact -> Expanded -> Auto-hide.
         Use open-sidebar to temporarily open the sidebar and search.
         """,
         flags: [:],
