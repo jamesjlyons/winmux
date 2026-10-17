@@ -10,6 +10,9 @@ struct WorkspaceSidebarWindowViewModel: Hashable, Identifiable {
     let isFocused: Bool
     let surfaceID: SurfaceID
     var isFloating = false
+    var nativeTabCount = 1
+
+    var nativeTabBadge: String? { nativeTabCount > 1 ? "\(nativeTabCount) tabs" : nil }
 
     var id: SurfaceID { surfaceID }
 }

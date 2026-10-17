@@ -5,7 +5,31 @@ import WorkspaceCore
 open class Window: TreeNode, Hashable {
     private(set) var surfaceID: SurfaceID = .nativeWindow(UUID())
     @MainActor private static var surfaceWindows: [SurfaceID: WeakSurfaceWindow] = [:]
-    let windowId: UInt32
+    private(set) var windowId: UInt32
+    private(set) var nativeTabGroup: NativeTabGroupSnapshot?
+    var nativeTabCount: Int { max(nativeTabGroup?.count ?? 1, 1) }
+
+    /// Native tab selection changes the physical AX/CG window, not the owner
+    /// object, surface, tree position, or pin binding.
+    @MainActor func adoptNativeTabGroup(_ group: NativeTabGroupSnapshot) {
+        guard nativeTabGroup != group else { return }
+        let changedWindow = windowId != group.selectedWindowID
+        if changedWindow {
+            invalidateCachedWindowTitle(self)
+            windowId = group.selectedWindowID
+            invalidateCachedWindowTitle(self)
+            invalidateLastKnownNativeState(includingSharedLayoutSize: true)
+            lastAppliedLayoutPhysicalRect = nil
+        }
+        nativeTabGroup = group
+        recordChange([.metadata, .persistence])
+    }
+
+    @MainActor func clearNativeTabGroup() {
+        guard nativeTabGroup != nil else { return }
+        nativeTabGroup = nil
+        recordChange([.metadata, .persistence])
+    }
     let app: any AbstractApp
     var lastFloatingSize: CGSize? {
         didSet { if oldValue != lastFloatingSize { recordChange([.geometry, .persistence]) } }
@@ -143,14 +167,14 @@ open class Window: TreeNode, Hashable {
     @MainActor static func get(byId windowId: UInt32) -> Window? { // todo make non optional
         isUnitTest
             ? Workspace.all.flatMap { $0.allLeafWindowsRecursive }.first(where: { $0.windowId == windowId })
-            : MacWindow.allWindowsMap[windowId]
+            : MacWindow.resolvingNativeTab(windowId)
     }
 
     @MainActor
     func closeAxWindow() { die("Not implemented") }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(windowId)
+        hasher.combine(ObjectIdentifier(self))
     }
 
     func getAxSize() async throws -> CGSize? { die("Not implemented") }

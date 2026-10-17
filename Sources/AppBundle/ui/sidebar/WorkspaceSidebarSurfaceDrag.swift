@@ -1,6 +1,33 @@
 import AppKit
 import WorkspaceCore
 
+enum WorkspaceSidebarContentDrop {
+    case surface(BrowserSurfaceDropDestination)
+    case group(SharedStackDrop)
+
+    var overlay: WindowDropIntentOverlayModel {
+        switch self { case .surface(let drop): drop.overlay; case .group(let drop): drop.destination.overlay }
+    }
+
+    @MainActor @discardableResult
+    func commit(at pointer: CGPoint, controller: BrowserWorkspaceController = .shared) -> Bool {
+        switch self {
+        case .surface(let drop): commitBrowserSurfaceDrop(drop, controller: controller)
+        case .group(let drop): commitSharedStackDrop(drop, pointer: pointer, controller: controller)
+        }
+    }
+}
+
+@MainActor
+func resolveWorkspaceSidebarContentDrop(_ subject: WorkspaceSidebarSurfaceDragSubject, at pointer: CGPoint,
+                                       controller: BrowserWorkspaceController = .shared) -> WorkspaceSidebarContentDrop? {
+    switch subject {
+    case .surface(let id): resolveBrowserSurfaceDrop(source: id, pointer: pointer, controller: controller).map(WorkspaceSidebarContentDrop.surface)
+    case .group(let id): resolveSharedStackDrop(.group(id), pointer: pointer, controller: controller).map(WorkspaceSidebarContentDrop.group)
+    case .pin: nil
+    }
+}
+
 /// A typed sidebar gesture owns its preview independently of native AX dragging.
 /// Cancellation remains latched until mouse-up so SwiftUI cannot restart it.
 struct WorkspaceSidebarSurfaceDragState {
@@ -63,8 +90,7 @@ private final class WorkspaceSidebarSurfaceDragDriver {
         } else {
             clearWorkspaceSidebarDropPreview()
             if WorkspaceSidebarPanel.panel(containing: pointer) == nil,
-               case .surface(let id) = subject,
-               let drop = resolveBrowserSurfaceDrop(source: id, pointer: pointer) {
+               let drop = resolveWorkspaceSidebarContentDrop(subject, at: pointer) {
                 WindowDropIntentOverlayPanelController.shared.show(drop.overlay, revealProgress: reorder.splitProgress(at: pointer))
             } else {
                 WindowDropIntentOverlayPanelController.shared.hide()
@@ -83,16 +109,16 @@ private final class WorkspaceSidebarSurfaceDragDriver {
             return
         }
         let target = workspaceSidebarSurfaceDragTarget(subject, at: pointer)
-        let contentDrop: BrowserSurfaceDropDestination?
-        if target == nil, WorkspaceSidebarPanel.panel(containing: pointer) == nil, case .surface(let id) = subject {
-            contentDrop = resolveBrowserSurfaceDrop(source: id, pointer: pointer)
+        let contentDrop: WorkspaceSidebarContentDrop?
+        if target == nil, WorkspaceSidebarPanel.panel(containing: pointer) == nil {
+            contentDrop = resolveWorkspaceSidebarContentDrop(subject, at: pointer)
         } else { contentDrop = nil }
         clearFeedback(pointer: pointer)
         state.releasePointer()
         if let target { commitWorkspaceSidebarSurfaceDrop(subject, target: target) }
         else if let contentDrop {
             runWorkspaceSidebarSession {
-                guard commitBrowserSurfaceDrop(contentDrop) else { return }
+                guard contentDrop.commit(at: pointer) else { return }
                 await updateWorkspaceSidebarModel()
             }
         }

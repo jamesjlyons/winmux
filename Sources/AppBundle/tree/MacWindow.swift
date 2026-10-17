@@ -25,16 +25,19 @@ final class MacWindow: Window {
     @MainActor
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow? {
+        var windowId = macApp.nativeTabRegistry.selectedByMember[windowId] ?? windowId
         // Quarantine all UI from an authenticated browser process, including
         // popup/extension windows. Only bridge-owned normal hosts may be placed.
         guard !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: macApp.pid) else { return nil }
+        if let group = macApp.nativeTabRegistry.groups.values.first(where: { $0.selectedWindowID == windowId }),
+           let existing = allWindows.first(where: { $0.macApp === macApp && $0.nativeTabGroup?.id == group.id }) { return existing }
         if let existing = allWindowsMap[windowId] {
             // No AX round-trip for known windows: this runs for every window on every refresh
             // barrier, and lastKnownActualRect stays correct without polling because moved /
             // resized AX events invalidate it and consumers re-fetch on demand.
             return existing
         }
-        let arrivalWorkspace = focus.workspace
+        let arrivalWorkspace = macApp.nativeTabArrivalWorkspace(windowId) ?? focus.workspace
         let rect = try await macApp.getAxRect(windowId)
         let data = try await unbindAndGetBindingDataForNewWindow(
             windowId,
@@ -47,10 +50,18 @@ final class MacWindow: Window {
 
         // atomic synchronous section
         guard !BrowserWorkspaceController.shared.excludesNativeDiscovery(processID: macApp.pid) else { return nil }
+        let observedWindowId = windowId
+        windowId = macApp.nativeTabRegistry.selectedByMember[windowId] ?? windowId
+        if let group = macApp.nativeTabRegistry.groups.values.first(where: { $0.selectedWindowID == windowId }),
+           let existing = allWindows.first(where: { $0.macApp === macApp && $0.nativeTabGroup?.id == group.id }) { return existing }
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
-        window.recordAuthoritativeActualRect(rect)
+        window.recordAuthoritativeActualRect(observedWindowId == windowId ? rect : nil)
         allWindowsMap[windowId] = window
+        macApp.didRegisterNativeTabArrival(windowId)
+        if let group = macApp.nativeTabRegistry.groups.values.first(where: { $0.selectedWindowID == windowId }) {
+            window.adoptNativeTabGroup(group)
+        }
         _ = getSessionWindowTitle(window)
 
         try await debugWindowsIfRecording(window)
@@ -69,11 +80,51 @@ final class MacWindow: Window {
     }
 
     /// Ownership handoff is not a close: no close cache, replacement focus or AX writes.
-    @MainActor func relinquishToBrowser() {
+    @MainActor func relinquishToBrowser() { relinquishNativeOwnership() }
+
+    @MainActor private func relinquishNativeOwnership() {
         layoutAnimationCancellation?.cancel()
         guard MacWindow.allWindowsMap.removeValue(forKey: windowId) === self else { return }
         unregisterSurface()
         unbindFromParent()
+    }
+
+    /// Rebind the same model object before discovery/GC can interpret the newly
+    /// selected tab as an arrival in the currently focused Space.
+    @MainActor static func reconcileNativeTabGroups(in app: MacApp, registry: NativeTabRegistry) {
+        // Incomplete observations during a transfer cannot retire another
+        // group's owner or let two owners claim the same physical window.
+        guard !registry.hasUnresolvedSelection else { return }
+        let original = allWindows.filter { $0.macApp === app }
+        let owners = nativeTabOwnerAssignments(original, registry: registry)
+        let retained = Set(owners.map { ObjectIdentifier($0.1) })
+        // Plan all owners before changing any physical IDs. A native tab can
+        // move directly between two groups in the same discovery snapshot.
+        for (group, _) in owners {
+            for duplicate in original where group.memberWindowIDs.contains(duplicate.windowId) &&
+                !retained.contains(ObjectIdentifier(duplicate)) { duplicate.relinquishNativeOwnership() }
+        }
+        for (group, owner) in owners where owner.windowId != group.selectedWindowID {
+            WindowLayoutAnimator.shared.cancel(owner.windowId)
+            owner.layoutAnimationCancellation?.cancel()
+            app.cancelNativeTabSelectionJobs(owner.windowId)
+            owner.hiddenInCorner = nil
+            owner.skipNextLayoutAnimation = true
+            allWindowsMap.removeValue(forKey: owner.windowId)
+        }
+        for (group, owner) in owners {
+            owner.adoptNativeTabGroup(group)
+            allWindowsMap[owner.windowId] = owner
+        }
+        let membership = registry.selectedByMember
+        for window in allWindows where window.macApp === app && window.nativeTabGroup != nil {
+            if membership[window.windowId] == nil { window.clearNativeTabGroup() }
+        }
+    }
+
+    @MainActor static func resolvingNativeTab(_ id: UInt32) -> MacWindow? {
+        if let window = allWindowsMap[id] { return window }
+        return allWindows.first { $0.nativeTabGroup?.memberWindowIDs.contains(id) == true }
     }
 
     // var description: String {
@@ -196,14 +247,24 @@ final class MacWindow: Window {
     @MainActor
     func requestCloseForProjectDeletion(timeout: TimeInterval = 1.5) async -> Bool {
         layoutAnimationCancellation?.cancel()
-        guard (try? await macApp.pressCloseButton(windowId)) == true else { return false }
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if (try? await macApp.containsAxWindow(windowId)) == false {
+        let deadline = Date().addingTimeInterval(min(30, timeout * Double(nativeTabCount)))
+        while !Task.isCancelled, Date() < deadline {
+            guard isBound, MacWindow.allWindowsMap[windowId] === self else { return true }
+            let closingID = windowId
+            guard (try? await macApp.pressCloseButton(closingID)) == true else { return false }
+            while !Task.isCancelled, Date() < deadline, (try? await macApp.containsAxWindow(closingID)) != false {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            guard !Task.isCancelled, Date() < deadline else { return false }
+            guard let alive = try? await macApp.refreshNativeTabSelection() else { return false }
+            if !isBound || MacWindow.allWindowsMap[windowId] !== self { return true }
+            if !alive.contains(windowId) {
                 garbageCollect(skipClosedWindowsCache: true)
                 return true
             }
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            // Closing a native tab can expose another tab on this same owner.
+            // Explicit project deletion closes the whole group, honoring each
+            // application's save prompt before continuing.
         }
         return false
     }

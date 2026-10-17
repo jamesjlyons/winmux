@@ -929,7 +929,7 @@ public final class BrowserWorkspaceController {
                 }
                 available[window.surfaceID] = .init(kind: .surface(.init(surfaceID: window.surfaceID,
                     title: window.title ?? window.appName, appName: window.appName, isFocused: window.isFocused,
-                    appBundleId: window.appBundleId, appBundlePath: window.appBundlePath)))
+                    appBundleId: window.appBundleId, appBundlePath: window.appBundlePath, nativeTabCount: window.nativeTabCount)))
             case .browserTab(let tab):
                 let path = projection != nil ? projection?.appPaths[tab.surfaceID]
                     : browserProcess(for: tab.surfaceID).flatMap { NSRunningApplication(processIdentifier: $0)?.bundleURL?.path }
@@ -1515,6 +1515,26 @@ public final class BrowserWorkspaceController {
         layoutPlanBuildCount &+= 1
         let interval = signposter.beginInterval("Shared layout plan")
         defer { signposter.endInterval("Shared layout plan", interval) }
+        let result = makeLayoutPlan(in: workspace)
+        layoutPlanCache[identity] = (revision, result)
+        return result
+    }
+
+    /// A selected tab lifted out of a stack must leave a target behind. Keep
+    /// the physical allocations and saved tree while previewing its sibling.
+    func plannedDropLayout(in workspace: Workspace, excluding moving: Set<SurfaceID>) -> SurfaceLayoutPlan {
+        let plan = plannedLayout(in: workspace)
+        let selectedStackPaneIsMoving = plan.stacks.contains { stack in
+            stack.visible && surfaceTree.node(for: stack.selected)?.surfaces.allSatisfy(moving.contains) == true &&
+                stack.panes.contains { surfaceTree.node(for: $0)?.surfaces.contains { !moving.contains($0) } == true }
+        }
+        guard selectedStackPaneIsMoving || plan.surfaces.contains(where: {
+            $0.visible && moving.contains($0.surfaceID) && $0.navigationStack.contains { !moving.contains($0) }
+        }) else { return plan }
+        return makeLayoutPlan(in: workspace, excludingFromSelection: moving)
+    }
+
+    private func makeLayoutPlan(in workspace: Workspace, excludingFromSelection: Set<SurfaceID> = []) -> SurfaceLayoutPlan {
         let livePlan = liveLayoutTree(in: workspace)
         let fullscreen = sharedFullscreenPane(in: workspace, liveTree: livePlan)
         let rect = fullscreen?.noOuterGaps == true ? workspace.workspaceMonitor.visibleRect
@@ -1526,8 +1546,7 @@ public final class BrowserWorkspaceController {
                 ? (focusCoordinator.target.flatMap { livePlan.workspace(of: $0) == workspace.name ? $0 : nil } ?? preferredSurface(in: workspace))
                 : focusCoordinator.target,
             recentSelections: recentSelections, rootPresentation: rootPresentation(in: workspace), stackChrome: stackChrome(in: workspace),
-            gaps: layoutGaps(in: workspace), expandedPane: fullscreen?.pane)
-        layoutPlanCache[identity] = (revision, result)
+            gaps: layoutGaps(in: workspace), expandedPane: fullscreen?.pane, excludingFromSelection: excludingFromSelection)
         return result
     }
 

@@ -40,9 +40,9 @@ func resolveBrowserSurfaceDrop(source: SurfaceID, pointer: CGPoint,
         return .init(source: source, target: header.surface, zone: .tab, targetFrame: header.frame,
             sourceWorkspace: sourceWorkspace, targetWorkspace: workspace.name, targetStack: header.id)
     }
-    // Shared placements include native leaves and Chromium pages, but only the
-    // selected member of a stack is a destination that the user can see.
-    for placement in controller.plannedSurfaces(in: workspace) where placement.visible && placement.surfaceID != source {
+    // Shared placements include native leaves and Chromium pages. When the
+    // selected tab is moving, its remaining sibling supplies the stack target.
+    for placement in controller.plannedDropLayout(in: workspace, excluding: [source]).surfaces where placement.visible && placement.surfaceID != source {
         let target = placement.surfaceID
         guard canDropSurface(target, controller: controller), controller.canCombinePinnedView(containing: target),
               controller.workspaceName(for: target) == workspace.name,
@@ -71,8 +71,8 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
           controller.surfaceTree.workspace(of: destination.target) == destination.targetWorkspace,
           controller.workspaceName(for: destination.target) == destination.targetWorkspace,
           let workspace = Workspace.existing(byName: destination.targetWorkspace), workspace.isVisible,
-          let placement = controller.plannedSurfaces(in: workspace).first(where: { $0.surfaceID == destination.target && $0.visible }),
-          let frame = destination.targetStack.flatMap({ stackDropTargetFrame($0, containing: destination.target, in: workspace, controller: controller) })
+          let placement = controller.plannedDropLayout(in: workspace, excluding: [destination.source]).surfaces.first(where: { $0.surfaceID == destination.target && $0.visible }),
+          let frame = destination.targetStack.flatMap({ stackDropTargetFrame($0, containing: destination.target, excluding: [destination.source], in: workspace, controller: controller) })
               ?? (destination.targetStack == nil ? surfaceDropTargetFrame(placement, workspace: workspace, controller: controller) : nil),
           frame.isEqual(to: destination.targetFrame),
           destination.zone != .tab || config.windowTabs.enabled,
@@ -118,7 +118,7 @@ func commitBrowserSurfaceDrop(_ destination: BrowserSurfaceDropDestination,
 func sharedStackHeaderTarget(at point: CGPoint, excluding: Set<SurfaceID>, in workspace: Workspace,
                              controller: BrowserWorkspaceController) -> (id: UUID, surface: SurfaceID, frame: Rect)? {
     guard config.windowTabs.enabled, controller.hasSharedLayout(in: workspace) else { return nil }
-    let plan = controller.plannedLayout(in: workspace)
+    let plan = controller.plannedDropLayout(in: workspace, excluding: excluding)
     let live = Set(plan.surfaces.filter(\.visible).map(\.surfaceID)).subtracting(excluding)
     for stack in plan.stacks where stack.visible {
         let header = stack.headerFrame
@@ -132,10 +132,10 @@ func sharedStackHeaderTarget(at point: CGPoint, excluding: Set<SurfaceID>, in wo
 }
 
 @MainActor
-private func stackDropTargetFrame(_ id: UUID, containing surface: SurfaceID, in workspace: Workspace,
+private func stackDropTargetFrame(_ id: UUID, containing surface: SurfaceID, excluding: Set<SurfaceID>, in workspace: Workspace,
                                    controller: BrowserWorkspaceController) -> Rect? {
     guard controller.surfaceTree.group(id)?.surfaces.contains(surface) == true,
-          let frame = controller.plannedLayout(in: workspace).stacks.first(where: { $0.groupID == id && $0.visible })?.frame else { return nil }
+          let frame = controller.plannedDropLayout(in: workspace, excluding: excluding).stacks.first(where: { $0.groupID == id && $0.visible })?.frame else { return nil }
     return Rect(topLeftX: CGFloat(frame.x), topLeftY: CGFloat(frame.y), width: CGFloat(frame.width), height: CGFloat(frame.height))
 }
 

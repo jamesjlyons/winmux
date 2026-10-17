@@ -108,18 +108,20 @@ extension SurfaceTree {
                        minimumSizes: [SurfaceID: SurfaceMinimumSize] = [:], selectedSurface: SurfaceID? = nil,
                        recentSelections: [SurfaceID] = [], rootPresentation: SurfaceRootPresentation = .adaptiveTiles,
                        stackChrome: SurfaceStackChrome = .init(), gaps: SurfaceLayoutGaps = .init(),
-                       expandedPane: SurfacePane? = nil) -> SurfaceLayoutPlan {
+                       expandedPane: SurfacePane? = nil,
+                       excludingFromSelection: Set<SurfaceID> = []) -> SurfaceLayoutPlan {
         guard frame.isValid else { return .init() }
         if let expandedPane, self.workspace(of: expandedPane) == workspace, let node = node(for: expandedPane) {
             // Expansion is a presentation, never an organization edit. Preserve
             // hidden owner placements so adapters can explicitly park siblings.
             var plan = layout(in: workspace, frame: frame, visible: false, minimumSizes: minimumSizes,
                               selectedSurface: selectedSurface, recentSelections: recentSelections,
-                              rootPresentation: rootPresentation, gaps: gaps)
+                              rootPresentation: rootPresentation, gaps: gaps, excludingFromSelection: excludingFromSelection)
             var expanded = self
             expanded.roots[workspace] = [node]
             let shown = expanded.layout(in: workspace, frame: frame, visible: visible, minimumSizes: minimumSizes,
-                                        selectedSurface: selectedSurface, recentSelections: recentSelections, gaps: gaps)
+                                        selectedSurface: selectedSurface, recentSelections: recentSelections, gaps: gaps,
+                                        excludingFromSelection: excludingFromSelection)
             let replacements = Dictionary(uniqueKeysWithValues: shown.surfaces.map { ($0.surfaceID, $0) })
             plan.surfaces = plan.surfaces.map { replacements[$0.surfaceID] ?? $0 }
             plan.frames.merge(shown.frames) { _, new in new }
@@ -190,7 +192,15 @@ extension SurfaceTree {
             let navigationStack = effective == .stack && nodes.count > 1 ? nodes.flatMap(\.surfaces) : inheritedStack
             let active = (rootSelection ?? selectedSurface).flatMap { id in nodes.contains { $0.contains(id) } ? id : nil }
                 ?? container.flatMap { activeSurfaces[$0] }
-            let selected = nodes.firstIndex { active.map($0.contains) ?? false } ?? 0
+            // A lifted tab still occupies its saved slot while dragging. Expose
+            // the remaining stack member for hit testing, without editing the
+            // tree or changing the actual owner selection.
+            var selected = nodes.firstIndex { active.map($0.contains) ?? false } ?? 0
+            if effective == .stack, !excludingFromSelection.isEmpty,
+               nodes[selected].surfaces.allSatisfy(excludingFromSelection.contains),
+               let remaining = nodes.firstIndex(where: { $0.surfaces.contains { !excludingFromSelection.contains($0) } }) {
+                selected = remaining
+            }
             var frame = frame
             if layout == .stack, let container, nodes.count > 1, stackChrome.headerHeight > 0, frame.height > 1 {
                 let header = min(stackChrome.headerHeight, frame.height - 1)

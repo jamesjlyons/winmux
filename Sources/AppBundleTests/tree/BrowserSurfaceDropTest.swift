@@ -131,6 +131,119 @@ import XCTest
         XCTAssertNil(resolveBrowserSurfaceDrop(source: fixture.page, pointer: frame.center, controller: fixture.controller))
     }
 
+    func testSelectedTabCanSplitOutOfItsOwnStackInEveryDirection() throws {
+        for zone: WindowDropZone in [.left, .right, .top, .bottom] {
+            let fixture = fixture(secondPage: true)
+            let other = try XCTUnwrap(fixture.other)
+            XCTAssertTrue(fixture.controller.editOrganization(of: fixture.page) { tree in
+                tree.importStack([fixture.native.surfaceID, other, fixture.page], in: focus.workspace.name)
+                tree.select(fixture.page)
+                return true
+            })
+            _ = fixture.controller.select(fixture.page)
+            let before = fixture.controller.surfaceTree
+            let sourceFrame = try frame(for: fixture.page, controller: fixture.controller)
+            let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: sourceFrame).first { $0.zone == zone }).frame.center
+            let drop = try XCTUnwrap(resolveBrowserSurfaceDrop(source: fixture.page, pointer: point, controller: fixture.controller))
+            XCTAssertEqual(drop.zone, zone)
+            XCTAssertNotEqual(drop.target, fixture.page)
+            XCTAssertEqual(fixture.controller.surfaceTree, before, "Preview must not change selection or layout")
+            XCTAssertTrue(commitBrowserSurfaceDrop(drop, controller: fixture.controller))
+            XCTAssertEqual(fixture.controller.plannedSurfaces(in: focus.workspace).filter(\.visible).count, 2)
+            XCTAssertEqual(fixture.controller.surfaceTree.stackItems(containing: fixture.native.surfaceID), [fixture.native.surfaceID, other])
+            XCTAssertNoThrow(try fixture.controller.capturePlacementSnapshot()?.validated())
+            fixture.native.unbindFromParent()
+        }
+    }
+
+    func testSharedHeaderDragCanSplitSelectedNativeTabOutOfOwnStack() throws {
+        let fixture = fixture(secondPage: true)
+        XCTAssertTrue(fixture.controller.editOrganization(of: fixture.native.surfaceID) { tree in
+            tree.importStack([fixture.page, fixture.other!, fixture.native.surfaceID], in: focus.workspace.name)
+            return true
+        })
+        _ = fixture.controller.select(fixture.native.surfaceID)
+        let sourceFrame = try frame(for: fixture.native.surfaceID, controller: fixture.controller)
+        let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: sourceFrame).first { $0.zone == .bottom }).frame.center
+        let drop = try XCTUnwrap(resolveSharedStackDrop(.surface(fixture.native.surfaceID), pointer: point, controller: fixture.controller))
+        XCTAssertTrue(commitSharedStackDrop(drop, pointer: point, controller: fixture.controller))
+        XCTAssertEqual(fixture.controller.plannedSurfaces(in: focus.workspace).filter(\.visible).count, 2)
+    }
+
+    func testRepeatedMixedTabSplitRejoinAndReorderKeepsEveryMember() throws {
+        let fixture = fixture(secondPage: true), controller = fixture.controller
+        let ids = [fixture.native.surfaceID, fixture.page, try XCTUnwrap(fixture.other)]
+        XCTAssertTrue(controller.editOrganization(of: ids[0]) { tree in
+            tree.importStack(ids, in: focus.workspace.name)
+            return true
+        })
+        let zones: [WindowDropZone] = [.left, .right, .top, .bottom]
+        for iteration in 0..<120 {
+            let source = ids[iteration % ids.count]
+            _ = controller.select(source)
+            let rect = try frame(for: source, controller: controller)
+            let zone = zones[iteration % zones.count]
+            let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: rect).first { $0.zone == zone }).frame.center
+            let before = controller.surfaceTree
+            if iteration.isMultiple(of: 2) {
+                let drop = try XCTUnwrap(resolveBrowserSurfaceDrop(source: source, pointer: point, controller: controller))
+                XCTAssertEqual(controller.surfaceTree, before)
+                XCTAssertTrue(commitBrowserSurfaceDrop(drop, controller: controller))
+            } else {
+                let drop = try XCTUnwrap(resolveSharedStackDrop(.surface(source), pointer: point, controller: controller))
+                XCTAssertEqual(controller.surfaceTree, before)
+                XCTAssertTrue(commitSharedStackDrop(drop, pointer: point, controller: controller))
+            }
+            let visible = controller.plannedSurfaces(in: focus.workspace).filter(\.visible)
+            XCTAssertEqual(visible.count, 2, "iteration=\(iteration)")
+            XCTAssertTrue(visible.contains { $0.surfaceID == source })
+            let target = ids.first { $0 != source }!
+            XCTAssertTrue(controller.editOrganization(of: source) { $0.insertIntoStack(source, with: target) })
+            let stack = try XCTUnwrap(controller.surfaceTree.stack(containing: source))
+            XCTAssertTrue(reorderSharedStackTab(.surface(source), stack: stack, to: 0, controller: controller))
+            XCTAssertEqual(Set(controller.surfaceTree.group(stack)?.surfaces ?? []), Set(ids))
+            XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
+        }
+    }
+
+    func testLiftedNestedArrangementCanSplitBesideRemainingStackTab() throws {
+        for layout: SurfaceContainerLayout in [.vertical, .stack] {
+            let fixture = fixture(secondPage: true), controller = fixture.controller
+            let other = try XCTUnwrap(fixture.other)
+            XCTAssertTrue(controller.editOrganization(of: fixture.native.surfaceID) { tree in
+                tree.group(fixture.native.surfaceID, with: fixture.page, layout: layout)
+            })
+            let moving = try XCTUnwrap(controller.surfaceTree.containingGroup(of: fixture.native.surfaceID))
+            XCTAssertTrue(controller.editOrganization(of: other) { tree in
+                tree.insertIntoStack(.group(moving), with: other)
+            })
+            _ = controller.select(fixture.page)
+            let members = controller.surfaceTree.group(moving)
+            let outer = try XCTUnwrap(controller.plannedLayout(in: focus.workspace).stacks.first(where: \.visible))
+            let rect = Rect(topLeftX: CGFloat(outer.frame.x), topLeftY: CGFloat(outer.frame.y),
+                            width: CGFloat(outer.frame.width), height: CGFloat(outer.frame.height))
+            let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: rect).first { $0.zone == .right }).frame.center
+            let drop = try XCTUnwrap(resolveWorkspaceSidebarContentDrop(.group(moving), at: point, controller: controller))
+            XCTAssertTrue(drop.commit(at: point, controller: controller))
+            XCTAssertEqual(controller.surfaceTree.group(moving), members)
+            XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).filter(\.visible).count, layout == .vertical ? 3 : 2)
+            fixture.native.unbindFromParent()
+        }
+    }
+
+    func testClosedSiblingCannotReceiveLiftedTabDrop() throws {
+        let fixture = fixture(), controller = fixture.controller
+        XCTAssertTrue(controller.editOrganization(of: fixture.page) { $0.insertIntoStack(fixture.page, with: fixture.native.surfaceID) })
+        _ = controller.select(fixture.page)
+        let rect = try frame(for: fixture.page, controller: controller)
+        let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: rect).first { $0.zone == .left }).frame.center
+        let drop = try XCTUnwrap(resolveBrowserSurfaceDrop(source: fixture.page, pointer: point, controller: controller))
+        fixture.native.unbindFromParent()
+        let before = controller.surfaceTree
+        XCTAssertFalse(commitBrowserSurfaceDrop(drop, controller: controller))
+        XCTAssertEqual(controller.surfaceTree, before)
+    }
+
     func testDisconnectStaleFrameAndReusedWindowIDCannotCommit() throws {
         let fixture = fixture()
         let destination = try resolve(source: fixture.page, target: fixture.native.surfaceID, zone: .left, controller: fixture.controller)

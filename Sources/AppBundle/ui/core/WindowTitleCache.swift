@@ -41,6 +41,16 @@ func resetCachedWindowTitles() {
     titlePublicationOverrideForTests = nil
 }
 
+/// Cancel in-flight reads as well as the cached title when a native group's
+/// selected AX window changes. A late reply must not rename the new selection.
+@MainActor
+func invalidateCachedWindowTitle(_ window: Window) {
+    let id = window.windowId
+    cachedWindowTitles.removeValue(forKey: id)
+    pendingWindowTitles.removeValue(forKey: id)?.task.cancel()
+    backgroundTitleRefreshes.removeValue(forKey: id)?.task.cancel()
+}
+
 @MainActor
 func cachedWindowTitle(for window: Window) -> String? {
     guard let cached = cachedWindowTitles[window.windowId], cached.owner == ObjectIdentifier(window) else { return nil }

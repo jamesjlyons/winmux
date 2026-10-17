@@ -117,16 +117,43 @@ final class RestartSessionController {
         let windows = isUnitTest ? Workspace.all.flatMap(\.allLeafWindowsRecursive) : MacWindow.allWindows.map { $0 as Window }
         var matches: [UInt32: Window] = [:]
         let boot = currentBootSession()
-        for window in windows where snapshot.matches(windowId: window.windowId, identity: RestartWindowIdentity(window.app), boot: boot) {
+        let records = snapshot.windows ?? []
+        // Prefer a whole native group over a former tab that has since detached.
+        // Runtime member IDs are scoped by boot and process launch identity;
+        // relaunch descriptors must be unique on both sides.
+        for record in records where record.nativeTabWindowIDs != nil {
+            let runtime = windows.filter { window in
+                guard let group = window.nativeTabGroup, snapshot.bootSession == boot,
+                      RestartWindowIdentity(window.app) == record.identity else { return false }
+                return !group.memberWindowIDs.isDisjoint(with: record.nativeTabWindowIDs ?? [])
+            }
+            if runtime.count == 1, let candidate = runtime.first, !matches.values.contains(candidate),
+               records.filter({ saved in
+                   saved.identity == record.identity && !(candidate.nativeTabGroup?.memberWindowIDs
+                       .isDisjoint(with: saved.nativeTabWindowIDs ?? []) ?? true)
+               }).count == 1 {
+                matches[record.id] = candidate
+                continue
+            }
+            guard let titles = record.nativeTabTitles, titles.count > 1, titles.allSatisfy({ !$0.isEmpty }),
+                  let bundle = record.identity.bundleId,
+                  records.filter({ $0.identity.bundleId == bundle && $0.nativeTabTitles == titles }).count == 1 else { continue }
+            let candidates = windows.filter {
+                $0.app.rawAppBundleId == bundle && $0.nativeTabGroup?.titles.sorted() == titles &&
+                    !matches.values.contains($0)
+            }
+            if candidates.count == 1 { matches[record.id] = candidates[0] }
+        }
+        for window in windows where !matches.values.contains(window) &&
+            snapshot.matches(windowId: window.windowId, identity: RestartWindowIdentity(window.app), boot: boot) && matches[window.windowId] == nil {
             matches[window.windowId] = window
         }
-        let records = snapshot.windows ?? []
         // Previously restored surface bindings survive title changes and later
         // discovery passes. A numeric window ID is never used across boots.
         for record in records where restoredIds.contains(record.id) {
             if let surface = record.surfaceID, let window = Window.get(bySurfaceID: surface) { matches[record.id] = window }
         }
-        for record in records where matches[record.id] == nil {
+        for record in records where matches[record.id] == nil && record.nativeTabTitles == nil {
             guard let bundle = record.identity.bundleId, !bundle.isEmpty,
                   let title = record.title, !title.isEmpty,
                   records.filter({ $0.identity.bundleId == bundle && $0.title == title }).count == 1 else { continue }

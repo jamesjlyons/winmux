@@ -14,6 +14,9 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
 
 @MainActor
 private func handleMovedEvent(windowId: UInt32?, notif: String) async {
+    // AppKit can resize/move hidden members along with the selected tab. Their
+    // notifications must not start a second drag or invalidate its animation.
+    if let windowId, let owner = Window.get(byId: windowId), owner.windowId != windowId { return }
     if WindowLayoutAnimator.shared.consumesGeometryEvent(windowId) { return }
     if shouldIgnoreMovedObsForCurrentDragSession(windowId: windowId) ||
         WindowMouseInteractionOpacityController.shared.shouldSuppressObserverEvent(windowId: windowId) ||

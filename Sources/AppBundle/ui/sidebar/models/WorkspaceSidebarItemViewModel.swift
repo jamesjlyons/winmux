@@ -39,10 +39,12 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
     var isSelected: Bool
     var isLoading: Bool
     var isFloating: Bool
+    var nativeTabCount: Int
+    var nativeTabBadge: String? { nativeTabCount > 1 ? "\(nativeTabCount) tabs" : nil }
 
     init(surfaceID: SurfaceID, title: String, appName: String, isFocused: Bool,
          appBundleId: String? = nil, appBundlePath: String? = nil, iconPNGBase64: String? = nil,
-         isSelected: Bool = false, isLoading: Bool = false, isFloating: Bool = false) {
+         isSelected: Bool = false, isLoading: Bool = false, isFloating: Bool = false, nativeTabCount: Int = 1) {
         self.surfaceID = surfaceID
         self.title = title
         self.appName = appName
@@ -53,6 +55,7 @@ struct WorkspaceSidebarSurfaceItem: Hashable, Sendable {
         self.isSelected = isSelected
         self.isLoading = isLoading
         self.isFloating = isFloating
+        self.nativeTabCount = nativeTabCount
     }
 
     var isBrowser: Bool {
@@ -87,12 +90,12 @@ extension WorkspaceSidebarItemViewModel {
         case .window(let window):
             [.init(surfaceID: window.surfaceID, title: window.title ?? window.appName, appName: window.appName,
                    isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath,
-                   isFloating: window.isFloating)]
+                   isFloating: window.isFloating, nativeTabCount: window.nativeTabCount)]
         case .tabGroup(let group):
             group.tabs.map { window in
                 .init(surfaceID: window.surfaceID, title: window.title ?? window.appName, appName: window.appName,
                       isFocused: window.isFocused, appBundleId: window.appBundleId, appBundlePath: window.appBundlePath,
-                      isSelected: window.windowId == group.representativeWindowId)
+                      isSelected: window.windowId == group.representativeWindowId, nativeTabCount: window.nativeTabCount)
             }
         }
     }

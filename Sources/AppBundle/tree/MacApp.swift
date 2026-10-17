@@ -17,6 +17,10 @@ final class MacApp: AbstractApp {
     private let axAppFastTimeout: ThreadGuardedValue<AXUIElement>
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]> // keep subscriptions in memory
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
+    private let nativeTabRouting = NativeTabOperationRouting()
+    private let nativeTabs = ThreadGuardedValue(NativeTabAccessibility())
+    @MainActor private(set) var nativeTabRegistry = NativeTabRegistry()
+    @MainActor private var detachedNativeTabWorkspaces: [UInt32: String] = [:]
     private var windowsCount = 0
     var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
@@ -115,6 +119,11 @@ final class MacApp: AbstractApp {
         }
     }
 
+    @MainActor func cancelNativeTabSelectionJobs(_ windowId: UInt32) {
+        setFrameJobs.removeValue(forKey: windowId)?.cancel()
+        if MacApp.focusJobPID == pid { MacApp.focusJob?.cancel() }
+    }
+
     func requestCloseAxWindow(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
@@ -139,9 +148,15 @@ final class MacApp: AbstractApp {
     }
 
     func containsAxWindow(_ windowId: UInt32) async throws -> Bool {
-        try await thread?.runInLoop { [axApp] job in
-            axApp.threadGuarded.get(Ax.windowsAttr)?.contains { $0.windowId == windowId } ?? false
+        try await thread?.runInLoop { [windows] job in
+            guard let window = windows.threadGuarded[windowId] else { return false }
+            let (id, error) = window.ax.containingWindowIdWithError()
+            return id != nil || error == .cannotComplete
         } ?? false
+    }
+
+    @MainActor func refreshNativeTabSelection() async throws -> Set<UInt32> {
+        Set(try await refreshAndGetAliveWindowIds(frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier))
     }
 
     func getAxSize(_ windowId: UInt32) async throws -> CGSize? {
@@ -156,13 +171,13 @@ final class MacApp: AbstractApp {
     static let focusedWindowQueryTimeout: Float = 0.25
 
     private enum FocusedWindowQuery {
-        case window(UInt32)
+        case window(UInt32, NativeTabRegistry)
         case noFocusedWindow
         case timedOut
     }
 
     private func queryFocusedWindowId() async throws -> FocusedWindowQuery {
-        try await thread?.runInLoop { [nsApp, axAppFastTimeout, windows] job -> FocusedWindowQuery in
+        try await thread?.runInLoop { [nsApp, axAppFastTimeout, windows, nativeTabs] job -> FocusedWindowQuery in
             var raw: AnyObject?
             let error = AXUIElementCopyAttributeValue(axAppFastTimeout.threadGuarded, kAXFocusedWindowAttribute as CFString, &raw)
             switch error {
@@ -175,7 +190,21 @@ final class MacApp: AbstractApp {
                     guard let windowId = element.containingWindowId(),
                           let registered = try windows.threadGuarded.getOrRegisterAxWindow(windowId: windowId, element, nsApp, job)
                     else { return .noFocusedWindow }
-                    return .window(registered.windowId)
+                    _ = nativeTabs.threadGuarded.refreshKnownGroups()
+                    nativeTabs.threadGuarded.observe(element, id: registered.windowId)
+                    // Validate the previous selection before resolving a plain
+                    // window: it may be the last tab surviving a close.
+                    var alive = Set(windows.threadGuarded.keys)
+                    for group in nativeTabs.threadGuarded.registry.groups.values
+                        where group.memberWindowIDs.contains(registered.windowId) && group.selectedWindowID != registered.windowId {
+                        if let old = windows.threadGuarded[group.selectedWindowID] {
+                            let (id, error) = old.ax.containingWindowIdWithError()
+                            if id == nil && error != .cannotComplete { alive.remove(group.selectedWindowID) }
+                        }
+                    }
+                    nativeTabs.threadGuarded.retainAlive(alive)
+                    try observeNativeTabChanges(nativeTabs.threadGuarded, app: nsApp, job: job)
+                    return .window(registered.windowId, nativeTabs.threadGuarded.registry)
                 case .cannotComplete:
                     return .timedOut
                 default:
@@ -187,7 +216,8 @@ final class MacApp: AbstractApp {
     // todo merge together with detectNewWindows
     func getFocusedWindow() async throws -> Window? {
         switch try await queryFocusedWindowId() {
-            case .window(let windowId):
+            case .window(let windowId, let registry):
+                applyNativeTabRegistry(registry)
                 return try await MacWindow.getOrRegister(windowId: windowId, macApp: self)
             case .noFocusedWindow:
                 return nil
@@ -470,13 +500,13 @@ final class MacApp: AbstractApp {
         }
     }
 
-    private func refreshAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> [UInt32] {
+    @MainActor private func refreshAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> [UInt32] {
         if nsApp.isTerminated {
             await destroy()
             return []
         }
         guard let thread else { return [] }
-        let (alive, dead) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32]) in
+        let (alive, dead, registry) = try await thread.runInLoop { [nsApp, windows, axApp, nativeTabs] (job) -> ([UInt32], [UInt32], NativeTabRegistry) in
             var alive: [UInt32: AxWindow] = windows.threadGuarded
             var dead = [UInt32: AxWindow]()
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
@@ -495,19 +525,55 @@ final class MacApp: AbstractApp {
                 }
             }
 
-            for (id, window) in axApp.threadGuarded.get(Ax.windowsAttr) ?? [] {
+            let enumerated = axApp.threadGuarded.get(Ax.windowsAttr) ?? []
+            for (id, window) in enumerated {
                 try job.checkCancellation()
                 try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
+                nativeTabs.threadGuarded.observe(window, id: id)
             }
 
+            // A retained native tab bar can still identify its selected window
+            // after AppKit hides the bar when only one tab remains.
+            for (id, element) in nativeTabs.threadGuarded.refreshKnownGroups() {
+                try job.checkCancellation()
+                try alive.getOrRegisterAxWindow(windowId: id, element, nsApp, job)
+            }
+            nativeTabs.threadGuarded.retainAlive(Set(alive.keys))
+            try observeNativeTabChanges(nativeTabs.threadGuarded, app: nsApp, job: job)
             windows.threadGuarded = alive
-            return (Array(alive.keys), Array(dead.keys))
+            let registry = nativeTabs.threadGuarded.registry
+            let selection = registry.selectedByMember
+            let logical = Set(alive.keys.map { selection[$0] ?? $0 })
+            return (Array(logical), Array(dead.keys), registry)
         }
+        applyNativeTabRegistry(registry)
         windowsCount = alive.count
         for windowId in dead {
             setFrameJobs.removeValue(forKey: windowId)?.cancel()
         }
+        if registry.hasUnresolvedSelection {
+            let retained = MacWindow.allWindows.filter { $0.macApp === self &&
+                $0.nativeTabGroup.map { registry.groups[$0.id] != nil } == true }.map(\.windowId)
+            return Array(Set(alive).union(retained))
+        }
         return alive
+    }
+
+    @MainActor func nativeTabArrivalWorkspace(_ id: UInt32) -> Workspace? {
+        detachedNativeTabWorkspaces[id].flatMap { Workspace.existing(byName: $0) }
+    }
+
+    @MainActor func didRegisterNativeTabArrival(_ id: UInt32) {
+        detachedNativeTabWorkspaces.removeValue(forKey: id)
+    }
+
+    @MainActor private func applyNativeTabRegistry(_ registry: NativeTabRegistry) {
+        detachedNativeTabWorkspaces = detachedNativeTabWorkspaces.filter { registry.standaloneWindowIDs.contains($0.key) }
+        detachedNativeTabWorkspaces.merge(detachedNativeTabDestinations(
+            MacWindow.allWindows.filter { $0.macApp === self }, registry: registry)) { _, latest in latest }
+        nativeTabRegistry = registry
+        nativeTabRouting.publish(registry)
+        MacWindow.reconcileNativeTabGroups(in: self, registry: registry)
     }
 
     private func destroy() async {
@@ -516,8 +582,9 @@ final class MacApp: AbstractApp {
             job.cancel()
         }
         setFrameJobs = [:]
-        thread?.runInLoopAsync { [windows, appAxSubscriptions, axApp, axAppFastTimeout] job in
+        thread?.runInLoopAsync { [windows, nativeTabs, appAxSubscriptions, axApp, axAppFastTimeout] job in
             appAxSubscriptions.destroy() // Destroy AX objects in reverse order of their creation
+            nativeTabs.destroy()
             windows.destroy()
             axAppFastTimeout.destroy()
             axApp.destroy()
@@ -527,17 +594,21 @@ final class MacApp: AbstractApp {
     }
 
     private func withWindow<T>(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> T?) async throws -> T? {
-        try await thread?.runInLoop { [quarantine, windows] job in
+        let group = nativeTabRouting.group(for: windowId)
+        return try await thread?.runInLoop { [quarantine, windows, nativeTabs] job in
             guard !quarantine.isQuarantined else { return nil }
-            guard let window = windows.threadGuarded[windowId] else { return nil }
+            guard let target = NativeTabOperationRouting.target(window: windowId, group: group, in: nativeTabs.threadGuarded.registry),
+                  let window = windows.threadGuarded[target] else { return nil }
             return try body(window.ax, job)
         }
     }
 
     private func withWindowAsync(_ windowId: UInt32, _ body: @Sendable @escaping (AXUIElement, RunLoopJob) throws -> ()) -> RunLoopJob {
-        thread?.runInLoopAsync { [quarantine, windows] job in
+        let group = nativeTabRouting.group(for: windowId)
+        return thread?.runInLoopAsync { [quarantine, windows, nativeTabs] job in
             guard !quarantine.isQuarantined, !serverArgs.isReadOnly else { return }
-            guard let window = windows.threadGuarded[windowId] else { return }
+            guard let target = NativeTabOperationRouting.target(window: windowId, group: group, in: nativeTabs.threadGuarded.registry),
+                  let window = windows.threadGuarded[target] else { return }
             try? body(window.ax, job)
         } ?? .cancelled
     }
@@ -561,4 +632,24 @@ private final class BrowserHostQuarantine: @unchecked Sendable {
     private var excluded = false
     var isQuarantined: Bool { lock.withLock { excluded } }
     func exclude() { lock.withLock { excluded = true } }
+}
+
+private func observeNativeTabChanges(_ tabs: NativeTabAccessibility, app: NSRunningApplication, job: RunLoopJob) throws {
+    try tabs.updateObservers { element in
+        var subscriptions: [AxSubscription] = []
+        for notification in [kAXValueChangedNotification, kAXSelectedChildrenChangedNotification,
+                             kAXLayoutChangedNotification, kAXUIElementDestroyedNotification] {
+            try job.checkCancellation()
+            // Some applications expose only part of the notification set.
+            subscriptions += (try? AxSubscription.bulkSubscribe(app, element, job, [(nativeTabGroupObs, [notification])])) ?? []
+        }
+        return subscriptions
+    }
+}
+
+private func nativeTabGroupObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
+    guard let pid = axTaskLocalAppThreadToken?.pid else { return }
+    Task { @MainActor in
+        scheduleRefreshSession(.ax("nativeTabGroupChanged"), scope: .apps([pid]))
+    }
 }

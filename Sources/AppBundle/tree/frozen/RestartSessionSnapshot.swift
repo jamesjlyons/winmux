@@ -29,6 +29,8 @@ struct RestartWindow: Codable, Equatable, Sendable {
     /// A conservative fallback when macOS relaunches the owning process. Empty
     /// or duplicate titles never establish a cross-process window identity.
     var title: String? = nil
+    var nativeTabWindowIDs: [UInt32]? = nil
+    var nativeTabTitles: [String]? = nil
 }
 
 struct RestartProject: Codable, Equatable, Sendable {
@@ -72,7 +74,9 @@ struct RestartSessionSnapshot: Codable, Sendable {
                     CGRect(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height)
                 } : nil
                 return RestartWindow(id: id, identity: RestartWindowIdentity(window.app), floatingFrame: frame,
-                                     surfaceID: window.surfaceID, title: cachedWindowTitle(for: window))
+                                     surfaceID: window.surfaceID, title: cachedWindowTitle(for: window),
+                                     nativeTabWindowIDs: window.nativeTabGroup?.memberWindowIDs.sorted(),
+                                     nativeTabTitles: window.nativeTabCount > 1 ? window.nativeTabGroup?.titles.sorted() : nil)
             },
             projects: winMuxWorkspaceState.projectsById.values.filter { !$0.id.isIncognito }.sorted { $0.order < $1.order }.map { project in
                 RestartProject(id: project.id, name: project.name, order: project.order,

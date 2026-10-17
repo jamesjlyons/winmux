@@ -57,7 +57,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
     private func surfaceButton(_ surface: WorkspaceSidebarSurfaceItem) -> some View {
         Button { onActivate(surface.surfaceID) } label: {
             WorkspaceSidebarWindowRow(
-                title: surface.title, badge: nil, isFocused: surface.isFocused,
+                title: surface.title, badge: surface.nativeTabBadge, isFocused: surface.isFocused,
                 rowHeight: workspaceSidebarWorkspaceRowHeight,
                 isHovered: isHovered,
                 style: leadingHitInset > 0 ? .tabGroupChild : .window,
@@ -74,7 +74,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(surface.isFloating ? "Floating window" : surface.isBrowser ? "Browser tab" : "Native window"): \(surface.title)")
-        .help(surface.title)
+        .help(surface.nativeTabBadge.map { "\(surface.title) · \($0) · Move and pin as one window" } ?? surface.title)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(

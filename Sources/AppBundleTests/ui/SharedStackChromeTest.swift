@@ -159,6 +159,19 @@ import XCTest
         XCTAssertEqual(controller.surfaceTree, after)
     }
 
+    func testSidebarGroupDragOffersSplitAndMovesEveryMember() throws {
+        let target = try XCTUnwrap(controller.plannedSurfaces(in: focus.workspace).first { $0.surfaceID == second.surfaceID })
+        let rect = Rect(topLeftX: CGFloat(target.frame.x), topLeftY: CGFloat(target.frame.y),
+                        width: CGFloat(target.frame.width), height: CGFloat(target.frame.height))
+        let point = try XCTUnwrap(WindowIntentZoneBuilder.zones(in: rect).first { $0.zone == .bottom }).frame.center
+        let drop = try XCTUnwrap(resolveWorkspaceSidebarContentDrop(.group(group), at: point))
+        XCTAssertEqual(drop.overlay.activeZone, .bottom)
+        let members = controller.surfaceTree.group(group)
+        XCTAssertTrue(drop.commit(at: point))
+        XCTAssertEqual(controller.surfaceTree.group(group), members)
+        XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
+    }
+
     func testUnavailableOwnerCannotReorderOrDetachButOtherTabsStayUsable() async throws {
         controller.disconnected(connection)
         let before = controller.surfaceTree

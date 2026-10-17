@@ -622,7 +622,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     .frame(maxWidth: .infinity, minHeight: rowHeight)
                 } else {
                     WorkspaceSidebarWindowRow(title: workspace.displayName,
-                        badge: workspace.isSingleWindowView ? nil : "\(workspace.viewSurfaceCount)",
+                        badge: workspace.isSingleWindowView ? viewIconSurface?.nativeTabBadge : "\(workspace.viewSurfaceCount)",
                         isFocused: workspace.isFocused, rowHeight: workspaceSidebarWorkspaceRowHeight,
                         isHovered: isHovered,
                         style: workspace.isSingleWindowView ? .window : .tabGroupHeader,
@@ -808,7 +808,7 @@ extension WorkspaceSidebarWorkspaceSection {
         } label: {
             WorkspaceSidebarWindowRow(
                 title: window.title ?? window.appName,
-                badge: nil,
+                badge: window.nativeTabBadge,
                 isFocused: window.isFocused,
                 rowHeight: rowHeight,
                 isHovered: hoveredWindowId == window.windowId,

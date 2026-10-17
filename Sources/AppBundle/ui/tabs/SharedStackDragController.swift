@@ -21,7 +21,7 @@ func resolveSharedStackDrop(_ pane: SurfacePane, pointer: CGPoint,
         return .init(pane: pane, destination: .init(source: representative, target: header.surface, zone: .tab,
             targetFrame: header.frame, sourceWorkspace: name, targetWorkspace: workspace.name, targetStack: header.id))
     }
-    for placement in controller.plannedSurfaces(in: workspace) where placement.visible && !moving.surfaces.contains(placement.surfaceID) {
+    for placement in controller.plannedDropLayout(in: workspace, excluding: Set(moving.surfaces)).surfaces where placement.visible && !moving.surfaces.contains(placement.surfaceID) {
         guard controller.canMoveSurface(placement.surfaceID), controller.canCombinePinnedView(containing: placement.surfaceID),
               let frame = surfaceDropTargetFrame(placement, workspace: workspace, controller: controller),
               let zone = WindowIntentZoneBuilder.zone(at: pointer, in: frame),

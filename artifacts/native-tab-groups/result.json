@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "samples": 31,
+  "stages": 8,
+  "production_detector": true,
+  "stable_group_identity": true,
+  "identical_titles_remain_separate": true,
+  "create_switch_close_detach": true,
+  "desktop_rearranged": false,
+  "full_window_manager_exercised": false
+}

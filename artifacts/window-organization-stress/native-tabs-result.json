@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "samples": 14,
+  "native_tab_switch_preserved_cached_ids": true,
+  "selected_tab_changes_enumerated_window": true,
+  "group_identity_observed_across_switch": true,
+  "detach_restores_both_entries": true,
+  "unrelated_window_preserved": true,
+  "fixture_exited": true,
+  "production_window_manager_exercised": false
+}

@@ -5,6 +5,7 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
     let notif = notif as String
     let windowId = ax.containingWindowId()
     Task { @MainActor in
+        if let windowId, let owner = Window.get(byId: windowId), owner.windowId != windowId { return }
         if WindowLayoutAnimator.shared.consumesGeometryEvent(windowId) { return }
         if WindowMouseInteractionOpacityController.shared.shouldSuppressObserverEvent(windowId: windowId) {
             return
