@@ -4,6 +4,7 @@ import AppKit
 final class TestWindow: Window, CustomStringConvertible {
     private var _rect: Rect?
     private var _isHiddenInCorner: Bool = false
+    var titleForTesting: String?
     // Mutating the fake native state models a real state transition, which in production is
     // always accompanied by an AX event that invalidates the last-known-native-state cache.
     @MainActor var nativeIsMacosFullscreen: Bool = false {
@@ -42,7 +43,7 @@ final class TestWindow: Window, CustomStringConvertible {
 
     override var title: String {
         get async { // redundant async. todo create bug report to Swift
-            description
+            titleForTesting ?? description
         }
     }
 

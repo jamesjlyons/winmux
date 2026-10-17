@@ -108,6 +108,7 @@ extension BrowserWorkspaceController {
     }
 
     func placeOrdinaryNativeArrival(_ window: Window, in source: Workspace) {
+        if adoptNativePinArrival(window, in: source) { return }
         guard !window.isFloating,
               window.parent is TilingContainer, window.nodeWorkspace === source else { return }
         if config.newItemPlacement != .newView {
@@ -128,9 +129,6 @@ extension BrowserWorkspaceController {
             scheduleRefresh()
             return
         }
-        if let pin = nativeAppSidebarPins.first(where: {
-            $0.bundleIdentifier == window.app.rawAppBundleId && pendingNativePinLaunches[$0.id] != nil
-        }), adoptAppWindow(window, pinID: pin.id) { return }
         let destination = newStandaloneWorkspace(in: regularArrivalWorkspace(source), excluding: window)
         guard destination !== source else { return }
         window.bind(to: destination.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)

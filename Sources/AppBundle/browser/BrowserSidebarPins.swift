@@ -109,8 +109,12 @@ extension BrowserWorkspaceController {
             prunePinnedMembers()
             capturePinnedLayouts()
         }
-        let pinIDs = Set(browserSidebarPins.map(\.id))
-        restoringSidebarPinBindings = restoringSidebarPinBindings.filter { pinIDs.contains($0.value) }
+        let pinsByID = Dictionary(uniqueKeysWithValues: browserSidebarPins.map { ($0.id, $0) })
+        restoringSidebarPinBindings = restoringSidebarPinBindings.filter { surface, id in
+            guard let pin = pinsByID[id], pin.surfaceID == nil,
+                  pin.profileID == surface.browserProfileID else { return false }
+            return workspaceName(for: surface) == nil
+        }
         syncPinnedViewGroups()
     }
 
@@ -132,9 +136,7 @@ extension BrowserWorkspaceController {
         unresolvedSidebarPinOwners.removeValue(forKey: surfaceID)
     }
 
-    func reconcileSidebarPinInventory(_ inventory: BrowserInventory, full: Bool, connection: UUID,
-                                      removed: [SurfaceID] = []) -> Set<SurfaceID> {
-        for id in removed { restoringSidebarPinBindings.removeValue(forKey: id) }
+    func restoreSidebarPinBindings(in inventory: BrowserInventory) {
         // Reattach before ordinary arrivals allocate a View. Match durable IDs
         // only; a second page at the same URL is still an independent tab.
         for (surfaceID, pinID) in restoringSidebarPinBindings where inventory.tabs[surfaceID] != nil && owner(of: surfaceID) != nil {
@@ -144,9 +146,16 @@ extension BrowserWorkspaceController {
                   !browserSidebarPins.contains(where: { $0.surfaceID == surfaceID }),
                   adoptPinnedSurface(surfaceID, into: browserSidebarPins[index].workspaceName) else { continue }
             browserSidebarPins[index].surfaceID = surfaceID
+            closedBrowserTabs.remove(surfaceID)
             restorePinnedViewLayout(containing: pinID)
             restorePinnedDesktopLayout(workspace: browserSidebarPins[index].workspaceName)
         }
+    }
+
+    func reconcileSidebarPinInventory(_ inventory: BrowserInventory, full: Bool, connection: UUID,
+                                      removed: [SurfaceID] = []) -> Set<SurfaceID> {
+        for id in removed { restoringSidebarPinBindings.removeValue(forKey: id) }
+        restoreSidebarPinBindings(in: inventory)
         var absent: Set<SurfaceID> = []
         let profiles = Set(inventory.tabs.keys.compactMap { id -> UUID? in
             if case .browserTab(let profile, _) = id { return profile }

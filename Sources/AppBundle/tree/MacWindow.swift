@@ -51,8 +51,10 @@ final class MacWindow: Window {
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         window.recordAuthoritativeActualRect(rect)
         allWindowsMap[windowId] = window
+        _ = getSessionWindowTitle(window)
 
         try await debugWindowsIfRecording(window)
+        if RestartSessionController.shared.pending != nil { _ = await getCachedWindowTitle(window) }
         let didRestorePersistedFrozenWorld = RestartSessionController.shared.claims(window)
         let didRestoreClosedWindowsCache = didRestorePersistedFrozenWorld ? false : try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {

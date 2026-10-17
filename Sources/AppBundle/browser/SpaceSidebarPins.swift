@@ -278,6 +278,26 @@ extension BrowserWorkspaceController {
         return window
     }
 
+    /// A closed app pin remains the destination when its app reopens from the
+    /// Dock or restores at login. Never replace a live member or pick an
+    /// arbitrary pin when the same app has several saved destinations.
+    @discardableResult
+    func adoptNativePinArrival(_ window: Window, in source: Workspace, restrictingTo pinIDs: Set<UUID>? = nil) -> Bool {
+        guard canAdoptNativePinWindow(window),
+              !nativeAppSidebarPins.contains(where: { $0.surfaceID == window.surfaceID }) else { return false }
+        let candidates = nativeAppSidebarPins.filter {
+            (pinIDs?.contains($0.id) ?? true) && $0.bundleIdentifier == window.app.rawAppBundleId && appWindow(for: $0) == nil &&
+                ($0.surfaceID.map { !isAwaitingNativePinBinding($0) } ?? true)
+        }
+        let requested = candidates.filter { pendingNativePinLaunches[$0.id] != nil }
+        if isStartup && RestartSessionController.shared.pending != nil && requested.isEmpty { return false }
+        let local = candidates.filter { Workspace.existing(byName: $0.workspaceName)?.projectId == source.projectId }
+        let eligible = requested.isEmpty ? (isStartup || pinIDs != nil || local.isEmpty ? candidates : local) : requested
+        guard eligible.count == 1, let pin = eligible.first, adoptAppWindow(window, pinID: pin.id) else { return false }
+        restorePinnedDesktopLayout(workspace: pin.workspaceName)
+        return true
+    }
+
     @discardableResult
     func legacySelectPin(_ id: UUID, selectAfterOpening: Bool = true) -> SurfaceActionOutcome {
         if let saved = savedPinnedView(id) {
@@ -319,7 +339,7 @@ extension BrowserWorkspaceController {
                 for _ in 0..<75 {
                     guard self.pendingNativePinLaunches[id] == operation,
                           let current = self.nativeAppSidebarPins.first(where: { $0.id == id }) else { return }
-                    if let window = MacWindow.allWindows.first(where: { candidate in !existingWindows.contains(candidate.surfaceID) && candidate.app.rawAppBundleId == current.bundleIdentifier && self.canAdoptNativePinWindow(candidate) && !self.nativeAppSidebarPins.contains(where: { pin in pin.id != id && pin.surfaceID == candidate.surfaceID }) }) {
+                    if let window = self.appWindow(for: current) ?? MacWindow.allWindows.first(where: { candidate in !existingWindows.contains(candidate.surfaceID) && candidate.app.rawAppBundleId == current.bundleIdentifier && self.canAdoptNativePinWindow(candidate) && !self.nativeAppSidebarPins.contains(where: { pin in pin.id != id && pin.surfaceID == candidate.surfaceID }) }) {
                         guard self.adoptAppWindow(window, pinID: id) else { break }
                         self.restorePinnedDesktopLayout(workspace: current.workspaceName)
                         self.pendingNativePinLaunches.removeValue(forKey: id)

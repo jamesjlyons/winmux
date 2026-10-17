@@ -91,7 +91,7 @@ func getCachedWindowTitle(
     pendingWindowTitles.removeValue(forKey: window.windowId)
     let title = raw?.trimmingCharacters(in: .whitespacesAndNewlines).takeIf { !$0.isEmpty }
         ?? cachedWindowTitle(for: window)
-    if title != cachedWindowTitle(for: window) { window.recordChange(.metadata) }
+    if title != cachedWindowTitle(for: window) { window.recordChange([.metadata, .persistence]) }
     cachedWindowTitles[window.windowId] = CachedWindowTitle(owner: owner, title: title, fetchedAt: now)
     return title
 }

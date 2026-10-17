@@ -21,11 +21,16 @@ final class RestartSessionController {
     private var lastSavedInputs: RestartSessionRevision?
     private var allowsSaving = true
     private var restoring = false
+    private var restoredFocus = false
     private var sessionIsActive = true
     private var sessionObservers: [NSObjectProtocol] = []
     private let fileOverride: RestartSessionFile?
     private let isAppStillRunning: (RestartWindowIdentity) -> Bool
     private let now: () -> Date
+
+    private var discoveryInterval: TimeInterval {
+        pending?.bootSession == currentBootSession() ? 10 : 60
+    }
 
     init(file: RestartSessionFile? = nil, isAppStillRunning: @escaping (RestartWindowIdentity) -> Bool = { identity in
         guard let app = NSRunningApplication(processIdentifier: identity.pid) else { return false }
@@ -61,7 +66,7 @@ final class RestartSessionController {
                 Task { @MainActor in
                     self?.sessionIsActive = active
                     if active {
-                        if let self { self.retryDeadline = self.now().addingTimeInterval(10) }
+                        if let self { self.retryDeadline = self.now().addingTimeInterval(self.discoveryInterval) }
                         scheduleRefreshSession(.globalObserver("sessionUnlocked"))
                     }
                 }
@@ -87,10 +92,11 @@ final class RestartSessionController {
 
     func prepare(_ snapshot: RestartSessionSnapshot) {
         pending = snapshot
-        retryDeadline = now().addingTimeInterval(10)
+        retryDeadline = now().addingTimeInterval(discoveryInterval)
         restoredIds = []
         restoredWorkspaces = []
         cancelledWorkspaces = []
+        restoredFocus = false
         restoreRestartMetadata(snapshot)
         if BrowserNativeManagement.lease != nil, let surfaces = snapshot.surfaces {
             BrowserWorkspaceController.shared.restorePlacementSnapshot(surfaces)
@@ -100,8 +106,38 @@ final class RestartSessionController {
 
     func claims(_ window: Window) -> Bool {
         guard let snapshot = pending else { return false }
-        return snapshot.matches(windowId: window.windowId, identity: RestartWindowIdentity(window.app), boot: currentBootSession()) &&
-            snapshot.world.workspaces.contains { !cancelledWorkspaces.contains($0.name) && collectFrozenWindows($0)[window.windowId] != nil }
+        return matchingWindows(in: snapshot).contains { saved, candidate in
+            candidate === window && snapshot.world.workspaces.contains {
+                !cancelledWorkspaces.contains($0.name) && collectFrozenWindows($0)[saved] != nil
+            }
+        }
+    }
+
+    private func matchingWindows(in snapshot: RestartSessionSnapshot) -> [UInt32: Window] {
+        let windows = isUnitTest ? Workspace.all.flatMap(\.allLeafWindowsRecursive) : MacWindow.allWindows.map { $0 as Window }
+        var matches: [UInt32: Window] = [:]
+        let boot = currentBootSession()
+        for window in windows where snapshot.matches(windowId: window.windowId, identity: RestartWindowIdentity(window.app), boot: boot) {
+            matches[window.windowId] = window
+        }
+        let records = snapshot.windows ?? []
+        // Previously restored surface bindings survive title changes and later
+        // discovery passes. A numeric window ID is never used across boots.
+        for record in records where restoredIds.contains(record.id) {
+            if let surface = record.surfaceID, let window = Window.get(bySurfaceID: surface) { matches[record.id] = window }
+        }
+        for record in records where matches[record.id] == nil {
+            guard let bundle = record.identity.bundleId, !bundle.isEmpty,
+                  let title = record.title, !title.isEmpty,
+                  records.filter({ $0.identity.bundleId == bundle && $0.title == title }).count == 1 else { continue }
+            let candidates = windows.filter {
+                $0.app.rawAppBundleId == bundle && cachedWindowTitle(for: $0) == title &&
+                    !matches.values.contains($0) &&
+                    (snapshot.bootSession != boot || RestartWindowIdentity($0.app) != record.identity)
+            }
+            if candidates.count == 1 { matches[record.id] = candidates[0] }
+        }
+        return matches
     }
 
     func retainsWorkspace(_ name: String) -> Bool {
@@ -111,36 +147,47 @@ final class RestartSessionController {
     func restoreAfterDiscovery() async throws {
         guard let snapshot = pending, !restoring else { return }
         guard isUnitTest || canObserveSession else {
-            retryDeadline = now().addingTimeInterval(10)
+            retryDeadline = now().addingTimeInterval(discoveryInterval)
             lastRestore = "Waiting for the macOS session to unlock"
             return
         }
         restoring = true
         defer { restoring = false }
-        let matched = snapshot.world.windowIds.filter { id in
-            Window.get(byId: id).map { snapshot.matches(windowId: id, identity: RestartWindowIdentity($0.app), boot: currentBootSession()) } ?? false
-        }
-        // Numeric IDs alone never restore the new workspace identity. The
-        // existing boot + process launch + window match above is mandatory.
-        for record in snapshot.windows ?? [] where matched.contains(record.id) {
-            if let surfaceID = record.surfaceID {
-                Window.get(byId: record.id)?.restoreSurfaceID(surfaceID)
+        let windows = isUnitTest ? Workspace.all.flatMap(\.allLeafWindowsRecursive) : MacWindow.allWindows.map { $0 as Window }
+        let descriptorBundles = Set((snapshot.windows ?? []).filter { $0.title?.isEmpty == false }.compactMap { $0.identity.bundleId })
+        await withTaskGroup(of: Void.self) { group in
+            for window in windows where cachedWindowTitle(for: window) == nil &&
+                window.app.rawAppBundleId.map(descriptorBundles.contains) == true {
+                group.addTask { @Sendable @MainActor in _ = await getCachedWindowTitle(window) }
             }
+            await group.waitForAll()
         }
+        let bindings = matchingWindows(in: snapshot)
+        let matched = Set(bindings.keys)
         for workspace in snapshot.world.workspaces where !cancelledWorkspaces.contains(workspace.name) {
             let ids = Set(collectFrozenWindows(workspace).keys).intersection(matched)
             guard !restoredWorkspaces.contains(workspace.name) || !ids.isSubset(of: restoredIds) else { continue }
-            try await restoreRestartWorkspace(workspace, matchedIds: ids, records: snapshot.windows ?? [])
+            // Publish each workspace's identities immediately before binding
+            // its tree. Other workspaces must not appear to own live pins in
+            // the wrong space while a floating-window AX write suspends us.
+            for record in snapshot.windows ?? [] where ids.contains(record.id) {
+                if let surface = record.surfaceID { bindings[record.id]?.restoreSurfaceID(surface) }
+            }
+            try await restoreRestartWorkspace(workspace, matchedIds: ids, records: snapshot.windows ?? [], bindings: bindings)
             restoredWorkspaces.insert(workspace.name)
         }
-        if restoredWorkspaces.count > 0 && restoredIds.isEmpty {
-            restoreRestartFocus(snapshot, matchedIds: matched, excluding: cancelledWorkspaces)
+        if restoredWorkspaces.count > 0 && !restoredFocus {
+            restoredFocus = true
+            restoreRestartFocus(snapshot, matchedIds: matched, excluding: cancelledWorkspaces, bindings: bindings)
         }
         restoredIds.formUnion(matched)
         matchedCount = restoredIds.count
         unmatchedCount = snapshot.world.windowIds.subtracting(restoredIds).count
         let waitingForApp = snapshot.windows?.contains { record in
-            !restoredIds.contains(record.id) && isAppStillRunning(record.identity)
+            !restoredIds.contains(record.id) && snapshot.world.workspaces.contains {
+                !cancelledWorkspaces.contains($0.name) && collectFrozenWindows($0)[record.id] != nil
+            } && (isAppStillRunning(record.identity) ||
+                (snapshot.bootSession != currentBootSession() && record.title?.isEmpty == false))
         } ?? false
         if waitingForApp && now() < retryDeadline {
             lastRestore = "Restored \(matchedCount); waiting for \(unmatchedCount) windows"
@@ -150,7 +197,7 @@ final class RestartSessionController {
             pending = nil
             retryTask?.cancel()
             retryTask = nil
-            BrowserWorkspaceController.shared.finishNativeRestoration()
+            BrowserWorkspaceController.shared.finishNativeRestoration(excluding: Set(bindings.values.map(\.surfaceID)))
             syncClosedWindowsCacheToCurrentWorld()
         }
     }
@@ -179,8 +226,12 @@ final class RestartSessionController {
     }
 
     func cancelRestoreForInteraction(windowId: UInt32) {
-        guard pending != nil, let name = Window.get(byId: windowId)?.nodeWorkspace?.name else { return }
+        guard let snapshot = pending, let window = Window.get(byId: windowId), let name = window.nodeWorkspace?.name else { return }
         cancelledWorkspaces.insert(name)
+        let savedIDs = Set(matchingWindows(in: snapshot).filter { $0.value === window }.keys)
+        for workspace in snapshot.world.workspaces where !savedIDs.isDisjoint(with: collectFrozenWindows(workspace).keys) {
+            cancelledWorkspaces.insert(workspace.name)
+        }
     }
 
     func checkpoint() {

@@ -114,7 +114,9 @@ public final class BrowserWorkspaceController {
     }
     // Chromium can restore a saved tab after its first full inventory. Keep
     // its exact former pin identity until that tab returns or is replaced.
-    var restoringSidebarPinBindings: [SurfaceID: UUID] = [:]
+    var restoringSidebarPinBindings: [SurfaceID: UUID] = [:] {
+        didSet { if oldValue != restoringSidebarPinBindings { persistenceRevision &+= 1 } }
+    }
     var pendingProfileMoves: [UUID: BrowserProfileMove] = [:]
     var profileMoveCopiesToClose: Set<SurfaceID> = []
     var committingProfileMove = false
@@ -217,7 +219,8 @@ public final class BrowserWorkspaceController {
                      pinShelves: pinShelves,
                      selectedByWorkspace: selectedByWorkspace.filter { savedTree.workspace(of: $0.value) == $0.key },
                      browserProfiles: browserProfiles, browserProfileBySpace: browserProfileBySpace,
-                     savedViews: savedViews.filter { Workspace.existing(byName: $0.workspaceName)?.isIncognito != true })
+                     savedViews: savedViews.filter { Workspace.existing(byName: $0.workspaceName)?.isIncognito != true },
+                     restoringBrowserPinBindings: restoringSidebarPinBindings)
     }
 
     func restorePlacementSnapshot(_ snapshot: SurfaceWorkspaceSnapshot) {
@@ -243,7 +246,7 @@ public final class BrowserWorkspaceController {
         restorePinnedGroups()
         pendingSidebarPinOpenings = []
         unresolvedSidebarPinOwners = [:]
-        restoringSidebarPinBindings = [:]
+        restoringSidebarPinBindings = snapshot.restoringBrowserPinBindings
         for pin in browserSidebarPins { _ = Workspace.get(byName: pin.workspaceName) }
         restoredSelection = snapshot.selected
         recentSelections = snapshot.selected.map { [$0] } ?? []
@@ -254,6 +257,9 @@ public final class BrowserWorkspaceController {
         standaloneBrowserViews = [:]
         unresolvedNativeItems = []
         unresolvedBrowserItems = []
+        // Floating pinned apps need the same discovery reservation as tiled
+        // members; they may have no leaf in the shared surface tree.
+        unresolvedNativeItems.formUnion(nativeAppSidebarPins.compactMap(\.surfaceID).filter { Window.get(bySurfaceID: $0) == nil })
         for (workspace, nodes) in surfaceTree.roots {
             // Empty roots are bookkeeping left after moving/closing the last
             // surface; they must not recreate a named, permanent empty view.
@@ -267,6 +273,7 @@ public final class BrowserWorkspaceController {
             }
         }
         migrateSidebarPinsToSpaceGroups()
+        for session in sessions.values { restoreSidebarPinBindings(in: session.inventory) }
         // Inventory can arrive before native startup finishes reading its file.
         // Preserve such live tabs even if this snapshot predates them.
         for id in sessions.values.flatMap({ $0.inventory.tabs.keys }) where placements[id] == nil {
@@ -287,18 +294,30 @@ public final class BrowserWorkspaceController {
 
     /// Native discovery has exhausted its retries. Unclaimed IDs cannot regain
     /// an owner after this point, so do not checkpoint them into another restart.
-    func finishNativeRestoration() {
+    func finishNativeRestoration(excluding restored: Set<SurfaceID> = []) {
         retireResolvedNativeReservations()
         let missing = unresolvedNativeItems
+        let missingPins = Set(nativeAppSidebarPins.filter { $0.surfaceID.map(missing.contains) == true }.map(\.id))
         unresolvedNativeItems = []
         for id in missing { surfaceTree.remove(id) }
+        // Login can discover a relaunched pinned application before its old
+        // runtime binding expires. Retry now that those reservations are gone.
+        let windows = isUnitTest ? Workspace.all.flatMap(\.allLeafWindowsRecursive) : MacWindow.allWindows.map { $0 as Window }
+        let candidates = windows.filter { window in
+            !restored.contains(window.surfaceID) && canAdoptNativePinWindow(window) &&
+                !nativeAppSidebarPins.contains(where: { $0.surfaceID == window.surfaceID })
+        }
+        for window in candidates where candidates.filter({ $0.app.rawAppBundleId == window.app.rawAppBundleId }).count == 1 {
+            if let workspace = window.nodeWorkspace { _ = adoptNativePinArrival(window, in: workspace, restrictingTo: missingPins) }
+        }
         if let selected = restoredSelection, missing.contains(selected) { restoredSelection = nil }
         recentSelections.removeAll(where: missing.contains)
         if !missing.isEmpty { scheduleRefresh() }
     }
 
-    /// A full inventory can retire saved references for profiles it actually
-    /// owns. Other profiles may connect later and keep their saved placement.
+    /// Chromium's full inventory describes what exists now, not whether its
+    /// session restore has finished. Keep ordinary placements reserved until an
+    /// explicit removal; otherwise a late tab is routed into the active space.
     private func reconcileRestoredBrowserPlacements(_ inventory: BrowserInventory) {
         let profiles = Set(inventory.tabs.keys.compactMap { id -> UUID? in
             if case .browserTab(let profile, _) = id { return profile }
@@ -309,6 +328,7 @@ public final class BrowserWorkspaceController {
             return profiles.contains(profile) && owner(of: id) == nil
         }
         for id in missing {
+            guard sidebarPin(for: id) != nil else { continue }
             browserPinDidClose(id, retainingForRestore: true)
             retireAbsentPinnedPage(id)
             if restoredSelection == id { restoredSelection = nil }
@@ -390,12 +410,17 @@ public final class BrowserWorkspaceController {
             }
         }
         for icon in message.tabs.compactMap(\.iconPNGBase64) { WorkspaceSidebarFaviconCache.shared.prepare(icon) }
+        let returningIDs = unresolvedBrowserItems.union(restoringSidebarPinBindings.keys)
+            .intersection(session.inventory.tabs.keys)
         unresolvedBrowserItems.subtract(session.inventory.tabs.keys)
         let absentPinnedIDs = reconcileSidebarPinInventory(session.inventory, full: message.full, connection: connection,
             removed: message.removed)
         if message.full { reconcileRestoredBrowserPlacements(session.inventory) }
         let minimizedIDs = Set(session.inventory.tabs.values.filter(\.hostMinimized).map(\.surfaceID))
-        let removedIDs = oldIDs.subtracting(session.inventory.tabs.keys).union(absentPinnedIDs).filter { owner(of: $0) == nil }
+        let absentIDs = oldIDs.subtracting(session.inventory.tabs.keys).filter { owner(of: $0) == nil }
+        // Once observed in this connection, disappearing is a real close.
+        // Only saved/disconnected owners that have not returned are reserved.
+        let removedIDs = absentIDs.union(absentPinnedIDs).union(message.removed).filter { owner(of: $0) == nil }
         for id in removedIDs {
             tabCreationOperations[id] = nil
             tabInventoryArrivalTimes[id] = nil
@@ -460,6 +485,7 @@ public final class BrowserWorkspaceController {
         if usesSurfaceTree && !closedSelection && !minimizedSelection && !holdsPendingBrowserFocus && BrowserToolbarController.shared.focusedControlSurfaceID == nil,
            processBindings[connection]?.pid == foregroundProcessID(),
            let focused = session.inventory.tabs.values.first(where: { $0.focused && !$0.hostMinimized }),
+           !returningIDs.contains(focused.surfaceID),
            !isProfileMoveArrival(focused.surfaceID, session: session),
            let workspaceName = placements[focused.surfaceID],
            let workspace = Workspace.existing(byName: workspaceName),

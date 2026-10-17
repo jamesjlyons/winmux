@@ -23,7 +23,45 @@ final class BrowserSidebarPinTests: XCTestCase {
         json.removeValue(forKey: "browserPins")
         let decoded = try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self, from: JSONSerialization.data(withJSONObject: json))
         XCTAssertTrue(decoded.browserPins.isEmpty)
+        XCTAssertTrue(decoded.restoringBrowserPinBindings.isEmpty)
         XCTAssertNoThrow(try decoded.validated())
+    }
+
+    func testSnapshotRetainsPendingPinIdentityWithoutReservingALivePane() throws {
+        let profile = UUID(), missing = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let pin = BrowserSidebarPin(profileID: profile, workspaceName: "Pins", title: "Docs", url: "https://example.com")
+        let snapshot = SurfaceWorkspaceSnapshot(tree: .init(), layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [missing], browserPins: [pin], restoringBrowserPinBindings: [missing: pin.id])
+        let decoded = try JSONDecoder().decode(SurfaceWorkspaceSnapshot.self, from: JSONEncoder().encode(snapshot)).validated()
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertNil(decoded.browserPins.first?.surfaceID)
+        XCTAssertTrue(decoded.tree.roots.isEmpty)
+    }
+
+    func testSnapshotRejectsConflictingPinRecoveryIdentities() throws {
+        let profile = UUID(), missing = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let pin = BrowserSidebarPin(profileID: profile, workspaceName: "Pins", title: "Docs", url: "https://example.com")
+        let base = SurfaceWorkspaceSnapshot(tree: .init(), layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [], browserPins: [pin])
+        for invalid: [SurfaceID: UUID] in [
+            [.nativeWindow(UUID()): pin.id],
+            [.browserTab(profile: UUID(), tab: UUID()): pin.id],
+            [missing: UUID()],
+            [missing: pin.id, .browserTab(profile: profile, tab: UUID()): pin.id],
+        ] {
+            var snapshot = base
+            snapshot.restoringBrowserPinBindings = invalid
+            XCTAssertThrowsError(try snapshot.validated())
+        }
+        var alreadyPlaced = base
+        alreadyPlaced.restoringBrowserPinBindings = [missing: pin.id]
+        alreadyPlaced.tree.reconcile([missing], in: "Regular")
+        XCTAssertThrowsError(try alreadyPlaced.validated())
+        var open = pin
+        open.surfaceID = .browserTab(profile: profile, tab: UUID())
+        let snapshot = SurfaceWorkspaceSnapshot(tree: .init(), layoutWorkspaces: [], selected: nil,
+            closedBrowserTabs: [], browserPins: [open], restoringBrowserPinBindings: [missing: pin.id])
+        XCTAssertThrowsError(try snapshot.validated())
     }
 
     func testRejectsDuplicatePinIdentityAndConflictingLiveBindings() throws {

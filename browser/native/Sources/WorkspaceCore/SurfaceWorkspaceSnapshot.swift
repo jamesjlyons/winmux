@@ -11,6 +11,9 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
     public var selected: SurfaceID?
     public var selectedByWorkspace: [String: SurfaceID]
     public var closedBrowserTabs: Set<SurfaceID>
+    /// Exact identities retired from an incomplete inventory, kept separately
+    /// from live layout membership until Chromium finishes restoring them.
+    public var restoringBrowserPinBindings: [SurfaceID: UUID]
 
     public var savedViews: [SavedView]
     private var legacyBrowserPins: [BrowserSidebarPin]
@@ -37,16 +40,18 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                 browserPins: [BrowserSidebarPin] = [], appPins: [NativeAppSidebarPin] = [], pinnedGroups: [SpacePinnedGroup] = [],
                 pinnedDesktops: [PinnedDesktop] = [], pinShelves: [SpacePinShelf] = [],
                 selectedByWorkspace: [String: SurfaceID] = [:], browserProfiles: [WorkspaceBrowserProfile] = [],
-                browserProfileBySpace: [String: UUID] = [:], savedViews: [SavedView] = []) {
+                browserProfileBySpace: [String: UUID] = [:], savedViews: [SavedView] = [],
+                restoringBrowserPinBindings: [SurfaceID: UUID] = [:]) {
         self.tree = tree; self.layoutWorkspaces = layoutWorkspaces
         self.selected = selected; self.closedBrowserTabs = closedBrowserTabs
         self.selectedByWorkspace = selectedByWorkspace
         self.legacyBrowserPins = browserPins; self.legacyAppPins = appPins; self.pinnedGroups = pinnedGroups
         self.legacyPinnedDesktops = pinnedDesktops; self.pinShelves = pinShelves; self.savedViews = savedViews
         self.browserProfiles = browserProfiles; self.browserProfileBySpace = browserProfileBySpace
+        self.restoringBrowserPinBindings = restoringBrowserPinBindings
     }
 
-    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, pinnedDesktops, pinShelves, selectedByWorkspace, browserProfiles, browserProfileBySpace, savedViews }
+    private enum CodingKeys: String, CodingKey { case tree, layoutWorkspaces, selected, closedBrowserTabs, browserPins, appPins, pinnedGroups, pinnedDesktops, pinShelves, selectedByWorkspace, browserProfiles, browserProfileBySpace, savedViews, restoringBrowserPinBindings }
 
     public func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
@@ -55,6 +60,9 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
         try values.encodeIfPresent(selected, forKey: .selected)
         try values.encode(selectedByWorkspace, forKey: .selectedByWorkspace)
         try values.encode(closedBrowserTabs, forKey: .closedBrowserTabs)
+        if !restoringBrowserPinBindings.isEmpty {
+            try values.encode(restoringBrowserPinBindings, forKey: .restoringBrowserPinBindings)
+        }
         try values.encode(savedViews, forKey: .savedViews)
         // Retain only unresolved legacy records. Migrated launch descriptors and
         // layouts are encoded once, in their owning saved View.
@@ -81,7 +89,8 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                   selectedByWorkspace: try values.decodeIfPresent([String: SurfaceID].self, forKey: .selectedByWorkspace) ?? [:],
                   browserProfiles: try values.decodeIfPresent([WorkspaceBrowserProfile].self, forKey: .browserProfiles) ?? [],
                   browserProfileBySpace: try values.decodeIfPresent([String: UUID].self, forKey: .browserProfileBySpace) ?? [:],
-                  savedViews: try values.decodeIfPresent([SavedView].self, forKey: .savedViews) ?? [])
+                  savedViews: try values.decodeIfPresent([SavedView].self, forKey: .savedViews) ?? [],
+                  restoringBrowserPinBindings: try values.decodeIfPresent([SurfaceID: UUID].self, forKey: .restoringBrowserPinBindings) ?? [:])
     }
 
     public func validated() throws -> Self {
@@ -150,6 +159,14 @@ public struct SurfaceWorkspaceSnapshot: Codable, Equatable, Sendable {
                   browserPins.contains { $0.id == id && $0.workspaceName == desktop.workspaceName } ||
                   appPins.contains { $0.id == id && $0.workspaceName == desktop.workspaceName }
               } }) else { throw SurfaceSnapshotError.invalidTree }
+        let pinsByID = Dictionary(uniqueKeysWithValues: browserPins.map { ($0.id, $0) })
+        guard restoringBrowserPinBindings.count <= 10000,
+              Set(restoringBrowserPinBindings.values).count == restoringBrowserPinBindings.count,
+              restoringBrowserPinBindings.allSatisfy({ surface, pinID in
+                  guard case .browserTab(let profile, _) = surface,
+                        let pin = pinsByID[pinID], pin.surfaceID == nil, pin.profileID == profile else { return false }
+                  return tree.workspace(of: surface) == nil && !bindings.contains(surface)
+              }) else { throw SurfaceSnapshotError.invalidTree }
         return self
     }
 }

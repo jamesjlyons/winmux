@@ -126,7 +126,7 @@ final class BrowserRestartCleanupTest: XCTestCase {
         XCTAssertNil(try XCTUnwrap(browser.capturePlacementSnapshot()).selected)
     }
 
-    func testFullBrowserInventoryRemovesAbsentSavedTabAndItsEmptyNumberedGroup() throws {
+    func testPartialBrowserRestoreReservesAbsentTabWithoutShowingAnEmptyGroup() throws {
         let profile = UUID(), live = SurfaceID.browserTab(profile: profile, tab: UUID())
         let missing = SurfaceID.browserTab(profile: profile, tab: UUID())
         var tree = SurfaceTree()
@@ -137,15 +137,15 @@ final class BrowserRestartCleanupTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertEqual(browser.surfaceTree.workspace(of: live), focus.workspace.name)
-        XCTAssertNil(browser.workspaceName(for: missing))
-        XCTAssertNil(Workspace.existing(byName: "26"))
+        XCTAssertEqual(browser.workspaceName(for: missing), "26")
+        XCTAssertFalse(isUserFacingWorkspace(try XCTUnwrap(Workspace.existing(byName: "26"))))
         let saved = try XCTUnwrap(browser.capturePlacementSnapshot())
-        XCTAssertNil(saved.selected)
-        XCTAssertTrue(saved.closedBrowserTabs.contains(missing))
+        XCTAssertEqual(saved.selected, missing)
+        XCTAssertFalse(saved.closedBrowserTabs.contains(missing))
         XCTAssertNoThrow(try saved.validated())
     }
 
-    func testInventoryArrivingBeforeTheSessionFileAlsoRetiresStaleReferences() {
+    func testInventoryArrivingBeforeTheSessionFilePreservesDelayedReferences() {
         let profile = UUID(), live = SurfaceID.browserTab(profile: profile, tab: UUID())
         let missing = SurfaceID.browserTab(profile: profile, tab: UUID())
         connect([live])
@@ -153,7 +153,7 @@ final class BrowserRestartCleanupTest: XCTestCase {
         browser.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
 
         XCTAssertEqual(browser.workspaceName(for: live), "Saved")
-        XCTAssertNil(browser.workspaceName(for: missing))
+        XCTAssertEqual(browser.workspaceName(for: missing), "Saved")
     }
 
     func testAnUnconnectedProfileKeepsPlacementWithoutShowingAnEmptyGroup() {
@@ -187,7 +187,7 @@ final class BrowserRestartCleanupTest: XCTestCase {
         browser.received(.init(revision: 1, full: true, tabs: [record(added)]), epoch: epoch, connection: connection)
         XCTAssertEqual(browser.workspaceName(for: waiting), "Saved")
         browser.received(.init(revision: 3, full: true, tabs: [record(live), record(added)]), epoch: epoch, connection: connection)
-        XCTAssertNil(browser.workspaceName(for: waiting))
+        XCTAssertEqual(browser.workspaceName(for: waiting), "Saved")
     }
 
     func testFullInventoryDoesNotDiscardANewTabWhoseCreationReplyArrivedFirst() {
@@ -205,7 +205,7 @@ final class BrowserRestartCleanupTest: XCTestCase {
         XCTAssertEqual(browser.rows(in: destination.name).flatMap(\.surfaceIDs), [created])
     }
 
-    func testReconnectRetiresTabsClosedWhileTheHelperWasDisconnected() {
+    func testReconnectKeepsAbsentTabPlacementUntilAnExplicitRemoval() {
         let profile = UUID(), live = SurfaceID.browserTab(profile: profile, tab: UUID())
         let closed = SurfaceID.browserTab(profile: profile, tab: UUID())
         var tree = SurfaceTree(); tree.reconcile([live, closed], in: focus.workspace.name)
@@ -213,9 +213,12 @@ final class BrowserRestartCleanupTest: XCTestCase {
         let (connection, _) = connect([live, closed])
         browser.disconnected(connection)
         XCTAssertNotNil(browser.workspaceName(for: closed))
-        connect([live])
-        XCTAssertNil(browser.workspaceName(for: closed))
+        let (reconnected, epoch) = connect([live])
+        XCTAssertEqual(browser.workspaceName(for: closed), focus.workspace.name)
         XCTAssertEqual(browser.workspaceName(for: live), focus.workspace.name)
+        browser.received(.init(revision: 2, full: false, tabs: [record(closed)]), epoch: epoch, connection: reconnected)
+        browser.received(.init(revision: 3, full: false, tabs: [], removed: [closed]), epoch: epoch, connection: reconnected)
+        XCTAssertNil(browser.workspaceName(for: closed))
     }
 
     @discardableResult

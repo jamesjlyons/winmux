@@ -30,17 +30,18 @@ func restoreRestartMetadata(_ snapshot: RestartSessionSnapshot) {
 
 /// Rebuild matching leaves, retaining newly opened windows in their current workspace.
 @MainActor
-func restoreRestartWorkspace(_ frozen: FrozenWorkspace, matchedIds: Set<UInt32>, records: [RestartWindow]) async throws {
+func restoreRestartWorkspace(_ frozen: FrozenWorkspace, matchedIds: Set<UInt32>, records: [RestartWindow], bindings: [UInt32: Window]? = nil) async throws {
     let workspace = Workspace.get(byName: frozen.name)
     workspace.assignProject(frozen.projectId)
     workspace.restoreNamingStyle(frozen.namingStyle)
     workspace.hasContainedItems = workspace.hasContainedItems || frozen.hasContainedItems
     workspace.retainsEmptyView = workspace.retainsEmptyView || frozen.retainsEmptyView
     let monitor = restartTargetMonitor(frozen.monitor)
-    let matchingWindows = Dictionary(uniqueKeysWithValues: matchedIds.compactMap { id in Window.get(byId: id).map { (id, $0) } })
+    let matchingWindows = bindings ?? Dictionary(uniqueKeysWithValues: matchedIds.compactMap { id in Window.get(byId: id).map { (id, $0) } })
     workspace.preferredMonitorPoint = monitor.rect.topLeftCorner
     let previousRoot = workspace.rootTilingContainer
-    let orphans = previousRoot.allLeafWindowsRecursive.filter { !matchedIds.contains($0.windowId) }
+    let matchedOwners = Set(matchedIds.compactMap { matchingWindows[$0].map(ObjectIdentifier.init) })
+    let orphans = previousRoot.allLeafWindowsRecursive.filter { !matchedOwners.contains(ObjectIdentifier($0)) }
     previousRoot.unbindFromParent()
     restoreRestartTree(frozen.rootTilingNode, parent: workspace, matchedIds: matchedIds, windows: matchingWindows)
     for window in orphans { window.bind(to: workspace.rootTilingContainer, adaptiveWeight: 1, index: INDEX_BIND_LAST) }
@@ -48,7 +49,7 @@ func restoreRestartWorkspace(_ frozen: FrozenWorkspace, matchedIds: Set<UInt32>,
         guard let window = matchingWindows[frozenWindow.id] else { continue }
         applyFrozenWindowState(window, frozenWindow)
         window.bindAsFloatingWindow(to: workspace)
-        if let frame = records.first(where: { $0.id == window.windowId })?.floatingFrame,
+        if let frame = records.first(where: { $0.id == frozenWindow.id })?.floatingFrame,
            frame.width.isFinite, frame.height.isFinite, frame.minX.isFinite, frame.minY.isFinite {
             let rect = monitor.visibleRect
             let restored = restoredFloatingFrame(frame, savedScreen: frozen.monitor.visibleRect,
@@ -89,7 +90,7 @@ func restoreRestartTree(_ frozen: FrozenContainer, parent: NonLeafTreeNodeObject
 }
 
 @MainActor
-func restoreRestartFocus(_ snapshot: RestartSessionSnapshot, matchedIds: Set<UInt32>, excluding: Set<String>) {
+func restoreRestartFocus(_ snapshot: RestartSessionSnapshot, matchedIds: Set<UInt32>, excluding: Set<String>, bindings: [UInt32: Window]? = nil) {
     var assignedMonitors: Set<CGPoint> = []
     for saved in snapshot.world.monitors where !excluding.contains(saved.visibleWorkspace) {
         let monitor = restartTargetMonitor(saved)
@@ -104,7 +105,7 @@ func restoreRestartFocus(_ snapshot: RestartSessionSnapshot, matchedIds: Set<UIn
         assignedMonitors.insert(monitor.rect.topLeftCorner)
     }
     guard let name = snapshot.focusedWorkspace, !excluding.contains(name) else { return }
-    if let id = snapshot.focusedWindowId, matchedIds.contains(id), let window = Window.get(byId: id), window.focusWindow() {
+    if let id = snapshot.focusedWindowId, matchedIds.contains(id), let window = bindings?[id] ?? Window.get(byId: id), window.focusWindow() {
         window.nativeFocus()
     } else if let workspace = Workspace.existing(byName: name) { _ = workspace.focusWorkspace() }
 }

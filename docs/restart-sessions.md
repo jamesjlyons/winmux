@@ -7,19 +7,38 @@ and window. Normal Quit, Command-Q, macOS termination, SIGTERM, and SIGINT use t
 same shutdown path. Window cleanup has a five-second deadline. Force Quit/SIGKILL
 can only recover the most recent checkpoint.
 
-Restoration applies to windows that are still open in the same macOS boot and app
-process. It does not relaunch applications or reopen documents. Window IDs are
-checked against the owning process, bundle ID, launch date, and boot identity to
-avoid assigning a reused ID to an unrelated window. Missing windows are skipped;
-discovery retries for up to ten seconds. Editing a workspace cancels any pending
-restore for that workspace. A missing display falls back to the main display,
-with floating frames clamped to its visible bounds.
+Within the same macOS boot and app process, window IDs are checked against the
+owning process, bundle ID, launch date, and boot identity. New checkpoints also
+save native window titles. After an application relaunch or computer restart,
+a window can return to its saved Space when its bundle ID and nonempty title
+match exactly and uniquely among both saved and discovered windows. Reused
+numeric IDs alone never match across processes or boots. Duplicate or changed
+titles are left unmatched; older checkpoints without titles cannot provide this
+fallback. WinMux does not relaunch ordinary applications or reopen documents.
+
+Discovery retries for ten seconds in the same boot and up to sixty seconds after
+a computer restart. Missing native windows are then skipped. Editing a workspace
+cancels its pending restore; dragging a returning window also cancels its old
+destination. Focus is restored once, so repeated discovery cannot keep switching
+back to the saved Space. A missing display falls back to the main display, with
+floating frames clamped to its visible bounds.
 
 In the browser workspace, pending native references stay out of the sidebar and
 are removed when discovery finishes, including orphaned references left by older
-checkpoints. Full browser inventories retire absent saved tabs for the profiles
-they report. Profiles that have not connected keep their placement without showing
-empty sidebar groups.
+checkpoints. A browser's first full inventory can precede Chromium's session
+restoration. Saved tabs that have not appeared retain their exact Space, order,
+splits, and stacks through partial inventories and further helper restarts,
+without showing empty sidebar groups. Once observed in a connection, an explicit
+removal or disappearance from a later full inventory retires the tab normally.
+Restored browser focus reports cannot activate a background Space over the user's
+current selection.
+
+Closed app pins accept newly opened windows from their application in all arrival
+modes, including reopening from the Dock. An explicit pin launch takes priority;
+otherwise the current Space's unique matching pin, or a globally unique pin, is
+used. Startup does not choose between multiple pins based on the active Space.
+Live pinned members are never replaced by additional windows. Floating app pins
+retain their saved binding while native discovery is pending.
 
 Session files are atomically replaced with a last-good `.backup` alongside them.
 The live tree is captured on the main actor; a separate serial writer compares and saves the
@@ -86,6 +105,29 @@ WINMUX_CONFIG_PATH="$PWD/.local/winmux-dev.toml" make dev-run
 ```
 
 ## Validation
+
+October 16, 2026 regression coverage includes:
+
+- Six browser tabs across three Spaces, arriving out of order through partial
+  inventories and a second helper restart, retaining their nested stacks.
+- Native windows returning after a simulated reboot with reassigned window IDs
+  and a thirty-second discovery delay.
+- Three pinned native windows retaining their pin identities and Spaces after
+  relaunch; ordinary app reopening in every arrival mode.
+- Rejection of ambiguous native titles and ambiguous pin/window choices, plus
+  protection of existing ordinary and pinned windows from reassignment.
+- User selection and manual moves winning over delayed restoration.
+
+The full optimized development suite passed 1,311 tests with
+`swift test --disable-sandbox -c release -Xswiftc -DDEBUG`. An earlier full Debug
+run passed 1,300 tests; the subsequent focused restore run passed 71 tests before
+the final optimized qualification. Logs are in `.local/restart-release-tests.log`,
+`.local/restart-full-tests.log`, and `.local/restart-final-focused-tests.log`.
+
+These are automated model/restore tests. They do not qualify an actual computer
+reboot or an installed-package restart with the user's live applications. Native
+relaunch matching requires a new checkpoint containing window titles; it cannot
+retroactively repair missing descriptors in an older checkpoint.
 
 Validated locally on September 13, 2026:
 

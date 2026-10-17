@@ -116,7 +116,8 @@ open class Window: TreeNode, Hashable {
         return window
     }
 
-    /// Called only after saved boot/process/window bindings have matched.
+    /// Called only after a saved runtime binding or an unambiguous relaunch
+    /// descriptor has matched. Numeric IDs alone cannot establish ownership.
     @MainActor @discardableResult
     func restoreSurfaceID(_ id: SurfaceID) -> Bool {
         guard case .nativeWindow = id else { return false }
