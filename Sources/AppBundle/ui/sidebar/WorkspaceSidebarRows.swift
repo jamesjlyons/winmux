@@ -10,7 +10,15 @@ private struct WorkspaceSidebarCompactRowsKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct WorkspaceSidebarRowHoveredKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
+    var workspaceSidebarRowHovered: Bool {
+        get { self[WorkspaceSidebarRowHoveredKey.self] }
+        set { self[WorkspaceSidebarRowHoveredKey.self] = newValue }
+    }
     var workspaceSidebarCompactRows: Bool {
         get { self[WorkspaceSidebarCompactRowsKey.self] }
         set { self[WorkspaceSidebarCompactRowsKey.self] = newValue }
@@ -24,6 +32,9 @@ extension EnvironmentValues {
 // MARK: - Window Row
 
 struct WorkspaceSidebarWindowRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.workspaceSidebarRowHovered) private var isRowHovered
     @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     @Environment(\.workspaceSidebarDensity) private var density
     @Environment(\.workspaceSidebarExternalRowSelection) private var externalSelection
@@ -75,12 +86,17 @@ struct WorkspaceSidebarWindowRow: View {
                 if isFloating { WorkspaceSidebarFloatingIndicator().offset(x: 4, y: 3) }
             }
             if !isCompact {
-                Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                WorkspaceSidebarSearchTitle(title: title)
+                    .font(.system(size: isTabGroupHeader && !menuBarStyle ? 11 : 13,
+                                  weight: isTabGroupHeader || isActiveRow ? .medium : .regular))
                     .foregroundStyle(rowTextColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
+                if isTabGroupHeader && isSelected {
+                    Circle().fill(Color.primary.opacity(0.55)).frame(width: 4, height: 4)
+                        .accessibilityHidden(true)
+                }
                 if !density.isNarrow, let badge {
                     Text(badge)
                         .font(.system(size: 10.5, weight: .medium))
@@ -96,7 +112,8 @@ struct WorkspaceSidebarWindowRow: View {
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .background {
             if !externalSelection {
-                WorkspaceSidebarTabBackground(id: selectionID, state: chromeState, cornerRadius: menuBarStyle ? 5 : 7)
+                WorkspaceSidebarTabBackground(id: selectionID, state: chromeState,
+                                              cornerRadius: menuBarStyle ? 5 : WorkspaceSidebarTabStyle.cornerRadius)
             }
         }
         .accessibilityAddTraits(isActiveRow ? .isSelected : [])
@@ -152,8 +169,18 @@ struct WorkspaceSidebarWindowRow: View {
 
     private var rowTextColor: Color {
         if menuBarStyle { return Color.primary.opacity(isTabGroupChild ? 0.78 : 0.95) }
+        if colorScheme == .dark {
+            if isTabGroupHeader {
+                return contrast == .increased ? WorkspaceSidebarTabStyle.darkRestingTitle : WorkspaceSidebarTabStyle.darkGroupHeading
+            }
+            if isActiveRow || isHovered || isRowHovered || isKeyboardTarget {
+                return WorkspaceSidebarTabStyle.darkEmphasizedTitle
+            }
+            return contrast == .increased ? .primary : WorkspaceSidebarTabStyle.darkRestingTitle
+        }
+        if isTabGroupHeader { return Color.primary.opacity(isFocused ? 0.78 : 0.60) }
         if isActiveRow {
-            return Color.primary.opacity(isTabGroupHeader ? 0.96 : 1)
+            return Color.primary
         }
         if isTabGroupChild {
             return Color.primary.opacity(0.72)

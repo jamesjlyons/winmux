@@ -87,7 +87,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 regularContent
             }
         }
-        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion, isFiltering: isSearchFiltering))
     }
 
     // Pin tiles represent saved arrangements. Floating owners stay selectable
@@ -258,7 +258,8 @@ extension WorkspaceSidebarWorkspaceSection {
         sectionShape
             .fill(sectionBackgroundFill)
             .overlay {
-                if isActiveWorkspaceSelection && !layout.menuBarStyle && !showsStandaloneViewRow {
+                if isActiveWorkspaceSelection && !layout.menuBarStyle && !showsStandaloneViewRow &&
+                    (isCompact || workspace.viewSurfaces.isEmpty) {
                     sectionShape
                         .strokeBorder(Color.primary.opacity(isCompact ? 0.15 : 0.10), lineWidth: StrokeToken.control)
                 }
@@ -289,7 +290,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color.primary.opacity(0.075)
         }
         if isSearchFiltering {
-            return isHovered ? Color.primary.opacity(0.045) : Color.primary.opacity(0.015)
+            return .clear
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             let redOpacity: Double = workspace.isFocused ? 0.16 : 0.065
@@ -299,6 +300,9 @@ extension WorkspaceSidebarWorkspaceSection {
         if isPinnedActiveWorkspace {
             return Color.primary.opacity(isHovered ? 0.09 : 0.06)
         }
+        // Arrangement headings and the active-tab pill carry the hierarchy.
+        // Keep the expanded group's background quiet even while a child is hovered.
+        if !isCompact, !workspace.viewSurfaces.isEmpty, !isFromOtherDisplay { return .clear }
         if isActiveOnTargetMonitor {
             let compactOpacity: Double = workspace.isFocused ? 0.13 : 0.075
             let expandedOpacity: Double = workspace.isFocused ? 0.055 : 0.025
@@ -491,7 +495,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     workspaceTabGroupView(group)
             }
         }
-        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion, isFiltering: isSearchFiltering))
     }
 
     func sharedSurfaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
@@ -562,6 +566,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 viewSummary
                 if !workspace.isSingleWindowView && (isViewExpanded || isSearchFiltering) {
                     windowRows
+                        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion, isFiltering: true))
                 } else if !workspace.isSingleWindowView {
                     // Floating owners are outside the collapsed arrangement.
                     ForEach(workspace.floatingItems) { workspaceItemView($0) }
@@ -588,11 +593,15 @@ extension WorkspaceSidebarWorkspaceSection {
                 Button {
                     withAnimation(reduceMotion ? nil : WorkspaceSidebarTabMotion.movement) { isViewExpanded.toggle() }
                 } label: {
-                    Image(systemName: isViewExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .medium)).frame(width: 20, height: rowHeight)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .medium))
+                        .rotationEffect(.degrees(isViewExpanded || isSearchFiltering ? 90 : 0))
+                        .frame(width: 20, height: rowHeight)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isViewExpanded ? "Collapse arrangement" : "Expand arrangement")
+                .disabled(isSearchFiltering)
+                .help(isSearchFiltering ? "Matching tabs are expanded while filtering" : "Show or hide tabs")
+                .accessibilityLabel(isViewExpanded || isSearchFiltering ? "Collapse arrangement" : "Expand arrangement")
             }
             Button(action: handleSectionClick) {
                 if isCompact {
@@ -630,6 +639,7 @@ extension WorkspaceSidebarWorkspaceSection {
             .buttonStyle(.plain)
             .help(viewSummaryLabel)
             .accessibilityLabel(viewSummaryLabel)
+            .accessibilityValue(!workspace.isSingleWindowView && isActiveOnTargetMonitor ? "Active arrangement" : "")
             .modifier(WorkspaceSidebarOptionalDragModifier(isEnabled: workspace.isSingleWindowView,
                 onChanged: { value in
                     if let id = workspace.viewSurfaces.first?.surfaceID { actions.surfaceDragChanged(.surface(id), value) }
@@ -714,6 +724,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     subject: .window,
                     leadingHitInset: isCompact ? 0 : density.isNarrow ? 6 : workspaceSidebarTabGroupChildLeadingIndent,
                 )
+                .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion, isFiltering: isSearchFiltering))
             }
         }
         .opacity(1)

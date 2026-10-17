@@ -60,11 +60,35 @@ private func workspaceSidebarFilteredWorkspace(
     return nil
 }
 
-private func workspaceSidebarSearchTerms(_ query: String) -> [String] {
+func workspaceSidebarSearchTerms(_ query: String) -> [String] {
     query
         .split(whereSeparator: { $0.isWhitespace })
         .map { String($0).localizedLowercase }
         .filter { !$0.isEmpty }
+}
+
+/// Ranges refer to the original title, including composed Unicode characters.
+/// Context-only matches intentionally leave the title unmarked.
+func workspaceSidebarSearchMatchRanges(in title: String, query: String) -> [Range<String.Index>] {
+    var matches: [Range<String.Index>] = []
+    for term in Set(workspaceSidebarSearchTerms(query)) {
+        var start = title.startIndex
+        while start < title.endIndex,
+              let range = title.range(of: term, options: .caseInsensitive,
+                                      range: start..<title.endIndex, locale: .current) {
+            matches.append(range)
+            start = title.index(after: range.lowerBound)
+        }
+    }
+    var merged: [Range<String.Index>] = []
+    for range in matches.sorted(by: { $0.lowerBound < $1.lowerBound }) {
+        if let last = merged.last, range.lowerBound <= last.upperBound {
+            merged[merged.count - 1] = last.lowerBound..<max(last.upperBound, range.upperBound)
+        } else {
+            merged.append(range)
+        }
+    }
+    return merged
 }
 
 private func workspaceSidebarSearchResultItem(
@@ -160,7 +184,7 @@ private func workspaceSidebarWorkspaceMatchesSearch(
 
 private func workspaceSidebarSearchTextMatches(_ values: [String?], terms: [String]) -> Bool {
     let searchableText = values
-        .compactMap { $0?.localizedLowercase }
+        .compactMap { $0 }
         .joined(separator: " ")
-    return terms.allSatisfy { searchableText.contains($0) }
+    return terms.allSatisfy { searchableText.range(of: $0, options: .caseInsensitive, locale: .current) != nil }
 }

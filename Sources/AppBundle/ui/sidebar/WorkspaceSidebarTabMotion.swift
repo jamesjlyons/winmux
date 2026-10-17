@@ -1,14 +1,28 @@
 import SwiftUI
 
+enum WorkspaceSidebarTabStyle {
+    static let cornerRadius: CGFloat = 16
+    static let verticalInset: CGFloat = 1
+    static let darkBackground = Color(chromeHex: "#111111")
+    static let darkRestingTitle = Color(chromeHex: "#A3A3A3")
+    static let darkEmphasizedTitle = Color(chromeHex: "#EEEEEE")
+    static let darkGroupHeading = Color(chromeHex: "#757575")
+}
+
 /// Most travel finishes in ~170 ms; the critically damped tail settles quietly.
 enum WorkspaceSidebarTabMotion {
     static let movement = Animation.interpolatingSpring(mass: 1, stiffness: 529, damping: 46)
     static let hover = Animation.easeOut(duration: 0.065)
     static let removal = Animation.easeOut(duration: 0.09)
+    static let filtering = Animation.easeOut(duration: 0.18)
+    static let selectionFade = Animation.easeOut(duration: 0.12)
     static let reorder = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.14)
 
-    static func transition(reduceMotion: Bool) -> AnyTransition {
+    static func transition(reduceMotion: Bool, isFiltering: Bool = false) -> AnyTransition {
         guard !reduceMotion else { return .identity }
+        if isFiltering {
+            return .asymmetric(insertion: .opacity.animation(filtering), removal: .opacity.animation(removal))
+        }
         return .asymmetric(
             insertion: .modifier(
                 active: WorkspaceSidebarTabEntryOffset(offset: CGSize(width: 8, height: 6)).ignoredByLayout(),
@@ -64,14 +78,16 @@ private struct WorkspaceSidebarTabAnchorKey: PreferenceKey {
 struct WorkspaceSidebarTabBackground: View {
     let id: String?
     let state: ChromeItemState
-    var cornerRadius: CGFloat = 7
+    var cornerRadius: CGFloat = WorkspaceSidebarTabStyle.cornerRadius
     @Environment(\.workspaceSidebarTabMotion) private var usesMotion
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ChromeSelectionBackground(state: localState, cornerRadius: cornerRadius,
-                                  transition: reduceMotion ? nil : WorkspaceSidebarTabMotion.hover)
-            .padding(usesMotion && !state.isRaised ? 2 : 0)
+                                  transition: reduceMotion ? nil : WorkspaceSidebarTabMotion.hover,
+                                  palette: menuBarStyle ? .standard : .sidebar)
+            .padding(.vertical, menuBarStyle ? 0 : WorkspaceSidebarTabStyle.verticalInset)
             .anchorPreference(key: WorkspaceSidebarTabAnchorKey.self, value: .bounds) { bounds in
                 if usesMotion, let id, state.isRaised {
                     return [.init(id: id, state: state, bounds: bounds)]
@@ -81,6 +97,10 @@ struct WorkspaceSidebarTabBackground: View {
     }
 
     private var localState: ChromeItemState {
+        if state.isGroup && !menuBarStyle {
+            // The heading's active dot carries selection without a second pill.
+            return .init(isHovered: state.isHovered, isKeyboardTarget: state.isKeyboardTarget, isGroup: true)
+        }
         guard usesMotion, id != nil, state.isRaised else { return state }
         // Preserve keyboard focus independently of the moving selected surface.
         return .init(isKeyboardTarget: state.isKeyboardTarget)
@@ -91,33 +111,108 @@ struct WorkspaceSidebarTabBackground: View {
 /// its rows; scrolling does not retarget the spring or require state publications.
 struct WorkspaceSidebarTabMotionScope: ViewModifier {
     var isEnabled = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var viewportHeight: CGFloat? = nil
 
     func body(content: Content) -> some View {
         content
             .environment(\.workspaceSidebarTabMotion, isEnabled)
+            .environment(\.tabSelectionAppearance, isEnabled
+                ? .init(cornerRadius: WorkspaceSidebarTabStyle.cornerRadius,
+                        verticalInset: WorkspaceSidebarTabStyle.verticalInset)
+                : .init())
             .backgroundPreferenceValue(WorkspaceSidebarTabAnchorKey.self) { anchors in
                 GeometryReader { geometry in
-                    if isEnabled, let primary = anchors.first(where: { $0.state.isFocused }) ?? anchors.first {
+                    if isEnabled {
+                        let primary = anchors.first(where: { $0.state.isFocused }) ?? anchors.first
                         // Other stacks retain their saved selection even when a
                         // different stack owns keyboard focus.
-                        ForEach(anchors.filter { $0.id != primary.id }, id: \.id) { anchor in
-                            let frame = geometry[anchor.bounds]
-                            ChromeSelectionBackground(state: anchor.state, cornerRadius: 7, transition: nil)
+                        ForEach(anchors.filter { $0.id != primary?.id }, id: \.id) { anchor in
+                            let frame = geometry[anchor.bounds].insetBy(dx: 0, dy: WorkspaceSidebarTabStyle.verticalInset)
+                            ChromeSelectionBackground(state: anchor.state,
+                                                      cornerRadius: WorkspaceSidebarTabStyle.cornerRadius,
+                                                      transition: nil, palette: .sidebar)
                                 .frame(width: frame.width, height: frame.height)
                                 .position(x: frame.midX, y: frame.midY)
                         }
-                        let frame = geometry[primary.bounds]
-                        WorkspaceSidebarMovingTabSelection(bounds: frame, isFocused: primary.state.isFocused)
-                            // Geometry from an existing row already includes its
-                            // layout animation. Only a new selection needs a spring.
-                            .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.movement, value: primary.id)
+                        let target = primary.map {
+                            WorkspaceSidebarSelectionTarget(id: $0.id,
+                                bounds: geometry[$0.bounds].insetBy(dx: 0, dy: WorkspaceSidebarTabStyle.verticalInset),
+                                isFocused: $0.state.isFocused)
+                        }
+                        let viewport = viewportHeight.map {
+                            CGRect(x: 0, y: -geometry.frame(in: .named("workspaceSidebarTabViewport")).minY,
+                                   width: geometry.size.width, height: $0)
+                        }
+                        WorkspaceSidebarTabSelectionLayer(target: target, viewport: viewport)
                     }
                 }
                 .transaction { $0.animation = nil }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+    }
+}
+
+struct WorkspaceSidebarSelectionTarget: Equatable {
+    let id: String
+    let bounds: CGRect
+    let isFocused: Bool
+}
+
+enum WorkspaceSidebarSelectionMotion {
+    case immediate, travel, fade
+
+    static func resolve(from previous: WorkspaceSidebarSelectionTarget?, to next: WorkspaceSidebarSelectionTarget?,
+                        viewport: CGRect?, reduceMotion: Bool) -> Self {
+        guard !reduceMotion else { return .immediate }
+        guard let previous, let next else { return .fade }
+        // Reflow and scrolling supply presentation geometry. Applying another
+        // spring to the same tab would make its pill lag behind its label.
+        guard previous.id != next.id else { return .immediate }
+        let distance = abs(previous.bounds.midY - next.bounds.midY)
+        guard distance <= 5 * max(previous.bounds.height, next.bounds.height) else { return .fade }
+        if let viewport, !viewport.contains(previous.bounds) || !viewport.contains(next.bounds) { return .fade }
+        return .travel
+    }
+}
+
+private struct WorkspaceSidebarTabSelectionLayer: View {
+    let target: WorkspaceSidebarSelectionTarget?
+    let viewport: CGRect?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayed: WorkspaceSidebarSelectionTarget?
+    @State private var generation = 0
+    @State private var selectionAnimation: Animation?
+
+    var body: some View {
+        ZStack {
+            if let displayed {
+                WorkspaceSidebarMovingTabSelection(bounds: displayed.bounds, isFocused: displayed.isFocused)
+                    .id(generation)
+                    .transition(.opacity)
+            }
+        }
+        .animation(selectionAnimation, value: displayed)
+        .onAppear { displayed = target }
+        .onChange(of: target) { next in
+            switch WorkspaceSidebarSelectionMotion.resolve(from: displayed, to: next,
+                                                            viewport: viewport, reduceMotion: reduceMotion) {
+            case .immediate:
+                selectionAnimation = nil
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { displayed = next }
+            case .travel:
+                selectionAnimation = WorkspaceSidebarTabMotion.movement
+                withAnimation(WorkspaceSidebarTabMotion.movement) { displayed = next }
+            case .fade:
+                selectionAnimation = WorkspaceSidebarTabMotion.selectionFade
+                withAnimation(WorkspaceSidebarTabMotion.selectionFade) {
+                    generation += 1
+                    displayed = next
+                }
+            }
+        }
     }
 }
 
@@ -129,10 +224,13 @@ private struct WorkspaceSidebarMovingTabSelection: View {
 
     var body: some View {
         WorkspaceSidebarPositionedTabShape(bounds: bounds)
-            .fill(ChromeControlToken.selectionColor(dark: colorScheme == .dark, focused: isFocused))
+            .fill(ChromeSelectionPalette.sidebar.selectionColor(dark: colorScheme == .dark, focused: isFocused))
+            .shadow(color: .black.opacity(ChromeSelectionPalette.sidebar.shadowOpacity(
+                dark: colorScheme == .dark, focused: isFocused)), radius: 2, y: 1)
             .overlay {
                 WorkspaceSidebarPositionedTabShape(bounds: bounds)
-                    .stroke(Color.primary.opacity(contrast == .increased ? 0.55 : 0.12),
+                    .stroke(ChromeSelectionPalette.sidebar.outlineColor(dark: colorScheme == .dark,
+                                focused: isFocused, increasedContrast: contrast == .increased),
                             lineWidth: contrast == .increased ? 1 : 0.5)
             }
     }
@@ -159,19 +257,7 @@ private struct WorkspaceSidebarPositionedTabShape: Shape {
 /// Both edges share the same radius and curve, with a continuous closed outline.
 struct WorkspaceSidebarRoundedTabShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let radius = min(8, rect.height / 2, rect.width / 3)
-        var path = Path()
-        path.move(to: .init(x: rect.minX + radius, y: rect.minY))
-        path.addLine(to: .init(x: rect.maxX - radius, y: rect.minY))
-        path.addQuadCurve(to: .init(x: rect.maxX, y: rect.minY + radius), control: .init(x: rect.maxX, y: rect.minY))
-        path.addLine(to: .init(x: rect.maxX, y: rect.maxY - radius))
-        path.addQuadCurve(to: .init(x: rect.maxX - radius, y: rect.maxY), control: .init(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: .init(x: rect.minX + radius, y: rect.maxY))
-        path.addQuadCurve(to: .init(x: rect.minX, y: rect.maxY - radius), control: .init(x: rect.minX, y: rect.maxY))
-        path.addLine(to: .init(x: rect.minX, y: rect.minY + radius))
-        path.addQuadCurve(to: .init(x: rect.minX + radius, y: rect.minY), control: .init(x: rect.minX, y: rect.minY))
-        path.closeSubpath()
-        return path
+        RoundedRectangle(cornerRadius: WorkspaceSidebarTabStyle.cornerRadius, style: .continuous).path(in: rect)
     }
 }
 
@@ -180,7 +266,7 @@ extension WorkspaceSidebarItemViewModel {
     var tabLayoutIdentity: [String] {
         switch kind {
         case .surfaceGroup(_, let children): [id] + children.flatMap(\.tabLayoutIdentity)
-        case .tabGroup(let group): [id] + group.tabs.map { $0.surfaceID.description }
+        case .tabGroup(let group): [id] + (group.searchVisibleTabs ?? group.tabs).map { $0.surfaceID.description }
         default: [id]
         }
     }

@@ -72,6 +72,8 @@ extension WorkspaceSidebarView {
                     showsClock: snapshot.configuration.showsClock,
                 ))
         }
+        .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.filtering, value: searchText.isEmpty)
+        .environment(\.workspaceSidebarSearchQuery, searchText)
         .coordinateSpace(name: "workspaceSidebarContent")
         .onPreferenceChange(WorkspaceSidebarDropTargetPreferenceKey.self) { frames in
             actions.setDropTargets(frames)

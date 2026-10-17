@@ -112,18 +112,37 @@ private struct TabSelectionRoot: ViewModifier {
     }
 }
 
+struct TabSelectionAppearance {
+    var cornerRadius: CGFloat = 8
+    var verticalInset: CGFloat = 0
+}
+
+private struct TabSelectionAppearanceKey: EnvironmentKey {
+    static let defaultValue = TabSelectionAppearance()
+}
+
+extension EnvironmentValues {
+    var tabSelectionAppearance: TabSelectionAppearance {
+        get { self[TabSelectionAppearanceKey.self] }
+        set { self[TabSelectionAppearanceKey.self] = newValue }
+    }
+}
+
 private struct TabSelectionItem: ViewModifier {
     let pane: SurfacePane?
     @Environment(\.tabSelection) private var selection
+    @Environment(\.tabSelectionAppearance) private var appearance
 
     func body(content: Content) -> some View {
         content
             .preference(key: TabSelectionOrderKey.self, value: pane.map { [$0] } ?? [])
             .overlay {
                 if let pane, selection.isMarked(pane) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: appearance.cornerRadius, style: .continuous)
                         .fill(.primary.opacity(0.08))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.primary.opacity(0.65), lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: appearance.cornerRadius, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.65), lineWidth: 1.5))
+                        .padding(.vertical, appearance.verticalInset)
                         .allowsHitTesting(false)
                 }
             }

@@ -69,6 +69,9 @@ struct WorkspaceSidebarLiftedTabView: View {
     var leadingInset: CGFloat = 0
     var compact = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    private var isDark: Bool { (config.workspaceSidebar.chromeColorScheme ?? colorScheme) == .dark }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -87,13 +90,16 @@ struct WorkspaceSidebarLiftedTabView: View {
         .environment(\.workspaceSidebarCompactRows, compact)
         .frame(width: size.width, height: size.height)
         .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(white: (config.workspaceSidebar.chromeColorScheme ?? colorScheme) == .dark ? 0.085 : 0.97))
+            RoundedRectangle(cornerRadius: compact ? 8 : WorkspaceSidebarTabStyle.cornerRadius, style: .continuous)
+                .fill(isDark ? ChromeSelectionPalette.sidebar.selectionColor(dark: true, focused: true) : Color(white: 0.97))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: compact ? 8 : WorkspaceSidebarTabStyle.cornerRadius, style: .continuous)
+                        .strokeBorder(isDark ? ChromeSelectionPalette.sidebar.outlineColor(dark: true, focused: true,
+                            increasedContrast: contrast == .increased) : Color.primary.opacity(0.12),
+                            lineWidth: contrast == .increased ? 1 : 0.5)
                 }
                 .shadow(color: .black.opacity(0.3), radius: 10, y: 3)
+                .padding(.vertical, compact ? 0 : WorkspaceSidebarTabStyle.verticalInset)
         }
         .padding(18)
         .environment(\.colorScheme, config.workspaceSidebar.chromeColorScheme ?? colorScheme)

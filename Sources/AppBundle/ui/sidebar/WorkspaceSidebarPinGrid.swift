@@ -14,6 +14,8 @@ func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewMo
 struct WorkspaceSidebarPinGrid: View {
     @ObservedObject private var faviconCache = WorkspaceSidebarFaviconCache.shared
     @Environment(\.tabSelection) private var tabSelection
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarMenuBarStyle) private var menuBarStyle
     let workspace: WorkspaceSidebarWorkspaceViewModel
     let projects: [WorkspaceSidebarProjectViewModel]
     let isCompact: Bool
@@ -83,13 +85,14 @@ struct WorkspaceSidebarPinGrid: View {
         } label: {
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
-                    .fill(Color.primary.opacity(0.07))
+                    .fill(colorScheme == .dark && !menuBarStyle ? Color(chromeHex: "#151515") : Color.primary.opacity(0.07))
                     .overlay {
                         RoundedRectangle(cornerRadius: isCompact ? 8 : 10, style: .continuous)
                             .strokeBorder(Color.primary.opacity(0.045), lineWidth: 0.5)
                     }
                 ChromeSelectionBackground(state: .init(isSelected: pin.isSelected,
-                    isFocused: pin.isFocused, isHovered: hoveredPin == pin.id), cornerRadius: isCompact ? 8 : 10)
+                    isFocused: pin.isFocused, isHovered: hoveredPin == pin.id), cornerRadius: isCompact ? 8 : 10,
+                    palette: menuBarStyle ? .standard : .sidebar)
                 pinIcon(pin)
                     .frame(width: 18, height: 18)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

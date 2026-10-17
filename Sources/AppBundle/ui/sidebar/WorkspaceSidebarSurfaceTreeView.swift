@@ -51,7 +51,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             selectedSearchTarget: selectedSearchTarget, isSearchFiltering: isSearchFiltering,
             actions: actions, onActivate: onActivate, onActivatePin: onActivatePin, leadingHitInset: indent, unfilteredItems: unfilteredItems
         )
-        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion))
+        .transition(WorkspaceSidebarTabMotion.transition(reduceMotion: reduceMotion, isFiltering: isSearchFiltering))
     }
 
     private func surfaceButton(_ surface: WorkspaceSidebarSurfaceItem) -> some View {
@@ -83,7 +83,6 @@ struct WorkspaceSidebarSurfaceTreeView: View {
             onEnded: { actions.surfaceDragEnded(.surface(surface.surfaceID), $0) },
             surface: surface.surfaceID
         ))
-        .tabSelectionItem(.surface(surface.surfaceID))
         .tabSelectionMenu(for: .surface(surface.surfaceID), workspace: workspaceName, monitor: targetMonitorScopeId, actions: actions) {
             SurfaceViewActionsMenu(surface: surface.surfaceID, actions: actions)
             Divider()
@@ -105,6 +104,7 @@ struct WorkspaceSidebarSurfaceTreeView: View {
         .modifier(WorkspaceSidebarHoverClose(surface: surface.surfaceID, title: surface.title, actions: actions,
             selection: .init(isSelected: surface.isSelected, isFocused: surface.isFocused, isHovered: isHovered,
                 isKeyboardTarget: selectedSearchTarget == .surface(surface.surfaceID))))
+        .tabSelectionItem(.surface(surface.surfaceID))
         .onHover { isHovered = $0 }
         .modifier(WorkspaceSidebarTabDragRow(surface: surface, monitor: targetMonitorScopeId,
             leadingInset: leadingHitInset, allowsReorder: !isSearchFiltering))

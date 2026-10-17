@@ -21,7 +21,13 @@ struct MarketingRendererCommand {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if arguments.contains("--sidebar-tab-reorder-proof") {
+        if arguments.contains("--sidebar-filter-proof") {
+            try renderSidebarFilterProof(in: outputURL)
+        } else if arguments.contains("--sidebar-filter-video") {
+            try recordSidebarFilterDemo(to: outputURL)
+        } else if arguments.contains("--sidebar-pill-proof") {
+            try renderSidebarPillProof(in: outputURL)
+        } else if arguments.contains("--sidebar-tab-reorder-proof") {
             try renderSidebarTabReorderProof(in: outputURL)
         } else if arguments.contains("--sidebar-tab-motion-video") {
             try recordSidebarTabMotionDemo(to: outputURL)

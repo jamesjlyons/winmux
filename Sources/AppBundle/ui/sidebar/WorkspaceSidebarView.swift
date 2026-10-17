@@ -789,7 +789,8 @@ extension WorkspaceSidebarView {
                 shape: shape,
                 hasBorder: false,
                 style: snapshot.configuration.chromeStyle,
-                solidColor: snapshot.configuration.resolvedSolidChromeColor,
+                solidColor: colorScheme == .dark && snapshot.configuration.solidChromeColor == .system
+                    ? WorkspaceSidebarTabStyle.darkBackground : snapshot.configuration.resolvedSolidChromeColor,
             )
             .clipShape(shape)
         }
@@ -918,42 +919,56 @@ extension WorkspaceSidebarView {
                     .padding(.leading, leadingInset)
                     .padding(.trailing, trailingInset)
             }
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: workspaceSidebarSectionGap) {
-                if let pinnedActiveWorkspace = pinnedWorkspace {
-                    workspaceSection(
-                        workspace: pinnedActiveWorkspace,
-                        expansionProgress: expansionProgress,
-                        emitsDropTarget: true,
-                        allowsWorkspaceActivation: false,
-                        isPinnedActiveWorkspace: true,
-                        projectContextLabel: projectName(snapshot.activeProjectId),
-                        projectContextColor: projectColor(snapshot.activeProjectId)
-                    )
+        GeometryReader { viewport in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: workspaceSidebarSectionGap) {
+                    if workspaces.isEmpty, pinnedWorkspace == nil, !workspaceSidebarSearchTerms(searchText).isEmpty {
+                        Text("No matching tabs")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, workspaceSidebarRowLeadingPadding)
+                            .padding(.vertical, 12)
+                            .transition(.opacity)
+                    }
+                    if let pinnedActiveWorkspace = pinnedWorkspace {
+                        workspaceSection(
+                            workspace: pinnedActiveWorkspace,
+                            expansionProgress: expansionProgress,
+                            emitsDropTarget: true,
+                            allowsWorkspaceActivation: false,
+                            isPinnedActiveWorkspace: true,
+                            projectContextLabel: projectName(snapshot.activeProjectId),
+                            projectContextColor: projectColor(snapshot.activeProjectId)
+                        )
+                    }
+                    ForEach(workspaces.filter(\.showsWindowSection)) { workspace in
+                        workspaceSection(
+                            workspace: workspace,
+                            expansionProgress: expansionProgress,
+                            emitsDropTarget: true,
+                            allowsWorkspaceActivation: allowsActivation,
+                            isPinnedActiveWorkspace: false,
+                            projectContextLabel: nil,
+                            projectContextColor: nil
+                        )
+                    }
                 }
-                ForEach(workspaces.filter(\.showsWindowSection)) { workspace in
-                    workspaceSection(
-                        workspace: workspace,
-                        expansionProgress: expansionProgress,
-                        emitsDropTarget: true,
-                        allowsWorkspaceActivation: allowsActivation,
-                        isPinnedActiveWorkspace: false,
-                        projectContextLabel: nil,
-                        projectContextColor: nil
-                    )
-                }
+                .padding(.leading, leadingInset)
+                .padding(.trailing, trailingInset)
+                .padding(.bottom, 10)
+                .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.filtering, value: searchText)
+                .animation(reduceMotion ? nil : WorkspaceSidebarTabMotion.movement,
+                           value: workspaces.filter(\.showsWindowSection).flatMap { [$0.id] + $0.items.flatMap(\.tabLayoutIdentity) })
+                // Layout animates the rows. Keep the shared selection layer outside
+                // that transaction so insertion cannot animate its geometry twice.
+                .modifier(WorkspaceSidebarTabMotionScope(isEnabled: !isCompact && !snapshot.configuration.menuBarStyle,
+                                                        viewportHeight: viewport.size.height))
             }
-            .padding(.leading, leadingInset)
-            .padding(.trailing, trailingInset)
-            .padding(.bottom, 10)
-            .animation(reduceMotion || !searchText.isEmpty ? nil : WorkspaceSidebarTabMotion.movement,
-                       value: workspaces.filter(\.showsWindowSection).flatMap { [$0.id] + $0.items.flatMap(\.tabLayoutIdentity) })
-            // Layout animates the rows. Keep the shared selection layer outside
-            // that transaction so insertion cannot animate its geometry twice.
-            .modifier(WorkspaceSidebarTabMotionScope(isEnabled: !isCompact && !snapshot.configuration.menuBarStyle))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .workspaceSidebarDropViewport()
+            .coordinateSpace(name: "workspaceSidebarTabViewport")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .workspaceSidebarDropViewport()
         Group {
             if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
                 let createMonitorScopeId = workspaceSidebarWorkspaceCreateScope(
