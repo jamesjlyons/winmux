@@ -141,7 +141,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
     @MainActor private func sendLayout(_ request: BrowserLayoutRequest,
                                       completion: @escaping @MainActor (BrowserActionReply) -> Void) {
         guard (session.version ?? 0) >= 3, !lock.withLock({ closed }), let connection,
-              let data = try? JSONEncoder().encode(request.hosts), data.count <= 262144,
+              let data = try? JSONEncoder().encode(request.hosts), data.count <= BrowserHostPlacement.maximumEncodedSize,
               let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
                   DispatchQueue.main.async { completion(.unavailable) }
               }) as? WMBrowserSurfaceOwner else { completion(.unavailable); return }
@@ -163,7 +163,7 @@ final class SessionEndpoint: NSObject, WMWorkspaceBridge, @unchecked Sendable {
 
     func publishInventory(_ data: Data, epoch: String, sequence: UInt64, reply: @escaping (Bool, UInt64) -> Void) {
         let result = lock.withLock { () -> (Bool, UInt64, Bool) in
-            guard !closed, data.count <= 1_048_576,
+            guard !closed, data.count <= BrowserInventoryMessage.maximumEncodedSize,
                   session.accept(epoch: epoch, sequence: sequence, minimumVersion: 2),
                   let message = try? JSONDecoder().decode(BrowserInventoryMessage.self, from: data),
                   (session.version ?? 0) >= 7 || !message.tabs.contains(where: \.privateBrowsing),

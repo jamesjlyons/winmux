@@ -138,7 +138,7 @@ void Release(ManagedHost& host) {
 
 std::string ApplyHostLayout(const std::string& json) {
   auto value = base::JSONReader::Read(json, base::JSON_PARSE_RFC);
-  if (!value || !value->is_list() || value->GetList().size() > 512)
+  if (!value || !value->is_list() || value->GetList().size() > kMaximumHostLayoutPages)
     return "invalid_request";
   std::map<std::string, base::WeakPtr<content::WebContents>> live;
   GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* host) {
@@ -181,7 +181,7 @@ std::string ApplyHostLayout(const std::string& json) {
     bool selected_found = !selected || selected->empty();
     for (const auto& tab : *tabs) {
       if (!tab.is_string() || !surfaces.insert(tab.GetString()).second ||
-          surfaces.size() > 512) return "invalid_request";
+          surfaces.size() > kMaximumHostLayoutPages) return "invalid_request";
       auto found = live.find(tab.GetString());
       if (found == live.end() || !found->second) return "unavailable";
       auto* source = BrowserForContents(found->second.get());

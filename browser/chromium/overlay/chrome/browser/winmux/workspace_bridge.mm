@@ -1,6 +1,7 @@
 #include "chrome/browser/winmux/workspace_bridge.h"
 #include "chrome/browser/winmux/page_lifetime.h"
 #include "chrome/browser/winmux/browser_inventory.h"
+#include "chrome/browser/winmux/host_layout.h"
 #include "chrome/browser/winmux/workspace_bridge_state.h"
 
 #include <atomic>
@@ -437,7 +438,7 @@ NSString* OwnTeam() {
       NSLog(@"WinMux layout: received generation=%llu revision=%llu", layoutGeneration, revision);
     if (self->_stopped.load() || !self->_state.IsConnected(generation) || self.protocolVersion < 3 ||
         ![epoch isEqualToString:self.epoch]) { reply(@"stale_epoch"); return; }
-    if (layout.length > 262144 || operation.length > 40) { reply(@"invalid_request"); return; }
+    if (layout.length > winmux::kMaximumHostLayoutBytes || operation.length > 40) { reply(@"invalid_request"); return; }
     if (!layoutGeneration || layoutGeneration < self->_latestLayout.load()) { reply(@"stale_layout"); return; }
     self->_latestLayout.store(layoutGeneration);
     std::string json(static_cast<const char*>(layout.bytes), layout.length);

@@ -24,8 +24,10 @@ public final class BrowserWorkspaceController {
 
     func layoutSelectionRevision(in workspace: Workspace) -> UInt64 { selectionLayoutRevisions[workspace.name] ?? 0 }
 
+    private func selectionWorkspace(of id: SurfaceID) -> String? { workspaceName(for: id) ?? surfaceTree.workspace(of: id) }
+
     private func invalidateSelectionLayouts(_ ids: [SurfaceID]) {
-        for name in Set(ids.compactMap { workspaceName(for: $0) ?? surfaceTree.workspace(of: $0) }) {
+        for name in Set(ids.compactMap(selectionWorkspace)) {
             selectionLayoutRevisions[name, default: 0] &+= 1
         }
     }
@@ -74,7 +76,14 @@ public final class BrowserWorkspaceController {
     }
     var incognitoReturnWorkspaces: [WorkspaceProjectId: String] = [:]
     var savedViews: [SavedView] = [] {
-        didSet { if oldValue != savedViews { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
+        didSet {
+            guard oldValue != savedViews else { return }
+            interactionRevision &+= 1
+            persistenceRevision &+= 1
+            // Member titles follow live page titles, which change while pages
+            // load. Layout never reads them; don't replan every Space for one.
+            if oldValue.map(\.ignoringMemberTitles) != savedViews.map(\.ignoringMemberTitles) { layoutEpoch &+= 1 }
+        }
     }
     var legacyBrowserPins: [BrowserSidebarPin] = [] {
         didSet { if oldValue != legacyBrowserPins { interactionRevision &+= 1; persistenceRevision &+= 1; layoutEpoch &+= 1 } }
@@ -176,14 +185,23 @@ public final class BrowserWorkspaceController {
         didSet {
             guard oldValue != recentSelections else { return }
             interactionRevision &+= 1
-            let count = max(oldValue.count, recentSelections.count)
-            var changed: [SurfaceID] = []
-            for index in 0..<count {
-                let before = index < oldValue.count ? oldValue[index] : nil
-                let after = index < recentSelections.count ? recentSelections[index] : nil
-                if before != after { changed += [before, after].compactMap { $0 } }
+            // Layout reads only the relative order within one workspace. Moving
+            // one ID to the front shifts every later index, but leaves the order
+            // of other workspaces unchanged; compare per workspace, and only
+            // inside the window between the unchanged prefix and suffix.
+            let prefix = zip(oldValue, recentSelections).prefix { $0 == $1 }.count
+            let suffix = zip(oldValue.dropFirst(prefix).reversed(), recentSelections.dropFirst(prefix).reversed())
+                .prefix { $0 == $1 }.count
+            var orders: [String: (before: [SurfaceID], after: [SurfaceID])] = [:]
+            for id in oldValue.dropFirst(prefix).dropLast(suffix) {
+                if let name = selectionWorkspace(of: id) { orders[name, default: ([], [])].before.append(id) }
             }
-            invalidateSelectionLayouts(changed)
+            for id in recentSelections.dropFirst(prefix).dropLast(suffix) {
+                if let name = selectionWorkspace(of: id) { orders[name, default: ([], [])].after.append(id) }
+            }
+            for (name, order) in orders where order.before != order.after {
+                selectionLayoutRevisions[name, default: 0] &+= 1
+            }
         }
     }
     var tabOpeners: [SurfaceID: SurfaceID] = [:]
@@ -383,10 +401,27 @@ public final class BrowserWorkspaceController {
         reconcileNativeHosts()
     }
 
+    /// Titles, URLs, favicons, loading state and counters change continuously
+    /// while pages load. The sidebar and toolbars present them on every refresh,
+    /// but they never change a layout plan, so they must not replan every Space.
+    private static func changesLayout(_ message: BrowserInventoryMessage, previous: BrowserInventory) -> Bool {
+        guard !message.full, message.removed.isEmpty else { return true }
+        return message.tabs.contains { tab in
+            guard let old = previous.tabs[tab.surfaceID] else { return true }
+            return old.hostMinimized != tab.hostMinimized || old.hostFullscreen != tab.hostFullscreen ||
+                old.hostZoomed != tab.hostZoomed || old.hostMinimumSize != tab.hostMinimumSize ||
+                old.hostManaged != tab.hostManaged || old.hostWindowID != tab.hostWindowID ||
+                old.privateBrowsing != tab.privateBrowsing
+        }
+    }
+
     public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID, protocolVersion: Int = 2) {
         interactionRevision &+= 1
-        layoutEpoch &+= 1
         guard let session = sessions[connection], protocolVersion >= 7 || !message.tabs.contains(where: \.privateBrowsing) else { return }
+        // Profile-move copies are excluded from automatic selection without a
+        // revision of their own; keep replanning while a move is pending.
+        let changesLayout = !pendingProfileMoves.isEmpty || session.epoch == nil ||
+            Self.changesLayout(message, previous: session.inventory)
         if session.epoch == nil { session.connect(epoch: epoch) }
         session.supportsLayout = protocolVersion >= 3
         session.supportsBrowserControls = protocolVersion >= 4
@@ -401,6 +436,7 @@ public final class BrowserWorkspaceController {
         let closureFocus = captureClosureFocus()
         let closingWorkspace = closureFocus.selected.flatMap { workspaceName(for: $0) }.flatMap(Workspace.existing(byName:))
         guard session.reconcile(message, epoch: epoch) else { return }
+        if changesLayout { layoutEpoch &+= 1 }
         if BrowserTabTiming.enabled {
             for record in message.tabs where !oldIDs.contains(record.surfaceID) {
                 tabInventoryArrivalTimes[record.surfaceID] = BrowserTabTiming.now
@@ -590,9 +626,8 @@ public final class BrowserWorkspaceController {
         // Effective overflow stacks have no durable container identity. Keep
         // their recent selection during this session so focusing another tile
         // does not reset an unfocused tile to its first member.
-        recentSelections.removeAll { $0 == id }
-        recentSelections.insert(id, at: 0)
-        if recentSelections.count > 10_000 { recentSelections.removeLast() }
+        // Assign once: each mutation of the observed array diffs the whole list.
+        recentSelections = [id] + recentSelections.lazy.filter { $0 != id }.prefix(9_999)
     }
 
     /// Group activation restores either owner's latest live selection. Preserve

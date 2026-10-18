@@ -171,3 +171,12 @@ private func orderedPinRecords<T: Identifiable>(_ records: [T], order: [UUID]) -
         (positions[$0.element.id] ?? (order.count + $0.offset)) < (positions[$1.element.id] ?? (order.count + $1.offset))
     }.map(\.element)
 }
+
+extension SavedView {
+    /// The saved arrangement without the display titles copied from live pages.
+    var ignoringMemberTitles: SavedView {
+        var view = self
+        for index in view.members.indices { view.members[index].title = "" }
+        return view
+    }
+}

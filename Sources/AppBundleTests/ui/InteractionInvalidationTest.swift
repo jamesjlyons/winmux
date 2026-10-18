@@ -101,6 +101,59 @@ final class InteractionInvalidationTest: XCTestCase {
         XCTAssertEqual(controller.layoutPlanBuildCount, builds + 1)
     }
 
+    func testSelectionDoesNotReplanWorkspaceWhoseRecentOrderIsUnchanged() {
+        let controller = BrowserWorkspaceController()
+        let first = focus.workspace
+        let hidden = Workspace.get(byName: "hidden-recent")
+        let a = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let b = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let c = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        var tree = SurfaceTree()
+        tree.reconcile([a, c], in: first.name)
+        tree.reconcile([b], in: hidden.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        controller.recentSelections = [c, b, a]
+        let hiddenRevision = controller.layoutSelectionRevision(in: hidden)
+        let firstRevision = controller.layoutSelectionRevision(in: first)
+        // Moving `a` to the front shifts `b` to a later index, but `b` is still
+        // the most recent selection of its own workspace.
+        controller.recentSelections = [a, c, b]
+        XCTAssertEqual(controller.layoutSelectionRevision(in: hidden), hiddenRevision)
+        XCTAssertNotEqual(controller.layoutSelectionRevision(in: first), firstRevision)
+    }
+
+    func testBrowserMetadataInventoryDoesNotReplanButHostStateDoes() {
+        let controller = BrowserWorkspaceController()
+        let workspace = focus.workspace
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let connection = UUID(), epoch = UUID()
+        var tree = SurfaceTree()
+        tree.reconcile([page], in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [workspace.name], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        func record(title: String, loading: Bool = false, minimized: Bool = false) -> BrowserTabRecord {
+            .init(surfaceID: page, hostID: "metadata", title: title, selected: true, url: "https://example.test/" + title,
+                  isLoading: loading, hostMinimized: minimized, blockedRequests: title.count)
+        }
+        controller.received(.init(revision: 1, full: true, tabs: [record(title: "a")]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        // The first plan lazily creates the root container; settle it first.
+        _ = controller.plannedLayout(in: workspace)
+        _ = controller.plannedLayout(in: workspace)
+        let epochBefore = controller.layoutEpoch
+        controller.received(.init(revision: 2, full: false, tabs: [record(title: "ab", loading: true)]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        XCTAssertEqual(controller.layoutEpoch, epochBefore)
+        let builds = controller.layoutPlanBuildCount
+        _ = controller.plannedLayout(in: workspace)
+        XCTAssertEqual(controller.layoutPlanBuildCount, builds)
+
+        controller.received(.init(revision: 3, full: false, tabs: [record(title: "ab", minimized: true)]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        XCTAssertNotEqual(controller.layoutEpoch, epochBefore)
+        XCTAssertFalse(controller.plannedLayout(in: workspace).surfaces.contains { $0.surfaceID == page && $0.visible })
+    }
+
     func testRecoveryInvalidationCannotBeAcknowledgedByAnOlderPass() {
         let cache = WorkspaceLayoutCache()
         let workspace = focus.workspace

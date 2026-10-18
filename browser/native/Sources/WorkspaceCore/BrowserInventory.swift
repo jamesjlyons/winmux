@@ -124,6 +124,11 @@ public struct BrowserTabRecord: Codable, Equatable, Sendable {
 }
 
 public struct BrowserInventoryMessage: Codable, Sendable {
+    /// A rejected message makes Chromium reconnect and resend a full snapshot,
+    /// so this must admit every snapshot a large session can legitimately
+    /// produce. Each tab may carry a 128 KiB favicon plus pinned extension
+    /// icons; 1 MiB was exceeded by a few hundred ordinary tabs.
+    public static let maximumEncodedSize = 32 * 1024 * 1024
     public let revision: UInt64
     public let full: Bool
     public let tabs: [BrowserTabRecord]

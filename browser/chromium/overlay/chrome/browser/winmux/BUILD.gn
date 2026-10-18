@@ -143,6 +143,7 @@ source_set("workspace_bridge") {
     "//ui/base",
     "//ui/gfx",
     "//ui/gfx/codec",
+    "//skia",
     "//ui/menus",
     "//url",
   ]

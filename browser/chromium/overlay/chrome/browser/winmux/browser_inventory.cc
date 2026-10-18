@@ -22,6 +22,7 @@
 #include "base/hash/sha1.h"
 #include "chrome/browser/winmux/host_layout.h"
 #include "base/memory/raw_ptr.h"
+#include "base/no_destructor.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
@@ -73,6 +74,7 @@
 #include "components/favicon/core/favicon_driver_observer.h"
 #include "components/favicon/core/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/image/image.h"
 #include "content/public/common/referrer.h"
 #include "content/public/browser/reload_type.h"
@@ -112,9 +114,13 @@ class TabNavigationObserver final : public content::WebContentsObserver,
     // a live replacement and must not suppress/erase the exact-URL database
     // result while the document is still loading. A later removal of a live
     // icon does clear that image normally.
+    const auto previous_icon = encoded_icon_;
+    const bool previously_live = live_icon_received_;
     if (has_icon || live_icon_received_) SetIcon(has_icon ? image : gfx::Image());
     live_icon_received_ = has_icon;
-    changed_.Run();
+    // The driver repeats notifications for an unchanged icon. Each change
+    // rebuilds every tab's record, so publish only a real difference.
+    if (encoded_icon_ != previous_icon || live_icon_received_ != previously_live) changed_.Run();
   }
   void DidOpenRequestedURL(content::WebContents* new_contents,
                            content::RenderFrameHost*, const GURL&, const content::Referrer&,
@@ -244,6 +250,25 @@ class ProfileToolbarObserver final : public ToolbarActionsModel::Observer,
   download::AllDownloadItemNotifier downloads_;
 };
 
+// Badges update on every blocked request, and each update rebuilds the record
+// of every tab. Reuse the PNG for pixels already encoded, rather than encoding
+// one icon per pinned extension per tab on each rebuild.
+std::string EncodedExtensionIcon(const gfx::Image& image) {
+  static base::NoDestructor<std::map<std::string, std::string>> cache;
+  const SkBitmap bitmap = image.AsBitmap();
+  if (bitmap.drawsNothing() || bitmap.computeByteSize() > 16384) return "";
+  std::string key(reinterpret_cast<const char*>(bitmap.getPixels()), bitmap.computeByteSize());
+  key += base::NumberToString(bitmap.width()) + "x" + base::NumberToString(bitmap.height()) + ":" +
+         base::NumberToString(bitmap.rowBytes()) + ":" + base::NumberToString(static_cast<int>(bitmap.colorType()));
+  if (auto found = cache->find(key); found != cache->end()) return found->second;
+  std::string encoded;
+  auto png = image.As1xPNGBytes();
+  if (png && png->size() > 0 && png->size() <= 12288) encoded = base::Base64Encode(base::span(*png));
+  if (cache->size() >= 256) cache->clear();
+  cache->emplace(std::move(key), encoded);
+  return encoded;
+}
+
 base::ListValue PinnedExtensions(BrowserWindowInterface* browser, content::WebContents* contents) {
   base::ListValue result;
   auto* model = ToolbarActionsModel::Get(browser->GetProfile());
@@ -260,9 +285,8 @@ base::ListValue PinnedExtensions(BrowserWindowInterface* browser, content::WebCo
     item.Set("can_unpin", !model->IsActionForcePinned(id) && !browser->GetProfile()->IsOffTheRecord());
     auto icon = action->GetIcon(contents, gfx::Size(16, 16));
     if (icon.IsImage()) {
-      auto png = icon.GetImage().As1xPNGBytes();
-      if (png && png->size() > 0 && png->size() <= 12288)
-        item.Set("icon_png_base64", base::Base64Encode(base::span(*png)));
+      if (auto encoded = EncodedExtensionIcon(icon.GetImage()); !encoded.empty())
+        item.Set("icon_png_base64", std::move(encoded));
     }
     result.Append(std::move(item));
   }
@@ -657,7 +681,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
                      uint64_t revision, uint64_t generation, const std::string& json) {
     if (epoch.empty() || epoch != epoch_) return "stale_epoch";
     auto op = base::Uuid::ParseCaseInsensitive(operation);
-    if (!op.is_valid() || json.size() > 262144) return "invalid_request";
+    if (!op.is_valid() || json.size() > kMaximumHostLayoutBytes) return "invalid_request";
     BrowserSurfaceAction request{"layout", base::SHA1HashString(json), op.AsLowercaseString(), revision, generation};
     auto previous = operations_.find(request.operation);
     if (previous != operations_.end())
@@ -1023,12 +1047,12 @@ class BrowserInventory final : public BrowserCollectionObserver,
       if (full || previous == records_.end() || previous->second != record)
         changed.Append(record.Clone());
     }
-    if (!full) {
-      for (const auto& [id, record] : records_) {
-        if (!next.contains(id)) {
-          ForgetWorkspacePage(id);
-          removed.Append(id);
-        }
+    // A full snapshot after reconnection lists no removals, but pages closed
+    // meanwhile must still release their lifetime state.
+    for (const auto& [id, record] : records_) {
+      if (!next.contains(id)) {
+        ForgetWorkspacePage(id);
+        if (!full) removed.Append(id);
       }
     }
     records_ = std::move(next);

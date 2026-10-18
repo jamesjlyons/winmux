@@ -68,6 +68,10 @@ public struct SurfaceLayoutPlan: Equatable, Sendable {
 }
 
 public struct BrowserHostPlacement: Equatable, Codable, Sendable {
+    /// Chromium's limit for one encoded layout request. A request places every
+    /// browser page across all Spaces, so it must admit as many pages as
+    /// inventory does (10,000); 256 KiB and 512 pages were exceeded first.
+    public static let maximumEncodedSize = 8 * 1024 * 1024
     public let containerID: UUID
     public let surfaces: [SurfaceID]
     public let selected: SurfaceID?
