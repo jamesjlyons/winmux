@@ -36,7 +36,7 @@ class ManagedPageMenu {
  public:
   // Keep bounded page actions below Chromium's interleaved bookmark, recent-tab,
   // and tab-group IDs. AppMenu routes that range before consulting our model.
-  enum Command { kKeepActive = 56001, kSiteBlocking, kPrivacySettings };
+  enum Command { kKeepActive = 56001, kSiteBlocking, kUBlockSettings, kPrivacySettings };
   static_assert(kPrivacySettings < COMMAND_ID_FIRST_UNBOUNDED);
   virtual ~ManagedPageMenu() = default;
   virtual void Build(ui::SimpleMenuModel* menu) const = 0;

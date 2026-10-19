@@ -24,6 +24,9 @@ pages. **New View** creates an intentional empty View.
 
 Workspace Setup asks before enabling background component, extension, or filter
 updates. New profiles use Kagi, local blank pages, and blocked third-party cookies.
+Full uBlock Origin is bundled in every profile. The page menu exposes its
+dashboard and site toggle; its popup, logger, and element picker remain available
+through the extension button. Existing site exceptions are imported once.
 The lifecycle policy protects active work while freezing and discarding eligible
 older background pages.
 
@@ -59,9 +62,12 @@ Implemented and exercised:
   acknowledgements, and connection recovery coordinate browser and native windows.
 - Explicit Workspace Setup with separate data, Accessibility approval, managed
   helper registration, and reversible handoff from standalone WinMux.
-- A native Rust blocker with a C ABI, pinned adblock-rust, bundled and hashed
-  EasyList/EasyPrivacy, network exceptions, per-call site control, declarative
-  cosmetic queries, bounded DOM-token deltas, and one bundled replacement.
+- Full uBlock Origin 1.75.0 (the Helium distribution), bundled as a restricted
+  component extension with checksum-verified resources, offline filter lists,
+  scriptlets, procedural cosmetics, and existing WinMux site controls. Background
+  filter requests require the saved filter-update consent. The former native
+  Rust blocker remains an inactive compatibility layer for the existing patch
+  series; it does not filter requests or inject cosmetics.
 - Pinned Chromium/depot_tools metadata, optimized browser-only build settings,
   storage checks, and a guarded checkout/build command.
 - A trace evaluator that distinguishes activation, frame presentation and
@@ -91,7 +97,7 @@ It does not install apps, register SMAppService, request Accessibility, read
 browser profiles or change the running WinMux. No ad-hoc signing fallback is
 accepted for the product; an ad-hoc binary is used only as a rejection test.
 
-The blocker proof compiles and tests the actual C++/Rust ABI using the bundled
+The legacy blocker proof compiles and tests the C++/Rust ABI using the bundled
 lists, then measures 3 × 40,000 request decisions with four concurrent threads.
 The results are a microbenchmark, not measured browser overhead. JSON/log
 outputs are saved under `.local/browser/`.
@@ -154,8 +160,9 @@ python3 browser/tools/package_alpha.py --root /path/to/apfs/winmux-engine \
 `out/WinMuxControlBaseline`, then retains `out/WinMuxControl` as its working cache
 to preserve Siso's path-sensitive dependency state. It accepts only the pinned
 checkout, a verified prefix of the owned patch series, and known overlay files.
-Unknown edits are refused. The pinned Rust blocker and hashed filter snapshots
-are built into a separate native library and bundled inside Chromium Framework.
+Unknown edits are refused. The pinned uBlock archive is prepared without network access, recorded in the
+build manifest, and bundled inside the signed Chromium Framework during
+packaging. The legacy Rust library is retained for ABI compatibility.
 The manifest distinguishes the resulting alpha from the archived control.
 
 Configuration changes require `build_alpha.py --allow-configuration-change`
@@ -474,3 +481,49 @@ desktop compatibility: WinMux is not among the browsers listed in
 [OpenAI's extension setup guide](https://learn.chatgpt.com/docs/chrome-extension).
 See [the connection repair evidence](../docs/browser/evidence/2026-10-08-chatgpt-native-messaging.json)
 for the current-profile repair and verification limits.
+
+## Full uBlock qualification
+
+The bundled extension and local bridge live in `browser/ublock`; its source,
+license, and modification notice ship inside the signed framework. The browser
+loads it only from framework resources. It uses the component MV2 exception;
+ordinary extensions do not gain MV2 or privileged API access. Native filtering
+and the previous EasyList updater are inactive, so there is one filtering owner.
+
+Run the isolated component check against a newly staged signed package:
+
+```sh
+node browser/tools/test_browser_ublock.mjs \
+  --app '/path/to/WinMux Browser Alpha.app' \
+  --output /path/to/new-ublock-check
+```
+
+This uses fresh profiles and local fixtures to check offline initialization,
+exception migration, network and cosmetic filtering, procedural rules, scriptlets,
+persistence, and filter-update consent. It never changes the daily profile.
+The native page-menu fixture additionally exercises the WinMux site control.
+Patch 0034 reads the bundled manifest on Chromium's extension file runner and
+registers it back on the UI thread, cancelling the reply when the profile shuts
+down. This also covers Space profiles created after browser startup, when UI
+thread file reads are forbidden and would abort the entire browser.
+
+Run `test_browser_inventory.py` against the same signed package to exercise
+new Work and Personal profiles, returning to an existing profile, tab creation,
+and helper reconnection. It also requires a uBlock background page in all three
+regular profiles. Repeat with `--resume-profiles-from` pointing to that successful
+fixture to verify saved profile data and identity after restart. The standalone
+uBlock check above covers filtering and startup, but does not create Space profiles.
+
+For a browser-only update, `package_alpha.py --workspace-app /path/to/WinMux\ Workspace.app`
+can preserve an existing Apple-signed workspace helper. Its signature and identity
+are verified, and its separate binary provenance is recorded instead of claiming
+that it was built from the current native sources. The entire signed helper and
+its configuration are checked byte-for-byte; this path does not claim a fresh
+configuration-parser validation. `--icon` can reuse the installed ICNS artwork.
+
+The bridge's migration, command ordering, stale-navigation handling, consent, and
+context isolation can also be checked without launching macOS applications:
+
+```sh
+node --experimental-vm-modules --test browser/tests/test_ublock_bridge.mjs
+```

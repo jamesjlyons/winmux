@@ -154,6 +154,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="New package directory (must not exist)")
+    parser.add_argument("--workspace-app", type=Path, help="Reuse an existing signed WinMux Workspace.app for a browser-only update")
+    parser.add_argument("--icon", type=Path, help="Use an existing .icns icon for a browser-only update")
     parser.add_argument("--views-trial", action="store_true", help="Package the tab-style trial with separate profile and state")
     parser.add_argument("--developer-id", action="store_true",
                         help="Require Developer ID Application signing with secure timestamps; does not notarize")
@@ -193,6 +195,11 @@ def package(args, identity, team, source):
             raise RuntimeError("Blocker source changed since compilation")
     if sha256(build / "libwinmux_blocking.dylib") != manifest.get("blocking", {}).get("library_sha256"):
         raise RuntimeError("Missing or changed blocker build artifact")
+    import prepare_ublock
+    ublock = manifest.get("ublock")
+    if not ublock or not re.fullmatch(r"WinMuxUBlock-[a-f0-9]{16}", ublock.get("directory", "")):
+        raise RuntimeError("Missing full uBlock component provenance; rebuild the alpha")
+    prepare_ublock.validate(build / ublock["directory"], ublock)
     # Import the generated upstream signing configuration for this exact build.
     packaging = build / "Chromium Packaging"
     sys.path.insert(0, str(packaging))
@@ -233,63 +240,102 @@ def package(args, identity, team, source):
     chromium.run("codesign", "--force", "--sign", identity, "--identifier", APP_ID + ".blocking",
                  timestamp, str(blocker_library))
     verify_identity(blocker_library, APP_ID + ".blocking", team, developer_id)
+    ublock_destination = app / "Contents/Frameworks/Chromium Framework.framework/Resources/WinMuxUBlock"
+    shutil.copytree(build / ublock["directory"], ublock_destination)
+    prepare_ublock.validate(ublock_destination, ublock)
     notices = app / "Contents/Resources/WinMuxBlocking"
     shutil.copytree(ROOT / "browser/blocking/resources", notices)
-    native = ROOT / "browser/native"
-    agent_source = native / (HELPER_ID + ".plist")
-    agent_source_hash = sha256(agent_source)
-    native_build = ROOT / ".local/browser/sidebar-native-build"
-    native_hashes = native_source_hashes()
-    native_package_hash = sha256(ROOT / "Package.swift")
-    default_config_hash = sha256(ROOT / "resources/default-config.toml")
-    chromium.run("swift", "build", "--package-path", str(ROOT), "-c", "release",
-                 "--product", "WinMuxWorkspaceHelper", "--jobs", "4", "--scratch-path", str(native_build))
-    helper_app = app / "Contents/Helpers/WinMux Workspace.app"
-    helper_relative = "Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper"
-    helper = app / helper_relative
-    helper.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(native_build / "release/WinMuxWorkspaceHelper", helper)
-    (helper_app / "Contents/Resources").mkdir()
-    shutil.copy2(ROOT / "resources/default-config.toml", helper_app / "Contents/Resources/default-config.toml")
-    validation_service = HELPER_ID + ".test." + str(uuid.uuid4())
-    (helper_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
-        "CFBundleIdentifier": HELPER_ID, "CFBundleName": "WinMux Workspace",
-        "CFBundleDisplayName": "WinMux Workspace", "CFBundleExecutable": helper.name,
-        "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
-        "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
-        "WinMuxValidationService": validation_service,
-        "WinMuxWorkspaceViewsTrial": views_trial, "WinMuxWorkspaceViews": True,
-    }))
-    for resource in (native_build / "release").glob("*.bundle"):
-        destination = helper_app / "Contents/Resources" / resource.name
-        shutil.copytree(resource, destination)
-        chromium.run("codesign", "--force", "--sign", identity,
-                     "--identifier", HELPER_ID + ".resources." + resource.stem,
-                     timestamp, str(destination))
-    agents = app / "Contents/Library/LaunchAgents"
-    agents.mkdir(parents=True, exist_ok=True)
-    agent = plistlib.loads(agent_source.read_bytes())
-    agent["BundleProgram"] = helper_relative
-    (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
-    # Workspace Setup runs inside the embedded helper application. Its separate
-    # SMAppService agent does not replace the browser's transport-only enrollment.
-    managed_agents = helper_app / "Contents/Library/LaunchAgents"
-    managed_agents.mkdir(parents=True)
-    managed_id = HELPER_ID + ".managed"
-    (managed_agents / (managed_id + ".plist")).write_bytes(plistlib.dumps({
-        "Label": managed_id, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
-        "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace"],
-        "MachServices": {managed_id: True}, "ProcessType": "Interactive", "RunAtLoad": True,
-        "ThrottleInterval": agent["ThrottleInterval"],
-    }))
-    (managed_agents / (validation_service + ".plist")).write_bytes(plistlib.dumps({
-        "Label": validation_service, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
-        "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace", validation_service],
-        "MachServices": {validation_service: True}, "ProcessType": "Interactive", "RunAtLoad": True,
-        "ThrottleInterval": agent["ThrottleInterval"],
-    }))
-    chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
-                 "--options", "runtime", timestamp, str(helper_app))
+    reused_helper = None
+    workspace_app = getattr(args, "workspace_app", None)
+    if workspace_app:
+        workspace_app = workspace_app.expanduser().resolve(strict=True)
+        verify_identity(workspace_app, HELPER_ID, team, developer_id)
+        chromium.run("codesign", "--verify", "--deep", "--strict", str(workspace_app))
+        helper_info = plistlib.loads((workspace_app / "Contents/Info.plist").read_bytes())
+        if (helper_info.get("CFBundleExecutable") != "WinMuxWorkspaceHelper" or
+                bool(helper_info.get("WinMuxWorkspaceViewsTrial", False)) != views_trial):
+            raise RuntimeError("Workspace helper is incompatible with this package mode")
+        helper_app = app / "Contents/Helpers/WinMux Workspace.app"
+        helper_relative = "Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper"
+        helper = app / helper_relative
+        helper_app.parent.mkdir(parents=True, exist_ok=True)
+        source_binary = workspace_app / "Contents/MacOS/WinMuxWorkspaceHelper"
+        reused_helper = {"app": str(workspace_app), "executable_sha256": sha256(source_binary),
+                         "files_sha256": {str(p.relative_to(workspace_app)): sha256(p)
+                                           for p in workspace_app.rglob("*") if p.is_file()}}
+        chromium.run("cp", "-cpR", str(workspace_app), str(helper_app))
+        if sha256(helper) != reused_helper["executable_sha256"]:
+            raise RuntimeError("Copied workspace helper differs from its verified source")
+        default_config_hash = sha256(helper_app / "Contents/Resources/default-config.toml")
+        native_hashes = None
+        native_package_hash = None
+        agent_source = ROOT / "browser/native" / (HELPER_ID + ".plist")
+        agent_source_hash = sha256(agent_source)
+        agents = app / "Contents/Library/LaunchAgents"
+        agents.mkdir(parents=True, exist_ok=True)
+        agent = plistlib.loads(agent_source.read_bytes())
+        agent["BundleProgram"] = helper_relative
+        (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
+        managed_agents = helper_app / "Contents/Library/LaunchAgents"
+        if not managed_agents.is_dir():
+            raise RuntimeError("Verified workspace helper has no managed launch agents")
+    else:
+        native = ROOT / "browser/native"
+        agent_source = native / (HELPER_ID + ".plist")
+        agent_source_hash = sha256(agent_source)
+        native_build = ROOT / ".local/browser/sidebar-native-build"
+        native_hashes = native_source_hashes()
+        native_package_hash = sha256(ROOT / "Package.swift")
+        default_config_hash = sha256(ROOT / "resources/default-config.toml")
+        chromium.run("swift", "build", "--package-path", str(ROOT), "-c", "release",
+                     "--product", "WinMuxWorkspaceHelper", "--jobs", "4", "--scratch-path", str(native_build))
+        helper_app = app / "Contents/Helpers/WinMux Workspace.app"
+        helper_relative = "Contents/Helpers/WinMux Workspace.app/Contents/MacOS/WinMuxWorkspaceHelper"
+        helper = app / helper_relative
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(native_build / "release/WinMuxWorkspaceHelper", helper)
+        (helper_app / "Contents/Resources").mkdir()
+        shutil.copy2(ROOT / "resources/default-config.toml", helper_app / "Contents/Resources/default-config.toml")
+        validation_service = HELPER_ID + ".test." + str(uuid.uuid4())
+        (helper_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleIdentifier": HELPER_ID, "CFBundleName": "WinMux Workspace",
+            "CFBundleDisplayName": "WinMux Workspace", "CFBundleExecutable": helper.name,
+            "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "LSUIElement": True,
+            "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "13.0",
+            "WinMuxValidationService": validation_service,
+            "WinMuxWorkspaceViewsTrial": views_trial, "WinMuxWorkspaceViews": True,
+        }))
+        for resource in (native_build / "release").glob("*.bundle"):
+            destination = helper_app / "Contents/Resources" / resource.name
+            shutil.copytree(resource, destination)
+            chromium.run("codesign", "--force", "--sign", identity,
+                         "--identifier", HELPER_ID + ".resources." + resource.stem,
+                         timestamp, str(destination))
+        agents = app / "Contents/Library/LaunchAgents"
+        agents.mkdir(parents=True, exist_ok=True)
+        agent = plistlib.loads(agent_source.read_bytes())
+        agent["BundleProgram"] = helper_relative
+        (agents / (HELPER_ID + ".plist")).write_bytes(plistlib.dumps(agent))
+        # Workspace Setup runs inside the embedded helper application. Its separate
+        # SMAppService agent does not replace the browser's transport-only enrollment.
+        managed_agents = helper_app / "Contents/Library/LaunchAgents"
+        managed_agents.mkdir(parents=True)
+        managed_id = HELPER_ID + ".managed"
+        (managed_agents / (managed_id + ".plist")).write_bytes(plistlib.dumps({
+            "Label": managed_id, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
+            "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace"],
+            "MachServices": {managed_id: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+            "ThrottleInterval": agent["ThrottleInterval"],
+        }))
+        (managed_agents / (validation_service + ".plist")).write_bytes(plistlib.dumps({
+            "Label": validation_service, "BundleProgram": "Contents/MacOS/WinMuxWorkspaceHelper",
+            "ProgramArguments": ["WinMuxWorkspaceHelper", "--managed-workspace", validation_service],
+            "MachServices": {validation_service: True}, "ProcessType": "Interactive", "RunAtLoad": True,
+            "ThrottleInterval": agent["ThrottleInterval"],
+        }))
+    if not reused_helper:
+        chromium.run("codesign", "--force", "--sign", identity, "--identifier", HELPER_ID,
+                     "--options", "runtime", timestamp, str(helper_app))
     verify_identity(helper, HELPER_ID, team, developer_id)
     for part in parts.get_parts(config).values():
         part_path = output / part.path
@@ -309,31 +355,48 @@ def package(args, identity, team, source):
         info.write_bytes(plistlib.dumps(data))
         if part.entitlements:
             shutil.copy2(packaging / part.entitlements, output / part.entitlements)
-    icon_source = ROOT / "resources/Assets.xcassets/AppIcon.appiconset/icon.png"
-    with tempfile.TemporaryDirectory(prefix="winmux-app-icon-") as icon_directory:
-        icon = create_application_icon(icon_source, Path(icon_directory))
-        brand_application(app, app_name, icon)
+    supplied_icon = getattr(args, "icon", None)
+    icon_source = supplied_icon.resolve(strict=True) if supplied_icon else ROOT / "resources/Assets.xcassets/AppIcon.appiconset/icon.png"
+    if supplied_icon:
+        data = icon_source.read_bytes()
+        if data[:4] != b"icns" or len(data) < 8 or int.from_bytes(data[4:8], "big") != len(data):
+            raise RuntimeError("Invalid supplied ICNS icon")
+        brand_application(app, app_name, icon_source)
+    else:
+        with tempfile.TemporaryDirectory(prefix="winmux-app-icon-") as icon_directory:
+            icon = create_application_icon(icon_source, Path(icon_directory))
+            brand_application(app, app_name, icon)
     paths = model.Paths(input=str(build), output=str(output), work=str(output))
     asyncio.run(parts.sign_chrome(paths, config, sign_framework=True))
     verify_identity(app, APP_ID, team, developer_id)
     verify_identity(helper, HELPER_ID, team, developer_id)
-    # Run the shipped parser against the shipped file. Transport-only browser
-    # smoke tests do not start native management or load this configuration.
-    subprocess.run([str(helper), "--validate-bundled-config"], check=True, timeout=30)
-    if (native_hashes != native_source_hashes()
-            or agent_source_hash != sha256(agent_source)
-            or native_package_hash != sha256(ROOT / "Package.swift")
-            or default_config_hash != sha256(ROOT / "resources/default-config.toml")
-            or default_config_hash != sha256(helper_app / "Contents/Resources/default-config.toml")):
-        raise RuntimeError("Native sources or default configuration changed during packaging; rebuild from a stable snapshot")
+    if reused_helper:
+        # Preserve the already signed helper byte-for-byte. Older helper versions
+        # do not implement --validate-bundled-config; do not claim a fresh parser
+        # validation or attribute them to today's native source tree.
+        for bundle in (workspace_app, helper_app):
+            actual = {str(p.relative_to(bundle)): sha256(p)
+                      for p in bundle.rglob("*") if p.is_file()}
+            if actual != reused_helper["files_sha256"]:
+                raise RuntimeError("Signed workspace helper changed during packaging")
+    else:
+        # Run the shipped parser against the newly shipped configuration.
+        subprocess.run([str(helper), "--validate-bundled-config"], check=True, timeout=30)
+        if (native_hashes != native_source_hashes()
+                or agent_source_hash != sha256(agent_source)
+                or native_package_hash != sha256(ROOT / "Package.swift")
+                or default_config_hash != sha256(ROOT / "resources/default-config.toml")
+                or default_config_hash != sha256(helper_app / "Contents/Resources/default-config.toml")):
+            raise RuntimeError("Native sources or default configuration changed during packaging; rebuild from a stable snapshot")
     report.update(verified=True, developer_id_verified=developer_id, app=str(app), helper_sha256=sha256(helper), helper_relative_path=helper_relative,
                   browser_executable_sha256=sha256(app / "Contents/MacOS/Chromium"),
-                  native_sources_sha256=native_hashes,
+                  native_sources_sha256=native_hashes, reused_workspace_helper=reused_helper,
                   native_package_sha256=native_package_hash,
                   launch_agent_source_sha256=agent_source_hash,
                   launch_agents_sha256={str(p.relative_to(app)): sha256(p)
                       for directory in (agents, managed_agents) for p in sorted(directory.glob("*.plist"))},
-                  default_config_sha256=default_config_hash, bundled_config_validated=True,
+                  default_config_sha256=default_config_hash, bundled_config_validated=not bool(reused_helper),
+                  bundled_config_preserved=bool(reused_helper),
                   package_tool_sha256=sha256(Path(__file__)),
                   app_icon_source_sha256=sha256(icon_source),
                   app_icon_sha256=sha256(app / "Contents/Resources/app.icns"))

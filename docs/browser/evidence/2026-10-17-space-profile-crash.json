@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-17",
+  "scope": "Crash when opening the first browser tab in a Space profile",
+  "root_cause": "Bundled uBlock manifest was synchronously read on the browser UI thread during asynchronous profile initialization. Chromium AssertBlockingAllowed aborted the process; the workspace helper then exited with its browser owner.",
+  "reported_browser_version": "153.0.8010.53",
+  "reported_framework_uuid": "79e32b33-7bb2-3320-8002-1295966a68e5",
+  "reproduced_with_matching_framework": true,
+  "before": {
+    "result": ".local/new-tab-crash/before-inventory/result.json",
+    "browser_exited": true,
+    "failure_stack": [
+      "base::AssertBlockingAllowed",
+      "base::ReadFileToStringWithMaxSize",
+      "extensions::ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages",
+      "ProfileImpl::DoFinalInit"
+    ]
+  },
+  "fix": {
+    "patch": "browser/chromium/patches/0034-async-ublock-component-manifest.patch",
+    "manifest_io": "Chromium extension file task runner (MayBlock)",
+    "registration": "Reply on UI thread with weak loader lifetime; invalidate replies on service shutdown",
+    "framework_uuid": "f7d49180-f385-3f30-b736-dce6712e379c"
+  },
+  "additional_fix": "Consent-denied filter downloads now reject with the uBlock asset failure shape, including empty content, so bundled fallbacks can load. The prior shared build reproduced the same trimEnd error.",
+  "validation": {
+    "incremental_chromium_build": "passed; one translation unit and framework relink",
+    "fresh_space_profiles": {
+      "passed": true,
+      "background_pages": 3,
+      "browser_exit_code": 0,
+      "profile_isolation": {
+        "cookies_isolated": true,
+        "history_isolated": true,
+        "names_and_identities_preserved": true,
+        "history_entries": {
+          "work": 2,
+          "personal": 1,
+          "shared": 1
+        },
+        "resumed": false
+      },
+      "result": ".local/new-tab-crash/final-inventory-verified/result.json"
+    },
+    "saved_space_profiles": {
+      "passed": true,
+      "background_pages": 3,
+      "browser_exit_code": 0,
+      "profile_isolation": {
+        "cookies_isolated": true,
+        "history_isolated": true,
+        "names_and_identities_preserved": true,
+        "history_entries": {
+          "work": 6,
+          "personal": 3,
+          "shared": 3
+        },
+        "resumed": true
+      },
+      "result": ".local/new-tab-crash/final-inventory-restart/result.json"
+    },
+    "ublock_integration": {
+      "passed": true,
+      "cases": [
+        "offline defaults and schemeful exception migration",
+        "filter downloads denied without consent",
+        "network blocking, cosmetics, procedural rules, and scriptlets",
+        "site exception disables all filtering",
+        "persisted exceptions and consented filter downloads"
+      ],
+      "runtime_exceptions": 0,
+      "result": ".local/new-tab-crash/final-ublock-verified/result.json"
+    },
+    "ublock_bridge_unit_tests": 7,
+    "ublock_package_unit_tests": 4,
+    "codesign_deep_strict": true,
+    "zip_crc_check": true,
+    "test_source_sha256": {
+      "browser/tools/test_browser_inventory.py": "30539b6b5968c2bee58b3ae5f18fbadb9702d11aec1501e08c6683b6adac98ac",
+      "browser/tools/test_browser_ublock.mjs": "d998e80d50e6402b90a7f4c66bc6d66eab4c958ba25f8b63b9195e1494530cf5"
+    }
+  },
+  "package": {
+    "app": ".local/releases/browser-alpha-new-tab-fix-2026-10-17/final/WinMux Browser Alpha.app",
+    "archive": ".local/releases/browser-alpha-new-tab-fix-2026-10-17/WinMux-Browser-Alpha-New-Tab-Fix-2026-10-17-arm64.zip",
+    "bytes": 291207231,
+    "sha256": "69a12adc9b396fd428fb57b94708b4c345074cbadbeb751c9bf72d1d7a45b9b9",
+    "manifest_sha256": "16f24c5036026a0f677175c359d3d452a399fb101d79bb1b5107c7e3b9e399a3",
+    "helper_preserved_byte_for_byte": true,
+    "helper_sha256": "c268fb3268f60748b42b19b0c42ce3382726bd6baf60bba3b2304dc77cb8417c",
+    "signing_mode": "development",
+    "notarized": false
+  },
+  "limitations": [
+    "Verified locally on macOS 27.0.1; not installed or tested on the other Mac.",
+    "The headless profile fixture does not exercise sidebar UI.",
+    "One concurrent final-package inventory run stopped on a stale layout revision without a browser crash; isolated fresh-profile and saved-profile runs passed."
+  ]
+}

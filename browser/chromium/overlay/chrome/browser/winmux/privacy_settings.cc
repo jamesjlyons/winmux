@@ -1,5 +1,5 @@
 #include "chrome/browser/winmux/privacy_settings.h"
-#include "chrome/browser/winmux/filter_updates.h"
+#include "chrome/browser/winmux/ublock_bridge.h"
 
 #include "base/command_line.h"
 #include "base/files/file_util.h"
@@ -34,7 +34,6 @@
 
 namespace winmux {
 namespace {
-constexpr char kDisabledSites[] = "winmux.blocking_disabled_sites";
 constexpr char kSearchTemplate[] = "winmux.search_template";
 base::FilePath& ConsentPath() { static base::NoDestructor<base::FilePath> path; return *path; }
 base::DictValue& Consent() { static base::NoDestructor<base::DictValue> consent; return *consent; }
@@ -71,54 +70,17 @@ void ApplyPrivacyProfile(Profile* profile) {
   prefs->SetInteger("net.network_prediction_options", 2);
   prefs->SetBoolean("safebrowsing.enhanced", false);
   if (!Allowed("security_updates")) prefs->SetBoolean("safebrowsing.enabled", false);
-  StartFilterUpdates(profile, Allowed("filter_updates"));
+  // uBlock owns filtering and obeys the saved filter-update consent.
 }
 
 bool WorkspaceSiteBlockingEnabled(Profile* profile, const GURL& site) {
-  return !profile->GetPrefs()->GetList(kDisabledSites).contains(net::SchemefulSite(site).Serialize());
+  return UBlockSiteEnabled(profile, site);
 }
 void SetWorkspaceSiteBlocking(content::WebContents* contents, bool enabled) {
-  const auto& site = contents->GetLastCommittedURL();
-  if (!site.SchemeIsHTTPOrHTTPS()) return;
-  auto* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
-  {
-  ScopedListPrefUpdate update(profile->GetPrefs(), kDisabledSites);
-  const auto key = net::SchemefulSite(site).Serialize();
-  update->EraseValue(base::Value(key));
-  if (!enabled && update->size() < 1024) update->Append(key);
-  }
-  std::vector<std::string> sites;
-  for (const auto& entry : profile->GetPrefs()->GetList(kDisabledSites)) if (entry.is_string()) sites.push_back(entry.GetString());
-  profile->ForEachLoadedStoragePartition([&](content::StoragePartition* partition) {
-    partition->GetNetworkContext()->SetWinMuxBlockingSettings(sites);
-  });
+  SetUBlockSiteEnabled(contents, enabled);
 }
 int WorkspaceBlockedCount(content::WebContents* contents) {
-  static const char key = 0;
-  struct Counter : base::SupportsUserData::Data {
-    int count = 0;
-    bool pending = false;
-    base::TimeTicks requested;
-    GURL site;
-  };
-  auto* counter = static_cast<Counter*>(contents->GetUserData(&key));
-  if (!counter) { auto data = std::make_unique<Counter>(); counter = data.get(); contents->SetUserData(&key, std::move(data)); }
-  const auto site = contents->GetLastCommittedURL();
-  if (counter->site != site) { counter->site = site; counter->count = 0; }
-  if (site.SchemeIsHTTPOrHTTPS() && !counter->pending && base::TimeTicks::Now() - counter->requested > base::Seconds(1)) {
-    counter->requested = base::TimeTicks::Now(); counter->pending = true;
-    contents->GetPrimaryMainFrame()->GetStoragePartition()->GetNetworkContext()->GetWinMuxBlockedCount(site,
-        base::BindOnce([](base::WeakPtr<content::WebContents> contents, GURL site, uint64_t count) {
-          if (!contents) return;
-          auto* counter = static_cast<Counter*>(contents->GetUserData(&key));
-          if (!counter) return;
-          counter->pending = false;
-          if (counter->site == site && counter->count != static_cast<int>(count)) {
-            counter->count = static_cast<int>(std::min(count, uint64_t{2147483647})); RefreshBrowserInventory();
-          }
-        }, contents->GetWeakPtr(), site));
-  }
-  return counter->count;
+  return UBlockBlockedCount(contents);
 }
 GURL WorkspaceSearch(Profile* profile, const std::string& text) {
   auto* service = TemplateURLServiceFactory::GetForProfile(profile);
@@ -166,7 +128,7 @@ void UpdateWorkspacePrivacy(Profile* profile, const std::string& json, base::Onc
                        bool cookies, bool unchanged_search, base::OnceCallback<void(std::string)> completion, bool saved) {
         if (!saved || !profile) { std::move(completion).Run("unavailable"); return; }
         Consent() = std::move(consent);
-        StartFilterUpdates(profile.get(), Allowed("filter_updates"));
+        // The uBlock bridge picks up the saved consent without restarting.
         if (!unchanged_search) {
           profile->GetPrefs()->SetString(kSearchTemplate, pattern);
           TemplateURLData search;

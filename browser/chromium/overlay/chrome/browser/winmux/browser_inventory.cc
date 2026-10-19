@@ -640,7 +640,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
       SetWorkspacePageKeepActive(contents, *request.url == "true");
     } else if (request.action == "site_blocking") {
       SetWorkspaceSiteBlocking(contents, *request.url == "true");
-      navigation.Reload(content::ReloadType::NORMAL, true);
+      // uBlock reloads after committing the site exception.
     } else if (request.action == "navigate" || request.action == "search") {
       navigation.LoadURL(target, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
     } else if (request.action == "new_tab") {

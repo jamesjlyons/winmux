@@ -14,6 +14,7 @@
 #include "chrome/browser/winmux/privacy_settings.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/menus/simple_menu_model.h"
 
 namespace winmux {
@@ -36,7 +37,7 @@ void ShowPrivacySettings(base::WeakPtr<BrowserWindowInterface> browser) {
   [alert addButtonWithTitle:@"Cancel"];
   NSButton* security = [NSButton checkboxWithTitle:@"Allow security component updates" target:nil action:nil];
   NSButton* extensions = [NSButton checkboxWithTitle:@"Allow extension updates" target:nil action:nil];
-  NSButton* filters = [NSButton checkboxWithTitle:@"Allow daily ad and tracker filter updates" target:nil action:nil];
+  NSButton* filters = [NSButton checkboxWithTitle:@"Allow uBlock filter updates" target:nil action:nil];
   NSButton* cookies = [NSButton checkboxWithTitle:@"Block third-party cookies" target:nil action:nil];
   security.state = saved.FindBool("security_updates").value_or(false) ? NSControlStateValueOn : NSControlStateValueOff;
   extensions.state = saved.FindBool("extension_updates").value_or(false) ? NSControlStateValueOn : NSControlStateValueOff;
@@ -89,6 +90,7 @@ class PageMenu final : public ManagedPageMenu {
       label += u" (" + base::NumberToString16(WorkspaceBlockedCount(contents)) + u" blocked)";
     }
     menu->AddCheckItem(kSiteBlocking, label);
+    menu->AddItem(kUBlockSettings, u"uBlock Origin Settings…");
     menu->AddItem(kPrivacySettings, u"Privacy Settings…");
     menu->AddSeparator(ui::NORMAL_SEPARATOR);
   }
@@ -108,6 +110,9 @@ class PageMenu final : public ManagedPageMenu {
     auto* contents = Contents();
     if (command == kKeepActive) SetWorkspacePageKeepActive(contents, !IsChecked(command));
     else if (command == kSiteBlocking) SetWorkspaceSiteBlocking(contents, !IsChecked(command));
+    else if (command == kUBlockSettings) browser_->OpenGURL(
+        GURL("chrome-extension://blockjmkbacgjkknlgpkjjiijinjdanf/dashboard.html"),
+        WindowOpenDisposition::NEW_FOREGROUND_TAB);
     else if (command == kPrivacySettings) ShowPrivacySettings(browser_);
     RefreshBrowserInventory();
   }

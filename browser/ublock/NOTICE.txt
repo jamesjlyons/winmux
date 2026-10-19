@@ -1,0 +1,14 @@
+uBlock Origin 1.75.0 (Helium distribution)
+Copyright Raymond Hill, contributors, and the Helium authors.
+Licensed under GPL-3.0; the complete license is in the bundled LICENSE.txt.
+Source: https://github.com/imputnet/uBlock/tree/1.75.0
+Upstream: https://github.com/gorhill/uBlock
+
+WinMux bundles the complete extension, including its dashboard, logger,
+element picker, scriptlets, procedural filters and bundled filter lists.
+Local modifications add the stable component key, localize its manifest,
+remove Helium's optional DNS permission (WinMux does not expose that API),
+gate remote filter requests on WinMux's filter-update consent, and add the
+WinMux page-control bridge. The bridge source is distributed with the app.
+These modifications to uBlock are licensed under GPL-3.0.
+Filter lists and other bundled resources retain their upstream licenses.

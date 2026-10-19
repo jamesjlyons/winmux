@@ -18,6 +18,7 @@ import subprocess
 import sqlite3
 import threading
 import time
+import urllib.request
 import uuid
 
 from measure_helper import Sampler
@@ -160,6 +161,9 @@ def main():
                "--winmux-bridge-report=" + str(bridge_report), "--winmux-test-service=" + service,
                "--winmux-trace-layout"]
     command += (["--winmux-sidebar-preview"] if args.native_window_controls else ["--headless=new"])
+    bundled_ublock = bool(manifest.get("build", {}).get("ublock"))
+    if bundled_ublock and not args.private:
+        command += ["--remote-debugging-port=0", "--remote-debugging-address=127.0.0.1"]
     command += ["--incognito"] if args.private else ["--winmux-test-inventory-actions"]
     if args.private:
         command += ["--winmux-tab-report=" + str(output / "private-identities.jsonl")]
@@ -219,6 +223,10 @@ def main():
                 "native_zoom_exit_state": "yes", "native_zoom_return_layout": "issued", "native_zoom_returns_to_tiles": "yes",
         })
     expected_count = 1
+    if bundled_ublock:
+        # The signed helper's legacy empty-toolbar probe is false because the
+        # bundled uBlock action is pinned by default in a fresh profile.
+        expected["toolbar_empty_inventory"] = "no"
     if args.private:
         expected = {"private_create": "issued", "private_profile_retained": "yes", "private_layout": "issued",
                     "private_managed": "yes", "private_close": "issued", "private_cleanup": "yes"}
@@ -295,6 +303,20 @@ def main():
                     "extension_updates": False, "filter_updates": False,
                 }
                 result["passed"] = result["privacy_consent_persisted"]
+            if result["passed"] and bundled_ublock and not args.private:
+                # Exercise profiles created after startup: this used to abort in
+                # ComponentLoader's synchronous uBlock manifest read. Require a
+                # live background page in Default, Work, and Personal as well as
+                # successful tab creation, so skipping uBlock cannot pass.
+                port = int((profile_root / "DevToolsActivePort").read_text().splitlines()[0])
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=5) as response:
+                    targets = json.load(response)
+                backgrounds = {target["id"] for target in targets
+                               if target.get("type") == "background_page" and target.get("url") ==
+                               "chrome-extension://blockjmkbacgjkknlgpkjjiijinjdanf/background.html"}
+                result["ublock_profile_backgrounds"] = len(backgrounds)
+                if len(backgrounds) != 3:
+                    raise RuntimeError("uBlock must load in all three isolated regular profiles")
             if not result["passed"]:
                 result["error"] = "Expected protocol11 isolated fixture outcomes were not observed"
                 observed = previous.get("outcomes", {}) if previous else {}

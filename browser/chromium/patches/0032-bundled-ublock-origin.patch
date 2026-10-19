@@ -1,0 +1,245 @@
+--- a/chrome/browser/extensions/component_loader.cc
++++ b/chrome/browser/extensions/component_loader.cc
+@@ -599,6 +599,19 @@
+   }
+ #endif  // BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
+ 
++  // Load only from the signed framework's resources, never a profile path.
++  if (!skip_session_components && !should_disable_background_extensions) {
++    base::FilePath directory;
++    std::string manifest;
++    if (base::PathService::Get(chrome::DIR_RESOURCES, &directory)) {
++      directory = directory.AppendASCII("WinMuxUBlock");
++      if (base::ReadFileToStringWithMaxSize(directory.AppendASCII("manifest.json"), &manifest, 65536)) {
++        Add(manifest, directory);
++      } else {
++        LOG(ERROR) << "Bundled uBlock Origin component is unavailable";
++      }
++    }
++  }
+   if (should_disable_background_extensions) {
+     return;
+   }
+--- a/chrome/browser/extensions/component_extensions_allowlist/allowlist.cc
++++ b/chrome/browser/extensions/component_extensions_allowlist/allowlist.cc
+@@ -40,6 +40,7 @@
+       extension_misc::kGlicExtensionId,
+       extension_misc::kInAppPaymentsSupportAppId,
+       extension_misc::kPdfExtensionId,
++      "blockjmkbacgjkknlgpkjjiijinjdanf",
+ #if BUILDFLAG(IS_CHROMEOS)
+       extension_misc::kAssessmentAssistantExtensionId,
+       extension_misc::kAccessibilityCommonExtensionId,
+--- a/chrome/common/extensions/api/BUILD.gn
++++ b/chrome/common/extensions/api/BUILD.gn
+@@ -49,6 +49,7 @@
+ 
+   sources += [
+     "app.json",
++    "winmux_blocking.json",
+     "declarative_content.json",
+     "privacy.json",
+     "tts.json",
+--- /dev/null
++++ b/chrome/common/extensions/api/winmux_blocking.json
+@@ -0,0 +1,40 @@
++[
++  {
++    "namespace": "winmuxBlocking",
++    "description": "Private synchronization for the bundled WinMux blocker.",
++    "functions": [
++      {
++        "name": "exchange",
++        "type": "function",
++        "parameters": [
++          {
++            "name": "state",
++            "type": "object",
++            "additionalProperties": {
++              "type": "any"
++            }
++          }
++        ],
++        "returns_async": {
++          "name": "callback",
++          "parameters": [
++            {
++              "name": "configuration",
++              "type": "object",
++              "additionalProperties": {
++                "type": "any"
++              }
++            }
++          ]
++        }
++      }
++    ],
++    "events": [
++      {
++        "name": "onCommand",
++        "type": "function",
++        "parameters": []
++      }
++    ]
++  }
++]
+--- a/chrome/common/extensions/api/_api_features.json
++++ b/chrome/common/extensions/api/_api_features.json
+@@ -11,6 +11,7 @@
+ // renderer.
+ 
+ {
++  "winmuxBlocking": {"channel": "stable", "contexts": ["privileged_extension"], "extension_types": ["extension"], "location": "component", "component_extensions_auto_granted": false, "allowlist": ["70C2895ED505C532A80761F0928B821B103D0786"]},
+   "accessibilityFeatures": [{
+     "dependencies": ["permission:accessibilityFeatures.modify"],
+     "contexts": ["privileged_extension"]
+--- a/chrome/browser/chrome_browser_main_mac.mm
++++ b/chrome/browser/chrome_browser_main_mac.mm
+@@ -30,6 +30,7 @@
+ #include "chrome/browser/first_run/first_run.h"
+ #include "chrome/browser/winmux/workspace_bridge.h"
+ #include "chrome/browser/winmux/privacy_settings.h"
++#include "chrome/browser/winmux/ublock_bridge.h"
+ #include "chrome/browser/mac/install_from_dmg.h"
+ #include "chrome/browser/mac/metrics.h"
+ #include "chrome/browser/ui/cocoa/main_menu_builder.h"
+@@ -174,6 +175,7 @@
+ 
+ void ChromeBrowserMainPartsMac::PreProfileInit() {
+   ChromeBrowserMainPartsPosix::PreProfileInit();
++  winmux::RegisterUBlockAPI();
+ 
+   // This is called here so that the app shim socket is only created after
+   // taking the singleton lock.
+--- a/extensions/common/features/simple_feature.cc
++++ b/extensions/common/features/simple_feature.cc
+@@ -729,6 +729,7 @@
+   // Component extensions can access any feature.
+   // NOTE: Deliberately does not match EXTERNAL_COMPONENT.
+   if (component_extensions_auto_granted_ &&
++      hashed_id.value() != "70C2895ED505C532A80761F0928B821B103D0786" &&
+       location == ManifestLocation::kComponent)
+     return CreateAvailability(AvailabilityResult::kIsAvailable);
+ 
+--- a/extensions/common/permissions/permissions_data.cc
++++ b/extensions/common/permissions/permissions_data.cc
+@@ -116,7 +116,8 @@
+ bool PermissionsData::CanExecuteScriptEverywhere(
+     const ExtensionId& extension_id,
+     mojom::ManifestLocation location) {
+-  if (location == mojom::ManifestLocation::kComponent)
++  if (location == mojom::ManifestLocation::kComponent &&
++      extension_id != "blockjmkbacgjkknlgpkjjiijinjdanf")
+     return true;
+ 
+   const ExtensionsClient::ScriptingAllowlist& allowlist =
+@@ -308,7 +309,8 @@
+     return {};
+   }
+ 
+-  if (location_ == mojom::ManifestLocation::kComponent ||
++  if ((location_ == mojom::ManifestLocation::kComponent &&
++       extension_id_ != "blockjmkbacgjkknlgpkjjiijinjdanf") ||
+       Manifest::IsPolicyLocation(location_)) {
+     // Extension is exempt from user settings.
+     return {};
+@@ -481,7 +483,8 @@
+     // blocked host in a different page and then capture that, but it's better
+     // than nothing (and policy hosts can set their x-frame options
+     // accordingly).
+-    if (location_ != mojom::ManifestLocation::kComponent &&
++    if ((location_ != mojom::ManifestLocation::kComponent ||
++         extension_id_ == "blockjmkbacgjkknlgpkjjiijinjdanf") &&
+         IsPolicyBlockedHostUnsafe(origin_url)) {
+       if (error)
+         *error = extension_misc::kPolicyBlockedScripting;
+@@ -631,7 +634,8 @@
+     return false;
+   }
+ 
+-  if (!context_id_ || location_ == mojom::ManifestLocation::kComponent ||
++  if (!context_id_ || (location_ == mojom::ManifestLocation::kComponent &&
++       extension_id_ != "blockjmkbacgjkknlgpkjjiijinjdanf") ||
+       Manifest::IsPolicyLocation(location_)) {
+     return false;
+   }
+@@ -655,7 +659,8 @@
+     const URLPatternSet* tab_url_patterns,
+     std::string* error) const {
+   runtime_lock_.AssertAcquired();
+-  if (location_ != mojom::ManifestLocation::kComponent &&
++  if ((location_ != mojom::ManifestLocation::kComponent ||
++         extension_id_ == "blockjmkbacgjkknlgpkjjiijinjdanf") &&
+       IsPolicyBlockedHostUnsafe(document_url)) {
+     if (error)
+       *error = extension_misc::kPolicyBlockedScripting;
+--- a/chrome/common/extensions/chrome_extensions_client.cc
++++ b/chrome/common/extensions/chrome_extensions_client.cc
+@@ -221,6 +221,7 @@
+   // or blocking access to the webstore so they get the highest priority
+   // allowlist entry.
+   if (extensions::Manifest::IsComponentLocation(extension.location()) &&
++      extension.id() != "blockjmkbacgjkknlgpkjjiijinjdanf" &&
+       is_extension_active) {
+     origin_patterns->push_back(network::mojom::CorsOriginPattern::New(
+         content::kChromeUIScheme, chrome::kChromeUIThemeHost, /*port=*/0,
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -6475,7 +6475,8 @@
+   std::vector<std::string> allowed_webui_hosts;
+   // Support for chrome:// scheme if appropriate.
+   if ((extension->is_extension() || extension->is_platform_app()) &&
+-      Manifest::IsComponentLocation(extension->location())) {
++      Manifest::IsComponentLocation(extension->location()) &&
++        extension->id() != "blockjmkbacgjkknlgpkjjiijinjdanf") {
+     // Components of chrome that are implemented as extensions or platform apps
+     // are allowed to use chrome://resources/ and chrome://theme/ URLs.
+     allowed_webui_hosts.emplace_back(content::kChromeUIResourcesHost);
+--- a/chrome/renderer/chrome_content_renderer_client.cc
++++ b/chrome/renderer/chrome_content_renderer_client.cc
+@@ -625,7 +625,7 @@
+ 
+   new prerender::NoStatePrefetchRenderFrameObserver(render_frame);
+ #if BUILDFLAG(IS_MAC)
+-  new winmux::CosmeticsAgent(render_frame);
++  // Full uBlock Origin owns document cosmetics and scriptlets.
+ #endif
+ 
+   auto content_settings_delegate =
+--- a/chrome/browser/ui/toolbar/toolbar_actions_model.cc
++++ b/chrome/browser/ui/toolbar/toolbar_actions_model.cc
+@@ -162,6 +162,15 @@
+     }
+   }
+ 
++  if (extension->id() == "blockjmkbacgjkknlgpkjjiijinjdanf" && !profile_->IsOffTheRecord()) {
++    bool initialized = false;
++    extension_prefs_->ReadPrefAsBoolean(extension->id(), "winmux_initial_pin", &initialized);
++    if (!initialized && should_add_extension) {
++      if (!IsActionPinned(extension->id())) SetActionVisibility(extension->id(), true);
++      extension_prefs_->UpdateExtensionPref(extension->id(), "winmux_initial_pin", base::Value(true));
++    }
++  }
++
+   // Record the pin reason for the first time an extension is installed (not on
+   // updates). Don't record for component extensions which are built-in system
+   // extensions.
+@@ -669,6 +678,18 @@
+       continue;
+     }
+     action_ids_.insert(extension->id());
++    if (extension->id() == "blockjmkbacgjkknlgpkjjiijinjdanf") {
++      bool initialized = false;
++      extension_prefs_->ReadPrefAsBoolean(extension->id(), "winmux_initial_pin", &initialized);
++      if (!initialized) {
++        auto pinned = extension_prefs_->GetPinnedExtensions();
++        if (!std::ranges::contains(pinned, extension->id())) {
++          pinned.push_back(extension->id());
++          extension_prefs_->SetPinnedExtensions(pinned);
++        }
++        extension_prefs_->UpdateExtensionPref(extension->id(), "winmux_initial_pin", base::Value(true));
++      }
++    }
+   }
+ }
+ 

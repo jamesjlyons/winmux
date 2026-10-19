@@ -190,6 +190,11 @@ def build(args, engine):
     manifest_path.write_text(json.dumps(state, indent=2) + "\n")
     import prepare_blocking
     state["blocking"] = prepare_blocking.prepare(output, args.jobs, previous_library_hash)
+    import prepare_ublock
+    ublock_key = prepare_ublock.fingerprint()
+    ublock_directory = "WinMuxUBlock-" + ublock_key
+    state["ublock"] = prepare_ublock.prepare(output / ublock_directory)
+    state["ublock"]["directory"] = ublock_directory
     state_path.write_text(json.dumps(state, indent=2) + "\n")
     manifest_path.write_text(json.dumps(state, indent=2) + "\n")
     if (output / "args.gn").read_bytes() != build_args:
