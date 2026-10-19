@@ -79,7 +79,10 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
     public let visible: Bool
     public let nativeControls: Bool
     public let integratedToolbar: Bool
-    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible, nativeControls = "native_controls", integratedToolbar = "integrated_toolbar" }
+    /// When nonzero, an already visible host glides to this frame over about
+    /// this many milliseconds instead of jumping. Older peers ignore the key.
+    public let animationMs: Int
+    enum CodingKeys: String, CodingKey { case containerID = "container_id", surfaces, selected, x, y, width, height, visible, nativeControls = "native_controls", integratedToolbar = "integrated_toolbar", animationMs = "animation_ms" }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.init(containerID: try values.decode(UUID.self, forKey: .containerID),
@@ -89,11 +92,13 @@ public struct BrowserHostPlacement: Equatable, Codable, Sendable {
                                width: try values.decode(Int.self, forKey: .width), height: try values.decode(Int.self, forKey: .height)),
                   visible: try values.decode(Bool.self, forKey: .visible),
                   nativeControls: try values.decodeIfPresent(Bool.self, forKey: .nativeControls) ?? false,
-                  integratedToolbar: try values.decodeIfPresent(Bool.self, forKey: .integratedToolbar) ?? false)
+                  integratedToolbar: try values.decodeIfPresent(Bool.self, forKey: .integratedToolbar) ?? false,
+                  animationMs: try values.decodeIfPresent(Int.self, forKey: .animationMs) ?? 0)
     }
-    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool, nativeControls: Bool = false, integratedToolbar: Bool = false) {
+    public init(containerID: UUID, surfaces: [SurfaceID], selected: SurfaceID?, frame: SurfaceFrame, visible: Bool, nativeControls: Bool = false, integratedToolbar: Bool = false, animationMs: Int = 0) {
         self.nativeControls = nativeControls
         self.integratedToolbar = integratedToolbar
+        self.animationMs = min(max(animationMs, 0), 1000)
         self.containerID = containerID; self.surfaces = surfaces; self.selected = selected
         x = frame.x; y = frame.y; width = frame.width; height = frame.height; self.visible = visible
     }

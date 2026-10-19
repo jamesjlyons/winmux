@@ -2,11 +2,36 @@ import AppKit
 
 /// Intermediate animation frames avoid AX reads and retries. The final frame
 /// uses setFrame's readback and monitor-clamp correction instead.
+///
+/// Every write makes the owning app relayout, so knowing the previous frame
+/// lets a tick skip unchanged components and order the rest so that the
+/// intermediate rectangle stays inside the union of both frames: shrinking
+/// resizes in place first, growing moves first. Only a mixed change (or an
+/// unknown previous frame) pays the third, clamp-correcting write.
 func updateAnimatedWindowFrame(
-    _ frame: CGRect, setPosition: (CGPoint) -> Void, setSize: (CGSize) -> Void,
+    _ frame: CGRect, previous: CGRect? = nil, setPosition: (CGPoint) -> Void, setSize: (CGSize) -> Void,
     checkCancellation: () throws -> Void,
 ) throws {
     try checkCancellation()
+    if let previous {
+        let moves = previous.origin != frame.origin, resizes = previous.size != frame.size
+        let shrinks = frame.width <= previous.width && frame.height <= previous.height
+        let grows = frame.width >= previous.width && frame.height >= previous.height
+        if !resizes {
+            if moves { setPosition(frame.origin) }
+            return
+        }
+        if !moves {
+            setSize(frame.size)
+            return
+        }
+        if shrinks || grows {
+            if shrinks { setSize(frame.size) } else { setPosition(frame.origin) }
+            try checkCancellation()
+            if shrinks { setPosition(frame.origin) } else { setSize(frame.size) }
+            return
+        }
+    }
     setSize(frame.size)
     try checkCancellation()
     setPosition(frame.origin)

@@ -16,6 +16,7 @@ final class WindowTabStripPanelController {
     var transientResizeTabGroupStrip: WindowTabStripViewModel? = nil
     var mouseInteractionChromeMode: MouseInteractionChromeMode? = nil
     var hiddenPassiveTabGroupChromeIds: Set<WindowTabStripIdentity> = []
+    lazy var sharedChromeGlide = SharedStackChromeGlide { [weak self] in self?.refresh() }
 
     private init() {}
 }
@@ -78,16 +79,24 @@ extension WindowTabStripPanelController {
 extension WindowTabStripPanelController {
     func refresh() {
         guard TrayMenuModel.shared.isEnabled, config.windowTabs.enabled else {
+            sharedChromeGlide.cancelAll()
             hideAll()
             return
         }
 
         let strips = windowTabStripsWithTransientResizeApplied(TrayMenuModel.shared.windowTabStrips).map { strip in
+            // Shared stacks follow the plan; glide them with the content below,
+            // which may be a browser host that Chromium animates itself.
+            var glided = strip
+            if case .shared = strip.id {
+                glided = sharedChromeGlide.present(strip, isOnScreen: visualPanels[strip.id]?.isVisible == true ||
+                    stripPanels[strip.id]?.isVisible == true)
+            }
             // A selected split contains multiple content windows; one leaf's
             // presentation frame cannot describe the enclosing stack shell.
-            if let active = strip.sharedStack?.tabs.first(where: \.isActive), case .group = active.id { return strip }
+            if let active = strip.sharedStack?.tabs.first(where: \.isActive), case .group = active.id { return glided }
             guard let id = strip.activeWindowId,
-                  let frame = WindowLayoutAnimator.shared.presentationFrame(id) else { return strip }
+                  let frame = WindowLayoutAnimator.shared.presentationFrame(id) else { return glided }
             return resizingTabGroupStrip(baseStrip: strip, activeWindowRect: frame)
         }
         let activeIds = Set(strips.map(\.id))

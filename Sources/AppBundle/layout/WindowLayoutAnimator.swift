@@ -9,6 +9,9 @@ final class WindowLayoutAnimator {
 
     @MainActor private final class Entry {
         weak var window: MacWindow?
+        let app: MacApp
+        let start: CGRect
+        let written = AnimationWrittenFrame()
         var motion: WindowFrameAnimation
         var cancellation = RunLoopJob()
         var finishing = false
@@ -19,6 +22,8 @@ final class WindowLayoutAnimator {
 
         init(window: MacWindow, start: Rect, target: Rect, workspace: Workspace) {
             self.window = window
+            self.app = window.macApp
+            self.start = start.axAnimationFrame
             self.motion = WindowFrameAnimation(from: start.axAnimationFrame, to: target.axAnimationFrame)
             self.workspace = workspace
             self.monitor = workspace.workspaceMonitor.rect
@@ -32,6 +37,15 @@ final class WindowLayoutAnimator {
     private var enabled: Bool {
         config.animations.enabled && config.animations.durationMs > 0 &&
             !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    /// Browser hosts glide in Chromium under the same policy as native tiles.
+    /// Chromium also requires the host to stay visible on the same display.
+    var browserHostAnimationMs: Int {
+        guard enabled, !isStartup, !serverArgs.isReadOnly, TrayMenuModel.shared.isEnabled,
+              !AppShutdownCoordinator.shared.isShuttingDown, currentlyManipulatedWithMouseWindowId == nil,
+              !BrowserWindowDragController.shared.isDragging else { return 0 }
+        return config.animations.durationMs
     }
 
     /// Only changed, already visible tiles glide. In particular, a parked window
@@ -68,8 +82,9 @@ final class WindowLayoutAnimator {
         }
 
         cancel(window.windowId)
-        guard let previous, previous != target else { return false }
-        let start = window.lastKnownActualRect ?? previous
+        // A window's first tile has no previous layout frame; it glides from
+        // where its app opened it (or from where it floated) when that is known.
+        guard previous != target, let start = window.lastKnownActualRect ?? previous else { return false }
         guard start.axAnimationFrame.isValidAnimationFrame,
               workspace.workspaceMonitor.rect.contains(start.center),
               workspace.workspaceMonitor.rect.contains(target.center),
@@ -81,9 +96,11 @@ final class WindowLayoutAnimator {
         return true
     }
 
+    /// Chrome follows what the app has been sent, not the spring's newest value:
+    /// a busy app can lag several ticks behind, and the strip must stay attached.
     func presentationFrame(_ id: UInt32) -> Rect? {
         guard let entry = entries[id], !entry.cancellation.isCancelled else { return nil }
-        let frame = entry.finishing ? entry.motion.target : entry.motion.frame
+        let frame = entry.finishing ? entry.motion.target : entry.written.frame ?? entry.start
         return Rect(topLeftX: frame.minX, topLeftY: frame.minY, width: frame.width, height: frame.height)
     }
 
@@ -100,14 +117,19 @@ final class WindowLayoutAnimator {
     }
 
     func cancel(_ id: UInt32) {
-        entries.removeValue(forKey: id)?.cancellation.cancel()
+        if let entry = entries.removeValue(forKey: id) { end(entry, id) }
         stopClockIfIdle()
     }
 
     func cancelAll() {
-        for entry in entries.values { entry.cancellation.cancel() }
+        for (id, entry) in entries { end(entry, id) }
         entries.removeAll()
         stopClockIfIdle()
+    }
+
+    private func end(_ entry: Entry, _ id: UInt32) {
+        entry.cancellation.cancel()
+        entry.app.endAxAnimation(id)
     }
 
     private func startClock() {
@@ -167,10 +189,12 @@ final class WindowLayoutAnimator {
             entry.finishing = arrived
             if arrived { entry.finishStartedAt = timestamp }
             let cancellation = entry.cancellation
-            window.macApp.setAxAnimationFrame(id, frame, cancellation: cancellation, final: arrived) { [weak self] actual in
+            entry.app.setAxAnimationFrame(id, frame, cancellation: cancellation, final: arrived,
+                                          written: entry.written) { [weak self] actual in
                 guard let self, let current = self.entries[id], current === entry,
                       current.cancellation === cancellation, !cancellation.isCancelled else { return }
                 self.entries.removeValue(forKey: id)
+                entry.app.endAxAnimation(id)
                 window.recordAuthoritativeActualRect(actual)
                 // Reuse the existing verified layout/minimum-size path after
                 // arrival. Intermediate sizes must never become learned minima.

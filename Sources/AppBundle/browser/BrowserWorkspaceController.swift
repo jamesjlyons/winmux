@@ -1674,7 +1674,8 @@ public final class BrowserWorkspaceController {
             let owned = placements.filter { owner(of: $0.surfaceID) === session }
             let hosts = browserHostPlacements(owned, hasNativeToolbar: session.supportsBrowserControls,
                                               integratedToolbar: session.supportsIntegratedToolbar,
-                                              bodyFrameOverrides: BrowserWindowDragController.shared.bodyFrameOverrides)
+                                              bodyFrameOverrides: BrowserWindowDragController.shared.bodyFrameOverrides,
+                                              animationMs: WindowLayoutAnimator.shared.browserHostAnimationMs)
             if force { session.invalidateLayoutAcknowledgement() }
             let target = focusCoordinator.target, generation = focusCoordinator.generation
             session.requestLayout(hosts) { [weak self, weak session] reply in

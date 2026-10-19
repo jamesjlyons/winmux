@@ -12,9 +12,18 @@ animations.duration-ms = 180
 (0–1000). Zero or `enabled = false` makes frame changes immediate. macOS Reduce
 Motion also disables animation. Configuration changes take effect on reload.
 
-Startup, workspace parking/restoration, tab reveals, direct mouse manipulation,
-and moves to another monitor are immediate. Chromium-owned browser hosts continue
-to use their existing layout protocol and do not use this AX animation path.
+A window's first tile glides from where its app opened it (or where it floated)
+when that frame is known. Startup, workspace parking/restoration, tab reveals,
+direct mouse manipulation, and moves to another monitor are immediate.
+
+Browser pages with integrated controls glide too, with the same spring and
+duration. Swift sends `animation_ms` with each host placement and Chromium
+(`host_layout.cc`) runs the motion, because each page is its own native window
+that Chromium resizes. Only a page's own, already visible host on the same
+display glides; new hosts, reveals, dragged pages and a held pointer take the
+frame immediately. Peers without the key keep immediate placement. Shared stack
+tab strips follow the same spring (`SharedStackChromeGlide`) so they stay on
+the moving content.
 
 ## How it works
 
@@ -29,7 +38,14 @@ loops, with an analytic critically damped spring. A new target preserves the
 current position and velocity. Superseded queued writes are cancelled, including
 between individual AX calls. Intermediate writes avoid frame readback; arrival
 uses the normal frame correction and minimum-size observation path. The tree
-keeps destination frames while tab chrome uses the presentation frames.
+keeps destination frames while tab chrome follows the last frame actually written,
+so it stays attached to a busy app that lags behind the spring.
+
+Each tick writes only the changed components. A shrinking frame resizes before it
+moves and a growing one moves before it resizes, so the window stays inside both
+frames; only mixed changes pay the third clamp-correcting write. An app's
+`AXEnhancedUserInterface` is turned off once for its whole motion and restored
+when its last motion ends, instead of being read and toggled on every tick.
 
 An active animation consumes its own geometry notifications so they do not create
 layout/drag feedback. Direct frame writes, hiding, closing, native fullscreen,
@@ -48,4 +64,5 @@ For live verification, open two resizable native windows in a tiled View, change
 their split with keyboard commands, and issue another move before the first one
 finishes. Check a native stack's tab chrome, workspace changes during movement,
 mouse drag interruption, an app with minimum-size constraints, and Reduce Motion.
-Browser-owned hosts should retain their existing immediate placement behavior.
+In a View that mixes apps and integrated browser pages, check that pages and apps
+move together, and that a page drag or a Space switch is still immediate.

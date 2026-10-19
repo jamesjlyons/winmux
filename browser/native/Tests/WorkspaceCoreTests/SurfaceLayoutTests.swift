@@ -7,6 +7,20 @@ final class SurfaceLayoutTests: XCTestCase {
     let web = SurfaceID.browserTab(profile: UUID(), tab: UUID())
     let frame = SurfaceFrame(x: -1000, y: 50, width: 1001, height: 700)
 
+    func testHostAnimationDurationIsOptionalOnTheWireAndBounded() throws {
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let frame = SurfaceFrame(x: 0, y: 0, width: 800, height: 600)
+        let placement = BrowserHostPlacement(containerID: UUID(), surfaces: [page], selected: page, frame: frame,
+                                             visible: true, nativeControls: true, integratedToolbar: true, animationMs: 5000)
+        XCTAssertEqual(placement.animationMs, 1000)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(placement)) as? [String: Any])
+        XCTAssertEqual(json["animation_ms"] as? Int, 1000)
+        var legacy = json
+        legacy.removeValue(forKey: "animation_ms")
+        let decoded = try JSONDecoder().decode(BrowserHostPlacement.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(decoded.animationMs, 0)
+    }
+
     func testMinimumWidthsRedistributeSpaceWithoutOverlap() {
         let secondNative = SurfaceID.nativeWindow(UUID()), secondWeb = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         var tree = SurfaceTree(); tree.reconcile([native, secondNative, web, secondWeb], in: "one")

@@ -19,6 +19,7 @@ final class MacApp: AbstractApp {
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
     private let nativeTabRouting = NativeTabOperationRouting()
     private let nativeTabs = ThreadGuardedValue(NativeTabAccessibility())
+    private let animationAccessibility = ThreadGuardedValue(AnimationAccessibilityState())
     @MainActor private(set) var nativeTabRegistry = NativeTabRegistry()
     @MainActor private var detachedNativeTabWorkspaces: [UInt32: String] = [:]
     private var windowsCount = 0
@@ -297,10 +298,11 @@ final class MacApp: AbstractApp {
     /// the newest frame; other apps and the main actor keep running independently.
     func setAxAnimationFrame(
         _ windowId: UInt32, _ frame: CGRect, cancellation: RunLoopJob, final: Bool,
+        written: AnimationWrittenFrame,
         completion: @MainActor @Sendable @escaping (Rect?) -> Void,
     ) {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
-        setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
+        setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp, animationAccessibility] window, job in
             try cancellation.checkCancellation()
             if final {
                 do {
@@ -318,16 +320,39 @@ final class MacApp: AbstractApp {
                     Task { @MainActor in completion(nil) }
                 }
             } else {
-                try disableAnimations(app: axApp.threadGuarded, job) {
-                    try updateAnimatedWindowFrame(frame,
-                        setPosition: { window.set(Ax.topLeftCornerAttr, $0) },
-                        setSize: { window.set(Ax.sizeAttr, $0) },
-                        checkCancellation: {
-                            try job.checkCancellation()
-                            try cancellation.checkCancellation()
-                        })
+                // Toggling AXEnhancedUserInterface makes Chromium and Electron
+                // apps rebuild accessibility state. Keep it off for the whole
+                // motion instead of reading and flipping it on every tick.
+                let app = axApp.threadGuarded
+                if animationAccessibility.threadGuarded.animatingWindows.isEmpty,
+                   app.get(Ax.enhancedUserInterfaceAttr) == true {
+                    app.set(Ax.enhancedUserInterfaceAttr, false)
+                    animationAccessibility.threadGuarded.restoresEnhancedUserInterface = true
                 }
+                animationAccessibility.threadGuarded.animatingWindows.insert(windowId)
+                // A write interrupted between its AX calls leaves an unknown
+                // frame; the next tick then takes the clamp-correcting order.
+                try updateAnimatedWindowFrame(frame, previous: written.beginWrite(),
+                    setPosition: { window.set(Ax.topLeftCornerAttr, $0) },
+                    setSize: { window.set(Ax.sizeAttr, $0) },
+                    checkCancellation: {
+                        try job.checkCancellation()
+                        try cancellation.checkCancellation()
+                    })
+                written.complete(frame)
             }
+        }
+    }
+
+    /// Restores state held for an animation once the app's last motion ends.
+    /// Runs after every frame job already queued, so it cannot be overtaken.
+    func endAxAnimation(_ windowId: UInt32) {
+        thread?.runInLoopAsync { [axApp, animationAccessibility] _ in
+            guard animationAccessibility.threadGuarded.animatingWindows.remove(windowId) != nil,
+                  animationAccessibility.threadGuarded.animatingWindows.isEmpty,
+                  animationAccessibility.threadGuarded.restoresEnhancedUserInterface else { return }
+            animationAccessibility.threadGuarded.restoresEnhancedUserInterface = false
+            axApp.threadGuarded.set(Ax.enhancedUserInterfaceAttr, true)
         }
     }
 
@@ -582,9 +607,10 @@ final class MacApp: AbstractApp {
             job.cancel()
         }
         setFrameJobs = [:]
-        thread?.runInLoopAsync { [windows, nativeTabs, appAxSubscriptions, axApp, axAppFastTimeout] job in
+        thread?.runInLoopAsync { [windows, nativeTabs, animationAccessibility, appAxSubscriptions, axApp, axAppFastTimeout] job in
             appAxSubscriptions.destroy() // Destroy AX objects in reverse order of their creation
             nativeTabs.destroy()
+            animationAccessibility.destroy()
             windows.destroy()
             axAppFastTimeout.destroy()
             axApp.destroy()
@@ -651,5 +677,38 @@ private func nativeTabGroupObs(_: AXObserver, _: AXUIElement, notif: CFString, _
     guard let pid = axTaskLocalAppThreadToken?.pid else { return }
     Task { @MainActor in
         scheduleRefreshSession(.ax("nativeTabGroupChanged"), scope: .apps([pid]))
+    }
+}
+
+/// Confined to the app's AX thread.
+private struct AnimationAccessibilityState {
+    var animatingWindows: Set<UInt32> = []
+    var restoresEnhancedUserInterface = false
+}
+
+/// The frame the app's AX thread last wrote for one animation. Tab chrome
+/// follows it instead of the spring's newest value, which a busy app may not
+/// have received yet.
+final class AnimationWrittenFrame: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: CGRect?
+    private var isExact = false
+
+    /// The last frame written completely.
+    var frame: CGRect? { lock.withLock { value } }
+
+    /// Returns the window's current frame if it is exactly known.
+    func beginWrite() -> CGRect? {
+        lock.withLock {
+            defer { isExact = false }
+            return isExact ? value : nil
+        }
+    }
+
+    func complete(_ frame: CGRect) {
+        lock.withLock {
+            value = frame
+            isExact = true
+        }
     }
 }

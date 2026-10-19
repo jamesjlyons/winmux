@@ -47,7 +47,24 @@ func isUserFacingWorkspace(_ workspace: Workspace, focusedWorkspace: Workspace? 
     }
     return !workspace.isArchived && (workspaceHasSidebarVisibleWindows(workspace) ||
         !workspaceOwnedMinimizedWindows(workspace).isEmpty || workspace.preservesEmptyView ||
-        (!workspaceHasLifecycleWindows(workspace) && workspaceIsRetainedEmptySlot(workspace)))
+        (!workspaceHasLifecycleWindows(workspace) && workspaceIsRetainedEmptySlot(workspace) &&
+            showsRetainedEmptySlot(workspace, spaceHasPins: spaceHasPins(workspace.projectId))))
+}
+
+/// A Space keeps one ordinary View to land on and to receive new pages. When
+/// its only page was pinned, that leftover blank is not a destination the user
+/// chose: the pin shelf already represents the Space. Keep it in the model, but
+/// show it only while it is on screen.
+@MainActor
+private func showsRetainedEmptySlot(_ workspace: Workspace, spaceHasPins: Bool) -> Bool {
+    !spaceHasPins || workspace.isVisible
+}
+
+@MainActor
+private func spaceHasPins(_ projectId: WorkspaceProjectId) -> Bool {
+    projectWorkspaces(projectId: projectId).contains {
+        $0.isPinnedGroup && !$0.isArchived && BrowserWorkspaceController.shared.hasPins(in: $0.name)
+    }
 }
 
 @MainActor
@@ -67,7 +84,8 @@ func userFacingWorkspaces(_ workspaces: [Workspace], focusedWorkspace: Workspace
         // Most occupied groups short-circuit above. Resolve empty slots only when needed,
         // once for this pass, without scanning every minimized window for every group.
         if retainedIds == nil { retainedIds = retainedEmptyWorkspaceIdsByScope(minimizedWorkspaceNames: minimizedNames) }
-        return retainedIds?[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
+        guard retainedIds?[WorkspaceScope(projectId: workspace.projectId)] == workspace.id else { return false }
+        return showsRetainedEmptySlot(workspace, spaceHasPins: spaceHasPins(workspace.projectId))
     }
 }
 

@@ -2,6 +2,9 @@
 #include "chrome/browser/winmux/page_lifetime.h"
 #include "chrome/browser/winmux/tab_creation_trace.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <set>
@@ -12,6 +15,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/uuid.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -114,6 +119,131 @@ std::map<std::string, ManagedHost>& Hosts() {
   static base::NoDestructor<std::map<std::string, ManagedHost>> hosts;
   return *hosts;
 }
+// Glides an already visible host to its new tile with the critically damped
+// spring native tiles use (WindowFrameAnimation.swift), so a view that mixes
+// pages and apps moves as one. Every step is an ordinary SetBounds; arrival
+// applies the exact destination.
+struct HostMotion {
+  Host browser;
+  gfx::Rect target;
+  gfx::Size minimum;
+  std::array<double, 4> value{};
+  std::array<double, 4> velocity{};
+  double elapsed = 0;
+  double duration = 0;
+};
+
+std::map<std::string, HostMotion>& Motions() {
+  static base::NoDestructor<std::map<std::string, HostMotion>> motions;
+  return *motions;
+}
+
+base::RepeatingTimer& MotionTimer() {
+  static base::NoDestructor<base::RepeatingTimer> timer;
+  return *timer;
+}
+
+base::TimeTicks& LastMotionTick() {
+  static base::TimeTicks tick;
+  return tick;
+}
+
+std::array<double, 4> Components(const gfx::Rect& rect) {
+  return {static_cast<double>(rect.x()), static_cast<double>(rect.y()),
+          static_cast<double>(rect.width()), static_cast<double>(rect.height())};
+}
+
+// Returns true on arrival. Mirrors WindowFrameAnimation.advance.
+bool Advance(HostMotion& motion, double dt) {
+  motion.elapsed += dt;
+  if (motion.elapsed >= std::max(0.25, motion.duration * 3)) return true;
+  const auto goal = Components(motion.target);
+  const double omega = 8 / motion.duration, decay = std::exp(-omega * dt);
+  bool arrived = true;
+  for (size_t i = 0; i < 4; ++i) {
+    const double displacement = motion.value[i] - goal[i];
+    const double coefficient = motion.velocity[i] + displacement * omega;
+    motion.value[i] = goal[i] + (displacement + coefficient * dt) * decay;
+    motion.velocity[i] = (motion.velocity[i] - coefficient * (omega * dt)) * decay;
+    arrived &= std::abs(motion.value[i] - goal[i]) < 0.5 && std::abs(motion.velocity[i]) < 8;
+  }
+  return arrived;
+}
+
+void FinishMotion(std::map<std::string, HostMotion>::iterator it, bool apply) {
+  auto& motion = it->second;
+  if (motion.browser && !motion.browser->IsDeleteScheduled()) {
+    auto* window = motion.browser->GetWindow();
+    if (apply && window->GetBounds() != motion.target) window->SetBounds(motion.target);
+    SetBrowserHostGliding(motion.browser.get(), false);
+  }
+  Motions().erase(it);
+}
+
+void StopMotion(const std::string& surface, bool apply) {
+  auto it = Motions().find(surface);
+  if (it != Motions().end()) FinishMotion(it, apply);
+  if (Motions().empty()) MotionTimer().Stop();
+}
+
+void TickMotions() {
+  const auto now = base::TimeTicks::Now();
+  const double dt = std::max(0.0, (now - LastMotionTick()).InSecondsF());
+  LastMotionTick() = now;
+  // A held pointer may be dragging a page; never fight it for the frame.
+  const bool finish = IsPointerButtonHeld();
+  for (auto it = Motions().begin(); it != Motions().end();) {
+    auto current = it++;
+    auto& motion = current->second;
+    if (!motion.browser || motion.browser->IsDeleteScheduled() ||
+        IsBrowserHostSuspended(motion.browser.get()) ||
+        !motion.browser->GetWindow()->IsVisible()) {
+      FinishMotion(current, false);
+      continue;
+    }
+    if (finish || Advance(motion, dt)) {
+      FinishMotion(current, true);
+      continue;
+    }
+    gfx::Rect frame(static_cast<int>(std::lround(motion.value[0])),
+                    static_cast<int>(std::lround(motion.value[1])),
+                    std::max(motion.minimum.width(), static_cast<int>(std::lround(motion.value[2]))),
+                    std::max(motion.minimum.height(), static_cast<int>(std::lround(motion.value[3]))));
+    auto* window = motion.browser->GetWindow();
+    if (window->GetBounds() != frame) window->SetBounds(frame);
+  }
+  if (Motions().empty()) MotionTimer().Stop();
+}
+
+// A new destination keeps the current presentation and velocity.
+void GlideHost(const std::string& surface, const Host& browser, const gfx::Rect& target,
+               int duration_ms, const gfx::Size& minimum) {
+  auto it = Motions().find(surface);
+  if (it != Motions().end() && it->second.browser.get() != browser.get()) {
+    FinishMotion(it, false);
+    it = Motions().end();
+  }
+  if (it == Motions().end()) {
+    const auto start = browser->GetWindow()->GetBounds();
+    if (start == target) return;
+    HostMotion motion;
+    motion.browser = browser;
+    motion.value = Components(start);
+    it = Motions().emplace(surface, std::move(motion)).first;
+  } else if (it->second.target == target) {
+    return;
+  }
+  it->second.target = target;
+  it->second.minimum = minimum;
+  it->second.elapsed = 0;
+  it->second.duration = duration_ms / 1000.0;
+  SetBrowserHostGliding(browser.get(), true);
+  if (!MotionTimer().IsRunning()) {
+    LastMotionTick() = base::TimeTicks::Now();
+    MotionTimer().Start(FROM_HERE, base::Hertz(120), base::BindRepeating(&TickMotions));
+  }
+}
+
 struct Placement {
   std::string surface;
   raw_ptr<Profile> profile = nullptr;
@@ -122,6 +252,8 @@ struct Placement {
   bool visible = false;
   bool managed = false;
   bool integrated_toolbar = false;
+  int animation_ms = 0;
+  gfx::Size minimum;
 };
 
 void Release(ManagedHost& host) {
@@ -171,6 +303,10 @@ std::string ApplyHostLayout(const std::string& json) {
     if (integrated_value && !integrated_value->is_bool()) return "invalid_request";
     const bool integrated = dict.FindBool("integrated_toolbar").value_or(false);
     if (integrated && !managed) return "invalid_request";
+    const auto* animation_value = dict.Find("animation_ms");
+    if (animation_value && !animation_value->is_int()) return "invalid_request";
+    const int animation_ms = dict.FindInt("animation_ms").value_or(0);
+    if (animation_ms < 0 || animation_ms > 1000) return "invalid_request";
     auto x = dict.FindInt("x"), y = dict.FindInt("y");
     auto width = dict.FindInt("width"), height = dict.FindInt("height");
     if (!container || !base::Uuid::ParseCaseInsensitive(*container).is_valid() ||
@@ -200,10 +336,12 @@ std::string ApplyHostLayout(const std::string& json) {
       p.visible = *visible && is_selected;
       p.managed = managed;
       p.integrated_toolbar = integrated;
+      p.animation_ms = animation_ms;
       const auto minimum = p.managed && !p.integrated_toolbar
           ? BrowserManagedHostMinimumSize() : BrowserHostMinimumSize(source->GetWindow());
       if (p.bounds.width() < minimum.width() || p.bounds.height() < minimum.height())
         return "unsupported";
+      p.minimum = minimum;
       plan.push_back(std::move(p));
     }
     if (!selected_found) return "invalid_request";
@@ -220,8 +358,10 @@ std::string ApplyHostLayout(const std::string& json) {
     // and profile groupings, so regrouping never changes its native window ID.
     Host host;
     auto existing = Hosts().find(p.surface);
+    BrowserWindowInterface* previous_host = nullptr;
     if (existing != Hosts().end()) {
       host = existing->second.browser;
+      previous_host = host.get();
       // Native Dock minimize and fullscreen own the host's presentation. A
       // workspace replan must neither restore nor resize it during that time.
       if (host.get() == source && IsBrowserHostSuspended(source)) {
@@ -281,7 +421,16 @@ std::string ApplyHostLayout(const std::string& json) {
     // A visibility-only group switch must not resize the page or reorder an
     // already visible peer. Both operations can trigger Cocoa/renderer layout
     // and produce movement even though the workspace geometry is unchanged.
-    if (window->GetBounds() != p.bounds) window->SetBounds(p.bounds);
+    // Only the page's own, already visible host glides. Reveals, adoption,
+    // new hosts and moves between displays take their frame immediately.
+    if (p.animation_ms > 0 && p.visible && host.get() == previous_host &&
+        host.get() == source && window->IsVisible() && !IsPointerButtonHeld() &&
+        BrowserHostFramesShareDisplay(window->GetBounds(), p.bounds)) {
+      GlideHost(p.surface, host, p.bounds, p.animation_ms, p.minimum);
+    } else {
+      StopMotion(p.surface, false);
+      if (window->GetBounds() != p.bounds) window->SetBounds(p.bounds);
+    }
     SetWorkspacePageVisibility(host->GetTabStripModel()->GetWebContentsAt(0), p.managed, p.visible);
     if (p.visible) {
       if (!window->IsVisible()) window->ShowInactive();
@@ -302,6 +451,11 @@ std::string ApplyHostLayout(const std::string& json) {
       TraceTabPresentation(browser, p.surface);
     }
   }
+  for (auto it = Motions().begin(); it != Motions().end();) {
+    auto current = it++;
+    if (!surfaces.contains(current->first)) FinishMotion(current, false);
+  }
+  if (Motions().empty()) MotionTimer().Stop();
   // A removed placement is released to conventional controls, never closed.
   for (auto it = Hosts().begin(); it != Hosts().end();) {
     // Suspended pages remain members of the durable workspace tree, although
@@ -327,6 +481,8 @@ std::string ApplyHostLayout(const std::string& json) {
 }
 
 void ReleaseHostLayout() {
+  while (!Motions().empty()) FinishMotion(Motions().begin(), false);
+  MotionTimer().Stop();
   for (auto& [surface, host] : Hosts()) Release(host);
   Hosts().clear();
 }

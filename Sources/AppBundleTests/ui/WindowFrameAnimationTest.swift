@@ -110,6 +110,44 @@ final class WindowFrameAnimationTest: XCTestCase {
         XCTAssertEqual(actual, target)
     }
 
+    func testKnownPreviousFrameOrdersWritesInsideBothFrames() throws {
+        // `start` -> `target` is a mixed change and keeps the correcting write.
+        let cases: [(from: CGRect, to: CGRect, writes: [String])] = [
+            (start, CGRect(x: 60, y: 90, width: 500, height: 300), ["size", "position"]),
+            (start, CGRect(x: 20, y: 70, width: 700, height: 500), ["position", "size"]),
+            (start, CGRect(x: 90, y: 80, width: 600, height: 400), ["position"]),
+            (start, CGRect(x: 40, y: 80, width: 640, height: 400), ["size"]),
+            (start, start, []),
+            (start, target, ["size", "position", "size"]),
+        ]
+        for (from, to, expected) in cases {
+            var writes: [String] = [], actual = from
+            var stayedInsideUnion = true
+            try updateAnimatedWindowFrame(to, previous: from, setPosition: {
+                actual.origin = $0
+                writes.append("position")
+                stayedInsideUnion = stayedInsideUnion && from.union(to).contains(actual)
+            }, setSize: {
+                actual.size = $0
+                writes.append("size")
+                stayedInsideUnion = stayedInsideUnion && from.union(to).contains(actual)
+            }, checkCancellation: {})
+            XCTAssertEqual(writes, expected, "\(from) -> \(to)")
+            XCTAssertEqual(actual, to)
+            XCTAssertTrue(stayedInsideUnion || writes.count == 3, "\(from) -> \(to)")
+        }
+    }
+
+    func testWrittenFrameIsInexactAfterAnInterruptedWrite() {
+        let written = AnimationWrittenFrame()
+        XCTAssertNil(written.beginWrite())
+        written.complete(start)
+        XCTAssertEqual(written.beginWrite(), start)
+        // The previous write never completed; only the last complete frame remains.
+        XCTAssertNil(written.beginWrite())
+        XCTAssertEqual(written.frame, start)
+    }
+
     func testSupersededIntermediateFrameStopsBeforeEveryWrite() throws {
         for cancelAfter in 0...2 {
             var writes = 0
@@ -140,5 +178,36 @@ final class WindowFrameAnimationTest: XCTestCase {
         XCTAssertFalse(parseConfig("animations.enabled = 'yes'").errors.isEmpty)
         XCTAssertFalse(parseConfig("animations.unknown = true").errors.isEmpty)
         XCTAssertTrue(parseConfig("animations.duration-ms = 1000").errors.isEmpty)
+    }
+}
+
+@MainActor
+final class SharedStackChromeGlideTest: XCTestCase {
+    override func setUp() async throws {
+        setUpWorkspacesForTests()
+        TrayMenuModel.shared.isEnabled = true
+    }
+
+    private func strip(_ id: WindowTabStripIdentity, at origin: CGPoint) -> WindowTabStripViewModel {
+        .init(id: id, workspaceName: "w", frame: CGRect(origin: origin, size: CGSize(width: 400, height: 28)),
+              groupFrame: CGRect(origin: origin, size: CGSize(width: 400, height: 300)), activeWindowId: nil,
+              activeWindowCornerRadius: 0, tabs: [], occludingFloatingWindowFrames: [])
+    }
+
+    func testOnScreenStripGlidesFromItsPreviousFrameAndRevealsJump() throws {
+        guard WindowLayoutAnimator.shared.browserHostAnimationMs > 0, let screen = NSScreen.screens.first?.frame else {
+            throw XCTSkip("Motion is unavailable in this environment")
+        }
+        let glide = SharedStackChromeGlide {}
+        defer { glide.cancelAll() }
+        let id = WindowTabStripIdentity.shared(UUID())
+        let a = CGPoint(x: screen.minX + 10, y: screen.minY + 10), b = CGPoint(x: screen.minX + 300, y: screen.minY + 10)
+        XCTAssertEqual(glide.present(strip(id, at: a), isOnScreen: true).frame.origin, a)
+        // The new destination starts from where the strip was shown.
+        XCTAssertEqual(glide.present(strip(id, at: b), isOnScreen: true).groupFrame.origin, a)
+        XCTAssertTrue(glide.isAnimating)
+        // Hidden or revealed chrome takes its destination immediately.
+        XCTAssertEqual(glide.present(strip(id, at: a), isOnScreen: false).frame.origin, a)
+        XCTAssertFalse(glide.isAnimating)
     }
 }

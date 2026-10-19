@@ -33,6 +33,25 @@ import XCTest
         XCTAssertNil(controller.browserSurface(forHostWindow: 99001, processID: pid))
     }
 
+    func testOnlyVisibleUndraggedIntegratedHostsGlide() throws {
+        let profile = UUID()
+        let shown = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let hidden = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let dragged = SurfaceID.browserTab(profile: profile, tab: UUID())
+        let frame = SurfaceFrame(x: 0, y: 0, width: 1600, height: 900)
+        var tree = SurfaceTree()
+        tree.reconcile([shown, dragged], in: "shown")
+        tree.reconcile([hidden], in: "hidden")
+        let placements = tree.placements(in: "shown", frame: frame) + tree.placements(in: "hidden", frame: frame, visible: false)
+        let overrides = [dragged: SurfaceFrame(x: 20, y: 20, width: 800, height: 600)]
+        let hosts = browserHostPlacements(placements, hasNativeToolbar: true, integratedToolbar: true,
+                                          bodyFrameOverrides: overrides, animationMs: 180)
+        let duration = Dictionary(uniqueKeysWithValues: hosts.map { ($0.surfaces[0], $0.animationMs) })
+        XCTAssertEqual(duration, [shown: 180, hidden: 0, dragged: 0])
+        // Separate toolbar panels are placed by Swift and cannot follow a glide.
+        XCTAssertTrue(browserHostPlacements(placements, hasNativeToolbar: true, animationMs: 180).allSatisfy { $0.animationMs == 0 })
+    }
+
     func testProtocolFourAdoptsFirstPageWithoutManualGroupingAndReflectsNativeFocus() throws {
         let controller = BrowserWorkspaceController(foregroundProcessID: { -1 }), connection = UUID(), epoch = UUID()
         let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())

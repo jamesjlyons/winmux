@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "ui/base/base_window.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_ui_types.h"
 
 namespace winmux {
@@ -35,6 +36,7 @@ char kOwnedZoom;
 char kRestoreManagedAfterZoom;
 char kZoomTransition;
 char kHostStateChanged;
+char kLayoutGlide;
 
 NSWindow* NativeWindow(BrowserWindowInterface* browser) {
   return browser ? browser->GetWindow()->GetNativeWindow().GetNativeNSWindow() : nil;
@@ -212,6 +214,9 @@ class CocoaBrowserHostWindowObserver final : public BrowserHostWindowObserver,
           usingBlock:^(NSNotification* notification) {
             if (!host || host->IsDeleteScheduled()) return;
             NSWindow* window = NativeWindow(host.get());
+            // Each glide step resizes the host; publish its destination once.
+            if ([notification.name isEqualToString:NSWindowDidResizeNotification] &&
+                objc_getAssociatedObject(window, &kLayoutGlide)) return;
             auto* view = BrowserView::GetBrowserViewForBrowser(host.get());
             if ([notification.name isEqualToString:@"WinMuxWindowWillZoom"]) {
               if (!view || !view->GetProperty(kIntegratedToolbar) ||
@@ -470,6 +475,35 @@ gfx::Size BrowserHostMinimumSize(ui::BaseWindow* window) {
   return gfx::Size(std::max(1, static_cast<int>(std::ceil(frame.size.width))),
                    std::max(1, static_cast<int>(std::ceil(frame.size.height))));
 }
+void SetBrowserHostGliding(BrowserWindowInterface* browser, bool gliding) {
+  NSWindow* native = NativeWindow(browser);
+  if (!native) return;
+  const bool was = objc_getAssociatedObject(native, &kLayoutGlide) != nil;
+  if (was == gliding) return;
+  objc_setAssociatedObject(native, &kLayoutGlide, gliding ? @YES : nil,
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  if (!gliding) PublishHostStateChanged(native);
+}
+
+bool BrowserHostFramesShareDisplay(const gfx::Rect& from, const gfx::Rect& to) {
+  // gfx screen coordinates have a top-left origin on the primary display.
+  NSArray<NSScreen*>* screens = NSScreen.screens;
+  if (screens.count == 0) return false;
+  const CGFloat top = NSMaxY(screens.firstObject.frame);
+  auto display = [&](const gfx::Rect& rect) -> NSInteger {
+    const NSPoint center = NSMakePoint(rect.CenterPoint().x(), top - rect.CenterPoint().y());
+    for (NSUInteger i = 0; i < screens.count; ++i)
+      if (NSPointInRect(center, screens[i].frame)) return static_cast<NSInteger>(i);
+    return -1;
+  };
+  const NSInteger a = display(from);
+  return a >= 0 && a == display(to);
+}
+
+bool IsPointerButtonHeld() {
+  return (NSEvent.pressedMouseButtons & 1) != 0;
+}
+
 uint32_t BrowserHostWindowID(ui::BaseWindow* window) {
   NSWindow* native = window ? window->GetNativeWindow().GetNativeNSWindow() : nil;
   NSInteger number = native.windowNumber;

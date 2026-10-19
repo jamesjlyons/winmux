@@ -8,7 +8,8 @@ import WorkspaceCore
 @MainActor
 func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: Bool,
                            integratedToolbar: Bool = false,
-                           bodyFrameOverrides: [SurfaceID: SurfaceFrame] = [:]) -> [BrowserHostPlacement] {
+                           bodyFrameOverrides: [SurfaceID: SurfaceFrame] = [:],
+                           animationMs: Int = 0) -> [BrowserHostPlacement] {
     if !hasNativeToolbar {
         // Protocol 3 peers still expose conventional Chromium controls. Preserve
         // their one-host-per-container wire contract until both sides support 4.
@@ -29,7 +30,10 @@ func browserHostPlacements(_ placements: [SurfacePlacement], hasNativeToolbar: B
             return .init(containerID: placement.containerID, surfaces: [placement.surfaceID],
                 selected: placement.visible ? placement.surfaceID : nil,
                 frame: bodyFrameOverrides[placement.surfaceID] ?? placement.frame, visible: placement.visible,
-                nativeControls: true, integratedToolbar: true)
+                nativeControls: true, integratedToolbar: true,
+                // Only integrated hosts carry their controls inside the moving
+                // window; a dragged page follows the pointer exactly.
+                animationMs: placement.visible && bodyFrameOverrides[placement.surfaceID] == nil ? animationMs : 0)
         }
         guard let geometry = BrowserPageChromeGeometry(frame: placement.frame) else { return nil }
         return .init(containerID: placement.containerID, surfaces: [placement.surfaceID],

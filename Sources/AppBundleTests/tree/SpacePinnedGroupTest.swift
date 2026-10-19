@@ -222,6 +222,29 @@ final class SpacePinnedGroupTest: XCTestCase {
         XCTAssertTrue(controller.pinTiles(in: group.name).isEmpty)
     }
 
+    func testPinningOnlyWindowDoesNotLeaveEmptyViewRow() throws {
+        let controller = BrowserWorkspaceController.shared
+        controller.usesSurfaceTree = true
+        let regular = focus.workspace
+        regular.markAsAutomaticallyNamed()
+        let oldPath = TestApp.shared.bundlePath
+        TestApp.shared.bundlePath = "/Missing/Test.app"
+        defer { TestApp.shared.bundlePath = oldPath }
+        let window = TestWindow.new(id: 95, parent: regular.rootTilingContainer)
+        controller.reconcileSharedOrganization()
+        XCTAssertTrue(controller.pinSurface(window.surfaceID))
+        let pin = try XCTUnwrap(controller.nativeAppSidebarPins.first)
+        let pinned = try XCTUnwrap(Workspace.existing(byName: pin.workspaceName))
+        XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: pinned).contains(pinned))
+        XCTAssertFalse(userFacingWorkspaces(Workspace.all, focusedWorkspace: pinned).contains(regular))
+        XCTAssertFalse(isUserFacingWorkspace(regular, focusedWorkspace: pinned))
+        // Returning to the Space lands on the blank View; show it while it is on screen.
+        XCTAssertTrue(regular.focusWorkspace())
+        XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: regular).contains(regular))
+        XCTAssertTrue(controller.unpin(pin.id, to: regular))
+        XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: regular).contains(regular))
+    }
+
     func testEmptyPinnedGroupIsHiddenAndDoesNotChangeRegularNumbering() {
         let controller = BrowserWorkspaceController.shared
         controller.usesSurfaceTree = true
