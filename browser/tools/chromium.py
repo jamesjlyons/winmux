@@ -28,9 +28,17 @@ def output(*args, cwd=None):
 def filesystem(path):
     # Resolve the actual device, including APFS volumes mounted below /Volumes.
     device = output("/bin/df", "-P", str(path)).splitlines()[-1].split()[0]
-    raw = subprocess.check_output(["/usr/sbin/diskutil", "info", "-plist", device], stderr=subprocess.PIPE)
-    info = plistlib.loads(raw)
-    return info.get("FilesystemType", "unknown")
+    try:
+        raw = subprocess.check_output(["/usr/sbin/diskutil", "info", "-plist", device], stderr=subprocess.PIPE)
+        info = plistlib.loads(raw)
+        return info.get("FilesystemType", "unknown")
+    except subprocess.CalledProcessError:
+        # DiskArbitration can be unavailable in a sandbox. The kernel's mounted
+        # filesystem table still identifies the exact device selected by df.
+        for line in output("/sbin/mount").splitlines():
+            if line.startswith(device + " on ") and " (" in line:
+                return line.rsplit(" (", 1)[1].split(",", 1)[0].rstrip(")")
+        raise
 
 
 def preflight(path, stage):
