@@ -28,13 +28,18 @@ func shouldSyncFocusBackToMacOs(
     nativeFocused: Window?,
     frontmostActivationPolicy: NSApplication.ActivationPolicy?,
     browserOwnsForeground: Bool = false,
+    logicalFocusChanged: Bool = false,
 ) -> Bool {
     if BrowserWorkspaceController.shared.holdsPendingBrowserFocus { return false }
     if browserOwnsForeground { return false }
     if nativeFocused?.participatesInWorkspaceFocus == false {
         return false
     }
-    if nativeFocused == nil && frontmostActivationPolicy == .accessory {
+    // A regular app may own a key panel that Accessibility doesn't expose
+    // (for example Icon Composer's What's New panel). An unchanged workspace
+    // selection is not a request to take focus away from that app. Still allow
+    // a new fallback selected while discovering that the old window closed.
+    if nativeFocused == nil && (frontmostActivationPolicy == .accessory || !logicalFocusChanged) {
         return false
     }
     return true
@@ -202,6 +207,7 @@ func runRefreshSessionBlocking(
                         nativeFocused: nativeFocused,
                         frontmostActivationPolicy: frontmostActivationPolicy,
                         browserOwnsForeground: BrowserWorkspaceController.shared.ownsForegroundBrowser,
+                        logicalFocusChanged: focus.windowOrNil?.windowId != focusSnapshot.focus.windowId,
                     ) {
                         let logicalFocused = focus.windowOrNil
                         // AX focus does not guarantee that an existing floating
