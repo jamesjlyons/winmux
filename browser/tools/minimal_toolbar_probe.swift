@@ -165,6 +165,28 @@ do {
     try require(idle.contains(expectedHost), "Idle hostname was not painted: \(idle)")
     try require(!idle.contains("/a/deep/path") && !idle.contains("query="), "Idle URL path was not hidden")
     try require((value(field, kAXValueAttribute) as? String ?? "").contains("/a/deep/path"), "AX lost the full address")
+    guard let siteInfo = descendants(window).first(where: {
+        guard value($0, kAXRoleAttribute) as? String == "AXPopUpButton",
+              let rect = bounds($0) else { return false }
+        return rect.maxX <= fieldFrame.minX && abs(rect.midY - fieldFrame.midY) < 2
+    }), let siteInfoFrame = bounds(siteInfo) else {
+        throw Failure(message: "Missing site information control")
+    }
+    move(CGPoint(x: siteInfoFrame.midX, y: siteInfoFrame.midY))
+    _ = try capture("site-info-hover", frame: frame)
+    try require(AXUIElementPerformAction(siteInfo, kAXPressAction as CFString) == .success,
+                "Site information button could not be pressed")
+    try wait("Site information did not open") {
+        descendants(app).contains {
+            (value($0, kAXTitleAttribute) as? String ??
+             value($0, kAXDescriptionAttribute) as? String ?? "").contains("Site settings")
+        }
+    }
+    _ = try capture("site-info-open", frame: frame)
+    key(53)
+    move(body)
+    _ = try capture("site-info-restored", frame: frame)
+    results["site_info_passed"] = true
     move(CGPoint(x: fieldFrame.midX, y: fieldFrame.midY))
     _ = try capture("hover", frame: frame)
     try click(CGPoint(x: fieldFrame.midX, y: fieldFrame.midY))

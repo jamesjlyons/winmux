@@ -1,0 +1,197 @@
+{
+  "passed": true,
+  "dark": false,
+  "high_contrast": false,
+  "loopback_host": false,
+  "patch_sha256": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+  "patches_sha256": {
+    "0001-workspace-bridge.patch": "70476f8dfb5dacfc9666cccc58ced2fd8dd4ddc64e0b96b0833d2a225b96be7b",
+    "0002-native-request-blocking.patch": "1bd40c5d024e0844a2363a4c925a0ba1f3aa42f7dd260bb1c3b8e2ea906e9486",
+    "0003-blocker-library-bundle.patch": "ad37f775ed9e6cec98e1acd55b86f48782bfbf6a19267eced209844af73ecb23",
+    "0004-document-cosmetics.patch": "2e184a437e0dbb0fa3028453df8e7d514ab17cd2fcb9c291b103723400bb28f4",
+    "0005-persistent-tab-identities.patch": "196d8c23b170c5dcba43508c2be9a70cd645db906f25f0e7a18604a6b00d49c2",
+    "0006-workspace-shutdown.patch": "583042965d37025426321e0d8eafffc581ba08f5b9d983b3807e011d80574380",
+    "0007-managed-page-windows.patch": "509e515e304332abd3f82a8e5ec51f04d465558cfa37a71326803b52843bc720",
+    "0008-managed-extension-menu.patch": "581d8abd9a2b66fc3317c6bf5f7f15eddbabb861a88d734fa2ee9c02e02341e1",
+    "0009-privacy-and-page-lifetime.patch": "e2b6c08ffcda4cd63f1c758316ce5f90dc3b7c27549a25db0bb0033c68689bd7",
+    "0010-workspace-direct-launch.patch": "3dd5442497dff5d5f915c772ed4f2dbc9f9ba6e6437d4fef7c8c41c13b813ef7",
+    "0011-one-password-native-messaging.patch": "c1fa563f7ad92247ab1bc5d8e32d2f29861a5cdabe9c2060a800b4dfd2da7e55",
+    "0012-managed-download-bubble.patch": "5260de706f3ecfc23b531f53f7fd1c9ae1c7fc1a27e93228def16c10ea1d3215",
+    "0013-integrated-page-toolbar.patch": "ed447ae4b774ddcbcafa137acbe26bbdf1b6248d64213474ef0941cc84eb6f88",
+    "0014-integrated-page-menu.patch": "485fadb37973627c58133aa4dacf8aa283eae6cf7bad5a6ffccc8fc4196c1e00",
+    "0015-integrated-toolbar-dependencies.patch": "a7bda571a17eba1b64a774d791a746f940b105052a2be443973844ae5bb47a9e",
+    "0016-private-omnibox-isolation.patch": "198e63ff6200c0e794074e665ba0564d6d6ca5fc0bbb080aeac67ebb4921ff4d",
+    "0017-ignored-button-accessibility.patch": "6ce1d1e4dca587f1f5d9b0bbe21644855538e7ba4b9df7fbb01d65a0c631128e",
+    "0018-prepared-window-promotion.patch": "da5e5f9f9a3df373bd8c50261c8d7c38b3be251527a12445db3555179379eca2",
+    "0019-prepared-window-history-omission.patch": "a29c728b37729a8c8d7ffa0d40e8b887a1a8fe1e308f98100f12ffa673222c32",
+    "0020-managed-fullscreen-transition.patch": "058a34084d38350c3118e573caf43582ae3f53c076af1fd38bf18c268dd303cf",
+    "0021-managed-fullscreen-tab-overlay.patch": "68680469ff12b7190a8b10cc3c972b606222a64b404c06c58575d13486779106",
+    "0022-integrated-toolbar-alignment.patch": "d1a3db7c4507a84fd9334cbfafed1f087040abb49fc31280d61c91f7fb252587",
+    "0023-compact-page-toolbar.patch": "2bc9717f3a3d6036aefdf803039cf39a81104854b2e72831b91173c05c85c2c9",
+    "0024-native-glass-page-toolbar.patch": "3ab5f243f612f1113f96d56350c1e3bc09b394ae7a5aaaead40ec3caf702f82f",
+    "0025-service-worker-shutdown.patch": "10459b6b99b52d98f8f681bf6ce6f7a6afca2393b8ce7d4eb0d8de4931d3db3d",
+    "0026-chatgpt-native-messaging.patch": "20730dba58b7c875be6646333594438a32b5768e1640847b158827770eb7e834",
+    "0027-hidden-omnibox-content.patch": "20dc01cb85eeaec51cbba59d913a1f18fdffab6554d8426b1bf37fff412a05e0",
+    "0028-omnibox-reveal-before-layout.patch": "c331b87e669a190681d5c712cb116b27aebef9c191ce6b2fcfd15db5fd76f683",
+    "0029-minimal-compact-toolbar.patch": "8c19a40f42ba38b0fd3068b1ae54b28a3398c3fc0384d6197044c4a3ffe726b6",
+    "0030-bounded-presentation-recovery.patch": "f3a764ad29ddcbb218bdc4b2efb384303c9bfac33c90fe8578f55e0ae9857d2c",
+    "0031-retry-dirty-accessibility-tree.patch": "3cb3573a51d8074b8e252c4ddd0cdb98a4cfb8c2853083d67f84d3904721f71f",
+    "0032-bundled-ublock-origin.patch": "25df324e220c7f3526e487e6998a2c15f0f49dc9bbecfe7eaa7fd6edbd1d1aa8",
+    "0033-subtle-compact-site-info.patch": "50d74662a56b4b7b3e0c21b9ab0c09bd74b38b2d1927bbb43cdc4b3f2a173bcd"
+  },
+  "layouts": [
+    {
+      "name": "split",
+      "hosts": [
+        {
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:6cfd17de-7c1c-41ca-be02-270aa248feae",
+          "zoomed": false,
+          "native_window_id": 86253,
+          "minimum_size": {
+            "width": 500,
+            "height": 34
+          },
+          "managed": true,
+          "minimized": false,
+          "fullscreen": false,
+          "frame": {
+            "x": 650,
+            "y": 90,
+            "width": 600,
+            "height": 600
+          },
+          "host_id": "host:50257689",
+          "visible": true
+        },
+        {
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:621c823d-7c72-41b7-9f8b-aa30292b3534",
+          "frame": {
+            "height": 600,
+            "x": 30,
+            "width": 600,
+            "y": 90
+          },
+          "managed": true,
+          "host_id": "host:50257687",
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "native_window_id": 86241,
+          "minimized": false,
+          "zoomed": false,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "name": "stack",
+      "hosts": [
+        {
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:621c823d-7c72-41b7-9f8b-aa30292b3534",
+          "frame": {
+            "height": 600,
+            "x": 30,
+            "width": 600,
+            "y": 90
+          },
+          "managed": true,
+          "host_id": "host:50257687",
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "native_window_id": 86241,
+          "minimized": false,
+          "zoomed": false,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "name": "fullscreen-restored",
+      "hosts": [
+        {
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:621c823d-7c72-41b7-9f8b-aa30292b3534",
+          "frame": {
+            "height": 600,
+            "x": 30,
+            "width": 600,
+            "y": 90
+          },
+          "managed": true,
+          "host_id": "host:50257687",
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "native_window_id": 86241,
+          "minimized": false,
+          "zoomed": false,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "name": "released",
+      "hosts": [
+        {
+          "minimum_size": {
+            "width": 500,
+            "height": 375
+          },
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:621c823d-7c72-41b7-9f8b-aa30292b3534",
+          "native_window_id": 86241,
+          "visible": true,
+          "host_id": "host:50257687",
+          "minimized": false,
+          "managed": false,
+          "zoomed": false,
+          "fullscreen": false,
+          "frame": {
+            "height": 600,
+            "x": 30,
+            "width": 600,
+            "y": 90
+          }
+        }
+      ]
+    },
+    {
+      "name": "readopted",
+      "hosts": [
+        {
+          "surface_id": "browser:5abc1f71-d960-45f6-a784-18a631b47d2b:621c823d-7c72-41b7-9f8b-aa30292b3534",
+          "frame": {
+            "height": 600,
+            "x": 30,
+            "width": 600,
+            "y": 90
+          },
+          "managed": true,
+          "host_id": "host:50257687",
+          "fullscreen": false,
+          "minimum_size": {
+            "width": 500,
+            "height": 90
+          },
+          "native_window_id": 86241,
+          "minimized": false,
+          "zoomed": false,
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "input": {
+    "compact_geometry_passed": true,
+    "passed": true,
+    "pid": 80038,
+    "site_info_passed": true
+  },
+  "browser_exit_code": 0,
+  "test_service_removed": true
+}

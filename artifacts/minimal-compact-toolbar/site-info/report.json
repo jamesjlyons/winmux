@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "patch": "browser/chromium/patches/0033-subtle-compact-site-info.patch",
+  "patch_sha256": "50d74662a56b4b7b3e0c21b9ab0c09bd74b38b2d1927bbb43cdc4b3f2a173bcd",
+  "built_and_signed": true,
+  "header_dependencies": "passed",
+  "app": "/Users/james/Documents/Codex/winmux/.local/subtle-info-button/package/WinMux Browser Alpha.app",
+  "native_verification": {
+    "dark": {
+      "site_info_popup": true,
+      "compact_geometry": true,
+      "helper_removed": true,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ]
+    },
+    "light": {
+      "site_info_popup": true,
+      "compact_geometry": true,
+      "helper_removed": true,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ]
+    },
+    "contrast": {
+      "site_info_popup": true,
+      "compact_geometry": true,
+      "helper_removed": true,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ]
+    },
+    "warning": {
+      "site_info_popup": true,
+      "compact_geometry": true,
+      "helper_removed": true,
+      "layouts": [
+        "split",
+        "stack",
+        "fullscreen-restored",
+        "released",
+        "readopted"
+      ]
+    }
+  },
+  "verification_scope": "Focused site-information, native geometry, fullscreen and managed-layout fixture. Previous full toolbar regression results remain in the parent directory.",
+  "local_evidence": "/Users/james/Documents/Codex/winmux/.local/subtle-info-button"
+}

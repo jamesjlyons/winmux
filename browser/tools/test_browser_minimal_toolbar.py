@@ -93,7 +93,8 @@ def main():
     if args.high_contrast:
         command.append('--force-high-contrast')
     result = {'passed': False, 'dark': args.dark, 'high_contrast': args.high_contrast, 'loopback_host': args.loopback_host,
-              'patch_sha256': manifest['build']['patches_sha256']['0029-minimal-compact-toolbar.patch'], 'layouts': []}
+              'patch_sha256': manifest['build']['patches_sha256']['0029-minimal-compact-toolbar.patch'],
+              'patches_sha256': manifest['build']['patches_sha256'], 'layouts': []}
     browser = None
     bootstrapped = False
     sequence = 0

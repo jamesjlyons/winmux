@@ -1,0 +1,40 @@
+--- a/chrome/browser/ui/views/location_bar/location_icon_view.cc
++++ b/chrome/browser/ui/views/location_bar/location_icon_view.cc
+@@ -22,6 +22,7 @@
+ #include "chrome/browser/ui/views/location_bar/location_bar_util.h"
+ #include "chrome/browser/ui/views/location_bar/location_icon_state_helper.h"
+ #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
++#include "chrome/browser/winmux/managed_toolbar.h"
+ #include "chrome/grit/browser_resources.h"
+ #include "components/omnibox/browser/location_bar_model.h"
+ #include "components/omnibox/browser/vector_icons.h"
+@@ -37,6 +38,7 @@
+ #include "ui/gfx/animation/tween.h"
+ #include "ui/gfx/geometry/insets.h"
+ #include "ui/gfx/image/image_skia.h"
++#include "ui/native_theme/native_theme.h"
+ #include "ui/views/accessibility/view_accessibility.h"
+ #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
+ #include "ui/views/animation/ink_drop.h"
+@@ -344,7 +346,20 @@
+           is_text_dangerous ? kColorOmniboxSecurityChipDangerousBackground
+                             : kColorOmniboxIconBackground);
+ 
+-  SetBackgroundColor(GetColorProvider()->GetColor(id));
++  // Neutral site information should sit directly on the compact toolbar's
++  // material. Keep native hover/pressed feedback, security warnings, editing
++  // icons and increased-contrast treatments intact.
++  const SecurityLevel security_level = GetSecurityLevel();
++  const bool compact_neutral_icon =
++      parent() && parent()->GetProperty(winmux::kCompactToolbar) &&
++      !delegate_->IsEditingOrEmpty() && !GetShowText() &&
++      (security_level == SecurityLevel::NONE ||
++       security_level == SecurityLevel::SECURE) &&
++      GetNativeTheme()->preferred_contrast() !=
++          ui::NativeTheme::PreferredContrast::kMore;
++  SetBackgroundColor(compact_neutral_icon
++                         ? SK_ColorTRANSPARENT
++                         : GetColorProvider()->GetColor(id));
+ 
+   if (is_text_dangerous) {
+     ConfigureInkDropForRefresh2023(this, kColorOmniboxSecurityChipInkDropHover,

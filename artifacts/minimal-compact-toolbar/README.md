@@ -49,3 +49,15 @@ See [report.json](report.json) for recorded build and verification results.
 The complete Chromium unit-test executable is not built in this workspace;
 the new C++ regression tests are compile-checked, while interaction assertions
 run against the signed browser through the native fixture.
+
+## Subtler site information button
+
+The follow-up patch
+[`0033-subtle-compact-site-info.patch`](../../browser/chromium/patches/0033-subtle-compact-site-info.patch)
+removes the neutral information icon's resting background in the integrated
+compact toolbar. The icon, click target, native hover/pressed feedback, and
+page-information popup retain their existing behavior. Security warning chips,
+editing icons, and increased-contrast appearance retain Chromium's background.
+
+Follow-up screenshots and native verification are recorded in
+[site-info/report.json](site-info/report.json).
