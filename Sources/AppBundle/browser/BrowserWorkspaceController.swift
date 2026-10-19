@@ -1521,13 +1521,21 @@ public final class BrowserWorkspaceController {
         retireResolvedNativeReservations()
         var excluded: Set<SurfaceID> = []
         for id in (surfaceTree.roots[workspace.name] ?? []).flatMap(\.surfaces) {
-            // Keep temporary native absence in the saved tree, but never place
-            // floating, minimized, fullscreen or unresolved windows as tiles.
-            let browser = owner(of: id)?.inventory.tabs[id]
-            if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true ||
-                unresolvedNativeItems.contains(id) ||
-                Window.get(bySurfaceID: id).map({ !hasSharedTilingBinding($0) }) == true {
-                excluded.insert(id)
+            switch id {
+            case .nativeWindow:
+                // Discovery, closure and moves can precede organization reconciliation.
+                // Only allocate a tile when the window can actually be placed here;
+                // keep its saved position intact while restoration is still pending.
+                guard let window = Window.get(bySurfaceID: id), window.nodeWorkspace === workspace,
+                      hasSharedTilingBinding(window) else {
+                    excluded.insert(id)
+                    continue
+                }
+            case .browserTab:
+                let browser = owner(of: id)?.inventory.tabs[id]
+                if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true {
+                    excluded.insert(id)
+                }
             }
         }
         return surfaceTree.projecting(in: workspace.name, excluding: excluded)
