@@ -34,6 +34,8 @@ struct WorkspaceSidebarPinGrid: View {
     private var columnCount: Int { isCompact ? 1 : columns(for: availableWidth) }
     private func columns(for width: CGFloat) -> Int { max(1, Int((width + tileSpacing) / (52 + tileSpacing))) }
     private var visibleRowCount: Int {
+        // The collapsed rail stacks one pin per row, so every pin needs its own row to stay visible.
+        if isCompact { return max(1, workspace.pins.count) }
         let columns = columns(for: expandedAvailableWidth ?? availableWidth)
         return min(3, max(1, (workspace.pins.count + columns - 1) / columns))
     }

@@ -94,6 +94,29 @@ final class WorkspaceSidebarPinReorderingTest: XCTestCase {
     }
 
     @MainActor
+    func testCompactShelfShowsEveryPin() async throws {
+        var workspace = WorkspaceSidebarWorkspaceViewModel(name: "pin-proof", projectId: workspaceProjectDefaultId,
+            displayName: "Pinned", sidebarLabel: "", isGeneratedName: false, monitorScopeId: "proof", monitorName: nil,
+            isFocused: false, isVisible: true, items: [], isPinnedGroup: true)
+        let pinIDs = (0..<14).map { _ in UUID() }
+        workspace.pins = pinIDs.enumerated().map { index, id in
+            .init(id: id, workspaceName: workspace.name, title: "Pin \(index + 1)", bundleIdentifier: "com.apple.Safari",
+                  bundlePath: nil, iconPNGBase64: nil, surfaceID: nil, isFocused: false, isOpen: false,
+                  isLoading: false, isUnavailable: false, isBrowser: true)
+        }
+        let grid = WorkspaceSidebarPinGrid(workspace: workspace, projects: [], isCompact: true,
+            availableWidth: 36, showsDropWell: false, actions: .init(), expandedAvailableWidth: 174)
+            .frame(width: 36, alignment: .top)
+            .coordinateSpace(name: "workspaceSidebarContent")
+        let result = try await frames(of: grid, width: 36)
+        let shelf = try XCTUnwrap(result.first { $0.kind == .workspace(workspace.name) }?.frame)
+        for id in pinIDs {
+            let tile = try XCTUnwrap(result.first { $0.kind == .pin(id) }?.frame)
+            XCTAssertTrue(shelf.insetBy(dx: -1, dy: -1).contains(tile), "Collapsed pins must not be clipped by the shelf")
+        }
+    }
+
+    @MainActor
     private func frames(of view: some View, width: CGFloat) async throws -> [WorkspaceSidebarDropTargetFrame] {
         var result: [WorkspaceSidebarDropTargetFrame] = []
         let host = NSHostingView(rootView: view.onPreferenceChange(WorkspaceSidebarDropTargetPreferenceKey.self) { result = $0 })
