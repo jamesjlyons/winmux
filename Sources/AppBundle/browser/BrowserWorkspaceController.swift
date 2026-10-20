@@ -1313,7 +1313,14 @@ public final class BrowserWorkspaceController {
                     reservations[member] = name
                     continue
                 }
-                guard isAvailable(member), workspaceName(for: member) == name else { return nil }
+                // A disconnected, unrestored, minimized or closing owner cannot
+                // move, but must not veto edits to its siblings either. It keeps
+                // its place in this View until it returns or is pruned.
+                guard isAvailable(member) else {
+                    reservations[member] = name
+                    continue
+                }
+                guard workspaceName(for: member) == name else { return nil }
                 if case .browserTab = member, owner(of: member)?.supportsLayout != true { return nil }
             }
         }

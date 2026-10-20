@@ -293,4 +293,27 @@ import XCTest
         XCTAssertFalse(controller.combineViews(second.surfaceID, with: first.surfaceID, layout: .stack))
         XCTAssertEqual(controller.surfaceTree, snapshot)
     }
+
+    func testUnavailableSiblingDoesNotBlockSeparatingAView() throws {
+        for unavailable in ["minimized", "closed"] {
+            setUpWorkspacesForTests()
+            let controller = BrowserWorkspaceController(), workspace = focus.workspace
+            let moved = TestWindow.new(id: 401, parent: workspace.rootTilingContainer)
+            let kept = TestWindow.new(id: 402, parent: workspace.rootTilingContainer)
+            let sibling = TestWindow.new(id: 403, parent: workspace.rootTilingContainer)
+            var tree = SurfaceTree(); tree.reconcile([moved.surfaceID, kept.surfaceID, sibling.surfaceID], in: workspace.name)
+            controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+            XCTAssertTrue(controller.combineViews(moved.surfaceID, with: kept.surfaceID, layout: .stack))
+            if unavailable == "minimized" {
+                sibling.bind(to: macosMinimizedWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+                sibling.layoutReason = .macos(prevParentKind: .tilingContainer, prevWorkspaceName: workspace.name)
+            } else {
+                sibling.unbindFromParent()
+            }
+            XCTAssertTrue(controller.separateView(moved.surfaceID), unavailable)
+            XCTAssertFalse(moved.nodeWorkspace === workspace, unavailable)
+            XCTAssertTrue(kept.nodeWorkspace === workspace, unavailable)
+            XCTAssertEqual(controller.surfaceTree.workspace(of: sibling.surfaceID), workspace.name, unavailable)
+        }
+    }
 }

@@ -428,12 +428,13 @@ import XCTest
         XCTAssertEqual(controller.capturePlacementSnapshot(), afterDiscovery)
     }
 
-    func testDisconnectedOrOldProtocolOwnerPreventsPartialStructuralEdits() async throws {
+    func testOldProtocolOwnerPreventsPartialStructuralEditsButDisconnectedOwnerDoesNot() async throws {
         controller.disconnected(connection)
         _ = Window.get(byId: 71)?.focusWindow()
+        // A disconnected page keeps its place; it does not veto its siblings.
+        try await checkCommand(["surface", "layout", "selected", "stack"])
+        XCTAssertEqual(controller.surfaceTree.workspace(of: tab), focus.workspace.name)
         let before = controller.surfaceTree
-        try await checkCommand(["surface", "layout", "selected", "stack"], exit: 1)
-        XCTAssertEqual(controller.surfaceTree, before)
         controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
         controller.received(.init(revision: 1, full: true, tabs: [.init(surfaceID: tab, hostID: "old", title: "", selected: false)]),
             epoch: UUID(), connection: connection, protocolVersion: 2)

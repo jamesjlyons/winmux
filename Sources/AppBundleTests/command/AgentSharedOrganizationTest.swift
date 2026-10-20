@@ -246,14 +246,15 @@ import XCTest
         XCTAssertEqual(controller.surfaceTree.workspace(of: tab), workspaceName)
     }
 
-    func testUnavailableOwnerPreventsNativeFloatingMutation() async throws {
+    func testUnavailableOwnerDoesNotPreventNativeFloatingMutation() async throws {
         controller.disconnected(connection)
-        let before = controller.surfaceTree
         let first = try XCTUnwrap(Window.get(byId: 71))
+        let workspace = try XCTUnwrap(first.nodeWorkspace?.name)
         let result = try await run("{\"type\":\"setFloating\",\"windowId\":71,\"value\":true}")
-        XCTAssertEqual(result.exitCode, 1)
-        XCTAssertFalse(first.isFloating)
-        XCTAssertEqual(controller.surfaceTree, before)
+        XCTAssertEqual(result.exitCode, 0, result.stderr.joined())
+        XCTAssertTrue(first.isFloating)
+        // The disconnected page keeps its place in the View.
+        XCTAssertEqual(controller.surfaceTree.workspace(of: tab), workspace)
     }
 
     func testSnapshotAndValidationRejectLayoutChangesDuringTitleReads() async throws {

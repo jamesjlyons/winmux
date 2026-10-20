@@ -54,9 +54,9 @@ import XCTest
         XCTAssertTrue(native.restoreSurfaceID(reserved))
         XCTAssertEqual(Set(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID)), [page, other, reserved])
         native.unbindFromParent()
-        let before = controller.surfaceTree
-        XCTAssertFalse(controller.editOrganization(of: page) { $0.split(page, beside: other, layout: .vertical, before: false) })
-        XCTAssertEqual(controller.surfaceTree, before, "An observed native window cannot revert to a restore placeholder after closing")
+        XCTAssertTrue(controller.editOrganization(of: page) { $0.split(page, beside: other, layout: .vertical, before: false) })
+        XCTAssertFalse(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID).contains(reserved),
+                       "An observed native window cannot revert to a restore placeholder after closing")
     }
 
     func testUnavailableBrowserIsNotTreatedAsAnUnresolvedNativeReservation() {
@@ -67,8 +67,10 @@ import XCTest
         let connection = connect([page], to: controller)
         controller.disconnected(connection)
         XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID), [native.surfaceID])
-        XCTAssertFalse(controller.editOrganization(of: native.surfaceID) { $0.setLayout(containing: native.surfaceID, to: .vertical) })
-        XCTAssertEqual(controller.surfaceTree, tree)
+        // The disconnected page keeps its place without vetoing its sibling.
+        XCTAssertTrue(controller.editOrganization(of: native.surfaceID) { $0.setLayout(containing: native.surfaceID, to: .vertical) })
+        XCTAssertEqual(controller.surfaceTree.workspace(of: page), focus.workspace.name)
+        XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID), [native.surfaceID])
     }
 
     func testResizeChangesVisiblePaneByExactAmountBesideReservation() throws {

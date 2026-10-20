@@ -162,18 +162,34 @@ final class WorkspaceSidebarSurfaceDragTest: XCTestCase {
         XCTAssertTrue(focus.windowOrNil === remaining)
     }
 
-    private func unavailableSourceReservationFixture() throws -> (controller: BrowserWorkspaceController, group: UUID, windows: [TestWindow]) {
+    /// A page owned by a browser without layout support vetoes edits to its View.
+    private func unavailableSourceReservationFixture(connectPage: Bool = true) throws
+        -> (controller: BrowserWorkspaceController, group: UUID, windows: [TestWindow], page: SurfaceID) {
         let source = focus.workspace
         let first = TestWindow.new(id: 8031, parent: source.rootTilingContainer)
         let second = TestWindow.new(id: 8032, parent: source.rootTilingContainer)
-        let disconnectedPage = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
         var tree = SurfaceTree()
-        tree.reconcile([first.surfaceID, second.surfaceID, disconnectedPage], in: source.name)
+        tree.reconcile([first.surfaceID, second.surfaceID, page], in: source.name)
         XCTAssertTrue(tree.group(second.surfaceID, with: first.surfaceID))
         let group = try XCTUnwrap(tree.containingGroup(of: first.surfaceID))
         let controller = BrowserWorkspaceController()
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [source.name], selected: nil, closedBrowserTabs: []))
-        return (controller, group, [first, second])
+        if connectPage {
+            let connection = UUID()
+            controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+            controller.received(.init(revision: 1, full: true, tabs: [record(page)]), epoch: UUID(), connection: connection, protocolVersion: 2)
+        }
+        return (controller, group, [first, second], page)
+    }
+
+    func testUnrestoredPageDoesNotBlockMovingItsSiblingsToANewView() throws {
+        let fixture = try unavailableSourceReservationFixture(connectPage: false)
+        let source = focus.workspace
+        XCTAssertTrue(moveSidebarSurfaceGroupToNewWorkspace(fixture.group, projectId: workspaceProjectDefaultId,
+            monitor: mainMonitor, controller: fixture.controller))
+        XCTAssertTrue(fixture.windows.allSatisfy { $0.nodeWorkspace !== source })
+        XCTAssertEqual(fixture.controller.surfaceTree.workspace(of: fixture.page), source.name)
     }
 
     private func record(_ id: SurfaceID) -> BrowserTabRecord {
