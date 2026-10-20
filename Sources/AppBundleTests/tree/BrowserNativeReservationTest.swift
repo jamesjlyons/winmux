@@ -66,7 +66,7 @@ import XCTest
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [focus.workspace.name], selected: nil, closedBrowserTabs: []))
         let connection = connect([page], to: controller)
         controller.disconnected(connection)
-        XCTAssertEqual(Set(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID)), [native.surfaceID, page])
+        XCTAssertEqual(controller.plannedSurfaces(in: focus.workspace).map(\.surfaceID), [native.surfaceID])
         XCTAssertFalse(controller.editOrganization(of: native.surfaceID) { $0.setLayout(containing: native.surfaceID, to: .vertical) })
         XCTAssertEqual(controller.surfaceTree, tree)
     }

@@ -172,16 +172,15 @@ import XCTest
         XCTAssertNoThrow(try controller.capturePlacementSnapshot()?.validated())
     }
 
-    func testUnavailableOwnerCannotReorderOrDetachButOtherTabsStayUsable() async throws {
+    func testUnavailableOwnerCannotReorderOrDetachButNativeSiblingStaysVisible() async throws {
         controller.disconnected(connection)
         let before = controller.surfaceTree
         XCTAssertFalse(reorderSharedStackTab(.surface(page), stack: group, to: 0))
         XCTAssertFalse(separateSharedStackTab(.surface(page)))
         let strips = await buildSharedStackChrome()
-        let stack = try XCTUnwrap(strips.first?.sharedStack)
-        XCTAssertEqual(stack.tabs.count, 2)
-        XCTAssertFalse(try XCTUnwrap(stack.tabs.first { $0.surface == page }).isAvailable)
-        XCTAssertTrue(try XCTUnwrap(stack.tabs.first { $0.surface == first.surfaceID }).isAvailable)
+        XCTAssertTrue(strips.isEmpty, "One live member needs neither a stack header nor an unavailable tab")
+        let native = try XCTUnwrap(controller.plannedSurfaces(in: focus.workspace).first { $0.surfaceID == first.surfaceID })
+        XCTAssertTrue(native.visible)
         XCTAssertEqual(controller.surfaceTree, before)
     }
 

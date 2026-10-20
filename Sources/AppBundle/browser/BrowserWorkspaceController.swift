@@ -1516,7 +1516,7 @@ public final class BrowserWorkspaceController {
     func hasSharedLayout(in workspace: Workspace) -> Bool { usesSurfaceTree && surfaceTree.roots[workspace.name] != nil }
 
     /// Rendering and resizing must use the same tree of currently claimed panes.
-    /// The saved tree keeps native reservations until discovery finishes.
+    /// The saved tree keeps reservations while their owners are unavailable.
     func liveLayoutTree(in workspace: Workspace) -> SurfaceTree {
         retireResolvedNativeReservations()
         var excluded: Set<SurfaceID> = []
@@ -1532,8 +1532,13 @@ public final class BrowserWorkspaceController {
                     continue
                 }
             case .browserTab:
-                let browser = owner(of: id)?.inventory.tabs[id]
-                if browser?.hostMinimized == true || browser?.hostFullscreen == true || browser?.hostZoomed == true {
+                // Saved pages survive restoration and transient disconnects, but
+                // cannot occupy a tile (or select a stack pane) without an owner.
+                guard let browser = owner(of: id)?.inventory.tabs[id] else {
+                    excluded.insert(id)
+                    continue
+                }
+                if browser.hostMinimized || browser.hostFullscreen || browser.hostZoomed {
                     excluded.insert(id)
                 }
             }

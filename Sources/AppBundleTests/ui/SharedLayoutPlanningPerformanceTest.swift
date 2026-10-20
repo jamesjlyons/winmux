@@ -13,6 +13,11 @@ final class SharedLayoutPlanningPerformanceTest: XCTestCase {
         var tree = SurfaceTree()
         tree.reconcile([page], in: workspace.name)
         controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [], selected: nil, closedBrowserTabs: []))
+        let connection = UUID()
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [
+            .init(surfaceID: page, hostID: page.description, title: "Page", selected: true)
+        ]), epoch: UUID(), connection: connection)
         XCTAssertNil(workspace.existingRootTilingContainer)
         for _ in 0..<3 {
             XCTAssertNil(controller.sharedFullscreenPane(in: workspace))

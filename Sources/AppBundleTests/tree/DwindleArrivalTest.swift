@@ -58,6 +58,11 @@ final class DwindleArrivalTest: XCTestCase {
         let controller = BrowserWorkspaceController(), workspace = focus.workspace
         controller.usesSurfaceTree = true
         let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let connection = UUID()
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        controller.received(.init(revision: 1, full: true, tabs: [
+            .init(surfaceID: page, hostID: page.description, title: "Page", selected: true)
+        ]), epoch: UUID(), connection: connection, protocolVersion: 11)
         let other = TestWindow.new(id: 401, parent: workspace.rootTilingContainer)
         controller.surfaceTree.reconcile([page, other.surfaceID], in: workspace.name)
         // Give the page a narrow column regardless of the test display size.
