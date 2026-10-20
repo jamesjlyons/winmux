@@ -2,6 +2,13 @@ import AppKit
 import SwiftUI
 import WorkspaceCore
 
+/// Pins below the shelf's viewport. The collapsed rail keeps the expanded shelf
+/// height, so its single column can hold fewer pins than exist.
+func workspaceSidebarHiddenPinCount(pinCount: Int, visibleRows: Int, scrolledBy offset: CGFloat, rowHeight: CGFloat) -> Int {
+    let scrolledRows = max(0, Int((offset + 1) / rowHeight))
+    return max(0, pinCount - visibleRows - scrolledRows)
+}
+
 func workspaceSidebarCombinedPins(_ workspaces: [WorkspaceSidebarWorkspaceViewModel]) -> WorkspaceSidebarWorkspaceViewModel? {
     guard var result = workspaces.first(where: \.isPinnedGroup) else { return nil }
     result.pins = workspaces.filter(\.isPinnedGroup).flatMap(\.pins).sorted { $0.sortOrder < $1.sortOrder }
@@ -25,6 +32,7 @@ struct WorkspaceSidebarPinGrid: View {
     var expandedAvailableWidth: CGFloat? = nil
     var reorderTarget: WorkspaceSidebarPinReorderTarget? = nil
     @State private var hoveredPin: UUID?
+    @State private var scrollOffset: CGFloat = 0
 
     private let tileHeight: CGFloat = 40
     private let tileSpacing: CGFloat = 6
@@ -34,14 +42,27 @@ struct WorkspaceSidebarPinGrid: View {
     private var columnCount: Int { isCompact ? 1 : columns(for: availableWidth) }
     private func columns(for width: CGFloat) -> Int { max(1, Int((width + tileSpacing) / (52 + tileSpacing))) }
     private var visibleRowCount: Int {
-        // The collapsed rail stacks one pin per row, so every pin needs its own row to stay visible.
-        if isCompact { return max(1, workspace.pins.count) }
         let columns = columns(for: expandedAvailableWidth ?? availableWidth)
         return min(3, max(1, (workspace.pins.count + columns - 1) / columns))
     }
     private var gridHeight: CGFloat {
         // Keep the tabs below the shelf anchored while its icons reflow.
         CGFloat(visibleRowCount) * (tileHeight + tileSpacing) - tileSpacing
+    }
+    private var hiddenPinCount: Int {
+        guard isCompact else { return 0 }
+        return workspaceSidebarHiddenPinCount(pinCount: workspace.pins.count, visibleRows: visibleRowCount,
+                                              scrolledBy: scrollOffset, rowHeight: tileHeight + tileSpacing)
+    }
+    // Only the collapsed rail fades: its overflow is otherwise invisible at 32pt wide.
+    private var overflowFadeMask: some View {
+        let top = isCompact && scrollOffset > 2, bottom = hiddenPinCount > 0
+        return LinearGradient(stops: [
+            .init(color: top ? .clear : .black, location: 0),
+            .init(color: .black, location: top ? 0.12 : 0),
+            .init(color: .black, location: bottom ? 0.82 : 1),
+            .init(color: bottom ? .clear : .black, location: 1),
+        ], startPoint: .top, endPoint: .bottom)
     }
 
     var body: some View {
@@ -62,6 +83,27 @@ struct WorkspaceSidebarPinGrid: View {
                 }
                 .padding(2)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear { scrollOffset = -geometry.frame(in: .named("workspaceSidebarPinShelf")).minY }
+                            .onChange(of: geometry.frame(in: .named("workspaceSidebarPinShelf")).minY) { scrollOffset = -$0 }
+                    }
+                }
+            }
+            .coordinateSpace(name: "workspaceSidebarPinShelf")
+            .mask(overflowFadeMask)
+            .overlay(alignment: .bottom) {
+                if hiddenPinCount > 0 {
+                    Text("+\(hiddenPinCount)")
+                        .font(.system(size: 9, weight: .semibold))
+                        .monospacedDigit()
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(.regularMaterial, in: Capsule())
+                        .allowsHitTesting(false)
+                        .accessibilityLabel("\(hiddenPinCount) more pinned")
+                }
             }
             .frame(height: gridHeight + 4)
             .background {

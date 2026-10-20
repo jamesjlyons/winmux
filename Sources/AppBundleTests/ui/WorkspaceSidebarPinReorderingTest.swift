@@ -93,27 +93,14 @@ final class WorkspaceSidebarPinReorderingTest: XCTestCase {
         }
     }
 
-    @MainActor
-    func testCompactShelfShowsEveryPin() async throws {
-        var workspace = WorkspaceSidebarWorkspaceViewModel(name: "pin-proof", projectId: workspaceProjectDefaultId,
-            displayName: "Pinned", sidebarLabel: "", isGeneratedName: false, monitorScopeId: "proof", monitorName: nil,
-            isFocused: false, isVisible: true, items: [], isPinnedGroup: true)
-        let pinIDs = (0..<14).map { _ in UUID() }
-        workspace.pins = pinIDs.enumerated().map { index, id in
-            .init(id: id, workspaceName: workspace.name, title: "Pin \(index + 1)", bundleIdentifier: "com.apple.Safari",
-                  bundlePath: nil, iconPNGBase64: nil, surfaceID: nil, isFocused: false, isOpen: false,
-                  isLoading: false, isUnavailable: false, isBrowser: true)
-        }
-        let grid = WorkspaceSidebarPinGrid(workspace: workspace, projects: [], isCompact: true,
-            availableWidth: 36, showsDropWell: false, actions: .init(), expandedAvailableWidth: 174)
-            .frame(width: 36, alignment: .top)
-            .coordinateSpace(name: "workspaceSidebarContent")
-        let result = try await frames(of: grid, width: 36)
-        let shelf = try XCTUnwrap(result.first { $0.kind == .workspace(workspace.name) }?.frame)
-        for id in pinIDs {
-            let tile = try XCTUnwrap(result.first { $0.kind == .pin(id) }?.frame)
-            XCTAssertTrue(shelf.insetBy(dx: -1, dy: -1).contains(tile), "Collapsed pins must not be clipped by the shelf")
-        }
+    func testCollapsedShelfCountsPinsBelowTheViewport() {
+        XCTAssertEqual(workspaceSidebarHiddenPinCount(pinCount: 5, visibleRows: 2, scrolledBy: 0, rowHeight: 46), 3)
+        XCTAssertEqual(workspaceSidebarHiddenPinCount(pinCount: 5, visibleRows: 2, scrolledBy: 46, rowHeight: 46), 2)
+        // A sub-point scroll remainder still counts the row as passed.
+        XCTAssertEqual(workspaceSidebarHiddenPinCount(pinCount: 5, visibleRows: 2, scrolledBy: 137.5, rowHeight: 46), 0)
+        XCTAssertEqual(workspaceSidebarHiddenPinCount(pinCount: 2, visibleRows: 2, scrolledBy: 0, rowHeight: 46), 0)
+        // Elastic overscroll above the top never inflates the count.
+        XCTAssertEqual(workspaceSidebarHiddenPinCount(pinCount: 5, visibleRows: 2, scrolledBy: -20, rowHeight: 46), 3)
     }
 
     @MainActor
