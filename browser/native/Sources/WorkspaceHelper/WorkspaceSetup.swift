@@ -484,6 +484,16 @@ final class WorkspaceSetup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if ProcessInfo.processInfo.environment["WINMUX_TRACE_LAYOUT"] == "1" {
             configuration.arguments.append("--winmux-trace-layout")
         }
+        // Every managed page window carries a Liquid Glass toolbar material by
+        // default, which the GPU re-composites whenever the window moves or
+        // resizes. `defaults write com.jameslyons.winmux.browser.alpha.workspace
+        // WinMuxOpaqueToolbar -bool true` (or WINMUX_OPAQUE_TOOLBAR=1) launches
+        // the browser with an opaque toolbar for comparison; this changes
+        // appearance only, never filtering, profiles or workspace behavior.
+        if UserDefaults.standard.bool(forKey: "WinMuxOpaqueToolbar") ||
+            ProcessInfo.processInfo.environment["WINMUX_OPAQUE_TOOLBAR"] == "1" {
+            configuration.arguments.append("--disable-features=GlassFrame")
+        }
         if request.validationID != nil {
             configuration.arguments += ["--winmux-sidebar-preview", "--winmux-test-service=" + request.machService,
                 "--winmux-bridge-report=" + request.directory(in: store.root).appendingPathComponent("bridge.json").path]

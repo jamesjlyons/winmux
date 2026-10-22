@@ -21,6 +21,15 @@ func setWorkspaceSidebarVisibilityFromMenu(_ visibility: WorkspaceSidebarVisibil
     }
 }
 
+@MainActor
+func setWorkspaceNavigationPlacement(_ placement: WorkspaceNavigationPlacement) {
+    Task { @MainActor in
+        do {
+            try await saveSettingsConfig(section: "workspace-sidebar", key: "placement", renderedValue: "'\(placement.rawValue)'")
+        } catch { showWorkspaceSidebarError(error.localizedDescription) }
+    }
+}
+
 func updateWorkspaceSidebarVisibilityConfig(in text: String, visibility: WorkspaceSidebarVisibility) -> String {
     updateWorkspaceSidebarScalarConfig(in: text, key: "visibility", renderedValue: "'\(visibility.rawValue)'")
 }

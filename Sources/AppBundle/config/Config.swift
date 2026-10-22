@@ -86,6 +86,7 @@ enum ShortcutsPreset: String, Equatable, Sendable {
 struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var enabled: Bool = false
     var enableFocus: Bool = false
+    var placement: WorkspaceNavigationPlacement = .side
     var visibility: WorkspaceSidebarVisibility = .compact
     var swipeToCreateProjects: Bool = false
     var collapsedWidth: Int = 44
@@ -109,6 +110,11 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
     var projectIcons: [String: String] = [:]
+}
+
+enum WorkspaceNavigationPlacement: String, CaseIterable, Hashable, Sendable {
+    case side, top
+    var title: String { self == .side ? "Side tabs" : "Top tabs" }
 }
 
 enum WorkspaceSidebarVisibility: String, CaseIterable, Hashable, Sendable {

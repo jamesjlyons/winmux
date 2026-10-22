@@ -22,9 +22,13 @@ struct BrowserSurfaceAction {
 // immutable JSON to the asynchronous authenticated transport.
 void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string)> publisher,
                            bool seed_isolated_test);
-void BeginBrowserInventoryEpoch(std::string epoch, bool include_private);
+// A peer with the integrated toolbar renders Chromium's own extension and
+// download controls, so inventory omits those legacy per-tab fields for it.
+void BeginBrowserInventoryEpoch(std::string epoch, bool include_private, bool integrated_toolbar);
 void StopBrowserInventory();
+// Metadata refreshes coalesce briefly; structural changes publish at once.
 void RefreshBrowserInventory();
+void RefreshBrowserInventorySurface(const std::string& surface);
 // Read-only local history; the live surface determines the owning profile.
 void QueryBrowserHistory(const std::string& epoch, const std::string& surface,
                          const std::string& query, base::OnceCallback<void(std::string)> completion);

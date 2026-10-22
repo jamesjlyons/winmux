@@ -18,6 +18,7 @@ async function bridge({ migrated = false, allowed = false, legacy = [] } = {}) {
     let listener;
     let interval;
     let context;
+    const timeouts = [];
     const ublock = {
         pageStores: new Map([[17, page]]),
         netWhitelist: ['about-scheme'],
@@ -35,7 +36,9 @@ async function bridge({ migrated = false, allowed = false, legacy = [] } = {}) {
     };
     context = vm.createContext({
         URL, console: { error: (...args) => errors.push(args) },
-        setInterval(fn, delay) { assert.equal(delay, 1000); interval = fn; },
+        // The exchange is event-driven; the interval is only a slow fallback.
+        setInterval(fn, delay) { assert.equal(delay, 60000); interval = fn; },
+        setTimeout(fn, delay) { assert.equal(delay, 1500); timeouts.push(fn); return timeouts.length; },
         chrome: {
             runtime: {},
             winmuxBlocking: {
@@ -67,8 +70,12 @@ async function bridge({ migrated = false, allowed = false, legacy = [] } = {}) {
     }, { context }));
     await module.evaluate();
     await context.winmuxBlockingReady();
-    return { context, configuration, calls, storage, ublock, page, events, errors,
+    return { context, configuration, calls, storage, ublock, page, events, errors, timeouts,
         tick: () => interval(), command: () => listener(),
+        flushTimeouts: async () => {
+            for (const fn of timeouts.splice(0)) { await fn(); }
+            await new Promise(resolve => setImmediate(resolve));
+        },
         navigate: value => { tabURL = value; } };
 }
 
@@ -155,4 +162,21 @@ test('new consent schedules updates while respecting the uBlock auto-update pref
     b.configuration.filterUpdates = true;
     await b.tick();
     assert.equal(b.events.filter(x => x[0] === 'schedule-updates').length, 1);
+});
+
+test('badge updates schedule one trailing exchange and an idle profile exchanges nothing', async () => {
+    const b = await bridge({ migrated: true });
+    const before = b.calls.length;
+    b.ublock.updateToolbarIcon(17);
+    b.ublock.updateToolbarIcon(17);
+    // uBlock's own updater still runs; the bridge only coalesces its exchange.
+    assert.deepEqual(b.events.filter(x => x[0] === 'icon'), [['icon', 17], ['icon', 17]]);
+    assert.equal(b.timeouts.length, 1);
+    assert.equal(b.calls.length, before);
+    await b.flushTimeouts();
+    assert.equal(b.calls.length, before + 1);
+    assert.equal(b.timeouts.length, 0);
+    b.ublock.updateToolbarIcon(17);
+    assert.equal(b.timeouts.length, 1);
+    assert.equal(b.errors.length, 0);
 });

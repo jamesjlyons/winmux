@@ -60,8 +60,11 @@ public final class BrowserWorkspaceController {
         let native: [ObjectIdentifier: [UInt64]]
     }
 
+    /// Organization depends on membership and arrangement, which `layoutEpoch`
+    /// tracks. Title, favicon, loading and counter updates bump only the
+    /// interaction revision and must not reconcile every Space.
     private func organizationRevision() -> OrganizationRevision {
-        .init(browser: interactionRevision, configuration: configurationRevision, native: Dictionary(uniqueKeysWithValues: Workspace.all.map {
+        .init(browser: layoutEpoch, configuration: configurationRevision, native: Dictionary(uniqueKeysWithValues: Workspace.all.map {
             (ObjectIdentifier($0), [$0.revisions.structure, $0.revisions.metadata, $0.revisions.geometry])
         }))
     }
@@ -78,11 +81,14 @@ public final class BrowserWorkspaceController {
     var savedViews: [SavedView] = [] {
         didSet {
             guard oldValue != savedViews else { return }
+            // Member titles follow live page titles, which change while pages
+            // load. Layout never reads them, and every session capture copies
+            // the live titles again, so a title alone must not replan,
+            // reconcile, or checkpoint the restart session to disk.
+            guard oldValue.map(\.ignoringMemberTitles) != savedViews.map(\.ignoringMemberTitles) else { return }
             interactionRevision &+= 1
             persistenceRevision &+= 1
-            // Member titles follow live page titles, which change while pages
-            // load. Layout never reads them; don't replan every Space for one.
-            if oldValue.map(\.ignoringMemberTitles) != savedViews.map(\.ignoringMemberTitles) { layoutEpoch &+= 1 }
+            layoutEpoch &+= 1
         }
     }
     var legacyBrowserPins: [BrowserSidebarPin] = [] {
@@ -418,6 +424,7 @@ public final class BrowserWorkspaceController {
     public func received(_ message: BrowserInventoryMessage, epoch: UUID, connection: UUID, protocolVersion: Int = 2) {
         interactionRevision &+= 1
         guard let session = sessions[connection], protocolVersion >= 7 || !message.tabs.contains(where: \.privateBrowsing) else { return }
+        let entryLayoutEpoch = layoutEpoch
         // Profile-move copies are excluded from automatic selection without a
         // revision of their own; keep replanning while a move is pending.
         let changesLayout = !pendingProfileMoves.isEmpty || session.epoch == nil ||
@@ -479,19 +486,19 @@ public final class BrowserWorkspaceController {
             !(restoredPlacements && isInitialInventory && message.full)
         let arrivalSource = focusCoordinator.target ?? focus.windowOrNil?.surfaceID
         var tiledArrivals: [SurfaceID] = []
-        for id in session.inventory.tabs.keys.sorted(by: { $0.description < $1.description }) {
-            closedBrowserTabs.remove(id)
-            if placements[id] == nil {
-                let destination = session.inventory.tabs[id]?.privateBrowsing == true
-                    ? incognitoDestination(id, from: arrivalContext)
-                    : (separateArrivals ? standaloneBrowserDestination(id, in: regularArrivalWorkspace(arrivalContext)) : workspace)
-                placements[id] = destination
-                if config.newItemPlacement != .newView,
-                   !isInitialInventory, previewWindow == nil,
-                   !isProfileMoveArrival(id, session: session) { tiledArrivals.append(id) }
-                if isWinMuxRuntimeReady || isPrivateSurface(id) { _ = Workspace.get(byName: destination) }
-                Workspace.existing(byName: destination)?.hasContainedItems = true
-            }
+        closedBrowserTabs.subtract(session.inventory.tabs.keys)
+        // Only unplaced pages need the deterministic arrival order; a metadata
+        // delta has none, so it sorts nothing.
+        for id in session.inventory.tabs.keys.filter({ placements[$0] == nil }).sorted() {
+            let destination = session.inventory.tabs[id]?.privateBrowsing == true
+                ? incognitoDestination(id, from: arrivalContext)
+                : (separateArrivals ? standaloneBrowserDestination(id, in: regularArrivalWorkspace(arrivalContext)) : workspace)
+            placements[id] = destination
+            if config.newItemPlacement != .newView,
+               !isInitialInventory, previewWindow == nil,
+               !isProfileMoveArrival(id, session: session) { tiledArrivals.append(id) }
+            if isWinMuxRuntimeReady || isPrivateSurface(id) { _ = Workspace.get(byName: destination) }
+            Workspace.existing(byName: destination)?.hasContainedItems = true
         }
         reconcileSharedOrganization()
         // Remove the provisional root leaves together. Each arrival then sees
@@ -540,12 +547,41 @@ public final class BrowserWorkspaceController {
             surfaceTree.select(focused.surfaceID)
             rememberSelection(focused.surfaceID)
         }
-        migratePinnedDesktops()
+        // Pin ownership and legacy desktop migration depend on membership. The
+        // reconcile above already ran them when this message changed it; run
+        // them again only if the steps below changed membership too. A
+        // metadata-only delta just refreshes pin artwork.
         completePendingBrowserTabSelections()
         completePendingProfileMoves()
         pruneIncognitoSpaces()
-        syncSidebarPins()
+        if layoutEpoch != entryLayoutEpoch || message.full {
+            migratePinnedDesktops()
+            syncSidebarPins()
+        } else {
+            syncSidebarPinIcons()
+        }
         scheduleRefresh()
+    }
+
+    /// The live favicon of a pinned page, without membership work.
+    func syncSidebarPinIcons() {
+        for index in browserSidebarPins.indices {
+            guard let id = browserSidebarPins[index].surfaceID,
+                  let record = owner(of: id)?.inventory.tabs[id], record.url == browserSidebarPins[index].url,
+                  let icon = record.iconPNGBase64, browserSidebarPins[index].iconPNGBase64 != icon else { continue }
+            browserSidebarPins[index].iconPNGBase64 = icon
+        }
+    }
+
+    /// Cheap pre-check before a WindowServer query: hosts report their frames in
+    /// the same top-left screen coordinates as the window list.
+    func hasVisibleBrowserHost(containing point: CGPoint) -> Bool {
+        sessions.values.contains { session in
+            session.inventory.tabs.values.contains { tab in
+                guard tab.hostVisible == true, !tab.hostMinimized, let frame = tab.hostFrame else { return false }
+                return CGRect(x: frame.x, y: frame.y, width: frame.width, height: frame.height).contains(point)
+            }
+        }
     }
 
     public func disconnected(_ connection: UUID) {
@@ -740,7 +776,7 @@ public final class BrowserWorkspaceController {
         let selected = workspaceSidebarSelectedSurfaces(in: surfaceTree)
         return sessions.values.flatMap { $0.inventory.tabs.values }
             .filter { placements[$0.surfaceID] == workspace && owner(of: $0.surfaceID) != nil }
-            .sorted { $0.surfaceID.description < $1.surfaceID.description }
+            .sorted { $0.surfaceID < $1.surfaceID }
             .map { record in .init(kind: .browserTab(.init(
                 surfaceID: record.surfaceID, workspaceName: workspace,
                 title: record.title.isEmpty ? "New tab" : record.title,
@@ -902,8 +938,7 @@ public final class BrowserWorkspaceController {
         let knownSurfaces = Set(surfaceTree.roots.values.flatMap { $0.flatMap(\.surfaces) })
         reconciledMembership = reconciledMembership.filter { names.contains($0.key) }
         for name in names.sorted() {
-            let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }
-                .sorted { $0.description < $1.description }
+            let browserIDs = (browserByWorkspace[name] ?? []).filter { owner(of: $0) != nil }.sorted()
             let input = membershipRevision(workspaces[name], name: name, browser: browserIDs)
             guard reconciledMembership[name] != input else { continue }
             defer { reconciledMembership[name] = membershipRevision(workspaces[name], name: name, browser: browserIDs) }

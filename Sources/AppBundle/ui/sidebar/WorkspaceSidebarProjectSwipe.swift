@@ -28,8 +28,27 @@ func workspaceSidebarProjectIndexAfterSwipe(currentIndex: Int?, projectCount: In
     return (0 ..< projectCount).contains(nextIndex) ? nextIndex : nil
 }
 
-func shouldRenderWorkspaceSidebarProjectPage(index: Int, displayIndex: Int, swipeDirection: Int?, projectCount: Int) -> Bool {
+/// A swipe can only start while the pointer is over the sidebar. Once it has
+/// rested there for this long, both neighbours of the displayed Space are built
+/// ahead of time, so the first points of travel never have to mount a page.
+/// The delay keeps that work out of the sidebar's own opening animation.
+let workspaceSidebarAdjacentPageMountDelay: Duration = .milliseconds(150)
+/// Brief exits keep the neighbours; a sidebar the pointer has left for longer
+/// goes back to one mounted page so content updates cost as little as before.
+let workspaceSidebarAdjacentPageRetainDelay: Duration = .milliseconds(1500)
+
+/// With `mountsAdjacentPages` the displayed Space and both neighbours are
+/// mounted; otherwise only the displayed Space plus the page a swipe is moving
+/// towards. Pages further away are never built.
+func shouldRenderWorkspaceSidebarProjectPage(
+    index: Int,
+    displayIndex: Int,
+    swipeDirection: Int?,
+    projectCount: Int,
+    mountsAdjacentPages: Bool,
+) -> Bool {
     guard index != displayIndex else { return true }
+    if mountsAdjacentPages, (0 ..< projectCount).contains(index), abs(index - displayIndex) == 1 { return true }
     guard let swipeDirection else { return false }
     return index == workspaceSidebarProjectIndexAfterSwipe(
         currentIndex: displayIndex,

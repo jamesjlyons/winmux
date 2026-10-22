@@ -276,6 +276,9 @@ final class BrowserWindowDragController {
     }
 
     private func browserCandidate(at point: CGPoint) -> Drag? {
+        // Most clicks land outside any page host. Skip the WindowServer query
+        // unless a visible host frame contains the point.
+        guard controller.hasVisibleBrowserHost(containing: point) else { return nil }
         guard let entries = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
         for entry in entries {
             guard (entry[kCGWindowAlpha as String] as? Double ?? 1) > 0,

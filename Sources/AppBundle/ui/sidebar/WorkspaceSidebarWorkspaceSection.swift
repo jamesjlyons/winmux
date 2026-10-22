@@ -198,6 +198,37 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 value: tabReorderState.offset(for: workspace.name, monitor: targetMonitorScopeId))
     }
 }
+/// Sections are the bulk of the sidebar's render work, and every snapshot
+/// publication used to rebuild all of them because their callbacks are closures
+/// SwiftUI cannot compare. Comparing the values they actually render lets an
+/// update that changes one View leave the others untouched. Observed objects,
+/// environment values and local state still invalidate a section on their own;
+/// the callbacks only read live state or the compared `workspace`.
+extension WorkspaceSidebarWorkspaceSection: Equatable {
+    nonisolated static func == (lhs: WorkspaceSidebarWorkspaceSection, rhs: WorkspaceSidebarWorkspaceSection) -> Bool {
+        lhs.workspace == rhs.workspace &&
+            lhs.targetMonitorScopeId == rhs.targetMonitorScopeId &&
+            lhs.dragPreview == rhs.dragPreview &&
+            lhs.expansionProgress == rhs.expansionProgress &&
+            lhs.layout == rhs.layout &&
+            lhs.emitsDropTarget == rhs.emitsDropTarget &&
+            lhs.isFromOtherDisplay == rhs.isFromOtherDisplay &&
+            lhs.isInUseOnOtherDisplay == rhs.isInUseOnOtherDisplay &&
+            lhs.isOnFocusedMonitor == rhs.isOnFocusedMonitor &&
+            lhs.allowsWorkspaceActivation == rhs.allowsWorkspaceActivation &&
+            lhs.isPinnedActiveWorkspace == rhs.isPinnedActiveWorkspace &&
+            lhs.isActiveOnTargetMonitor == rhs.isActiveOnTargetMonitor &&
+            lhs.projectContextLabel == rhs.projectContextLabel &&
+            lhs.projectContextColor == rhs.projectContextColor &&
+            lhs.renamingWorkspaceName == rhs.renamingWorkspaceName &&
+            lhs.renamingWorkspaceText == rhs.renamingWorkspaceText &&
+            lhs.selectedSearchTarget == rhs.selectedSearchTarget &&
+            lhs.isSearchFiltering == rhs.isSearchFiltering &&
+            lhs.activeInUseOverrideWorkspaceName == rhs.activeInUseOverrideWorkspaceName &&
+            lhs.isViewExpanded == rhs.isViewExpanded
+    }
+}
+
 extension WorkspaceSidebarWorkspaceSection {
     func handleSectionClick() {
         guard allowsWorkspaceActivation,

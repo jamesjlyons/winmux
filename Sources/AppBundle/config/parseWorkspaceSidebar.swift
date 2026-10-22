@@ -4,6 +4,7 @@ import TOMLKit
 private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebarConfig>] = [
     "enabled": Parser(\.enabled, parseBool),
     "enable-focus": Parser(\.enableFocus, parseBool),
+    "placement": Parser(\.placement, parseWorkspaceNavigationPlacement),
     "visibility": Parser(\.visibility, parseWorkspaceSidebarVisibility),
     "auto-hide": Parser(\.visibility) { raw, trace in parseBool(raw, trace).map { $0 ? .autoHide : .compact } },
     "always-expanded": Parser(\.visibility) { raw, trace in parseBool(raw, trace).map { $0 ? .expanded : .compact } },
@@ -64,6 +65,12 @@ func parseWorkspaceSidebar(
         )]
     }
     return parsed
+}
+
+private func parseWorkspaceNavigationPlacement(_ raw: TOMLValueConvertible, _ trace: TomlBacktrace) -> ParsedToml<WorkspaceNavigationPlacement> {
+    parseString(raw, trace).flatMap {
+        WorkspaceNavigationPlacement(rawValue: $0).orFailure(.semantic(trace, "Possible values: side, top"))
+    }
 }
 
 private func parseWorkspaceSidebarVisibility(_ raw: TOMLValueConvertible, _ trace: TomlBacktrace) -> ParsedToml<WorkspaceSidebarVisibility> {

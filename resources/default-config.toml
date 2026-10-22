@@ -49,6 +49,7 @@ on-mode-changed = []
     outer.right = 12
 
 [workspace-sidebar]
+    placement = 'side' # 'side' or 'top'; top tabs always reserve a row below the menu bar.
     enabled = true
     # 'auto-hide', 'compact', or 'expanded'. Expanded reserves the full width.
     visibility = 'compact'

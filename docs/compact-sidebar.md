@@ -1,5 +1,56 @@
 # Compact sidebar implementation and verification
 
+## Navigation placement
+
+`[workspace-sidebar].placement` accepts `side` (default) and `top`. Appearance →
+Navigation and the navigation context menu save the same setting. Top placement
+uses the existing per-display panel, snapshots, focus commands, pins, and saved
+View order. The side width and visibility preferences remain intact.
+
+The top panel has a 44-point height beneath the display's menu-bar safe area.
+`top-gap` adds space above it; `edge-gap` insets both horizontal edges. Tiling
+reserves only the new vertical space, clears the old side inset, and retains outer
+gaps. Fullscreen suppression and the configured monitor selection apply to both
+placements. Side-only visibility, widths, clock, and bottom gap are disabled in
+settings while using top tabs.
+
+The Views popover searches Views, their windows, and pinned items in the current
+Space. Expanded Views expose individual windows. Organize shows all Spaces and
+uses the same context actions for renaming, reordering, combining Views, and moving
+windows. Search uses an AppKit text field for IME support; Up/Down select a result,
+Return activates it, and Escape closes the popover. `open-sidebar` (Control–F by default) also opens it.
+
+Top tabs support horizontal drag reordering and accept window drops through the
+existing clipped drop-target system. Horizontal scrolling and the searchable
+Views list keep overflow reachable. A View visible on another display has a display
+indicator; its context menu offers the explicit **Move View to This Display** action.
+
+Render the actual native controls without starting the window manager:
+
+```sh
+swift run -Xswiftc -DDEBUG winmux-marketing-renderer --top-tabs-proof .local/top-tabs-proof
+```
+
+## Top placement verification — October 21, 2026
+
+- Eight regression tests cover placement persistence, menu-bar/notch and display
+  origins, fullscreen inset restoration, per-display suppression, horizontal tab
+  ordering, Space/display filtering, pin search, and native text input including IME.
+- Production SwiftUI captures cover 1440, 900, 480, and 320-point bars in light and
+  dark appearances, plus expanded, filtered, and empty Views lists.
+- The debug and optimized release suites each pass 1,360 tests with one existing
+  focus test excluded.
+  `RefreshFocusSyncTest.testClosingTheSelectedWindowStillFocusesItsReplacement`
+  also fails on unchanged commit `e28663a6`; it uses the host's foreground app state.
+- Browser-native tests pass in debug and release (247 in each configuration), and
+  all 107 Python tests pass. No running window-manager instance was replaced.
+- Browser Alpha was packaged with a freshly compiled release workspace helper,
+  its existing Alpha bundle identity and signing team, matching native source
+  hashes, valid bundled configuration, and strict nested signature verification.
+  The staged app is `.local/browser/packages/top-tabs-2026-10-21/WinMux Browser Alpha.app`.
+
+## Side layout
+
 The sidebar now responds to actual section width (panel width minus its content
 insets): full at 176 points and above, narrow at 116–175, and minimal below 116.
 This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
@@ -54,6 +105,15 @@ This corresponds to expanded panel widths of 200+, 140–199, and 120–139.
   Trackpad swipes follow the fingers until release, then settle over 300 ms without
   bounce. Pauses while touching the trackpad do not switch spaces, and momentum
   cannot trigger another switch. Reduce Motion skips the settling animation.
+- While fullscreen content is in front of a display, that display's side sidebar
+  presents as Auto-hide: it reserves no space and is revealed from the screen
+  edge like a configured Auto-hide sidebar. This covers a window in native macOS
+  full screen that has focus, a View whose focused window or tab is fullscreen,
+  and a shared browser layout with a fullscreen pane. The saved visibility is not
+  changed; Compact or Expanded returns on the next refresh after focus moves to a
+  window that is not fullscreen, the fullscreen window closes, or the fullscreen
+  View is left. The top bar has no edge reveal and stays hidden for fullscreen
+  content as before.
 - **Top gap**, **Bottom gap**, and **Screen edge gap** in **Settings → Appearance → Sidebar**
   inset the sidebar below its menu bar reserve and from the bottom and left display
   edges. Configure `top-gap`, `bottom-gap`, and `edge-gap` under `[workspace-sidebar]`;

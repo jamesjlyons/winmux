@@ -74,6 +74,10 @@ let workspaceSidebarProjectColorPresets: [WorkspaceSidebarProjectColorPreset] = 
     WorkspaceSidebarProjectColorPreset(name: "Violet", hex: "#9B8FC4"),
 ]
 extension WorkspaceSidebarPanel {
+    var presentedSidebarConfig: WorkspaceSidebarConfig {
+        workspaceSidebarPresentedConfig(config.workspaceSidebar, autoHidesForFullscreen: presentsAutoHideForFullscreen)
+    }
+
     func animateVisibleSidebarWidth(_ width: CGFloat, animation: Animation) {
         guard viewModel.workspaceSidebarVisibleWidth != width else { return }
         let interval = signposter.beginInterval("Sidebar width publication", id: signposter.makeSignpostID())
@@ -93,7 +97,7 @@ extension WorkspaceSidebarPanel {
     func expandSidebar(to requestedWidth: CGFloat) {
         // Menu tracking and inline search can request expansion again after the
         // action fires. They must retain the current presentation's full width.
-        let expandedWidth = viewModel.workspaceSidebarBrowseMode == .organize ? expandedPresentationWidth : requestedWidth
+        let expandedWidth = config.workspaceSidebar.placement == .top || viewModel.workspaceSidebarBrowseMode == .organize ? expandedPresentationWidth : requestedWidth
         debugWorkspaceSidebarHoverLog("expandSidebar panel=\(monitorScopeId) target=\(expandedWidth) visible=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
         cancelExpansionWork()
         // Pointer movement inside an open sidebar is not another transition. Avoid
@@ -167,13 +171,13 @@ extension WorkspaceSidebarPanel {
 
     func trapCursorForLeftEdgeSidebarActivationIfNeeded() {
         let sample = MousePointerTracker.shared.currentSample
-        let collapsedWidth = workspaceSidebarRestingWidth(config.workspaceSidebar)
+        let collapsedWidth = workspaceSidebarRestingWidth(presentedSidebarConfig)
         debugWorkspaceSidebarEdgeTrapLog(
             "entry panel=\(monitorScopeId) visible=\(isVisible) enabled=\(config.workspaceSidebar.enabled) shift=\(currentSessionModifierFlags().contains(.maskShift)) mouseDrag=\(isMouseWindowDragInProgress()) sidebarDrag=\(isWorkspaceSidebarItemDragActive()) width=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) sample=\(sample) previous=\(String(describing: lastEdgeTrapSample)) suppressUntil=\(edgeTrapSuppressedUntil) startedAt=\(String(describing: edgeTrapStartedAt))"
         )
         guard isVisible,
               config.workspaceSidebar.enabled,
-              workspaceSidebarAllowsLeftEdgeTrap(config.workspaceSidebar),
+              workspaceSidebarAllowsLeftEdgeTrap(presentedSidebarConfig),
               !currentSessionModifierFlags().contains(.maskShift),
               !isMouseWindowDragInProgress(),
               !isWorkspaceSidebarItemDragActive(),
@@ -582,9 +586,14 @@ extension WorkspaceSidebarPanel {
               config.workspaceSidebar.enabled,
               let screen = workspaceSidebarPanelScreen(for: monitor)
         else { return nil }
-        guard !shouldSuppressWorkspaceSidebarForFullscreenContent(on: monitor) else { return nil }
-
-        let sidebarConfig = config.workspaceSidebar
+        let hasFullscreenContent = shouldSuppressWorkspaceSidebarForFullscreenContent(on: monitor)
+        let sidebarConfig = workspaceSidebarPresentedConfig(config.workspaceSidebar, autoHidesForFullscreen: hasFullscreenContent)
+        if sidebarConfig.placement == .top {
+            // The top bar has no edge reveal, so fullscreen content hides it entirely.
+            guard !hasFullscreenContent else { return nil }
+            let topFrame = workspaceTopBarFrame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame, configuration: sidebarConfig)
+            return WorkspaceSidebarPanelLayout(frame: topFrame, expandedWidth: topFrame.width, collapsedWidth: topFrame.width)
+        }
         let expandedWidth = CGFloat(sidebarConfig.width)
         let maximumExpandedWidth = viewModel.workspaceSidebarBrowseMode == .organize
             ? WorkspaceSidebarOrganizeLayout(expandedWidth: expandedWidth, projectCount: viewModel.workspaceSidebarProjects.count, availableWidth: screen.frame.width).visibleWidth
@@ -611,6 +620,7 @@ extension WorkspaceSidebarPanel {
 }
 extension WorkspaceSidebarPanel {
     func setHovering(_ isHovering: Bool) {
+        guard config.workspaceSidebar.placement == .side else { return }
         guard !isResizingSidebar else { return }
         // An explicit hide/collapse must survive a stationary pointer. Re-arm
         // hover after it leaves the activation region; a keyboard open bypasses it.
@@ -619,7 +629,7 @@ extension WorkspaceSidebarPanel {
             commandSuppressesHoverExpansion = false
         }
         let expandedWidth = CGFloat(config.workspaceSidebar.width)
-        let collapsedWidth = workspaceSidebarRestingWidth(config.workspaceSidebar)
+        let collapsedWidth = workspaceSidebarRestingWidth(presentedSidebarConfig)
         if viewModel.workspaceSidebarVisibleWidth > collapsedWidth + 0.5 || pendingCollapse != nil {
             debugWorkspaceSidebarHoverLog("setHovering panel=\(monitorScopeId) isHovering=\(isHovering) visible=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
         }
@@ -689,7 +699,7 @@ extension WorkspaceSidebarPanel {
 
         if isExternalWindowDrag && !isSidebarOriginatedDrag && isMousePushedAgainstDisplayEdge() && viewModel.workspaceSidebarBrowseMode != .organize {
             showCollapsedSidebarDuringExternalDrag(
-                collapsedWidth: workspaceSidebarHoverActivationWidth(config.workspaceSidebar)
+                collapsedWidth: workspaceSidebarHoverActivationWidth(presentedSidebarConfig)
             )
             return
         }
@@ -719,7 +729,7 @@ extension WorkspaceSidebarPanel {
     func handleHoverExit(collapsedWidth: CGFloat) {
         debugWorkspaceSidebarHoverLog("handleHoverExit panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) expanded=\(viewModel.isWorkspaceSidebarExpanded) suppressActive=\(Date() < organizeCollapseSuppressedUntil) mouse=\(NSEvent.mouseLocation)")
         guard Date() >= organizeCollapseSuppressedUntil, !shouldLockExpansionForSidebarDrag() else { return }
-        if workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) {
+        if workspaceSidebarKeepsExpandedAtRest(presentedSidebarConfig) {
             cancelExpansionWork()
             resetBrowseMode()
             expandSidebar(to: CGFloat(config.workspaceSidebar.width))
@@ -736,12 +746,12 @@ extension WorkspaceSidebarPanel {
     }
 
     func scheduleCollapse(collapsedWidth: CGFloat) {
-        guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar), pendingCollapse == nil, pendingCollapseFinalize == nil else { return }
+        guard !workspaceSidebarKeepsExpandedAtRest(presentedSidebarConfig), pendingCollapse == nil, pendingCollapseFinalize == nil else { return }
         debugWorkspaceSidebarHoverLog("scheduleCollapse panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) mouse=\(NSEvent.mouseLocation)")
         let collapse = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingCollapse = nil
-            guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) else { return }
+            guard !workspaceSidebarKeepsExpandedAtRest(presentedSidebarConfig) else { return }
             debugWorkspaceSidebarHoverLog("collapseFire panel=\(self.monitorScopeId) visible=\(self.viewModel.workspaceSidebarVisibleWidth) mouse=\(NSEvent.mouseLocation) suppressActive=\(Date() < self.organizeCollapseSuppressedUntil)")
             guard Date() >= self.organizeCollapseSuppressedUntil else {
                 debugWorkspaceSidebarHoverLog("collapseFire suppressed panel=\(self.monitorScopeId)")
@@ -768,7 +778,7 @@ extension WorkspaceSidebarPanel {
         let finalize = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingCollapseFinalize = nil
-            guard !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) else { return }
+            guard !workspaceSidebarKeepsExpandedAtRest(presentedSidebarConfig) else { return }
             debugWorkspaceSidebarHoverLog("collapseFinalize panel=\(self.monitorScopeId) visible=\(self.viewModel.workspaceSidebarVisibleWidth) mouse=\(NSEvent.mouseLocation) suppressActive=\(Date() < self.organizeCollapseSuppressedUntil)")
             guard Date() >= self.organizeCollapseSuppressedUntil else { return }
             let inside = self.isMouseInsideHoverRegion()
@@ -885,13 +895,13 @@ extension WorkspaceSidebarPanel {
         guard isVisible else { return false }
         let hoverWidth = max(
             viewModel.workspaceSidebarVisibleWidth,
-            workspaceSidebarHoverActivationWidth(config.workspaceSidebar),
+            workspaceSidebarHoverActivationWidth(presentedSidebarConfig),
         ) + hoverExitTolerance
         // Keep edge activation reachable across the gap, including in auto-hide mode.
         let screenMinX = workspaceSidebarPanelScreen()?.frame.minX ?? frame.minX
         let hoverRegion = NSRect(x: screenMinX, y: frame.minY, width: frame.minX - screenMinX + hoverWidth, height: frame.height)
         let inside = hoverRegion.contains(NSEvent.mouseLocation)
-        if viewModel.workspaceSidebarVisibleWidth > workspaceSidebarRestingWidth(config.workspaceSidebar) + 0.5 || pendingCollapse != nil {
+        if viewModel.workspaceSidebarVisibleWidth > workspaceSidebarRestingWidth(presentedSidebarConfig) + 0.5 || pendingCollapse != nil {
             debugWorkspaceSidebarHoverLog("hoverRegion panel=\(monitorScopeId) inside=\(inside) hoverWidth=\(hoverWidth) visibleWidth=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation) suppressUntil=\(organizeCollapseSuppressedUntil)")
         }
         return inside
@@ -913,7 +923,7 @@ extension WorkspaceSidebarPanel {
         return isWorkspaceSidebarHoverDeepEnoughToExpand(
             mouseX: NSEvent.mouseLocation.x,
             sidebarMinX: frame.minX,
-            collapsedWidth: workspaceSidebarHoverActivationWidth(config.workspaceSidebar),
+            collapsedWidth: workspaceSidebarHoverActivationWidth(presentedSidebarConfig),
         )
     }
 }
@@ -923,6 +933,20 @@ extension WorkspaceSidebarPanel {
     }
 
     func refresh(on monitor: Monitor) {
+        if let lastNavigationPlacement, lastNavigationPlacement != config.workspaceSidebar.placement {
+            cancelExpansionWork()
+            cancelInlineTextEditing()
+            endInlineTextEditing()
+            resetBrowseMode()
+            persistentExpansionWidth = nil
+            viewModel.workspaceSidebarVisibleWidth = 0
+            viewModel.isWorkspaceSidebarExpanded = false
+            updateDropTargets([])
+            viewModel.objectWillChange.send()
+        }
+        lastNavigationPlacement = config.workspaceSidebar.placement
+        presentsAutoHideForFullscreen = config.workspaceSidebar.placement == .side &&
+            shouldSuppressWorkspaceSidebarForFullscreenContent(on: monitor)
         guard let layout = currentSidebarPanelLayout(on: monitor) else {
             cancelExpansionWork()
             resetHiddenSidebarState()
@@ -933,7 +957,7 @@ extension WorkspaceSidebarPanel {
             setFrame(layout.frame, display: true, animate: false)
             updateDropTargets(dropTargetFrames)
         }
-        if workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar) {
+        if workspaceSidebarKeepsExpandedAtRest(presentedSidebarConfig) {
             cancelExpansionWork()
             let targetWidth = expandedPresentationWidth
             persistentExpansionWidth = layout.expandedWidth

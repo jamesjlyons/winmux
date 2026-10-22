@@ -3,6 +3,7 @@ import SwiftUI
 
 extension WorkspaceSidebarPanel {
     var expandedPresentationWidth: CGFloat {
+        if config.workspaceSidebar.placement == .top { return frame.width }
         let width = CGFloat(config.workspaceSidebar.width)
         let screenWidth = workspaceSidebarPanelScreen()?.frame.width ?? width
         let available = screenWidth - workspaceSidebarEffectiveEdgeGap(config.workspaceSidebar, screenWidth: screenWidth)

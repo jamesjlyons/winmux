@@ -1,14 +1,24 @@
 --- a/src/codegen/source-position.cc
 +++ b/src/codegen/source-position.cc
-@@ -156,7 +156,13 @@
+@@ -7,6 +7,7 @@
+ #include "src/codegen/optimized-compilation-info.h"
+ #include "src/common/assert-scope.h"
+ #include "src/objects/objects-inl.h"
++#include "src/objects/script-inl.h"
+
+ namespace v8 {
+ namespace internal {
+@@ -156,7 +157,15 @@
      script = handle(Cast<Script>(maybe_script), isolate);
    }
    Script::PositionInfo info;
 -  if (Script::GetPositionInfo(script, pos.ScriptOffset(), &info)) {
 +  // Deoptimization/profiling can request positions under DisallowGarbageCollection.
-+  // Use the non-allocating lookup there instead of initializing line_ends on
-+  // the managed heap. Keep the cached fast path for ordinary callers.
-+  const bool found = AllowHeapAllocation::IsAllowed()
++  // The cached lookup initializes line_ends on the managed heap when they are
++  // missing, so take it only when they already exist and use the
++  // non-allocating scan otherwise. This needs no debug-only assert-scope
++  // query, so it builds identically in DEBUG and official configurations.
++  const bool found = script->has_line_ends()
 +                         ? Script::GetPositionInfo(script, pos.ScriptOffset(), &info)
 +                         : script->GetPositionInfo(pos.ScriptOffset(), &info);
 +  if (found) {

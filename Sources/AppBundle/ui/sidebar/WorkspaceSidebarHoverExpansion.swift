@@ -1,7 +1,18 @@
 import AppKit
 
 func workspaceSidebarKeepsExpandedAtRest(_ sidebarConfig: WorkspaceSidebarConfig) -> Bool {
-    sidebarConfig.visibility == .expanded
+    sidebarConfig.placement == .top || sidebarConfig.visibility == .expanded
+}
+
+/// The sidebar configuration as a panel presents it. Fullscreen content turns a
+/// side sidebar into Auto-hide for as long as it is in front; the saved
+/// visibility is not modified, so it applies again as soon as focus returns to
+/// a window that is not fullscreen or the fullscreen window closes.
+func workspaceSidebarPresentedConfig(_ sidebarConfig: WorkspaceSidebarConfig, autoHidesForFullscreen: Bool) -> WorkspaceSidebarConfig {
+    guard autoHidesForFullscreen, sidebarConfig.placement == .side else { return sidebarConfig }
+    var presented = sidebarConfig
+    presented.visibility = .autoHide
+    return presented
 }
 
 func workspaceSidebarAllowsLeftEdgeTrap(_ sidebarConfig: WorkspaceSidebarConfig) -> Bool {
@@ -17,6 +28,7 @@ func workspaceSidebarRestingWidth(_ sidebarConfig: WorkspaceSidebarConfig) -> CG
 }
 
 func workspaceSidebarReservedWidth(_ sidebarConfig: WorkspaceSidebarConfig, screenWidth: CGFloat) -> CGFloat {
+    guard sidebarConfig.placement == .side else { return 0 }
     let width = workspaceSidebarRestingWidth(sidebarConfig)
     guard width > 0 else { return 0 }
     return min(width + workspaceSidebarEffectiveEdgeGap(sidebarConfig, screenWidth: screenWidth), max(screenWidth - 1, 0))

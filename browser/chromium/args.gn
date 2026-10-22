@@ -4,6 +4,20 @@ is_component_build = false
 target_cpu = "arm64"
 symbol_level = 1
 is_chrome_branded = false
+# Release-grade engine. A non-official Chromium build defaults to
+# dcheck_always_on = true, which compiles debug assertions into every process
+# and turned a presentation-callback bookkeeping DCHECK into a renderer crash on
+# 2026-10-09. The official configuration disables them and enables the
+# optimizations shipped Chromium uses, including profile-guided optimization
+# (chrome_pgo_phase = 2). PGO reads the pinned mac-arm profile that gclient
+# fetches when checkout_pgo_profiles is set (browser/tools/chromium.py).
+dcheck_always_on = false
+is_official_build = true
+chrome_pgo_phase = 2
+# Official builds default to ThinLTO, which requires lld. The pinned lld cannot
+# parse the Xcode 27 SDK's arm64e.x1 TAPI targets (see use_lld below), so keep
+# ThinLTO off until the toolchain can link with lld again.
+use_thin_lto = false
 # Support H.264/AAC video in both ordinary MP4 and Media Source streams.
 # Chromium's unbranded defaults omit these codecs (including Twitter/X video).
 proprietary_codecs = true

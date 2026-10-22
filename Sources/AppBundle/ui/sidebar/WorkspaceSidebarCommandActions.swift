@@ -13,8 +13,12 @@ func openWorkspaceSidebarFromCommand() {
     let panel = WorkspaceSidebarPanel.panel(for: focusedScopeId)
         ?? WorkspaceSidebarPanel.visiblePanels.first
         ?? WorkspaceSidebarPanel.shared
+    if config.workspaceSidebar.placement == .top {
+        NotificationCenter.default.post(name: workspaceSidebarCommandSearchKeyNotification, object: panel)
+        return
+    }
     if panel.inlineTextEditingActive ||
-        (panel.viewModel.isWorkspaceSidebarExpanded && !workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar))
+        (panel.viewModel.isWorkspaceSidebarExpanded && !workspaceSidebarKeepsExpandedAtRest(panel.presentedSidebarConfig))
     {
         closeWorkspaceSidebarFromCommand(panel)
         return
@@ -61,7 +65,7 @@ func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.pendingCollapse = nil
     panel.pendingCollapseFinalize?.cancel()
     panel.pendingCollapseFinalize = nil
-    let staysExpanded = workspaceSidebarKeepsExpandedAtRest(config.workspaceSidebar)
+    let staysExpanded = workspaceSidebarKeepsExpandedAtRest(panel.presentedSidebarConfig)
     if !staysExpanded {
         NotificationCenter.default.post(name: workspaceSidebarWillCollapseNotification, object: panel)
     }
@@ -69,7 +73,7 @@ func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.shouldLockNextSidebarSearchExpansion = false
     panel.bufferedCommandSidebarSearchKeys = []
     clearWorkspaceSidebarCommandMouseUnlock(panel)
-    panel.animateVisibleSidebarWidth(workspaceSidebarRestingWidth(config.workspaceSidebar), animation: staysExpanded ? workspaceSidebarExpansionAnimation : workspaceSidebarCollapseAnimation)
+    panel.animateVisibleSidebarWidth(config.workspaceSidebar.placement == .top ? panel.frame.width : workspaceSidebarRestingWidth(panel.presentedSidebarConfig), animation: staysExpanded ? workspaceSidebarExpansionAnimation : workspaceSidebarCollapseAnimation)
     panel.viewModel.isWorkspaceSidebarExpanded = staysExpanded
     panel.updateMousePassthrough()
 }

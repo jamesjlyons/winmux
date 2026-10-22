@@ -192,13 +192,33 @@ Configuration keys and CLI commands retain their existing names for compatibilit
 `project` commands and `project-labels` address Spaces; `workspace` commands and
 `workspace-labels` address Groups.
 
+### Side or top tabs
+
+Choose **Settings → Appearance → Navigation → Tab placement → Top tabs** to move
+navigation to one row below the macOS menu bar. The Space menu, pinned apps and
+pages, and full-label View tabs stay together. Drag tabs horizontally to reorder them;
+the **Views** button opens a searchable list with expandable windows. **Organize…**
+shows Views across Spaces, with context menus for renaming, reordering, and moving
+individual windows. Control–F (`open-sidebar`) opens this search in top placement.
+
+Right-click navigation to change placement, or use the top bar's **Move tabs to side**
+button. Switching back restores your saved side visibility and widths. Top tabs stay
+visible, reserve 44 points plus the configured top gap below the menu-bar safe area,
+and hide for fullscreen content on the affected display. Horizontal overflow scrolls;
+pins remain available in the Views list on narrow displays.
+
+```toml
+[workspace-sidebar]
+    placement = 'top' # 'side' is the default
+```
+
 ### Sidebar
 The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional window-manager menu bar dropdowns for most everyday tasks. It makes your spaces, groups, and windows visible on the desktop.
 
 You can drag windows in and out of the sidebar from and to the current group. You can rearrange windows across groups using the sidebar, including tab groups.
 
 Choose **Auto-hide**, **Compact**, or **Expanded** in the sidebar context menu or
-**Settings → Appearance → Sidebar → Visibility**. Compact is the default and keeps a
+**Settings → Appearance → Navigation → Side visibility**. Compact is the default and keeps a
 narrow rail that expands on hover. Auto-hide reveals the sidebar from the left display
 edge; Expanded keeps it open and reserves its full width. On macOS 26 and
 newer, native Liquid Glass is enabled by default. Choose an opaque solid color for greater
@@ -211,7 +231,7 @@ contrast across the sidebar, tab groups, and switcher:
     solid-chrome-color = 'lavender' # Choose any color shown in Appearance, including custom.
 ```
 
-For a flat, translucent macOS menu bar look, enable **Settings → Appearance → Sidebar →
+For a flat, translucent macOS menu bar look, enable **Settings → Appearance → Navigation →
 Use menu bar style**, or set `menu-bar-style = true` under `[workspace-sidebar]`.
 On macOS Tahoe and later, the sidebar uses clear Liquid Glass with a light contrast
 wash, compact menu typography, borderless controls, and a small clock readout. It follows

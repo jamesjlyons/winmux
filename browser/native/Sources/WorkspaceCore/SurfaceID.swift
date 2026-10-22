@@ -38,6 +38,33 @@ public enum SurfaceID: Hashable, Sendable, Codable, CustomStringConvertible {
     }
 }
 
+extension SurfaceID: Comparable {
+    /// The lexical order of `description`, without formatting a string per
+    /// comparison: hex digits of fixed width sort exactly like the UUID bytes,
+    /// and "browser:" precedes "native:".
+    public static func < (lhs: SurfaceID, rhs: SurfaceID) -> Bool {
+        switch (lhs, rhs) {
+        case (.browserTab(let leftProfile, let leftTab), .browserTab(let rightProfile, let rightTab)):
+            let profiles = compare(leftProfile, rightProfile)
+            return profiles == 0 ? compare(leftTab, rightTab) < 0 : profiles < 0
+        case (.nativeWindow(let left), .nativeWindow(let right)):
+            return compare(left, right) < 0
+        case (.browserTab, .nativeWindow):
+            return true
+        case (.nativeWindow, .browserTab):
+            return false
+        }
+    }
+
+    private static func compare(_ left: UUID, _ right: UUID) -> Int {
+        withUnsafeBytes(of: left.uuid) { leftBytes in
+            withUnsafeBytes(of: right.uuid) { rightBytes in
+                Int(memcmp(leftBytes.baseAddress, rightBytes.baseAddress, 16))
+            }
+        }
+    }
+}
+
 public struct SurfaceCapabilities: OptionSet, Sendable {
     public let rawValue: UInt16
     public init(rawValue: UInt16) { self.rawValue = rawValue }

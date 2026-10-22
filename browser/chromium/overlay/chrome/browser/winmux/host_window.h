@@ -29,6 +29,10 @@ void SetBrowserHostGliding(BrowserWindowInterface* browser, bool gliding);
 bool BrowserHostFramesShareDisplay(const gfx::Rect& from, const gfx::Rect& to);
 // A held pointer may be dragging a host; a glide then finishes immediately.
 bool IsPointerButtonHeld();
+// Paces layout glides on the display's refresh. The tick runs on the UI thread.
+void StartHostDisplayLink(base::RepeatingClosure tick);
+void StopHostDisplayLink();
+bool IsHostDisplayLinkRunning();
 class BrowserHostWindowObserver {
  public:
   virtual ~BrowserHostWindowObserver() = default;

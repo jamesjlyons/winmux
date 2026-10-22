@@ -180,6 +180,8 @@ func handleWorkspaceSidebarAction(
             previewWorkspaceSidebarDrop(windowId, subject: .group, target: target)
         case .clearDropPreview:
             clearWorkspaceSidebarDropPreview()
+        case .setPlacement(let placement):
+            setWorkspaceNavigationPlacement(placement)
         case .setVisibility(let visibility):
             setWorkspaceSidebarVisibilityFromMenu(visibility)
     }

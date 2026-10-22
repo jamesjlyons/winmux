@@ -1,5 +1,69 @@
 # Sidebar opening and closing — September 15, 2026
 
+## October 22: swipe render work and fullscreen Auto-hide
+
+### What was measured
+
+The installed helper (`browser-alpha-official-2026-10-21`) persists its signposts,
+so a scripted Space switch through the command socket could be timed exactly
+(`/usr/bin/log show --signpost --predicate 'subsystem == "com.zimengxiong.winmux"'`).
+Two switches cost 28 ms and 45 ms of light-session wall time; the longer one spent
+33 ms in `Layout workspaces` and 15 ms in `Native focus lookup`, both waiting on
+other apps' Accessibility threads. A 1 ms `sample` of the process over the same
+window found the main thread idle, so the window work itself is not what starves
+the animation. The only active display during the measurement was a Screen
+Sharing virtual display, whose stream rate caps any animation's smoothness
+independently of the app.
+
+The hosted sidebar fixture (three Spaces of 30 Views, 280 points wide) was then
+used to count render work rather than frames:
+
+| Fixture measurement | Before | After |
+| --- | ---: | ---: |
+| Sidebar body evaluations while a swipe travels, crosses the switch threshold and is released | 2 | 0 |
+| Body evaluations when a swipe locks its direction | 1 | 1 |
+| Pages built when a swipe starts, pointer resting over the sidebar | 1 | 0 |
+| Snapshot update that changes nothing, median | not measured | 0.1 ms |
+| Snapshot update changing one View, one page mounted, median | 15.1 ms | 15.6 ms |
+| Snapshot update changing one View, three pages mounted, median | 33.5 ms | 20.7 ms |
+
+These are hosting-view update and layout times in an offscreen window; they are
+not display frame pacing, and the real sidebar also pays its material and glass
+compositing per frame.
+
+### Changes
+
+- Swipe bookkeeping (locked direction, threshold flag, settlement) moved out of the
+  sidebar's `@State` into the position object that only the offset modifier
+  observes. Release starts the spring without re-evaluating the sidebar; only the
+  start Space remains view state, because the pages are laid out from it. The
+  outgoing page still retires after the spring and the selection both finish.
+- While the pointer has rested over the sidebar for 150 ms, both neighbours of
+  the displayed Space are mounted ahead of time, so the first points of a swipe do
+  not build a page. The neighbours are released 1.5 s after the pointer leaves,
+  so content updates away from the pointer keep the single-page cost. Without
+  pre-mounted neighbours a swipe still builds its target page in the evaluation
+  that locks its direction, as before.
+- `WorkspaceSidebarWorkspaceSection` compares the values it renders, so a
+  publication that changes one View leaves the other mounted sections' bodies
+  alone. The sidebar view itself skips re-evaluation when its snapshot is equal;
+  its action callbacks are closures SwiftUI could not compare before.
+- The whole-sidebar mask over the already clipped content was removed; it
+  re-rendered the sidebar offscreen on every moving frame.
+- Fullscreen content now presents the side sidebar as Auto-hide instead of hiding
+  the panel outright. See [compact-sidebar.md](compact-sidebar.md) for the
+  behaviour; the saved visibility is not modified.
+
+### Validation
+
+`WorkspaceSidebarSwipeSettleTest` drives the swipe through the sidebar's own
+handlers and asserts the evaluation counts above; `WorkspaceSidebarFullscreenAutoHideTest`
+covers Compact, Expanded, native fullscreen focus and top placement. The full
+optimized suite passed with 1,371 tests and zero failures, and the release
+`WinMuxWorkspaceHelper` product builds. The installed package has not been
+rebuilt with this change, and physical feel on the Screen Sharing display and on
+a directly attached display has not been verified in this pass.
+
 ## October 11: swiping crowded Spaces
 
 Continuous horizontal travel is now observed only by the pager offset modifier.

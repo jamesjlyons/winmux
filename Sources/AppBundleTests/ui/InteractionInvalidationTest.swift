@@ -154,6 +154,33 @@ final class InteractionInvalidationTest: XCTestCase {
         XCTAssertFalse(controller.plannedLayout(in: workspace).surfaces.contains { $0.surfaceID == page && $0.visible })
     }
 
+    func testBrowserTitleInventoryDoesNotCheckpointButMembershipDoes() {
+        let controller = BrowserWorkspaceController()
+        let workspace = focus.workspace
+        let page = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        let connection = UUID(), epoch = UUID()
+        var tree = SurfaceTree()
+        tree.reconcile([page], in: workspace.name)
+        controller.restorePlacementSnapshot(.init(tree: tree, layoutWorkspaces: [workspace.name], selected: nil, closedBrowserTabs: []))
+        controller.connected(connection, processID: -1) { _, reply in reply(.issued) }
+        func record(_ id: SurfaceID, title: String) -> BrowserTabRecord {
+            .init(surfaceID: id, hostID: "metadata", title: title, selected: true, url: "https://example.test/")
+        }
+        controller.received(.init(revision: 1, full: true, tabs: [record(page, title: "a")]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        let persisted = controller.persistenceRevision
+        let interaction = controller.interactionRevision
+        // A title change is presented, never checkpointed to disk.
+        controller.received(.init(revision: 2, full: false, tabs: [record(page, title: "ab")]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        XCTAssertEqual(controller.persistenceRevision, persisted)
+        XCTAssertNotEqual(controller.interactionRevision, interaction)
+        let arrival = SurfaceID.browserTab(profile: UUID(), tab: UUID())
+        controller.received(.init(revision: 3, full: false, tabs: [record(arrival, title: "c")]), epoch: epoch,
+                            connection: connection, protocolVersion: 4)
+        XCTAssertNotEqual(controller.persistenceRevision, persisted)
+    }
+
     func testRecoveryInvalidationCannotBeAcknowledgedByAnOlderPass() {
         let cache = WorkspaceLayoutCache()
         let workspace = focus.workspace

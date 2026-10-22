@@ -325,10 +325,19 @@ extension WorkspaceSidebarDragTest {
         XCTAssertNil(grouped["project-b"])
     }
 
-    func testProjectPagerRendersOnlyCurrentAndSwipeTargetPages() {
-        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 1, displayIndex: 1, swipeDirection: nil, projectCount: 4))
-        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 0, displayIndex: 1, swipeDirection: nil, projectCount: 4))
-        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 2, displayIndex: 1, swipeDirection: 1, projectCount: 4))
-        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 3, displayIndex: 1, swipeDirection: 1, projectCount: 4))
+    func testProjectPagerRendersCurrentAndNeighbouringPagesWhilePointerRests() {
+        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 1, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: true))
+        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 0, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: true))
+        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 2, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: true))
+        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 3, displayIndex: 1, swipeDirection: 1, projectCount: 4, mountsAdjacentPages: true))
+        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 3, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: true))
+        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: -1, displayIndex: 0, swipeDirection: -1, projectCount: 4, mountsAdjacentPages: true))
+    }
+
+    func testProjectPagerMountsOnlyTheSwipeTargetWhilePointerIsAway() {
+        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 1, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: false))
+        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 0, displayIndex: 1, swipeDirection: nil, projectCount: 4, mountsAdjacentPages: false))
+        XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 2, displayIndex: 1, swipeDirection: 1, projectCount: 4, mountsAdjacentPages: false))
+        XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 3, displayIndex: 1, swipeDirection: 1, projectCount: 4, mountsAdjacentPages: false))
     }
 }

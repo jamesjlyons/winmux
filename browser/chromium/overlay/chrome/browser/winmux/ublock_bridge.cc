@@ -4,7 +4,9 @@
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/winmux/browser_inventory.h"
 #include "chrome/browser/winmux/privacy_settings.h"
 #include "components/prefs/pref_service.h"
@@ -75,12 +77,15 @@ class ExchangeFunction final : public ExtensionFunction {
       if (!id.is_int()) return RespondNow(Error("Invalid acknowledgement"));
     }
     for (const auto& id : *acknowledged) state.commands.erase(id.GetInt());
+    // A changed blocked count is read live by the page menu and never
+    // republishes inventory: that would rebuild every tab's record and cross
+    // three processes for each batch of blocked requests on a busy page.
     bool changed = state.pages.size() != next.size();
     if (!changed) {
       for (const auto& [id, page] : next) {
         auto old = state.pages.find(id);
         if (old == state.pages.end() || old->second.url != page.url ||
-            old->second.enabled != page.enabled || old->second.blocked != page.blocked) {
+            old->second.enabled != page.enabled) {
           changed = true;
           break;
         }
@@ -114,6 +119,28 @@ bool UBlockSiteEnabled(Profile* profile, const GURL& site) {
     if (page.url == site) return page.enabled;
   }
   return true;
+}
+
+bool UBlockSiteEnabledForTab(content::WebContents* contents) {
+  auto& state = GetState(Profile::FromBrowserContext(contents->GetBrowserContext()));
+  const int tab = sessions::SessionTabHelper::IdForTab(contents).id();
+  const auto found = state.pages.find(tab);
+  if (found != state.pages.end() && found->second.url == contents->GetLastCommittedURL())
+    return found->second.enabled;
+  return UBlockSiteEnabled(Profile::FromBrowserContext(contents->GetBrowserContext()),
+                           contents->GetLastCommittedURL());
+}
+
+void NotifyUBlockConfigurationChanged() {
+  auto* manager = g_browser_process ? g_browser_process->profile_manager() : nullptr;
+  if (!manager) return;
+  for (Profile* profile : manager->GetLoadedProfiles()) {
+    if (!profile || !profile->IsRegularProfile()) continue;
+    auto* router = extensions::EventRouter::Get(profile);
+    if (!router || !router->ExtensionHasEventListener(kUBlockId, "winmuxBlocking.onCommand")) continue;
+    router->DispatchEventToExtension(kUBlockId, std::make_unique<extensions::Event>(
+        extensions::events::UNKNOWN, "winmuxBlocking.onCommand", base::ListValue(), profile));
+  }
 }
 
 int UBlockBlockedCount(content::WebContents* contents) {

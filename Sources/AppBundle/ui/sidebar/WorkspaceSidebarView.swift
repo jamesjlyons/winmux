@@ -8,12 +8,16 @@ struct WorkspaceSidebarView: View {
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
     // The offset modifier observes continuous travel. Keep that publication out
-    // of this view so each input event cannot rebuild every page and row.
+    // of this view so each input event cannot rebuild every page and row. The
+    // direction, threshold and settlement bookkeeping lives there too: only the
+    // start project is view state, because the pages are laid out from it.
     @State var projectSwipePosition = WorkspaceSidebarProjectSwipePosition()
-    @State var projectSwipeDirection: Int? = nil
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
-    @State var projectSwipeDidCrossBreakPoint = false
-    @State var projectSwipeSettlement: WorkspaceSidebarProjectSwipeSettlement? = nil
+    // Bumped when a swipe locks a direction while the neighbours are not
+    // pre-mounted, so the page it moves towards is built in that evaluation.
+    @State var projectSwipeMountRevision = 0
+    @State var isPointerInsideSidebar = false
+    @State var mountsAdjacentProjectPages = false
     @State var projectPagerWidth: CGFloat = 0
     @State var activeInUseOverrideWorkspaceName: String? = nil
     @State var renamingProjectId: WorkspaceProjectId? = nil
@@ -40,6 +44,21 @@ struct WorkspaceSidebarView: View {
         nonmutating set { projectSwipePosition.move(to: newValue) }
     }
 
+    var projectSwipeDirection: Int? {
+        get { projectSwipePosition.direction }
+        nonmutating set { projectSwipePosition.direction = newValue }
+    }
+
+    var projectSwipeDidCrossBreakPoint: Bool {
+        get { projectSwipePosition.didCrossBreakPoint }
+        nonmutating set { projectSwipePosition.didCrossBreakPoint = newValue }
+    }
+
+    var projectSwipeSettlement: WorkspaceSidebarProjectSwipeSettlement? {
+        get { projectSwipePosition.settlement }
+        nonmutating set { projectSwipePosition.settlement = newValue }
+    }
+
     var body: some View {
         let collapsedWidth = snapshot.configuration.collapsedWidth
         let expandedWidth = snapshot.configuration.expandedWidth
@@ -48,19 +67,28 @@ struct WorkspaceSidebarView: View {
             min(1, (snapshot.visibleWidth - collapsedWidth) / max(expandedWidth - collapsedWidth, 1)),
         )
         
+        // Every section derives its width from the visible width and the content
+        // already clips itself to the panel shape, so no separate mask is needed.
+        // A mask would re-render the whole sidebar offscreen on every frame that
+        // the page strip or the opening width moves.
         ZStack(alignment: .leading) {
             sidebarContent(expansionProgress: expansionProgress)
                 .frame(width: max(snapshot.visibleWidth, 0), alignment: .leading)
-                .mask(alignment: .leading) {
-                    Rectangle()
-                        .frame(width: max(snapshot.visibleWidth, 0))
-                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.clear)
         .contentShape(Rectangle())
         .contextMenu {
             WorkspaceSidebarContextMenu(configuration: snapshot.configuration, actions: actions)
+        }
+        .onHover { isPointerInsideSidebar = $0 }
+        .task(id: isPointerInsideSidebar) {
+            let inside = isPointerInsideSidebar
+            guard inside != mountsAdjacentProjectPages else { return }
+            do {
+                try await Task.sleep(for: inside ? workspaceSidebarAdjacentPageMountDelay : workspaceSidebarAdjacentPageRetainDelay)
+            } catch { return }
+            mountsAdjacentProjectPages = inside
         }
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
             guard WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.isResizingSidebar != true else { return }
@@ -115,7 +143,10 @@ struct WorkspaceSidebarView: View {
             }
         }
         .onChange(of: snapshot.projects.map(\.id)) { _ in resetProjectSwipeWithoutAnimation() }
-        .onDisappear { resetProjectSwipeWithoutAnimation() }
+        .onDisappear {
+            resetProjectSwipeWithoutAnimation()
+            finishSidebarSearch(clearText: true)
+        }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
             finishSidebarSearch(clearText: true)
@@ -350,10 +381,23 @@ struct WorkspaceSidebarContainerView: View {
     let actions: WorkspaceSidebarActions
 
     var body: some View {
-        WorkspaceSidebarView(
-            snapshot: workspaceSidebarSnapshot(from: viewModel),
-            actions: actions
-        )
+        let snapshot = workspaceSidebarSnapshot(from: viewModel)
+        Group {
+            if snapshot.configuration.placement == .top {
+                WorkspaceTopBarView(snapshot: snapshot, actions: actions)
+            } else {
+                // The actions are closures, which SwiftUI cannot compare, so without
+                // this every model publication would re-evaluate the whole sidebar
+                // even when its rendered snapshot is identical.
+                WorkspaceSidebarView(snapshot: snapshot, actions: actions).equatable()
+            }
+        }
+    }
+}
+
+extension WorkspaceSidebarView: Equatable {
+    nonisolated static func == (lhs: WorkspaceSidebarView, rhs: WorkspaceSidebarView) -> Bool {
+        lhs.snapshot == rhs.snapshot
     }
 }
 extension WorkspaceSidebarView {
@@ -816,6 +860,26 @@ extension WorkspaceSidebarView {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
+        .onAppear {
+            #if DEBUG
+            WorkspaceSidebarViewTestHooks.swipeDriver = WorkspaceSidebarSwipeDriver(
+                changed: { horizontalTranslation, verticalTranslation in
+                    handleProjectSwipeChanged(
+                        horizontalTranslation: horizontalTranslation,
+                        verticalTranslation: verticalTranslation,
+                        expansionProgress: expansionProgress,
+                    )
+                },
+                ended: { horizontalTranslation, verticalTranslation in
+                    handleProjectSwipeEnded(
+                        horizontalTranslation: horizontalTranslation,
+                        verticalTranslation: verticalTranslation,
+                        expansionProgress: expansionProgress,
+                    )
+                },
+            )
+            #endif
+        }
     }
 }
 
@@ -866,6 +930,7 @@ extension WorkspaceSidebarView {
             displayIndex: displayIndex,
             swipeDirection: swipeDirection,
             projectCount: snapshot.projects.count,
+            mountsAdjacentPages: mountsAdjacentProjectPagesNow,
         ) {
             workspacePage(
                 projectId: project.id,
@@ -1080,6 +1145,14 @@ extension WorkspaceSidebarView {
                 }
             ),
         )
+        .equatable()
+    }
+
+    var mountsAdjacentProjectPagesNow: Bool {
+        #if DEBUG
+        if let forced = WorkspaceSidebarViewTestHooks.forcesAdjacentPageMounting { return forced }
+        #endif
+        return mountsAdjacentProjectPages
     }
 
     func allowsWorkspaceActivation(projectId: WorkspaceProjectId) -> Bool {

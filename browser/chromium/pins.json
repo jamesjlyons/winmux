@@ -18,8 +18,8 @@
   "helper_bundle_id": "com.jameslyons.winmux.browser.alpha.workspace",
   "browser_data_directory": "WinMux Browser Alpha",
   "initial_checkout_free_gib": 200,
-  "minimum_build_free_gib": 100,
-  "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum.",
+  "minimum_build_free_gib": 60,
+  "storage_policy_note": "Project safety margin for source, optimized outputs and retained comparison artifacts; not an upstream published minimum. Lowered from 100 on 2026-10-21 after archived packages were removed: a rebuild rewrites the 21 GiB working output in place, so 60 leaves more than twice that free.",
   "rust_version": "1.97.1",
   "xcode_qualification_version": "27.0"
 }

@@ -19,7 +19,9 @@ same window. The toolbar and page therefore move and resize together.
 
 Cmd+L selects the address field. Return navigates or searches using the profile's
 search provider. Chromium owns editing, autocomplete, accessibility, and ordinary
-browser shortcuts. Search suggestions and network prediction remain disabled.
+browser shortcuts. Search suggestions remain disabled. Standard preloading
+(preconnect and DNS prefetch for origins from the profile's own history) is
+enabled; it contacts no prediction service.
 Private autocomplete admits typed navigation/search and open pages in the same
 private profile; it does not query regular-profile saved history. Named regular
 profiles retain separate history, cookies, passwords, and extensions.

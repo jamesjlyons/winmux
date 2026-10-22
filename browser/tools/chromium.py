@@ -90,7 +90,10 @@ def fetch(path, env):
     config = checkout / ".gclient"
     spec = "solutions = " + repr([{
         "name": "src", "url": PINS["chromium"]["repository"], "managed": False,
-        "custom_deps": {}, "custom_vars": {},
+        # The alpha's official build uses PGO; gclient fetches the pinned
+        # Chromium mac-arm profile and V8's builtins profiles when these are set.
+        "custom_deps": {}, "custom_vars": {"checkout_pgo_profiles": True,
+                                          "checkout_v8_builtins_pgo_profiles": True},
     }]) + "\ntarget_os = ['mac']\n"
     if config.exists() and config.read_text() != spec:
         raise RuntimeError("Existing .gclient differs; refusing to replace it.")

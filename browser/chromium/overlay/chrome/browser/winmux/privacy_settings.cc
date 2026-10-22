@@ -67,7 +67,11 @@ void ApplyPrivacyProfile(Profile* profile) {
   if (!profile || !profile->IsRegularProfile()) return;
   auto* prefs = profile->GetPrefs();
   prefs->SetBoolean("search.suggest_enabled", false);
-  prefs->SetInteger("net.network_prediction_options", 2);
+  // Standard preloading (1) lets Chromium preconnect and resolve DNS for
+  // origins learned from this profile's own history and honor page-declared
+  // speculation rules. It contacts no prediction service. Disabling it (2)
+  // measurably slows every navigation. Suggestions stay off above.
+  prefs->SetInteger("net.network_prediction_options", 1);
   prefs->SetBoolean("safebrowsing.enhanced", false);
   if (!Allowed("security_updates")) prefs->SetBoolean("safebrowsing.enabled", false);
   // uBlock owns filtering and obeys the saved filter-update consent.
@@ -75,6 +79,9 @@ void ApplyPrivacyProfile(Profile* profile) {
 
 bool WorkspaceSiteBlockingEnabled(Profile* profile, const GURL& site) {
   return UBlockSiteEnabled(profile, site);
+}
+bool WorkspaceSiteBlockingEnabled(content::WebContents* contents) {
+  return UBlockSiteEnabledForTab(contents);
 }
 void SetWorkspaceSiteBlocking(content::WebContents* contents, bool enabled) {
   SetUBlockSiteEnabled(contents, enabled);
@@ -128,7 +135,9 @@ void UpdateWorkspacePrivacy(Profile* profile, const std::string& json, base::Onc
                        bool cookies, bool unchanged_search, base::OnceCallback<void(std::string)> completion, bool saved) {
         if (!saved || !profile) { std::move(completion).Run("unavailable"); return; }
         Consent() = std::move(consent);
-        // The uBlock bridge picks up the saved consent without restarting.
+        // The uBlock bridge picks up the saved consent without restarting; its
+        // exchange is event-driven, so wake it rather than wait for a poll.
+        NotifyUBlockConfigurationChanged();
         if (!unchanged_search) {
           profile->GetPrefs()->SetString(kSearchTemplate, pattern);
           TemplateURLData search;

@@ -40,6 +40,11 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var dropTargetFrames: [WorkspaceSidebarDropTargetFrame] = []
     var dropTargets: [WorkspaceSidebarDropTarget] = []
     var persistentExpansionWidth: CGFloat?
+    var lastNavigationPlacement: WorkspaceNavigationPlacement?
+    /// While fullscreen content fronts this display the side sidebar presents as
+    /// Auto-hide: no resting rail, revealed from the edge. The configured mode is
+    /// untouched and returns on the next refresh without fullscreen content.
+    var presentsAutoHideForFullscreen = false
     var isResizingSidebar = false
     var projectIconPicker: WorkspaceSidebarProjectIconPickerController?
     let hoverExitTolerance: CGFloat = 6

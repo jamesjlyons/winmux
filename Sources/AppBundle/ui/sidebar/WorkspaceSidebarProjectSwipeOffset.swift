@@ -1,10 +1,16 @@
 import SwiftUI
 
 /// Owned as a reference in the sidebar's State; only the offset modifier
-/// subscribes. Discrete page/direction changes still belong to the sidebar.
+/// subscribes to `translation`. The remaining fields are gesture bookkeeping
+/// that the body never needs: they deliberately do not publish, so locking a
+/// direction, crossing the switch threshold and releasing the fingers cannot
+/// re-evaluate every page and row while the strip is moving.
 @MainActor
 final class WorkspaceSidebarProjectSwipePosition: ObservableObject {
     @Published private(set) var translation: CGFloat = 0
+    var direction: Int?
+    var settlement: WorkspaceSidebarProjectSwipeSettlement?
+    var didCrossBreakPoint = false
 
     func move(to translation: CGFloat) {
         guard self.translation != translation else { return }

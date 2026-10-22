@@ -40,6 +40,13 @@ is **arm64-only**, Apple Development signed, and **not notarized**. Its binaries
 target macOS 13 or later; live testing recorded here used macOS 27.0.1 on an M1 Pro.
 That minimum target does not establish compatibility across all macOS versions.
 
+The [October 21 performance changes](../docs/browser/performance-changes-2026-10-21.md)
+move the engine to an official, assertion-free, profile-guided build
+configuration, make the uBlock exchange browser-driven, rebuild only changed
+inventory records, pace page glides on the display with stepped resizes, and
+stop page titles from checkpointing the session. They need an engine rebuild
+with `--allow-configuration-change` and have not been measured or packaged.
+
 The latest [performance audit](../docs/browser/performance-audit.md) passed 1,096
 automated tests and recorded no frame drift across 50 Group/native-pin switches.
 Median matching geometry was observed by 82–90 ms; three full helper/browser

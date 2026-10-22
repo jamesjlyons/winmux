@@ -18,8 +18,12 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/base64.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/json/json_writer.h"
+#include "base/hash/hash.h"
 #include "base/hash/sha1.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/winmux/host_layout.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
@@ -257,8 +261,13 @@ std::string EncodedExtensionIcon(const gfx::Image& image) {
   static base::NoDestructor<std::map<std::string, std::string>> cache;
   const SkBitmap bitmap = image.AsBitmap();
   if (bitmap.drawsNothing() || bitmap.computeByteSize() > 16384) return "";
-  std::string key(reinterpret_cast<const char*>(bitmap.getPixels()), bitmap.computeByteSize());
-  key += base::NumberToString(bitmap.width()) + "x" + base::NumberToString(bitmap.height()) + ":" +
+  // Hash the pixels instead of copying them into a 16 KiB map key per lookup.
+  // SAFETY: getPixels() addresses exactly computeByteSize() bytes of the
+  // bitmap's own pixel storage, which drawsNothing() verified is allocated.
+  const auto pixels = UNSAFE_BUFFERS(base::span(
+      static_cast<const uint8_t*>(bitmap.getPixels()), bitmap.computeByteSize()));
+  std::string key = base::NumberToString(base::FastHash(pixels)) + ":" +
+         base::NumberToString(bitmap.width()) + "x" + base::NumberToString(bitmap.height()) + ":" +
          base::NumberToString(bitmap.rowBytes()) + ":" + base::NumberToString(static_cast<int>(bitmap.colorType()));
   if (auto found = cache->find(key); found != cache->end()) return found->second;
   std::string encoded;
@@ -309,7 +318,8 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   ~BrowserInventory() override { prepared_.Reset(); }
 
-  void Refresh() { Schedule(); }
+  void Refresh() { ScheduleAll(Urgency::kMetadata); }
+  void RefreshSurface(const std::string& surface) { ScheduleSurface(surface, Urgency::kMetadata); }
 
   void QueryHistory(const std::string& epoch, const std::string& surface,
                     const std::string& query, base::OnceCallback<void(std::string)> completion) {
@@ -350,10 +360,14 @@ class BrowserInventory final : public BrowserCollectionObserver,
         }, weak_factory_.GetWeakPtr(), epoch, surface, std::move(completion)), &history_tasks_);
   }
 
-  void BeginEpoch(std::string epoch, bool include_private) {
+  void BeginEpoch(std::string epoch, bool include_private, bool integrated_toolbar) {
     prepared_.Reset();
     navigation_observers_.clear();
     include_private_ = include_private;
+    integrated_toolbar_ = integrated_toolbar;
+    // Chromium's own toolbar shows extension badges and downloads for this
+    // peer; observing them would republish every tab on each badge change.
+    if (integrated_toolbar_) toolbar_observers_.clear();
     for (auto& [operation, creation] : pending_creations_) {
       for (auto& callback : creation.callbacks) std::move(callback).Run("stale_epoch", "");
     }
@@ -717,9 +731,11 @@ class BrowserInventory final : public BrowserCollectionObserver,
   void OnBrowserClosed(BrowserWindowInterface* browser) override { Schedule(); }
   void OnBrowserActivated(BrowserWindowInterface* browser) override {
     if (!epoch_.empty() && !prepared_.Contains(browser)) prepared_.Prepare(browser->GetProfile());
-    Schedule();
+    ScheduleHost(browser->GetSessionID().id(), Urgency::kImmediate);
   }
-  void OnBrowserDeactivated(BrowserWindowInterface* browser) override { Schedule(); }
+  void OnBrowserDeactivated(BrowserWindowInterface* browser) override {
+    ScheduleHost(browser->GetSessionID().id(), Urgency::kImmediate);
+  }
   void OnTabStripModelChanged(TabStripModel* strip, const TabStripModelChange& change,
                               const TabStripSelectionChange&) override {
     if (change.type() == TabStripModelChange::kInserted) {
@@ -732,7 +748,13 @@ class BrowserInventory final : public BrowserCollectionObserver,
     }
     Schedule();
   }
-  void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Schedule(); }
+  void OnTabChangedAt(tabs::TabInterface* tab, TabChangeType) override {
+    // Title and loading changes concern one page; coalesce the load burst.
+    auto* contents = tab ? tab->GetContents() : nullptr;
+    const auto id = contents ? PersistentSurfaceID(contents) : std::string();
+    if (id.empty()) Schedule();
+    else ScheduleSurface(id, Urgency::kMetadata);
+  }
   void OnTabStripModelDestroyed(TabStripModel* strip) override {
     Schedule();
   }
@@ -767,7 +789,7 @@ class BrowserInventory final : public BrowserCollectionObserver,
     // Keep the creation relationship when layout detaches the page into a host
     // or Chromium resets its temporary tab-strip opener on later navigation.
     tab_openers_.try_emplace(id, parent);
-    Schedule();
+    ScheduleSurface(id, Urgency::kImmediate);
   }
 
   struct PendingCreation {
@@ -923,24 +945,54 @@ class BrowserInventory final : public BrowserCollectionObserver,
       operation_order_.pop_front();
     }
   }
-  void Schedule() {
-    // A coalesced metadata update must not leave a dangling action target.
+  // Structural changes (pages, hosts, selection, layout) publish on the next
+  // task. Metadata (title, loading, favicon, lifecycle, counters) arrives in
+  // bursts while pages load; a short trailing window publishes one delta per
+  // burst. Only the records whose inputs changed are rebuilt, so one page's
+  // title no longer re-serializes every page in the session.
+  enum class Urgency { kImmediate, kMetadata };
+  void Schedule() { ScheduleAll(Urgency::kImmediate); }
+  void ScheduleAll(Urgency urgency) { all_dirty_ = true; Queue(urgency); }
+  void ScheduleSurface(const std::string& surface, Urgency urgency) {
+    dirty_surfaces_.insert(surface);
+    Queue(urgency);
+  }
+  void ScheduleHost(int host, Urgency urgency) {
+    dirty_hosts_.insert(host);
+    Queue(urgency);
+  }
+  void ScheduleProfile(Profile* profile, Urgency urgency) {
+    dirty_profiles_.insert(profile);
+    Queue(urgency);
+  }
+  void Queue(Urgency urgency) {
+    // A coalesced update must not leave a dangling action target. Actions
+    // refresh synchronously while an update is pending.
     live_.clear();
-    if (pending_)
-      return;
     pending_ = true;
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&BrowserInventory::UpdateScheduled,
-                                 weak_factory_.GetWeakPtr()));
+    if (urgency == Urgency::kImmediate) {
+      if (immediate_posted_) return;
+      immediate_posted_ = true;
+      metadata_timer_.Stop();
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&BrowserInventory::UpdateScheduled,
+                                   weak_factory_.GetWeakPtr()));
+    } else if (!immediate_posted_ && !metadata_timer_.IsRunning()) {
+      metadata_timer_.Start(FROM_HERE, base::Milliseconds(30), this,
+                            &BrowserInventory::UpdateScheduled);
+    }
   }
   void UpdateScheduled() {
+    immediate_posted_ = false;
     if (pending_) Update(false);
   }
   TabNavigationObserver* ObserveTab(content::WebContents* contents) {
-    auto& observer = navigation_observers_[PersistentSurfaceID(contents)];
+    const auto id = PersistentSurfaceID(contents);
+    auto& observer = navigation_observers_[id];
     if (!observer || observer->web_contents() != contents) {
       observer = std::make_unique<TabNavigationObserver>(contents,
-          base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()),
+          base::BindRepeating(&BrowserInventory::ScheduleSurface, weak_factory_.GetWeakPtr(),
+                              id, Urgency::kMetadata),
           base::BindRepeating(&BrowserInventory::RememberOpener, weak_factory_.GetWeakPtr()));
     }
     return observer.get();
@@ -948,14 +1000,23 @@ class BrowserInventory final : public BrowserCollectionObserver,
 
   void Update(bool full) {
     pending_ = false;
+    metadata_timer_.Stop();
     // Browser quit closes WebContents as part of session shutdown. Those are
     // not user tab-close tombstones: retain the last authoritative placement.
     if (browser_shutdown::IsTryingToQuit() || browser_shutdown::HasShutdownStarted()) return;
     prepared_.ReleaseIfModified();
+    const bool rebuild_all = full || all_dirty_;
+    const auto dirty_surfaces = std::exchange(dirty_surfaces_, {});
+    const auto dirty_hosts = std::exchange(dirty_hosts_, {});
+    const auto dirty_profiles = std::exchange(dirty_profiles_, {});
+    all_dirty_ = false;
     std::map<std::string, base::DictValue> next;
     std::set<std::string> observed;
     std::set<int> observed_hosts;
     std::set<Profile*> observed_profiles;
+    // Privacy state is per profile; read it once per update, not per page.
+    std::map<Profile*, base::DictValue> privacy_by_profile;
+    base::ListValue changed, removed;
     live_.clear();
     GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
       if (prepared_.Contains(browser) || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
@@ -965,17 +1026,20 @@ class BrowserInventory final : public BrowserCollectionObserver,
       RetainWorkspaceProfile(browser->GetProfile());
       auto* profile = browser->GetProfile();
       observed_profiles.insert(profile);
-      if (!toolbar_observers_.contains(profile)) {
+      if (!integrated_toolbar_ && !toolbar_observers_.contains(profile)) {
         toolbar_observers_[profile] = std::make_unique<ProfileToolbarObserver>(profile,
-            base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+            base::BindRepeating(&BrowserInventory::ScheduleProfile, weak_factory_.GetWeakPtr(),
+                                profile, Urgency::kMetadata));
       }
       const int host_id = browser->GetSessionID().id();
       observed_hosts.insert(host_id);
       auto& host_observer = host_observers_[host_id];
       if (!host_observer) {
         host_observer = ObserveBrowserHostWindow(browser,
-            base::BindRepeating(&BrowserInventory::Schedule, weak_factory_.GetWeakPtr()));
+            base::BindRepeating(&BrowserInventory::ScheduleHost, weak_factory_.GetWeakPtr(),
+                                host_id, Urgency::kImmediate));
       }
+      const bool host_dirty = rebuild_all || dirty_hosts.contains(host_id) || dirty_profiles.contains(profile);
       auto* strip = browser->GetTabStripModel();
       for (int index = 0; index < strip->count(); ++index) {
         auto* contents = strip->GetWebContentsAt(index);
@@ -983,7 +1047,14 @@ class BrowserInventory final : public BrowserCollectionObserver,
         if (id.empty())
           continue;
         observed.insert(id);
+        live_.emplace(id, contents);
         auto* observer = ObserveTab(contents);
+        auto previous = records_.find(id);
+        if (!host_dirty && previous != records_.end() && !dirty_surfaces.contains(id)) {
+          // Nothing about this page changed; keep its last record as is.
+          next.emplace(id, std::move(previous->second));
+          continue;
+        }
         base::DictValue record;
         record.Set("surface_id", id);
         if (auto opener = tab_openers_.find(id); opener != tab_openers_.end())
@@ -1016,7 +1087,6 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("url", contents->GetVisibleURL().spec().substr(0, 16384));
         if (!observer->encoded_icon().empty()) {
           record.Set("icon_png_base64", observer->encoded_icon());
-          auto previous = records_.find(id);
           if (previous == records_.end() || previous->second.FindString("icon_png_base64") == nullptr ||
               *previous->second.FindString("icon_png_base64") != observer->encoded_icon())
             TraceTabSurface(id, "favicon_available");
@@ -1028,12 +1098,18 @@ class BrowserInventory final : public BrowserCollectionObserver,
         record.Set("lifecycle", WorkspacePageLifecycle(contents));
         record.Set("keep_active", WorkspacePageKeepActive(contents));
         record.Set("blocked_requests", WorkspaceBlockedCount(contents));
-        record.Set("blocking_enabled", WorkspaceSiteBlockingEnabled(browser->GetProfile(), contents->GetLastCommittedURL()));
-        record.Set("privacy", WorkspacePrivacyState(browser->GetProfile()));
-        record.Set("pinned_extensions", PinnedExtensions(browser, contents));
-        record.Set("active_downloads", std::clamp(profile->GetDownloadManager()->InProgressCount(), 0, 100000));
+        record.Set("blocking_enabled", WorkspaceSiteBlockingEnabled(contents));
+        auto privacy = privacy_by_profile.find(profile);
+        if (privacy == privacy_by_profile.end())
+          privacy = privacy_by_profile.emplace(profile, WorkspacePrivacyState(profile)).first;
+        record.Set("privacy", privacy->second.Clone());
+        if (!integrated_toolbar_) {
+          record.Set("pinned_extensions", PinnedExtensions(browser, contents));
+          record.Set("active_downloads", std::clamp(profile->GetDownloadManager()->InProgressCount(), 0, 100000));
+        }
+        if (full || previous == records_.end() || previous->second != record)
+          changed.Append(record.Clone());
         next.emplace(id, std::move(record));
-        live_.emplace(id, contents);
       }
       return true;
     });
@@ -1041,12 +1117,6 @@ class BrowserInventory final : public BrowserCollectionObserver,
     std::erase_if(tab_openers_, [&](const auto& item) { return !observed.contains(item.first); });
     std::erase_if(toolbar_observers_, [&](const auto& item) { return !observed_profiles.contains(item.first); });
     std::erase_if(host_observers_, [&](const auto& item) { return !observed_hosts.contains(item.first); });
-    base::ListValue changed, removed;
-    for (const auto& [id, record] : next) {
-      auto previous = records_.find(id);
-      if (full || previous == records_.end() || previous->second != record)
-        changed.Append(record.Clone());
-    }
     // A full snapshot after reconnection lists no removals, but pages closed
     // meanwhile must still release their lifetime state.
     for (const auto& [id, record] : records_) {
@@ -1072,7 +1142,14 @@ class BrowserInventory final : public BrowserCollectionObserver,
   base::RepeatingCallback<void(std::string, std::string)> publisher_;
   bool seed_test_;
   bool include_private_ = false;
+  bool integrated_toolbar_ = false;
   bool pending_ = false;
+  bool immediate_posted_ = false;
+  bool all_dirty_ = true;
+  std::set<std::string> dirty_surfaces_;
+  std::set<int> dirty_hosts_;
+  std::set<Profile*> dirty_profiles_;
+  base::OneShotTimer metadata_timer_;
   int revision_ = 0;
   uint64_t highest_focus_ = 0;
   uint64_t highest_layout_ = 0;
@@ -1106,6 +1183,12 @@ void StartBrowserInventory(base::RepeatingCallback<void(std::string, std::string
   }
 }
 void RefreshBrowserInventory() { if (inventory) inventory->Refresh(); }
+void RefreshBrowserInventorySurface(const std::string& surface) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (!inventory) return;
+  if (surface.empty()) inventory->Refresh();
+  else inventory->RefreshSurface(surface);
+}
 void QueryBrowserHistory(const std::string& epoch, const std::string& surface,
                          const std::string& query, base::OnceCallback<void(std::string)> completion) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -1116,10 +1199,10 @@ void StopBrowserInventory() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   delete std::exchange(inventory, nullptr);
 }
-void BeginBrowserInventoryEpoch(std::string epoch, bool include_private) {
+void BeginBrowserInventoryEpoch(std::string epoch, bool include_private, bool integrated_toolbar) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (inventory)
-    inventory->BeginEpoch(std::move(epoch), include_private);
+    inventory->BeginEpoch(std::move(epoch), include_private, integrated_toolbar);
 }
 void OpenBrowserTab(const std::string& epoch, BrowserSurfaceAction request,
                     BrowserTabCreationCallback completion) {

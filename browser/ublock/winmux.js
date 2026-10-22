@@ -16,9 +16,21 @@ globalThis.winmuxFilterUpdatesAllowed = false;
 let configuration = await exchange({ pages: [], acknowledged: [] });
 globalThis.winmuxFilterUpdatesAllowed = configuration.filterUpdates === true;
 let running = false;
+let queued = false;
 let ready = false;
 let acknowledged = [];
 const completed = new Set();
+let scheduled = null;
+
+// The exchange is browser-driven, never polled every second: uBlock's own
+// badge throttle (about 0.7 s per tab) paces it while requests are being
+// blocked, the browser dispatches onCommand for site toggles and consent
+// changes, and a slow interval covers anything missed. An idle profile
+// exchanges nothing.
+function schedulePump() {
+    if (scheduled !== null) { return; }
+    scheduled = setTimeout(() => { scheduled = null; pump(); }, 1500);
+}
 
 function pageStates() {
     const pages = [];
@@ -33,8 +45,10 @@ function pageStates() {
 }
 
 async function pump() {
-    if (!ready || running) { return; }
+    if (!ready) { return; }
+    if (running) { queued = true; return; }
     running = true;
+    queued = false;
     try {
         configuration = await exchange({ pages: pageStates(), acknowledged });
         acknowledged = [];
@@ -70,7 +84,10 @@ async function pump() {
         }
     } catch (error) {
         console.error('WinMux blocking synchronization:', error);
-    } finally { running = false; }
+    } finally {
+        running = false;
+        if (queued) { schedulePump(); }
+    }
 }
 
 globalThis.winmuxBlockingReady = async () => {
@@ -92,7 +109,14 @@ globalThis.winmuxBlockingReady = async () => {
         await vAPI.storage.set({ netWhitelist: µb.arrayFromWhitelist(µb.netWhitelist), winmuxMigrationV1: true });
     }
     ready = true;
+    // Badge updates are the signal that a page's blocked count or site state
+    // changed. Hook them after uBlock has installed its own throttled updater.
+    const updateToolbarIcon = µb.updateToolbarIcon;
+    µb.updateToolbarIcon = function(...args) {
+        schedulePump();
+        return updateToolbarIcon.apply(this, args);
+    };
     api.onCommand.addListener(pump);
     await pump();
-    setInterval(pump, 1000);
+    setInterval(pump, 60000);
 };

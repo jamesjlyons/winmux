@@ -121,26 +121,26 @@ std::map<std::string, ManagedHost>& Hosts() {
 }
 // Glides an already visible host to its new tile with the critically damped
 // spring native tiles use (WindowFrameAnimation.swift), so a view that mixes
-// pages and apps moves as one. Every step is an ordinary SetBounds; arrival
-// applies the exact destination.
+// pages and apps moves as one. The position moves on every display frame.
+// Resizing a browser window relayouts and rasters the page, so the size
+// advances in a few steps instead; arrival applies the exact destination.
 struct HostMotion {
   Host browser;
   gfx::Rect target;
   gfx::Size minimum;
+  gfx::Size start_size;
+  gfx::Size applied_size;
   std::array<double, 4> value{};
   std::array<double, 4> velocity{};
   double elapsed = 0;
   double duration = 0;
 };
+constexpr int kResizeSteps = 6;
+constexpr int kMinimumResizeStep = 24;
 
 std::map<std::string, HostMotion>& Motions() {
   static base::NoDestructor<std::map<std::string, HostMotion>> motions;
   return *motions;
-}
-
-base::RepeatingTimer& MotionTimer() {
-  static base::NoDestructor<base::RepeatingTimer> timer;
-  return *timer;
 }
 
 base::TimeTicks& LastMotionTick() {
@@ -183,7 +183,7 @@ void FinishMotion(std::map<std::string, HostMotion>::iterator it, bool apply) {
 void StopMotion(const std::string& surface, bool apply) {
   auto it = Motions().find(surface);
   if (it != Motions().end()) FinishMotion(it, apply);
-  if (Motions().empty()) MotionTimer().Stop();
+  if (Motions().empty()) StopHostDisplayLink();
 }
 
 void TickMotions() {
@@ -209,10 +209,21 @@ void TickMotions() {
                     static_cast<int>(std::lround(motion.value[1])),
                     std::max(motion.minimum.width(), static_cast<int>(std::lround(motion.value[2]))),
                     std::max(motion.minimum.height(), static_cast<int>(std::lround(motion.value[3]))));
+    const gfx::Size goal = motion.target.size();
+    const int step_width = std::max(kMinimumResizeStep,
+        std::abs(goal.width() - motion.start_size.width()) / kResizeSteps);
+    const int step_height = std::max(kMinimumResizeStep,
+        std::abs(goal.height() - motion.start_size.height()) / kResizeSteps);
+    if (std::abs(frame.width() - motion.applied_size.width()) >= step_width ||
+        std::abs(frame.height() - motion.applied_size.height()) >= step_height) {
+      motion.applied_size = frame.size();
+    } else {
+      frame.set_size(motion.applied_size);
+    }
     auto* window = motion.browser->GetWindow();
     if (window->GetBounds() != frame) window->SetBounds(frame);
   }
-  if (Motions().empty()) MotionTimer().Stop();
+  if (Motions().empty()) StopHostDisplayLink();
 }
 
 // A new destination keeps the current presentation and velocity.
@@ -229,18 +240,23 @@ void GlideHost(const std::string& surface, const Host& browser, const gfx::Rect&
     HostMotion motion;
     motion.browser = browser;
     motion.value = Components(start);
+    motion.start_size = start.size();
+    motion.applied_size = start.size();
     it = Motions().emplace(surface, std::move(motion)).first;
   } else if (it->second.target == target) {
     return;
+  } else {
+    // A new destination measures its resize steps from the size on screen.
+    it->second.start_size = it->second.applied_size;
   }
   it->second.target = target;
   it->second.minimum = minimum;
   it->second.elapsed = 0;
   it->second.duration = duration_ms / 1000.0;
   SetBrowserHostGliding(browser.get(), true);
-  if (!MotionTimer().IsRunning()) {
+  if (!IsHostDisplayLinkRunning()) {
     LastMotionTick() = base::TimeTicks::Now();
-    MotionTimer().Start(FROM_HERE, base::Hertz(120), base::BindRepeating(&TickMotions));
+    StartHostDisplayLink(base::BindRepeating(&TickMotions));
   }
 }
 
@@ -455,7 +471,7 @@ std::string ApplyHostLayout(const std::string& json) {
     auto current = it++;
     if (!surfaces.contains(current->first)) FinishMotion(current, false);
   }
-  if (Motions().empty()) MotionTimer().Stop();
+  if (Motions().empty()) StopHostDisplayLink();
   // A removed placement is released to conventional controls, never closed.
   for (auto it = Hosts().begin(); it != Hosts().end();) {
     // Suspended pages remain members of the durable workspace tree, although
@@ -482,7 +498,7 @@ std::string ApplyHostLayout(const std::string& json) {
 
 void ReleaseHostLayout() {
   while (!Motions().empty()) FinishMotion(Motions().begin(), false);
-  MotionTimer().Stop();
+  StopHostDisplayLink();
   for (auto& [surface, host] : Hosts()) Release(host);
   Hosts().clear();
 }

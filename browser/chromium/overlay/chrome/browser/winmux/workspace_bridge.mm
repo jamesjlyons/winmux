@@ -260,7 +260,7 @@ NSString* OwnTeam() {
           self->_activeGeneration.store(generation);
           if (version >= 2) {
             content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
-                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch), version >= 7));
+                &winmux::BeginBrowserInventoryEpoch, base::SysNSStringToUTF8(epoch), version >= 7, version >= 11));
           }
           [self report:@"authenticated"
                 detail:@"Chromium browser process and packaged Swift helper exchanged an asynchronous probe"];

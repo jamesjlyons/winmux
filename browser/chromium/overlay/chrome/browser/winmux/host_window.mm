@@ -6,10 +6,27 @@
 #include <cmath>
 #include <utility>
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/timer/timer.h"
+
+// Receives CADisplayLink callbacks on the main run loop, which is Chromium's
+// UI thread, and forwards them to the layout motion ticker.
+@interface WinMuxHostDisplayLinkTarget : NSObject
+@property(nonatomic, copy) void (^tick)(void);
+- (void)step:(id)sender;
+@end
+
+@implementation WinMuxHostDisplayLinkTarget
+@synthesize tick = _tick;
+- (void)step:(id)sender {
+  if (self.tick) self.tick();
+}
+@end
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
@@ -502,6 +519,53 @@ bool BrowserHostFramesShareDisplay(const gfx::Rect& from, const gfx::Rect& to) {
 
 bool IsPointerButtonHeld() {
   return (NSEvent.pressedMouseButtons & 1) != 0;
+}
+
+namespace {
+id __strong g_host_display_link = nil;
+WinMuxHostDisplayLinkTarget* __strong g_host_display_link_target = nil;
+base::RepeatingTimer& HostDisplayFallbackTimer() {
+  static base::NoDestructor<base::RepeatingTimer> timer;
+  return *timer;
+}
+}  // namespace
+
+void StartHostDisplayLink(base::RepeatingClosure tick) {
+  if (IsHostDisplayLinkRunning()) return;
+  if (@available(macOS 14.0, *)) {
+    NSScreen* screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    if (screen) {
+      WinMuxHostDisplayLinkTarget* target = [[WinMuxHostDisplayLinkTarget alloc] init];
+      const base::RepeatingClosure closure = tick;
+      target.tick = ^{ closure.Run(); };
+      CADisplayLink* link = [screen displayLinkWithTarget:target selector:@selector(step:)];
+      [link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+      g_host_display_link_target = target;
+      g_host_display_link = link;
+      return;
+    }
+  }
+  // Older systems: a wall-clock timer at the main display's refresh rate.
+  NSInteger rate = 60;
+  if (@available(macOS 12.0, *)) {
+    rate = NSScreen.mainScreen.maximumFramesPerSecond;
+  }
+  HostDisplayFallbackTimer().Start(FROM_HERE, base::Hertz(rate > 0 ? rate : 60), std::move(tick));
+}
+
+void StopHostDisplayLink() {
+  if (g_host_display_link) {
+    if (@available(macOS 14.0, *)) {
+      [static_cast<CADisplayLink*>(g_host_display_link) invalidate];
+    }
+    g_host_display_link = nil;
+  }
+  g_host_display_link_target = nil;
+  HostDisplayFallbackTimer().Stop();
+}
+
+bool IsHostDisplayLinkRunning() {
+  return g_host_display_link != nil || HostDisplayFallbackTimer().IsRunning();
 }
 
 uint32_t BrowserHostWindowID(ui::BaseWindow* window) {

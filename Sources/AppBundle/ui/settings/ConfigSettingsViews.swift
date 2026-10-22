@@ -92,6 +92,7 @@ struct ShortcutAppearanceSettingsView: View {
     @ObservedObject var model: ShortcutSettingsModel
     @State private var sidebarEnabled = config.workspaceSidebar.enabled
     @State private var sidebarFocusEnabled = config.workspaceSidebar.enableFocus
+    @State private var navigationPlacement = config.workspaceSidebar.placement
     @State private var sidebarVisibility = config.workspaceSidebar.visibility
     @State private var swipeToCreateProjects = config.workspaceSidebar.swipeToCreateProjects
     @State private var showStatusPills = config.workspaceSidebar.showStatusPills
@@ -135,22 +136,28 @@ struct ShortcutAppearanceSettingsView: View {
                     onCustomColorChange: { persist("workspace-sidebar", "solid-chrome-custom-color", "'\(solidChromeCustomColor)'") },
                 )
             }
-            SettingsSection("Sidebar") {
-                SettingsToggle("Use menu bar style", isOn: $menuBarStyle, help: "Give the sidebar a flat, translucent macOS menu bar look that follows Light and Dark Mode. Overrides the sidebar's chrome style.") { sidebarBool("menu-bar-style", menuBarStyle) }
-                SettingsToggle("Show sidebar", isOn: $sidebarEnabled, help: "Show the sidebar on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
+            SettingsSection("Navigation") {
+                SettingsPicker("Tab placement", selection: $navigationPlacement, help: "Top tabs use one persistent row below the menu bar. Side tabs keep your saved visibility and width.") {
+                    ForEach(WorkspaceNavigationPlacement.allCases, id: \.self) { Text($0.title).tag($0) }
+                } onChange: { persist("workspace-sidebar", "placement", "'\(navigationPlacement.rawValue)'") }
+                SettingsToggle("Use menu bar style", isOn: $menuBarStyle, help: "Give navigation a flat, translucent macOS menu bar look that follows Light and Dark Mode.") { sidebarBool("menu-bar-style", menuBarStyle) }
+                SettingsToggle("Show navigation", isOn: $sidebarEnabled, help: "Show tabs on configured displays.") { sidebarBool("enabled", sidebarEnabled) }
                 SettingsToggle("Focus sidebar monitor only", isOn: $sidebarFocusEnabled, help: "Show the sidebar only on the focused monitor when monitor scope allows it.") { sidebarBool("enable-focus", sidebarFocusEnabled) }
-                SettingsPicker("Visibility", selection: $sidebarVisibility, help: "Auto-hide reveals the sidebar from the left edge. Compact keeps a narrow rail. Expanded keeps the full sidebar open.") {
-                    ForEach(WorkspaceSidebarVisibility.allCases, id: \.self) { visibility in
-                        Text(visibility.title).tag(visibility)
-                    }
-                } onChange: { persist("workspace-sidebar", "visibility", "'\(sidebarVisibility.rawValue)'") }
-                SettingsToggle("Swipe to create spaces", isOn: $swipeToCreateProjects, help: "Create a space by swiping past the first or last space. Swipes always switch between existing spaces.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
-                SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
-                SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
+                Group {
+                    SettingsPicker("Side visibility", selection: $sidebarVisibility, help: "Auto-hide reveals the sidebar from the left edge. Compact keeps a narrow rail. Expanded keeps the full sidebar open.") {
+                        ForEach(WorkspaceSidebarVisibility.allCases, id: \.self) { visibility in
+                            Text(visibility.title).tag(visibility)
+                        }
+                    } onChange: { persist("workspace-sidebar", "visibility", "'\(sidebarVisibility.rawValue)'") }
+                    SettingsToggle("Swipe to create spaces", isOn: $swipeToCreateProjects, help: "Create a space by swiping past the first or last space. Swipes always switch between existing spaces.") { sidebarBool("swipe-to-create-projects", swipeToCreateProjects) }
+                    SettingsStepper("Expanded width", value: $sidebarWidth, range: 120...480, help: "Width of the fully expanded sidebar.") { sidebarInt("width", sidebarWidth) }
+                    SettingsStepper("Collapsed width", value: $collapsedWidth, range: 28...120, help: "Width of the compact sidebar rail.") { sidebarInt("collapsed-width", collapsedWidth) }
+                }.disabled(navigationPlacement == .top)
                 SettingsStepper("Menu bar reserve", value: $menuBarReserveHeight, range: 0...72, help: "Use 0 px when the macOS menu bar auto-hides.") { sidebarInt("menu-bar-reserve-height", menuBarReserveHeight) }
                 SettingsStepper("Top gap", value: $sidebarTopGap, range: 0...120, help: "Extra space above the sidebar, below the menu bar reserve.") { sidebarInt("top-gap", sidebarTopGap) }
                 SettingsStepper("Bottom gap", value: $sidebarBottomGap, range: 0...120, help: "Space between the sidebar and the bottom display edge.") { sidebarInt("bottom-gap", sidebarBottomGap) }
-                SettingsStepper("Screen edge gap", value: $sidebarEdgeGap, range: 0...120, help: "Space between the sidebar and the left display edge. A gap also rounds the sidebar's left corners.") { sidebarInt("edge-gap", sidebarEdgeGap) }
+                    .disabled(navigationPlacement == .top)
+                SettingsStepper("Screen edge gap", value: $sidebarEdgeGap, range: 0...120, help: "Inset side tabs from the left edge, or top tabs from both horizontal edges.") { sidebarInt("edge-gap", sidebarEdgeGap) }
                 SettingsPicker("Deleting spaces", selection: $projectDeletionAction, help: "Choose what happens to the space's windows.") {
                     Text("Close space windows").tag(WorkspaceProjectDeletionAction.closeWindows)
                     Text("Move windows elsewhere").tag(WorkspaceProjectDeletionAction.moveWindowsToFallback)
@@ -163,6 +170,7 @@ struct ShortcutAppearanceSettingsView: View {
                 SettingsToggle("Show date", isOn: $showDate) { sidebarBool("show-date", showDate) }
                 SettingsToggle("Show weekday", isOn: $showWeekday) { sidebarBool("show-weekday", showWeekday) }
             }
+            .disabled(navigationPlacement == .top)
             SettingsSection("Window tabs") {
                 SettingsToggle("Show tab strips", isOn: $tabEnabled, help: "Display browser-like tabs for stacked windows.") { persist("window-tabs", "enabled", tabEnabled ? "true" : "false") }
                 SettingsStepper("Tab strip height", value: $tabHeight, range: 21...80, help: "Height of the window tab strip.") { persist("window-tabs", "height", "\(tabHeight)") }
@@ -180,6 +188,7 @@ struct ShortcutAppearanceSettingsView: View {
         .onChange(of: model.settingsRevision) { _ in
             sidebarEnabled = config.workspaceSidebar.enabled
             sidebarFocusEnabled = config.workspaceSidebar.enableFocus
+            navigationPlacement = config.workspaceSidebar.placement
             sidebarVisibility = config.workspaceSidebar.visibility
             swipeToCreateProjects = config.workspaceSidebar.swipeToCreateProjects
             showStatusPills = config.workspaceSidebar.showStatusPills

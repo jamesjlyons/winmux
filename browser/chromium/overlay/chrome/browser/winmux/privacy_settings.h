@@ -11,6 +11,7 @@ namespace winmux {
 void PreparePrivacyStartup();
 void ApplyPrivacyProfile(Profile* profile);
 bool WorkspaceSiteBlockingEnabled(Profile* profile, const GURL& site);
+bool WorkspaceSiteBlockingEnabled(content::WebContents* contents);
 int WorkspaceBlockedCount(content::WebContents* contents);
 void SetWorkspaceSiteBlocking(content::WebContents* contents, bool enabled);
 GURL WorkspaceSearch(Profile* profile, const std::string& text);

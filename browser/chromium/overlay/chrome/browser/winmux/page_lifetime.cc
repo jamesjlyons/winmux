@@ -149,7 +149,10 @@ class Lifetime final : public pm::PageNodeObserver, public pm::SystemNodeObserve
     }
     Schedule();
   }
-  void OnPageLifecycleStateChanged(const pm::PageNode*) override { RefreshBrowserInventory(); }
+  void OnPageLifecycleStateChanged(const pm::PageNode* node) override {
+    if (auto contents = node->GetWebContents()) RefreshBrowserInventorySurface(PersistentSurfaceID(contents.get()));
+    else RefreshBrowserInventory();
+  }
   void OnPageUsesWebRTCChanged(const pm::PageNode*) override { Schedule(); }
   void OnIsAudibleChanged(const pm::PageNode*) override { Schedule(); }
   void OnHadFormInteractionChanged(const pm::PageNode*) override { Schedule(); }

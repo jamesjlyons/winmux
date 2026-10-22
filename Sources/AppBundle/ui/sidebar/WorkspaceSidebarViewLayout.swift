@@ -4,10 +4,14 @@ import SwiftUI
 
 extension WorkspaceSidebarView {
     func sidebarContent(expansionProgress: CGFloat) -> some View {
+        #if DEBUG
+        WorkspaceSidebarViewTestHooks.bodyEvaluations += 1
+        #endif
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         let leadingInset = workspaceSidebarOuterLeadingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let trailingInset = workspaceSidebarOuterTrailingPadding(expansionProgress: expansionProgress, layout: snapshot.configuration)
         let swipeDirection = projectSwipeSettlement?.direction ?? projectSwipeDirection
+        let _ = projectSwipeMountRevision
         let visibleWorkspacesByProject = workspaceSidebarVisibleWorkspacesByProject(
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,

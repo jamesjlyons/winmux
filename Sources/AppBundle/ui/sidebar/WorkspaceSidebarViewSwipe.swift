@@ -48,7 +48,11 @@ extension WorkspaceSidebarView {
         ) else {
             return
         }
-        if projectSwipeDirection != direction { projectSwipeDirection = direction }
+        if projectSwipeDirection != direction {
+            projectSwipeDirection = direction
+            // Pre-mounted neighbours need no evaluation; otherwise build the target now.
+            if !mountsAdjacentProjectPagesNow { projectSwipeMountRevision += 1 }
+        }
         let activeProjectIndex = projectPagerDisplayIndex
         let shouldCreate = shouldCreateWorkspaceSidebarProjectAfterSwipe(
             currentIndex: activeProjectIndex,
